@@ -1,12 +1,13 @@
 // The simulator's own pieces keep their promise: one seed, one run.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { open } from 'node:fs/promises';
+import { mkdtempSync, readFile as readFileCallback, rmSync, writeFileSync } from 'node:fs';
+import { open, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { rng } from '../src/rng.ts';
 import { Loop } from '../src/loop.ts';
+import { HOST_FILE_WORK } from '../src/host-io.ts';
 import { platform, EPOCH } from '../src/platform.ts';
 import { client_address, Network, type FaultClass } from '../src/network.ts';
 
@@ -37,7 +38,7 @@ describe('a settle', () => {
 			await loop.settle();
 			expect(performance.now() - t0).toBeGreaterThanOrEqual(100);
 			expect(loop.stalls).toBe(1);
-			expect(loop.stalled).toEqual([{ at: 0, waiting: ['FSReqPromise'] }]);
+			expect(loop.stalled).toEqual([{ at: 0, waiting: ['FSReqPromise', 'host file read'] }]);
 		} finally {
 			const writer = await open(fifo, 'w');
 			await (await reading).close();
@@ -46,6 +47,28 @@ describe('a settle', () => {
 		}
 		await loop.settle();
 		expect(loop.stalls).toBe(1);
+	});
+
+	it('waits for a whole-file read the host does not list (Linux lists no request for readFile: /mixed’s load read package.json, the loop ran on to the 300 s navigation deadline, #1986)', async () => {
+		const dir = mkdtempSync(join(tmpdir(), 'settle-'));
+		const file = join(dir, 'big');
+		writeFileSync(file, Buffer.alloc(32 * 1024 * 1024, 120));
+		const loop = new Loop(rng(1));
+		try {
+			const read: string[] = [];
+			void readFile(file, 'utf8').then(() => read.push('promise'));
+			readFileCallback(file, () => read.push('callback'));
+			await loop.settle();
+			expect(read.sort()).toEqual(['callback', 'promise']);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it('is not held by a file call that threw before it started (its callback never runs)', async () => {
+		const before = HOST_FILE_WORK.in_flight;
+		expect(() => readFileCallback(undefined as unknown as string, () => {})).toThrow();
+		expect(HOST_FILE_WORK.in_flight).toBe(before);
 	});
 });
 
