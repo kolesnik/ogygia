@@ -104,6 +104,10 @@
 			"rules": { "ogygia/structured-comments": "error" }
 		},
 		{
+			"files": ["packages/core/src/**/*.svelte"],
+			"rules": { "ogygia/structured-comments": "error" }
+		},
+		{
 			"files": ["packages/*/src/**"],
 			"rules": {
 				"no-restricted-imports": [

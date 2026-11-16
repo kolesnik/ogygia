@@ -1,17 +1,26 @@
 // Test stub for `ogygia:server/region-deps` (real one is minted by the Vite plugin): the per-entry
 // lookups Region.svelte reads while it emits its graph and CSS — empty in unit tests. Each `set_*`
-// sets what one lookup answers.
+// sets what one lookup answers. A list lookup answers a list or nothing, as the real `pick` does
+// (a key like `valueOf` is no entry of the map).
+const list = (map: Record<string, string[]>, key: string): string[] => {
+	const v = map[key];
+	return Array.isArray(v) ? v : [];
+};
 let deps_by_entry: Record<string, string[]> = {};
-export const region_deps = (entry: string): string[] => deps_by_entry[entry] ?? [];
+export const region_deps = (entry: string): string[] => list(deps_by_entry, entry);
 export function set_island_deps(map: Record<string, string[]>) {
 	deps_by_entry = map;
 }
 let css_by_entry: Record<string, string[]> = {};
-export const region_css = (entry: string): string[] => css_by_entry[entry] ?? [];
+export const region_css = (entry: string): string[] => list(css_by_entry, entry);
 export function set_island_css(map: Record<string, string[]>) {
 	css_by_entry = map;
 }
-export const content_css = (_id: string): string[] => [];
+let css_by_content: Record<string, string[]> = {};
+export const content_css = (id: string): string[] => list(css_by_content, id);
+export function set_content_css(map: Record<string, string[]>) {
+	css_by_content = map;
+}
 // (null = link it)
 let inline_css: Record<string, string> = {};
 export const region_css_inline = (href: string): string | null =>
@@ -40,24 +49,30 @@ export const region_remotes = (_entry: string): string[] | null => remotes;
 export function set_island_remotes(v: string[] | null) {
 	remotes = v;
 }
-export const region_interactivity = (
-	_entry: string
-): {
+type Interactivity = {
 	handlers: number;
 	state: number;
 	effects: number;
 	binds: number;
 	actions: number;
 	files: number;
-} | null => null;
+};
+let interactivity: Record<string, Interactivity> = {};
+export const region_interactivity = (entry: string): Interactivity | null =>
+	interactivity[entry] ?? null;
+export function set_island_interactivity(map: Record<string, Interactivity>) {
+	interactivity = map;
+}
 let contents_by_chunk: Record<string, string[]> = {};
 export const chunk_contents = (href: string): string[] | null => contents_by_chunk[href] ?? null;
 export function set_chunk_contents(map: Record<string, string[]>) {
 	contents_by_chunk = map;
 }
 let entry_locations: Record<string, string> = {};
-export const entry_location = (identity: string): string | null =>
-	entry_locations[identity] ?? null;
+export const entry_location = (identity: string): string | null => {
+	const v = identity ? entry_locations[identity] : null;
+	return typeof v === 'string' ? v : null;
+};
 export function set_entry_locations(map: Record<string, string>) {
 	entry_locations = map;
 }
