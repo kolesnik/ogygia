@@ -1,6 +1,29 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cheap_plan, format_lint_inputs, to_run, turbo_scope } from './ci-plan-inputs.ts';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+	browser_packages,
+	cheap_plan,
+	format_lint_inputs,
+	to_run,
+	turbo_scope
+} from './ci-plan-inputs.ts';
+
+test('every package with a browser project runs in the browser jobs, a new one included', () => {
+	const root = mkdtempSync(join(tmpdir(), 'browser-packages-'));
+	const pkg = (dir: string, vitest?: string) => {
+		mkdirSync(join(root, 'packages', dir), { recursive: true });
+		if (vitest) writeFileSync(join(root, 'packages', dir, 'vitest.config.ts'), vitest);
+	};
+	pkg('core', 'const browsers = await browser_runs();');
+	pkg('rewrite', 'const browsers = await browser_runs();');
+	pkg('cli', "test: { environment: 'node' }");
+	pkg('ogygia');
+	assert.deepEqual(browser_packages(root), ['core', 'rewrite']);
+	assert.ok(browser_packages().includes('rewrite'));
+});
 
 const TREE = [
 	'100644 blob aaa\t.oxlintrc.json',
