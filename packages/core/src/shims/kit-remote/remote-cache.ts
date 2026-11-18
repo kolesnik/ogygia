@@ -61,6 +61,43 @@ class LeftEntry {
 	cleanup(): void {
 		this.#departed.cleanup?.();
 	}
+
+	bequeath(heir: RemoteEntry): void {
+		const departed = this.#departed;
+		heir.proxy_count = (heir.proxy_count ?? 0) + (departed.proxy_count ?? 0);
+		Object.defineProperty(departed, 'proxy_count', {
+			configurable: true,
+			get: () => heir.proxy_count ?? 0,
+			set: (n: number) => {
+				heir.proxy_count = n;
+			}
+		});
+		try {
+			departed.cleanup?.();
+			// oxlint-disable-next-line ogygia/no-silent-failures -- already torn down, which is what this was for
+		} catch {}
+	}
+}
+
+class Build {
+	giving_way: LeftEntry | null = null;
+}
+
+let building: Build | null = null;
+
+/**
+ * Run `make` as a new reader of a query: a query maker's call (`getCount()`, `query.live` and
+ * `query.batch` alike), wherever it comes from (an island hydrating, a click handler, a module's top
+ * level). Its lookup is a new reader's, so a left entry gives way to it.
+ */
+export function new_reader<T>(make: () => T): T {
+	const outer = building;
+	building = new Build();
+	try {
+		return make();
+	} finally {
+		building = outer;
+	}
 }
 
 /**
@@ -73,16 +110,22 @@ class QueryEntries extends Map<string, RemoteEntry> {
 	override get(payload: string): RemoteEntry | undefined {
 		const entry = super.get(payload);
 		if (entry === undefined) return undefined;
-		const region = current_region() ?? island_region();
-		if (!(entry instanceof LeftEntry)) hold(entry, region);
-		else if (region !== null) {
+		if (!(entry instanceof LeftEntry)) hold(entry, current_region() ?? island_region());
+		else if (building !== null) {
 			super.delete(payload);
+			building.giving_way = entry;
 			return undefined;
 		}
 		return entry;
 	}
 	override set(payload: string, entry: RemoteEntry): this {
-		if (!(entry instanceof LeftEntry)) hold(entry, current_region() ?? island_region());
+		if (!(entry instanceof LeftEntry)) {
+			hold(entry, current_region() ?? island_region());
+			if (building?.giving_way) {
+				building.giving_way.bequeath(entry);
+				building.giving_way = null;
+			}
+		}
 		return super.set(payload, entry);
 	}
 }
@@ -110,8 +153,8 @@ class QueryMap extends Map<string, Map<string, RemoteEntry>> {
  * A departed island owns its queries to the end: work of its own still running after it left (a
  * click handler awaiting a command) reads a left entry in their place, which changes nothing and
  * settles at once (`refresh()` is a no-op, never Kit's "No cached query found", #2007). The next
- * island to read the same query gets a fresh one, and Kit drops the left entry with the departed
- * island's last proxy.
+ * call that makes the same query, in an island or outside any (#2041), gets a fresh one; until then
+ * Kit drops the left entry with the departed island's last proxy.
  */
 export class RemoteCache {
 	readonly query_responses: Record<string, RemoteNode> = {};
