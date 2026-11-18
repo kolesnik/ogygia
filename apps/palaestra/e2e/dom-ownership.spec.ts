@@ -30,6 +30,13 @@ test.describe('DOM OWNERSHIP: a widget’s own nodes survive the wake', () => {
 				html
 			)
 		);
+		const beside = await (await fetch(`${baseURL}/dom-ownership-beside`)).text();
+		check(
+			'{@html} beside walked content: the range with content is marked, the empty one is not',
+			(beside.match(/<!--@html-->/g) ?? []).length === 1 &&
+				/<!--@html--><em class="note">/.test(beside),
+			beside.slice(beside.indexOf('class="beside"'), beside.indexOf('class="last"'))
+		);
 		check(
 			'{@html} beside walked content: parent stamped data-og-html',
 			/<div data-og-html[^>]*class="widget-mixed|<div class="widget-mixed[^"]*"[^>]*data-og-html/.test(
@@ -92,6 +99,57 @@ test.describe('DOM OWNERSHIP: a widget’s own nodes survive the wake', () => {
 		check(
 			'the walked sibling of the mixed widget stays live',
 			(await page.locator('.widget-mixed h3').innerText()).includes('(2)')
+		);
+	});
+
+	test('a third party edits the template element beside an {@html}: it is put back, the {@html} content is not (#1454)', async ({
+		page
+	}) => {
+		const warns: string[] = [];
+		page.on('console', (m) => {
+			if (m.type() === 'warning' || m.type() === 'error') warns.push(m.text());
+		});
+		await page.goto('/dom-ownership-beside', { waitUntil: 'load' });
+		await page.waitForSelector('html[data-tp-done]', { timeout: 8000 });
+		const region = page.locator('ogygia-region');
+		check(
+			'island still asleep before the click',
+			(await region.getAttribute('data-hydrated')) === null
+		);
+		await page.locator('[data-beside-wake]').click();
+		await page.waitForSelector('ogygia-region[data-hydrated]', { timeout: 8000 });
+		check(
+			'hydrated from the server markup, the walked <p> put back (data-og-healed)',
+			(await region.getAttribute('data-og-healed')) !== null
+		);
+		check(
+			'not Svelte’s client re-render (no data-og-recovered)',
+			(await region.getAttribute('data-og-recovered')) === null
+		);
+		check(
+			'the node put first in the walked <p> is gone',
+			(await page.locator('.tp-walked').count()) === 0
+		);
+		check(
+			'the node put after the {@html} content is gone: it is not {@html} content',
+			(await page.locator('.tp-outside').count()) === 0
+		);
+		check(
+			'the node put inside the {@html} content stays',
+			(await page.locator('.note > .tp-content').count()) === 1
+		);
+		const woke = await page.locator('[data-beside-wake]').innerText();
+		await page.locator('[data-beside-wake]').click();
+		check(
+			'the island works after the wake: a click counts',
+			(await page.locator('[data-beside-wake]').innerText()) ===
+				`clicks ${Number(woke.split(' ')[1]) + 1}`,
+			`${woke} → ${await page.locator('[data-beside-wake]').innerText()}`
+		);
+		check(
+			'no hydration warning',
+			!warns.some((w) => /hydration_|discarded/.test(w)),
+			warns.join('; ')
 		);
 	});
 });
