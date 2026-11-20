@@ -86,8 +86,10 @@ describe('firstMisuse', () => {
 		).toBeNull();
 	});
 	test('a function declaration names itself: no value', () => {
-		expect(misuse(`export function check(a: number): void {}
-        check(1)`)).toBeNull();
+		expect(
+			misuse(`export function check(a: number): void {}
+        check(1)`)
+		).toBeNull();
 	});
 	test('handed on as a value, or its result read', () => {
 		expect(misuse(`run(check)`)).toEqual(['value', 'Identifier']);

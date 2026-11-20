@@ -97,6 +97,7 @@ export function firstMisuse(program: N, names: ReadonlySet<string>): Misuse | nu
 				const declared = up?.type === 'VariableDeclarator' && up.id === n;
 				const named =
 					up?.type === 'FunctionExpression' ||
+					(up?.type === 'FunctionDeclaration' && up.id === n) ||
 					up?.type === 'ImportSpecifier' ||
 					up?.type === 'ExportSpecifier' ||
 					(up?.type === 'MemberExpression' && up.property === n) ||
