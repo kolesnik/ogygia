@@ -25,7 +25,8 @@ export type FeatureName =
 	| 'context'
 	| 'idle'
 	| 'visible'
-	| 'media';
+	| 'media'
+	| 'graph';
 
 export const F_REMOTE_SEEDS = 0x1;
 export const F_PAGE = 0x2;
@@ -51,6 +52,9 @@ export const F_VISIBLE = 0x4000;
 /** Some region is scheduled on a media query: the media arm, and the parse that tells a media query
  *  from a typo. */
 export const F_MEDIA = 0x8000;
+/** Some island's code can load on the page: the island graph's reader (the preloads that start an
+ *  island's chunks beside its import). Without it an island's import finds its chunks itself. */
+export const F_GRAPH = 0x10000;
 
 /** Each feature's bit, by its name. */
 export const FEATURE_BITS: Readonly<Record<FeatureName, number>> = {
@@ -69,7 +73,8 @@ export const FEATURE_BITS: Readonly<Record<FeatureName, number>> = {
 	context: F_CONTEXT,
 	idle: F_IDLE,
 	visible: F_VISIBLE,
-	media: F_MEDIA
+	media: F_MEDIA,
+	graph: F_GRAPH
 };
 
 /** The word of the given features. */

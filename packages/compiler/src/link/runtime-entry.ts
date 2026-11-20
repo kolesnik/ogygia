@@ -62,7 +62,8 @@ export type FeatureId = FeatureName;
  *   `import()` when the first island wakes, together with Svelte (which `hydrate()` needs anyway). A
  *   feature whose slot only the hydrate core reads belongs here, installed as the chunk evaluates.
  * - `element` — no module: code inside the always-on region element, kept or folded by the
- *   feature's bit in `HAS` alone (a schedule's arm: `idle`, `visible`, `media`).
+ *   feature's bit in `HAS` alone (a schedule's arm: `idle`, `visible`, `media`; the island graph's
+ *   reader: `graph`).
  *
  * Both phases are generated from the same marks, so each is exactly as big as the app needs; no
  * feature adds a dynamic import of its own. `test/runtime-boot-svelte-free.test.ts` pins the boot.
@@ -181,6 +182,15 @@ export const FEATURES: Record<FeatureId, FeatureDef> = {
 		phase: 'element',
 		detect: (m) => schedules_unseen(m) || schedules(m).includes('visible')
 	},
+	graph: {
+		deps: [],
+		phase: 'element',
+		detect: (m) =>
+			m.foreign === true ||
+			m.live === true ||
+			m.clientPlugins === true ||
+			(m.hydrate || []).some((w) => w !== 'none')
+	},
 	media: {
 		deps: [],
 		phase: 'element',
@@ -205,7 +215,8 @@ export const FEATURE_ORDER: FeatureId[] = [
 	'context',
 	'idle',
 	'visible',
-	'media'
+	'media',
+	'graph'
 ];
 
 /** Resolve the closed feature set for a marks manifest. */

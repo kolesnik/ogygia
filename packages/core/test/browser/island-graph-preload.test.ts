@@ -1,7 +1,7 @@
 // PRELOAD AN ISLAND'S GRAPH AT WAKE (runtime/island-graph-preload.ts): the page's graph script lists
 // each entry's chunks; `preload_island_graph(entry)` inserts one modulepreload per chunk not yet
 // linked — only for that entry, only when called. End to end (the gate, a real build): e2e/wake-gate.
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, inject, test } from 'vitest';
 import {
 	preload_island_graph,
 	register_island_graph,
@@ -9,6 +9,12 @@ import {
 } from '../../src/runtime/island-graph-preload.ts';
 import { OGYGIA_GRAPH_PRELOAD as GRAPH_PRELOAD_ATTR } from '../../src/wire-markup.ts';
 import { island_graph_script } from '../../src/server/document-tail.ts';
+import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
+import { F_GRAPH } from '../../src/contract/features.ts';
+import { bootDev } from '../../src/runtime/full.ts';
+import { from_b64 } from './b64.ts';
+
+const ALL = HAS;
 
 const ours = () =>
 	[...document.head.querySelectorAll(`link[${GRAPH_PRELOAD_ATTR}]`)].map(
@@ -95,4 +101,37 @@ test('a graph read from another page resolves against that page (router warm)', 
 	);
 	preload_island_graph('/deep/page/d.js');
 	expect(ours()).toEqual(['/deep/chunks/x.js']);
+});
+
+describe('a build whose word has no graph (no island code of the app can load: F_GRAPH off)', () => {
+	afterEach(() => set_feature_word(ALL));
+
+	test('reads no graph and links nothing, from the page or from another page', () => {
+		set_feature_word(ALL & ~F_GRAPH);
+		preload_island_graph('/g/a.js');
+		register_island_graph(JSON.stringify({ h: ['/g/c-dep.js'], e: { '/g/c.js': [0] } }));
+		preload_island_graph('/g/c.js');
+		expect(ours()).toEqual([]);
+		set_feature_word(ALL);
+		preload_island_graph('/g/a.js');
+		expect(ours(), 'the same page, with the bit: its graph').toEqual([
+			'/g/svelte.js',
+			'/g/a-dep.js'
+		]);
+	});
+
+	test('an island it never saw still wakes: its import finds its chunks itself', async () => {
+		set_feature_word(ALL & ~F_GRAPH);
+		const box = document.createElement('div');
+		box.innerHTML = from_b64(inject('counter_ssr_b64'));
+		document.body.append(box);
+		const region = box.querySelector('ogygia-region')!;
+		bootDev();
+		try {
+			await expect.poll(() => region.hasAttribute('data-hydrated'), { timeout: 10_000 }).toBe(true);
+			expect(ours()).toEqual([]);
+		} finally {
+			box.remove();
+		}
+	});
 });
