@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { heisenbench_dir, link_heisenbench, REPO_ROOT } from '../src/heisenbench.ts';
 
 const PRELOAD = fileURLToPath(new URL('../src/preload.ts', import.meta.url));
 const CORE_TEST = new URL('../../../packages/core/test/', import.meta.url).href;
@@ -27,4 +31,28 @@ test('the region bench renders Region for real, not a thrown $derived', () => {
 	assert.match(out, /<!-- body -->[^\n]/);
 	assert.doesNotMatch(out, /<!-- thrown -->[^\n]/);
 	assert.doesNotMatch(out, /is not defined/);
+});
+
+test("a bench that reaches core's built runes modules (.svelte.js) runs: Heisenbench compiles them, once", () => {
+	const engine = heisenbench_dir();
+	link_heisenbench(engine);
+	const out = mkdtempSync(join(tmpdir(), 'og-preload-'));
+	const r = spawnSync(
+		process.execPath,
+		[
+			'--import',
+			PRELOAD,
+			join(engine, 'src', 'cli.ts'),
+			'run',
+			fileURLToPath(new URL('./fixtures/built-runes.bench.ts', import.meta.url)),
+			'--root',
+			REPO_ROOT,
+			'--out',
+			join(out, 'run.json')
+		],
+		{ encoding: 'utf8', cwd: REPO_ROOT }
+	);
+	const said = `${r.stdout}${r.stderr}`;
+	assert.doesNotMatch(said, /FAILED/);
+	assert.match(said, /^ok\s+a built runes module/m);
 });
