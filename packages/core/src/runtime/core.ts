@@ -25,7 +25,8 @@ import {
 } from '../wire-markup.ts';
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
-import { FRAMES } from 'ogygia:boot';
+import { HAS } from 'ogygia:boot';
+import { F_FRAMES } from '../contract/features.ts';
 import { wire_for_wake } from './wire-on-use.ts';
 import { report_thrown } from '../report-thrown.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
@@ -560,7 +561,7 @@ class OgygiaRegion extends HTMLElement {
 
 	#connect(turn: Turn): Promise<void> | undefined {
 		if (this.hasAttribute('live')) return this.#live_put_back(turn);
-		if (FRAMES && this.#minted_endpoint === null && is_deferred(this)) {
+		if (HAS & F_FRAMES && this.#minted_endpoint === null && is_deferred(this)) {
 			const minted = this.getAttribute('endpoint');
 			if (minted) this.#minted_endpoint = minted;
 			else {
@@ -697,7 +698,7 @@ class OgygiaRegion extends HTMLElement {
 	 * nothing left to warm.
 	 */
 	#prefetch_html() {
-		if (!FRAMES) return;
+		if (!(HAS & F_FRAMES)) return;
 		if (this.#answer.now.kind !== 'none' || this.#hole.now.kind === 'fetching' || !this.isConnected)
 			return;
 		const endpoint = this.#endpoint();
@@ -950,7 +951,7 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#server(turn: Turn): Promise<void> | undefined {
-		if (!FRAMES) return;
+		if (!(HAS & F_FRAMES)) return;
 		const endpoint = this.#endpoint();
 		const replayed = endpoint ? this.#bind(endpoint) : false;
 		const run = replayed ? undefined : this.#fetch_html(turn);
@@ -1112,7 +1113,7 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	async #fetch_html(turn: Turn, revalidate = false): Promise<void> {
-		if (!FRAMES) return;
+		if (!(HAS & F_FRAMES)) return;
 		if (!revalidate && this.#answer.now.kind !== 'none') return;
 		const endpoint = this.#endpoint();
 		if (!endpoint) return;
@@ -1492,7 +1493,7 @@ class OgygiaRegion extends HTMLElement {
 	 * - **Later tick, module changed:** unmount, swap, re-hydrate.
 	 */
 	async applyLive(desc: LiveTick): Promise<void> {
-		if (!FRAMES) return;
+		if (!(HAS & F_FRAMES)) return;
 		this.#live_last = desc;
 		$await(this.#box.ask((turn) => this.#apply_live(desc, turn)));
 	}

@@ -7,6 +7,8 @@ import { Queries } from '../src/queries.ts';
 import { CORE_PARTS, CORE_VIRTUALS, core_path, type CoreApp } from '../src/virtual/core.ts';
 import type { Leg } from '../src/virtual/table.ts';
 import { CORE_VALUE_NAMES } from '../src/virtual/value-names.ts';
+import { feature_word } from '@ogygia/core/contract';
+import { FEATURE_ORDER, resolveFeatures } from '../src/link/runtime-entry.ts';
 
 const table = new VirtualTable<CoreApp>(
 	CORE_VIRTUALS,
@@ -81,11 +83,11 @@ describe('core’s boot modules', () => {
 
 	it('turns every runtime flag on in dev, and in a build only the ones its marks need', () => {
 		const dev = load('ogygia:boot/runtime-flags', app({ ctx: DEV }))!;
-		expect(dev).toContain('FRAMES = true');
+		expect(dev).toContain(`HAS = ${feature_word(FEATURE_ORDER)};`);
 		expect(dev).toContain('load_wire_codec = null');
 		const program = { runtime_marks: { complete: true } };
 		const build = load('ogygia:boot/runtime-flags', app({ ctx: BUILD, program }))!;
-		expect(build).toContain('FRAMES = false');
+		expect(build).toContain(`HAS = ${feature_word(resolveFeatures({ complete: true }))};`);
 		expect(build).toContain('load_wire_codec = () => import(');
 	});
 

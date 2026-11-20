@@ -430,7 +430,9 @@ if (!arg('--core')) {
 		}
 	if (leaks.length) {
 		console.error(`✗ bundle-size: a program in the wrong boot:\n  ${leaks.join('\n  ')}`);
-		process.exit(1);
+		// (`--json` still writes the numbers; the run fails after)
+		process.exitCode = 1;
+		if (!asJson) process.exit(1);
 	}
 }
 
@@ -444,7 +446,7 @@ if (update) {
 
 if (asJson) {
 	console.log(JSON.stringify(rows, null, 2));
-	process.exit(0);
+	process.exit();
 }
 
 const base: Snapshot = COMPARE

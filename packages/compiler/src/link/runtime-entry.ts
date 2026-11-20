@@ -1,4 +1,4 @@
-import { dedent } from '@ogygia/core/contract';
+import { dedent, feature_word, type FeatureName } from '@ogygia/core/contract';
 import { client_realms_source, type ClientRealmFile } from './caps.ts';
 
 const HYPHEN = /-/g;
@@ -40,20 +40,8 @@ export type RuntimeMarks = {
 	foreign?: boolean;
 };
 
-export type FeatureId =
-	| 'remote-seeds'
-	| 'page'
-	| 'wire'
-	| 'wire-classes'
-	| 'frames'
-	| 'lakes'
-	| 'morph'
-	| 'live'
-	| 'interaction'
-	| 'forms'
-	| 'mpa-nav'
-	| 'router'
-	| 'context';
+/** A runtime feature, numbered by core's feature word (`@ogygia/core/contract` features.ts). */
+export type FeatureId = FeatureName;
 
 /**
  * WHICH CHUNK a feature lives in. The runtime ships as two static, feature-sized phases:
@@ -280,9 +268,10 @@ export function generateHydrateFeaturesSource(
  * guards ships exactly when the feature it serves does. Same marks as the entries; `all` (dev / no
  * marks): every flag on.
  *
- * - `FRAMES`: the `frames` feature is in the build — some region streams HTML (a deferred hole, a
- *   live region, a lake). Without the frame store a region's fetch has nowhere to land, so the
- *   element's fetch / apply / morph / renew path is dead code then.
+ * - `HAS`: the build's feature word, a bit per selected feature (core contract/features.ts). The
+ *   element tests it: without `F_FRAMES` (no region streams HTML: a deferred hole, a live region, a
+ *   lake) a region's fetch has nowhere to land, so its fetch / apply / morph / renew path is dead
+ *   code. `all`: every feature's bit.
  * - `load_wire_codec`: `null` where the `wire` feature (the codec) is in the build up front, else
  *   the codec's `import()`, for a wake whose props carry a live value the marks did not predict
  *   (core runtime/wire-on-use.ts). Generated here, not written in core, so a build with the codec
@@ -295,12 +284,11 @@ export function generateRuntimeFlagsSource(
 	runtimeDir: string,
 	all = false
 ): string {
-	const features = resolveFeatures(marks);
-	const frames = all || features.includes('frames');
+	const features = all ? FEATURE_ORDER : resolveFeatures(marks);
 	const codec = JSON.stringify(runtime_path(runtimeDir, FEATURES.wire.module));
-	const load_wire_codec = all || features.includes('wire') ? 'null' : `() => import(${codec})`;
+	const load_wire_codec = features.includes('wire') ? 'null' : `() => import(${codec})`;
 	return `${dedent`
-		export const FRAMES = ${frames};
+		export const HAS = ${feature_word(features)};
 		export const load_wire_codec = ${load_wire_codec};
 	`}\n`;
 }

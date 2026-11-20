@@ -178,7 +178,7 @@ export const runtime_entry: Family = virtual.family({
 export const runtime_flags: Family<RuntimeFlagsModule> = virtual.family({
 	realm: 'boot',
 	id: 'runtime-flags',
-	exports: { FRAMES: 'FRAMES', load_wire_codec: 'load_wire_codec' },
+	exports: { HAS: 'HAS', load_wire_codec: 'load_wire_codec' },
 	load(app: CoreApp) {
 		const { ctx } = app;
 		if (!ctx.is_build) return generateRuntimeFlagsSource({}, ctx.runtime_dir, true);

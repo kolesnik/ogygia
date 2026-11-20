@@ -13,7 +13,11 @@ import {
 	type RuntimeMarks
 } from '../src/link/runtime-entry.ts';
 import { partial_ctx_init } from './_compile-ctx.ts';
-import { dedent } from '@ogygia/core/contract';
+import { dedent, F_FRAMES } from '@ogygia/core/contract';
+
+/** Whether generated runtime flags hold the frames feature's bit. */
+const frames_bit = (flags: string): boolean =>
+	(Number(/HAS = (\d+);/.exec(flags)![1]) & F_FRAMES) !== 0;
 
 const roots: string[] = [];
 afterEach(() => {
@@ -172,7 +176,7 @@ describe('foreign regions', () => {
 	test('an app with no deferred region of its own does not ship the frame store', () => {
 		const marks = marks_for(island);
 		expect(resolveFeatures(marks)).not.toContain('frames');
-		expect(generateRuntimeFlagsSource(marks, '/rt')).toContain('FRAMES = false');
+		expect(frames_bit(generateRuntimeFlagsSource(marks, '/rt'))).toBe(false);
 	});
 
 	test("a federated app ships what a peer's regions need, with no region of its own needing it", () => {
@@ -180,7 +184,7 @@ describe('foreign regions', () => {
 		expect(resolveFeatures(marks)).toEqual(
 			expect.arrayContaining(['frames', 'morph', 'lakes', 'interaction'])
 		);
-		expect(generateRuntimeFlagsSource(marks, '/rt')).toContain('FRAMES = true');
+		expect(frames_bit(generateRuntimeFlagsSource(marks, '/rt'))).toBe(true);
 	});
 
 	// The rule over every combination: whatever regions a peer's build compiled (its marks), a

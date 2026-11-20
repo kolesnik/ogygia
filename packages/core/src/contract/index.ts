@@ -11,6 +11,7 @@ export * from './content.ts';
 export * from './context-key.ts';
 export * from './core-files.ts';
 export * from './dedent.ts';
+export * from './features.ts';
 export type * from './events.ts';
 export * from './hash.ts';
 export * from './hydration-hazards.ts';
