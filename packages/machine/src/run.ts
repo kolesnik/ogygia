@@ -110,8 +110,11 @@ type ValueOf<S> = unknown extends S ? State : StateOf<S>;
 type DataOf<S> = unknown extends S ? object | undefined : S[keyof S] & object;
 
 /** @internal A running machine: its state's int, that state's data, and its visits so far
- *  (`S`, `T`: its types, for the typed calls). Its moves are its methods. */
-export class Run<S = unknown, T = unknown> {
+ *  (`S`, `T`: its types, for the typed calls). Its moves are its methods. A bare `Run` is any
+ *  machine: its typed reads (`kind`, `now`, `data`) make it invariant in `S`, and only `any`
+ *  arguments let every machine fit it. */
+// oxlint-disable-next-line typescript/no-explicit-any -- a bare `Run` takes every machine (see above)
+export class Run<S = any, T = any> {
 	declare readonly _types?: [S, T];
 	_def: Def;
 	_state: number;
