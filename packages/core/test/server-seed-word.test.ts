@@ -119,6 +119,35 @@ describe('the page seed', () => {
 	});
 });
 
+describe("a held region's document()", () => {
+	const page_state = {
+		url: { href: 'http://x/a' },
+		params: {},
+		route: { id: '/a' },
+		status: 200,
+		data: { site: 'A SITE NAME' }
+	};
+	const doc = async () => {
+		const { document } = await import('../src/document.ts');
+		const { region } = await import('../src/region.ts');
+		const { default: Tiny } = await import('./_fixtures/Tiny.svelte');
+		return (
+			await document(region(Tiny as never, { n: 1 } as never), { pageState: page_state })
+		).text();
+	};
+
+	it('with the page feature: outside a request the handle owns, the whole page seed ships', async () => {
+		expect(await doc()).toContain('application/ogygia-page');
+	});
+
+	it('without it: no page seed, even outside a request the handle owns', async () => {
+		without(F_PAGE);
+		const html = await doc();
+		expect(html).not.toContain('application/ogygia-page');
+		expect(html).not.toContain('A SITE NAME');
+	});
+});
+
 describe('the remote seed', () => {
 	const remotes = () => ({
 		remote: { implicit: new Map([[{ id: 'h1/one', type: 'query' }, { '': () => 'ONE' }]]) }
