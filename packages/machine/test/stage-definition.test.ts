@@ -39,7 +39,8 @@ test.runIf(typeof document === 'undefined')(
 			// (the runtime in the boot, stage in a lazy chunk: as an app's router chunk takes it)
 			writeFileSync(
 				entry,
-				`import { create, kind } from ${src('run.ts')};\nexport const k = kind;\nexport const c = create;\nexport const later = () => import(${src('stage.ts')});\n`
+				// oxlint-disable-next-line ogygia/prefer-dedent -- the machine package has no dedent (core's is out of its reach)
+				`import { create, Run } from ${src('run.ts')};\nexport const r = Run;\nexport const c = create;\nexport const later = () => import(${src('stage.ts')});\n`
 			);
 			const build = await rolldown({
 				input: entry,

@@ -1,6 +1,6 @@
 import * as rt from './run.ts';
 import { machine_error, report } from './messages.ts';
-import { child, close, closed, defer, signal, task, type Life, type Scope } from './scope.ts';
+import type { Life, Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
 /** What a build is handed: the owner's signal, and a way to give back a change it made. */
@@ -81,45 +81,47 @@ class Staged<B> implements Stage<B> {
 				});
 		this._name = o.name ?? 'stage';
 		this._commit = o.commit;
-		const life = (this._life = child(owner as Life));
-		defer(life, () => {
-			const kind = rt.kind(this._m);
+		const life = (this._life = (owner as Life).child());
+		life.defer(() => {
+			const kind = this._m.kind;
 			if (kind === 'building' || kind === 'built') this._discard();
 		});
 		const staging: Staging = {
-			signal: signal(life),
+			signal: life.signal,
 			discard: (step) => {
-				const kind = rt.kind(this._m);
+				const kind = this._m.kind;
 				if (kind === 'discarded') run([step], this._name);
 				else if (kind !== 'committed') this._steps.push(step);
 			}
 		};
-		this.ready = task(life, () => o.build(staging)).then(
-			(built) => {
-				if (built !== STALE) rt.move(this._m, 'building', 'built', { value: built });
-				return built;
-			},
-			(error: unknown) => {
-				this._discard();
-				throw error;
-			}
-		);
+		this.ready = life
+			.task(() => o.build(staging))
+			.then(
+				(built) => {
+					if (built !== STALE) this._m.move('building', 'built', { value: built });
+					return built;
+				},
+				(error: unknown) => {
+					this._discard();
+					throw error;
+				}
+			);
 	}
 
 	_discard(): void {
-		const kind = rt.kind(this._m);
+		const kind = this._m.kind;
 		if (kind === 'committed' || kind === 'discarded') return;
-		rt.go(this._m, 'discarded');
+		this._m.go('discarded');
 		const steps = this._steps;
 		this._steps = [];
 		run(steps, this._name);
-		close(this._life);
+		this._life.close();
 	}
 
 	commit(): boolean {
-		const s = rt.now(this._m);
-		if (s.kind !== 'built' || closed(this._life)) return false;
-		rt.go(this._m, 'committing');
+		const s = this._m.now;
+		if (s.kind !== 'built' || this._life.closed) return false;
+		this._m.go('committing');
 		const undo: (() => void)[] = [];
 		try {
 			this._commit(s.value as B, (step) => void undo.push(step));
@@ -128,9 +130,9 @@ class Staged<B> implements Stage<B> {
 			this._discard();
 			throw error;
 		}
-		rt.go(this._m, 'committed');
+		this._m.go('committed');
 		this._steps = [];
-		close(this._life);
+		this._life.close();
 		return true;
 	}
 }

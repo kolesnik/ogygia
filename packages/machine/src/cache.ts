@@ -33,18 +33,7 @@
 import { DEV } from 'esm-env';
 import { clock } from './ports.ts';
 import { bad_option, machine_error, report } from './messages.ts';
-import {
-	child,
-	close,
-	closed,
-	defer,
-	DISPOSE,
-	root,
-	MAX_TIMEOUT_MS,
-	later,
-	type Life,
-	type Scope
-} from './scope.ts';
+import { DISPOSE, Life, MAX_TIMEOUT_MS, type Scope } from './scope.ts';
 import type { World } from './world.ts';
 
 /** Why a value left a cache. */
@@ -187,9 +176,9 @@ class Store<K, V> implements CacheStore<K, V> {
 		this._on_evict = o.onEvict;
 		this._pinned = o.pinned;
 		this._world = o.world as World<unknown> | undefined;
-		const l = (this._life = o.owner === undefined ? root() : child(o.owner as Life));
-		defer(l, () => this._let_all_go('end'));
-		if (refused) close(l);
+		const l = (this._life = o.owner === undefined ? new Life() : (o.owner as Life).child());
+		l.defer(() => this._let_all_go('end'));
+		if (refused) l.close();
 	}
 
 	get size(): number {
@@ -254,22 +243,17 @@ class Store<K, V> implements CacheStore<K, V> {
 	_set_timer(at: number, now: number): void {
 		this._stop();
 		const l = this._life;
-		if (closed(l)) return;
+		if (l.closed) return;
 		this._timer_at = at;
-		const t = (this._stop_timer = child(l));
-		later(
-			t,
-			fire,
-			Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS),
-			this as Store<unknown, unknown>
-		);
+		const t = (this._stop_timer = l.child());
+		t.later(fire, Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS), this as Store<unknown, unknown>);
 	}
 
 	/** Clears the age timer (its own life). */
 	_stop(): void {
 		const t = this._stop_timer;
 		this._stop_timer = null;
-		if (t !== null) close(t);
+		if (t !== null) t.close();
 	}
 
 	_fire(): void {
@@ -283,7 +267,7 @@ class Store<K, V> implements CacheStore<K, V> {
 		for (const h of this._held.values()) if (h.until < next) next = h.until;
 		// (a sweep walks every value: at most one a second, however spread the ages are. A read
 		// past a value's age finds nothing all the same.)
-		if (next !== Infinity && !closed(this._life))
+		if (next !== Infinity && !this._life.closed)
 			this._set_timer(Math.max(next, fired + SWEEP_MS), fired);
 		this._tell();
 	}
@@ -359,7 +343,7 @@ class Store<K, V> implements CacheStore<K, V> {
 	}
 
 	set(key: K, value: V, options?: SetOptions): boolean {
-		if (closed(this._life)) return false;
+		if (this._life.closed) return false;
 		const world = this._world;
 		let stamp = 0;
 		let ms: number | undefined;
@@ -452,6 +436,6 @@ class Store<K, V> implements CacheStore<K, V> {
 	}
 
 	[DISPOSE](): void {
-		close(this._life);
+		this._life.close();
 	}
 }

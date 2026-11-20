@@ -1,6 +1,6 @@
 /**
- * @internal The machine runtime, as plain data and free functions: what `machine()` is built on,
- * and what ogygia's own runtime calls (`@ogygia/machine/internal`).
+ * @internal The machine runtime, as plain data and a record whose methods are its moves: what
+ * `machine()` is built on, and what ogygia's own runtime calls (`@ogygia/machine/internal`).
  *
  * - A definition (`Def`) is its states as ints: their names in order (`names`), each state's steps
  *   as a bitmask of the states it may go to (`masks`, `words` words of 32 bits per state: one for
@@ -8,8 +8,8 @@
  *   same kind of mask (made on the first `wait`).
  * - A machine (`Run`) is its state's int, the data that state was entered with, and a count of its
  *   visits (`epoch`): a move tests one bit and writes a few fields, and makes no object. The state
- *   as one value (`now`) is made only when something reads it, once per visit, so `now(m) === mine`
- *   still tells two visits apart; `epoch(m)` does the same with no object at all.
+ *   as one value (`now`) is made only when something reads it, once per visit, so `m.now === mine`
+ *   still tells two visits apart; `m.epoch` does the same with no object at all.
  * - A visit's life (its scope) is made on first need and closed by the move that leaves it.
  *
  * @packageDocumentation
@@ -17,7 +17,7 @@
 import { DEV } from 'esm-env';
 import { machine_error, report, warn_once } from './messages.ts';
 import { registry, type Registry } from './registry.ts';
-import { close, ENDED, is_time, later, Life, MAX_TIMEOUT_MS, root } from './scope.ts';
+import { ENDED, is_time, Life, MAX_TIMEOUT_MS } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 import type { Config, DataArgs, Kind, Shape, StateIn, StateOf, Steps } from './machine.ts';
 
@@ -94,7 +94,7 @@ export interface Def<S = unknown, T = unknown, I = unknown> {
 	 *  public `machine()`'s promise); else on first read. */
 	copies: boolean;
 	/** What a visit's life is made as (the public `machine()`'s: a `Scope`, its own life). */
-	life: new (parent: Life | null, label: string | null) => Life;
+	life: new (label: string | null) => Life;
 }
 
 /** @internal The machines a definition makes: `RunOf<typeof def>`. */
@@ -102,17 +102,27 @@ export type RunOf<D> = D extends Def<infer S, infer T> ? Run<S, T> : never;
 
 type Waiter = { kind: number; resolve: (value: State | Stale) => void };
 
+/** A state's name, typed when the machine's states are known. */
+type KindOf<S> = unknown extends S ? string : Kind<S>;
+/** A state as one value, typed when the machine's states are known. */
+type ValueOf<S> = unknown extends S ? State : StateOf<S>;
+/** A state's data, typed when the machine's states are known. */
+type DataOf<S> = unknown extends S ? object | undefined : S[keyof S] & object;
+
 /** @internal A running machine: its state's int, that state's data, and its visits so far
- *  (`S`, `T`: its types, for the typed calls). */
+ *  (`S`, `T`: its types, for the typed calls). Its moves are its methods. */
 export class Run<S = unknown, T = unknown> {
 	declare readonly _types?: [S, T];
 	_def: Def;
 	_state: number;
-	_data: object | undefined;
+	/** The data the state it is in was entered with, not copied (`undefined`: none): a read that
+	 *  makes no object, for a machine whose states all carry the same kind of data. */
+	data: DataOf<S>;
 	/** The state as one value, made on first read in this visit. */
 	_now: State | null = null;
-	/** Its visits so far: every move makes a new one. */
-	_epoch = 0;
+	/** Its visits so far: every move makes a new one. A value read before an `await` that still
+	 *  equals it after says the machine never moved meanwhile. */
+	epoch = 0;
 	_stopped = false;
 	/** The visit's life, once something asked for it: closed by the move that leaves the visit. */
 	_life: Life | null = null;
@@ -121,16 +131,112 @@ export class Run<S = unknown, T = unknown> {
 	constructor(def: Def, data: object | undefined) {
 		this._def = def;
 		this._state = def.initial;
-		this._data = data;
+		this.data = data as DataOf<S>;
 		if (DEV) checked_data(def, def.initial, data);
 		if (def.copies) this._now = made(def.names[def.initial]!, data);
 		const timed = def.after[def.initial];
 		if (timed !== null) arm(this, timed);
 	}
 
-	/** The state as one value (what an observer is given). */
-	get now(): State {
-		return value_of(this);
+	/** The state it is in, as one value: `{ kind, ...data }`, the same value through the visit, a
+	 *  new one every visit (what an observer is given). */
+	get now(): ValueOf<S> {
+		return value_of(this) as ValueOf<S>;
+	}
+
+	/** The name of the state it is in. */
+	get kind(): KindOf<S> {
+		return this._def.names[this._state] as KindOf<S>;
+	}
+
+	/** It is in state `name`. */
+	is<S>(this: Run<S>, name: Kind<S>): boolean;
+	is(name: string): boolean {
+		return this._def.names[this._state] === name;
+	}
+
+	/** The life of the visit it is in now (made on first need): closed by the move that leaves the
+	 *  visit, closed for good on a stopped machine. */
+	visit(): Life {
+		if (this._stopped) return ENDED;
+		return (this._life ??= new this._def.life(this._def.name));
+	}
+
+	/** Go to `to` from whatever state it is in, if its steps allow it (see `Machine.go`). */
+	go<S extends Shape<S>, T extends Steps<S>, K extends T[Kind<S>][number]>(
+		this: Run<S, T>,
+		to: K,
+		...data: DataArgs<S[K & keyof S]>
+	): boolean;
+	go(to: string, data?: object): boolean {
+		if (this._stopped) return false;
+		const def = this._def;
+		const t = def.ids[to];
+		const w = def.words;
+		const s = this._state;
+		if (
+			t === undefined ||
+			((w === 1 ? def.masks[s]! >>> t : def.masks[s * w + (t >>> 5)]! >>> (t & 31)) & 1) === 0
+		)
+			return illegal(def, def.names[s]!, to);
+		enter(this, t, data);
+		return true;
+	}
+
+	/** Go from `from` to `to`, only while it is still in `from` (see `Machine.move`). */
+	move<S extends Shape<S>, T extends Steps<S>, F extends Kind<S>, K extends T[F][number]>(
+		this: Run<S, T>,
+		from: F,
+		to: K,
+		...data: DataArgs<S[K & keyof S]>
+	): boolean;
+	move(from: string, to: string, data?: object): boolean {
+		if (this._stopped) return false;
+		const def = this._def;
+		if (def.names[this._state] === from) return (this as Bare).go(to, data);
+		const f = def.ids[from];
+		const t = def.ids[to];
+		const w = def.words;
+		if (
+			f === undefined ||
+			t === undefined ||
+			((w === 1 ? def.masks[f]! >>> t : def.masks[f * w + (t >>> 5)]! >>> (t & 31)) & 1) === 0
+		)
+			return illegal(def, from, to);
+		return false;
+	}
+
+	/** The next time it is in `name` (see `Machine.wait`). */
+	wait<S, K extends Kind<S>>(this: Run<S>, name: K): Promise<StateIn<S, K> | Stale>;
+	wait(name: string): Promise<State | Stale> {
+		const def = this._def;
+		const k = def.ids[name];
+		if (k === undefined) {
+			if (DEV)
+				throw machine_error('machine_unknown_state', {
+					name: def.name,
+					state: name,
+					where: 'wait()'
+				});
+			return Promise.resolve(STALE);
+		}
+		if (this._stopped) return Promise.resolve(STALE);
+		if (this._state === k) return Promise.resolve(value_of(this));
+		if (!has(reach_of(def), def.words, this._state, k)) return Promise.resolve(STALE);
+		return new Promise((resolve) => (this._waiters ??= []).push({ kind: k, resolve }));
+	}
+
+	/** Ends it (see `Machine.stop`). Safe twice. */
+	stop(): void {
+		if (this._stopped) return;
+		this._stopped = true;
+		const l = this._life;
+		const waiters = this._waiters;
+		this._life = null;
+		this._waiters = null;
+		if (waiters !== null) for (const w of waiters) w.resolve(STALE);
+		if (RULES && observers.size !== 0) notify(this._def.name, value_of(this), null, this);
+		if (l !== null) l.close();
 	}
 }
 
@@ -150,12 +256,24 @@ function illegal(def: Def, from: string, to: string): false {
 	return false;
 }
 
-/** @internal The state `m` is in, as one value: `{ kind, ...data }`, the same value through the
- *  visit, a new one every visit. */
-export const now: <S>(m: Run<S>) => StateOf<S> = value_of as never;
+/** A machine as the functions below work on it, its types set aside (and its moves by any name:
+ *  the public `machine()`'s, and `move` taking `go`'s). */
+interface Bare {
+	_def: Def;
+	_state: number;
+	data: object | undefined;
+	_now: State | null;
+	epoch: number;
+	_stopped: boolean;
+	_life: Life | null;
+	_waiters: Waiter[] | null;
+	readonly now: State;
+	visit(): Life;
+	go(to: string, data?: object): boolean;
+}
 
-function value_of(m: Run): State {
-	return m._now ?? (m._now = made(m._def.names[m._state]!, m._data));
+function value_of(m: Bare): State {
+	return m._now ?? (m._now = made(m._def.names[m._state]!, m.data));
 }
 
 function made(kind: string, data: object | undefined): State {
@@ -163,139 +281,15 @@ function made(kind: string, data: object | undefined): State {
 	return DEV ? Object.freeze(value) : value;
 }
 
-/** @internal The name of the state `m` is in. */
-export const kind: <S>(m: Run<S>) => Kind<S> = kind_of as never;
-
-function kind_of(m: Run): string {
-	return m._def.names[m._state]!;
-}
-
-/** @internal It is in state `name`. */
-export const is: <S>(m: Run<S>, name: Kind<S>) => boolean = is_in as never;
-
-function is_in(m: Run, name: string): boolean {
-	return m._def.names[m._state] === name;
-}
-
-/** @internal Its visits so far: a value read before an `await` that still equals it after says the
- *  machine never moved meanwhile. */
-export function epoch(m: Run): number {
-	return m._epoch;
-}
-
-/** @internal The data the state it is in was entered with, not copied (`undefined`: none): a
- *  read that makes no object, for a machine whose states all carry the same kind of data. */
-export const data: <S>(m: Run<S>) => S[keyof S] = data_of as never;
-
-function data_of(m: Run): object | undefined {
-	return m._data;
-}
-
-/** @internal The life of the visit `m` is in now (made on first need): closed by the move that
- *  leaves the visit, closed for good on a stopped machine. */
-export function visit(m: Run): Life {
-	if (m._stopped) return ENDED;
-	return (m._life ??= new m._def.life(null, m._def.name));
-}
-
-/** @internal Go to `to` from whatever state `m` is in, if its steps allow it (see `Machine.go`). */
-export const go: <S extends Shape<S>, T extends Steps<S>, K extends T[Kind<S>][number]>(
-	m: Run<S, T>,
-	to: K,
-	...data: DataArgs<S[K & keyof S]>
-) => boolean = go_to as never;
-
-/** @internal `go` by any name, untyped (the public `Machine.go`). */
-export function go_to(m: Run, to: string, data?: object): boolean {
-	if (m._stopped) return false;
-	const def = m._def;
-	const t = def.ids[to];
-	const w = def.words;
-	const s = m._state;
-	if (
-		t === undefined ||
-		((w === 1 ? def.masks[s]! >>> t : def.masks[s * w + (t >>> 5)]! >>> (t & 31)) & 1) === 0
-	)
-		return illegal(def, def.names[s]!, to);
-	enter(m, t, data);
-	return true;
-}
-
-/** @internal Go from `from` to `to`, only while `m` is still in `from` (see `Machine.move`). */
-export const move: <
-	S extends Shape<S>,
-	T extends Steps<S>,
-	F extends Kind<S>,
-	K extends T[F][number]
->(
-	m: Run<S, T>,
-	from: F,
-	to: K,
-	...data: DataArgs<S[K & keyof S]>
-) => boolean = move_from as never;
-
-/** @internal `move` by any names, untyped (the public `Machine.move`). */
-export function move_from(m: Run, from: string, to: string, data?: object): boolean {
-	if (m._stopped) return false;
-	const def = m._def;
-	if (def.names[m._state] === from) return go_to(m, to, data);
-	const f = def.ids[from];
-	const t = def.ids[to];
-	const w = def.words;
-	if (
-		f === undefined ||
-		t === undefined ||
-		((w === 1 ? def.masks[f]! >>> t : def.masks[f * w + (t >>> 5)]! >>> (t & 31)) & 1) === 0
-	)
-		return illegal(def, from, to);
-	return false;
-}
-
-/** @internal The next time `m` is in `name` (see `Machine.wait`). */
-export const wait: <S, K extends Kind<S>>(m: Run<S>, name: K) => Promise<StateIn<S, K> | Stale> =
-	wait_for as never;
-
-/** @internal `wait` by any name, untyped (the public `Machine.wait`). */
-export function wait_for(m: Run, name: string): Promise<State | Stale> {
-	const def = m._def;
-	const k = def.ids[name];
-	if (k === undefined) {
-		if (DEV)
-			throw machine_error('machine_unknown_state', {
-				name: def.name,
-				state: name,
-				where: 'wait()'
-			});
-		return Promise.resolve(STALE);
-	}
-	if (m._stopped) return Promise.resolve(STALE);
-	if (m._state === k) return Promise.resolve(value_of(m));
-	if (!has(reach_of(def), def.words, m._state, k)) return Promise.resolve(STALE);
-	return new Promise((resolve) => (m._waiters ??= []).push({ kind: k, resolve }));
-}
-
-/** @internal Ends `m` (see `Machine.stop`). Safe twice. */
-export function stop(m: Run): void {
-	if (m._stopped) return;
-	m._stopped = true;
-	const l = m._life;
-	const waiters = m._waiters;
-	m._life = null;
-	m._waiters = null;
-	if (waiters !== null) for (const w of waiters) w.resolve(STALE);
-	if (RULES && observers.size !== 0) notify(m._def.name, value_of(m), null, m);
-	if (l !== null) close(l);
-}
-
 /** The one place a move happens: the new state first, then everything the old one owned. */
-function enter(m: Run, to: number, data: object | undefined): void {
+function enter(m: Bare, to: number, data: object | undefined): void {
 	if (RULES && observers.size !== 0) return enter_told(m, to, data);
 	const def = m._def;
 	if (DEV) checked_data(def, to, data);
 	m._state = to;
-	m._data = data;
+	m.data = data;
 	m._now = def.copies ? made(def.names[to]!, data) : null;
-	m._epoch++;
+	m.epoch++;
 	// detached before anything runs, so a cleanup that moves the machine again starts clean
 	const l = m._life;
 	m._life = null;
@@ -304,26 +298,26 @@ function enter(m: Run, to: number, data: object | undefined): void {
 	const timed = def.after[to];
 	if (timed !== null) arm(m, timed);
 	if (m._waiters !== null) settle(m);
-	if (l !== null) close(l);
+	if (l !== null) l.close();
 }
 
 /** `enter` while observers watch (dev and rules builds): told the move, before the old visit
  *  closes. */
-function enter_told(m: Run, to: number, data: object | undefined): void {
+function enter_told(m: Bare, to: number, data: object | undefined): void {
 	const def = m._def;
 	if (DEV) checked_data(def, to, data);
 	const prev = value_of(m);
 	m._state = to;
-	m._data = data;
+	m.data = data;
 	m._now = def.copies ? made(def.names[to]!, data) : null;
-	m._epoch++;
+	m.epoch++;
 	const l = m._life;
 	m._life = null;
 	const timed = def.after[to];
 	if (timed !== null) arm(m, timed);
 	if (m._waiters !== null) settle(m);
 	notify(def.name, prev, value_of(m), m);
-	if (l !== null) close(l);
+	if (l !== null) l.close();
 }
 
 /**
@@ -331,7 +325,7 @@ function enter_told(m: Run, to: number, data: object | undefined): void {
  * (or stopping) clears it. A failure while taking it (its data, a cleanup) is reported and the
  * machine stays where it is: a timer has nobody to throw to.
  */
-function arm(m: Run, timed: Timed): void {
+function arm(m: Bare, timed: Timed): void {
 	const def = m._def;
 	let ms: unknown;
 	try {
@@ -352,10 +346,10 @@ function arm(m: Run, timed: Timed): void {
 	}
 	// (the visit's own timer: leaving closes its life, which clears it, so it only ever fires in
 	// the visit that set it; and it never keeps a server process alive)
-	later(visit(m), timed_step, ms, m);
+	m.visit().later(timed_step, ms, m);
 }
 
-function timed_step(m: Run): void {
+function timed_step(m: Bare): void {
 	const def = m._def;
 	const timed = def.after[m._state]!;
 	const from = def.names[m._state];
@@ -366,7 +360,7 @@ function timed_step(m: Run): void {
 	}
 }
 
-function settle(m: Run): void {
+function settle(m: Bare): void {
 	const waiters = m._waiters as Waiter[];
 	const def = m._def;
 	const at = m._state;
@@ -452,7 +446,7 @@ function check(def: Def): void {
 export function define(
 	config: DefConfig,
 	copies = false,
-	life: new (parent: Life | null, label: string | null) => Life = Life
+	life: new (label: string | null) => Life = Life
 ): Def {
 	const name = String(config.name);
 	const steps: Record<string, readonly string[]> = Object.create(null);
@@ -584,7 +578,7 @@ export function definition<S extends Shape<S>>(): <
 
 /** @internal Watches every machine's moves in dev and rules builds (see `observe`). */
 export function watch_moves(observer: Observer): () => void {
-	const watch = root();
+	const watch = new Life();
 	observers.add(observer, watch);
-	return () => close(watch);
+	return () => watch.close();
 }

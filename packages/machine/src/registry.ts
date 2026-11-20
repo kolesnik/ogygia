@@ -14,7 +14,7 @@
  * - Iteration is in add order, and an entry removed while it is walked is not walked after.
  */
 import { noop } from './noop.ts';
-import { child, close, closed, defer, type Life, type Scope } from './scope.ts';
+import type { Life, Scope } from './scope.ts';
 
 export interface Registry<T> {
 	/** Holds `entry` while `owner` is open; returns its removal. */
@@ -40,15 +40,15 @@ function make_registry<T>(): Registry<T> {
 		},
 		add(entry: T, owner: Scope | Life): () => void {
 			const o = owner as Life;
-			if (closed(o)) return noop;
-			const life = child(o);
+			if (o.closed) return noop;
+			const life = o.child();
 			entries.set(life, entry);
 			list = null;
-			defer(life, () => {
+			life.defer(() => {
 				entries.delete(life);
 				list = null;
 			});
-			return () => close(life);
+			return () => life.close();
 		},
 		[Symbol.iterator](): Iterator<T> {
 			return entries.values();
@@ -88,21 +88,21 @@ function make_keyed<K, V>(): KeyedRegistry<K, V> {
 		},
 		set(key: K, value: V, owner: Scope | Life): () => void {
 			const o = owner as Life;
-			if (closed(o)) return noop;
+			if (o.closed) return noop;
 			const old = lives.get(key);
 			// (the values' order is the order last set; the lives' order is nobody's)
 			values.delete(key);
-			if (old !== undefined) close(old);
-			const life = child(o);
+			if (old !== undefined) old.close();
+			const life = o.child();
 			lives.set(key, life);
 			values.set(key, value);
 			// (only its own: a later set under the key holds another)
-			defer(life, () => {
+			life.defer(() => {
 				if (lives.get(key) !== life) return;
 				values.delete(key);
 				lives.delete(key);
 			});
-			return () => close(life);
+			return () => life.close();
 		},
 		get(key: K): V | undefined {
 			return values.get(key);

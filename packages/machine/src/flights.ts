@@ -91,7 +91,7 @@ import {
 import { bad_option, machine_error } from './messages.ts';
 import { noop } from './noop.ts';
 import type { Policy } from './policy.ts';
-import { close, DISPOSE, root, task, type Life } from './scope.ts';
+import { DISPOSE, Life } from './scope.ts';
 import { STALE, type Fresh, type Stale } from './stale.ts';
 import { watch_world, type World } from './world.ts';
 
@@ -471,7 +471,7 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 			reject = rej;
 		});
 		const flight = new Flight(shared, stamp, priority, this._name);
-		const work = root();
+		const work = new Life();
 		let entry: Entry;
 		if (e !== undefined) {
 			entry = e;
@@ -479,7 +479,7 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 			e.flight = flight;
 			e.work = work;
 			this._move(e, FLYING_NOW);
-			if (before !== null) close(before);
+			if (before !== null) before.close();
 		} else {
 			entry = new Entry(flight, work, null);
 			this._entries.set(key, entry);
@@ -524,22 +524,24 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 		};
 		// (the callers handle its failure; this one is the flights' own, so it is never unhandled)
 		shared.then(undefined, noop);
-		task(work, (s) => attempt(run, input, s, flight, retry)).then(
-			(answer) => {
-				try {
-					resolve(landed(answer));
-				} catch (error) {
-					reject(error);
+		work
+			.task((s) => attempt(run, input, s, flight, retry))
+			.then(
+				(answer) => {
+					try {
+						resolve(landed(answer));
+					} catch (error) {
+						reject(error);
+					}
+				},
+				(error: unknown) => {
+					try {
+						resolve(failed(error));
+					} catch (thrown) {
+						reject(thrown);
+					}
 				}
-			},
-			(error: unknown) => {
-				try {
-					resolve(failed(error));
-				} catch (thrown) {
-					reject(thrown);
-				}
-			}
-		);
+			);
 		return this._join(key, entry, flight, signal);
 	}
 
@@ -574,7 +576,7 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 		e.flight = null;
 		e.work = null;
 		this._move(e, e.held!);
-		if (work !== null) close(work);
+		if (work !== null) work.close();
 	}
 
 	/** The one place an entry moves: told to the observers, and in a rules build refused (thrown)
@@ -642,7 +644,7 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 		e.flight = null;
 		e.work = null;
 		this._move(e, GONE_NOW);
-		if (work !== null) close(work);
+		if (work !== null) work.close();
 	}
 }
 

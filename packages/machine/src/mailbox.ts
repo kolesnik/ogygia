@@ -1,5 +1,5 @@
 import { report_thrown } from './messages.ts';
-import { closed, defer, type Life, type Scope } from './scope.ts';
+import type { Life, Scope } from './scope.ts';
 import { STALE, whole, type Fresh, type Stale } from './stale.ts';
 
 /** The handler's side of its turn. */
@@ -249,8 +249,8 @@ const CLOSED_BOX: Mailbox = /* @__PURE__ */ (() => {
  */
 export function mailbox(owner: Scope | Life): Mailbox {
 	const o = owner as Life;
-	if (closed(o)) return CLOSED_BOX;
+	if (o.closed) return CLOSED_BOX;
 	const box = new Box();
-	defer(o, () => box._close());
+	o.defer(() => box._close());
 	return box;
 }

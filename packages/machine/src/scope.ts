@@ -149,8 +149,10 @@ const BUBBLE: EventListenerOptions = { capture: false };
 const CAPTURE: EventListenerOptions = { capture: true };
 
 /**
- * @internal What a scope is, as ogygia's own runtime holds it: plain fields that the functions
- * below read and write. Not a `Scope`: an app never holds one (it gets a `Scope`, a view of one).
+ * @internal What a scope is, as ogygia's own runtime holds it: plain fields and the methods its
+ * runtime calls, which hold a listener, a timer or a cleanup with no handle and no closure. A
+ * public `Scope` is one of these with the methods an app calls (`Scoped`); an app never holds a
+ * bare one.
  *
  * - What it holds is flat entries of four. `_firsts`: listeners and timers, `[kind, a, b, c]` (a
  *   listener is its removal options, target, type and function; a timer is `TIMER` and its
@@ -180,9 +182,197 @@ export class Life {
 	/** Async disposals started by its close. */
 	_settling: Promise<unknown>[] | null = null;
 
-	constructor(parent: Life | null, label: string | null) {
+	/** A new life, its own root (`child()` makes one under a parent). */
+	constructor(label: string | null = null, parent: Life | null = null) {
 		this._parent = parent;
 		this._label = label;
+	}
+
+	/** It has closed. */
+	get closed(): boolean {
+		return this._epoch < 0;
+	}
+
+	/** Aborts when it closes (already aborted on a closed life). */
+	get signal(): AbortSignal {
+		if (this._abort !== null) return this._abort.signal;
+		const abort = (this._abort = new AbortController());
+		if (this._epoch < 0) abort.abort();
+		return abort.signal;
+	}
+
+	/** A life that closes when this one does, before this one's own cleanups; closed when this
+	 *  one is. */
+	child(): Life {
+		return link(this, new Life(null, this));
+	}
+
+	/** Listens until it closes, as `Scope.on`, with no handle. */
+	listen<T extends ListenerTarget, K extends string>(
+		target: T,
+		type: K,
+		listener: (event: EventOf<T, K>) => void,
+		options?: boolean | AddEventListenerOptions
+	): void {
+		hear(this, target, type, listener as (...args: never[]) => void, options);
+	}
+
+	/** Runs `fn(a)` once after `when`, unless it closes first, as `Scope.timeout`, with no handle.
+	 *  Passing the one value `fn` needs as `a` makes no closure for it. */
+	later<A>(fn: (a: A) => void, when: When, a?: A): void {
+		arm(this, fn as (a?: A) => void, when, a);
+	}
+
+	/** `later`, with the function that cancels it sooner (see `Scope.timeout`). */
+	timeout(fn: () => void, when: When): () => void {
+		return early(this, arm(this, fn, when));
+	}
+
+	/** Runs `fn` every `ms` until it closes, with the function that stops sooner (see
+	 *  `Scope.every`). */
+	every(fn: () => void, ms: number): () => void {
+		if (!is_time(ms)) throw machine_error('machine_bad_time', { where: 'every()', ms: String(ms) });
+		return this._epoch < 0 ? noop : early(this, put(this, TIMER, timers.every(fn, ms), null, null));
+	}
+
+	/** Runs `cleanup` once when it closes, newest first; at once on a closed life. */
+	defer(cleanup: () => void): void {
+		if (this._epoch < 0) cleanup();
+		else {
+			const list = this._cleanups;
+			if (list === null) this._cleanups = [cleanup];
+			else list.push(cleanup);
+		}
+	}
+
+	/** Runs `fn(a, b, c)` once when it closes, as `defer` does: passing the values `fn` needs
+	 *  makes no closure for them. */
+	on_close<A, B, C>(fn: (a: A, b: B, c: C) => void, a?: A, b?: B, c?: C): void {
+		if (this._epoch < 0) fn(a as A, b as B, c as C);
+		else put_cleanup(this, fn as Release, a, b, c);
+	}
+
+	/** Disconnects `observer` when it closes (at once on a closed life). Returns it. */
+	watch<O extends Watcher>(observer: O): O {
+		if (this._epoch < 0) observer.disconnect();
+		else put_cleanup(this, disconnect, observer, null, null);
+		return observer;
+	}
+
+	/** Disposes `disposable` when it closes (see `Scope.adopt`). Returns it. */
+	adopt<D extends Disposable | AsyncDisposable>(disposable: D): D {
+		const d = disposable as Partial<Disposable & AsyncDisposable>;
+		const open = this._epoch >= 0;
+		if (typeof d[DISPOSE] === 'function') {
+			if (open) put_cleanup(this, dispose, d, null, null);
+			else dispose(d as Disposable);
+		} else if (typeof d[ASYNC_DISPOSE] === 'function') {
+			if (open) put_cleanup(this, dispose_later, this, d, null);
+			else if (this._closing) dispose_later(this, d as AsyncDisposable);
+			// closed already (late work): its close has looked at its disposals, so this one is said
+			// here. One adopted by a cleanup of its own close still goes with the close's own.
+			else said(this, Promise.resolve((d as AsyncDisposable)[ASYNC_DISPOSE]()));
+		} else throw machine_error('machine_not_disposable', { value: typeof disposable });
+		return disposable;
+	}
+
+	/** Runs `work` for it (see `Scope.task`): `STALE` once it closes. */
+	task<R>(work: (signal: AbortSignal) => R): Promise<Fresh<Awaited<R>> | Stale> {
+		if (this._epoch < 0) return Promise.resolve(STALE);
+		const sig = this.signal;
+		let out: R | Promise<never>;
+		try {
+			out = work(sig);
+		} catch (error) {
+			out = Promise.reject(error);
+		}
+		// (work that closed its own scope before it returned, by moving its machine on: the abort
+		// came before anyone could listen for it)
+		if (sig.aborted) {
+			Promise.resolve(out).then(noop, noop);
+			return Promise.resolve(STALE);
+		}
+		return new Promise((resolve, reject) => {
+			// settles the moment the scope closes, even when `work` ignores its signal and never does
+			const on_abort = () => resolve(STALE);
+			sig.addEventListener('abort', on_abort, { once: true });
+			Promise.resolve(out).then(
+				(value) => {
+					sig.removeEventListener('abort', on_abort);
+					resolve(sig.aborted ? STALE : whole(value as Awaited<R>));
+				},
+				(error: unknown) => {
+					sig.removeEventListener('abort', on_abort);
+					if (sig.aborted) resolve(STALE);
+					else reject(error);
+				}
+			);
+		});
+	}
+
+	/** Closes it (see `Scope.close`). Safe twice. */
+	close(): void {
+		const epoch = this._epoch;
+		if (epoch < 0) return;
+		this._epoch = -1 - epoch;
+		this._closing = true;
+		const parent = this._parent;
+		if (parent !== null) {
+			unlink(parent, this);
+			this._parent = null;
+		}
+		let errors: unknown[] | null = null;
+		for (let k = this._last; k !== null; k = this._last) {
+			try {
+				k.close();
+			} catch (error) {
+				(errors ??= []).push(error);
+			}
+			if (this._last === k) unlink(this, k);
+		}
+		this._abort?.abort();
+		// (a release that throws, an `off` of a target that is gone, is one more error: the others
+		// and the cleanups still run)
+		const firsts = this._firsts;
+		if (firsts !== null) {
+			this._firsts = null;
+			for (let i = 0; i < firsts.length; i += 4) {
+				const k = firsts[i];
+				if (k === DEAD) continue;
+				try {
+					free(k, firsts[i + 1], firsts[i + 2], firsts[i + 3]);
+				} catch (error) {
+					(errors ??= []).push(error);
+				}
+			}
+		}
+		const cleanups = this._cleanups;
+		if (cleanups !== null) {
+			this._cleanups = null;
+			for (let i = cleanups.length - 1; i >= 0; i--) {
+				const top = cleanups[i];
+				try {
+					if (top !== WITH) (top as () => void)();
+					else {
+						i -= 4;
+						(cleanups[i] as (a: unknown, b: unknown, c: unknown) => void)(
+							cleanups[i + 1],
+							cleanups[i + 2],
+							cleanups[i + 3]
+						);
+					}
+				} catch (error) {
+					(errors ??= []).push(error);
+				}
+			}
+		}
+		this._closing = false;
+		if (this._settling !== null && !this._awaited)
+			for (const done of this._settling) said(this, done);
+		if (errors !== null)
+			throw errors.length === 1
+				? errors[0]
+				: new AggregateError(errors, `[ogygia] ${named(this)}: ${errors.length} cleanups threw`);
 	}
 }
 
@@ -241,6 +431,19 @@ function unlink(parent: Life, k: Life): void {
 	if (next !== null) next._prev = prev;
 	else if (parent._last === k) parent._last = prev;
 	k._prev = k._next = null;
+}
+
+function link<L extends Life>(l: Life, k: L): L {
+	if (l._epoch < 0) {
+		k._parent = null;
+		k._epoch = -1;
+		return k;
+	}
+	const last = l._last;
+	k._prev = last;
+	if (last !== null) last._next = k;
+	l._last = k;
+	return k;
 }
 
 function early(l: Life, i: number): () => void {
@@ -308,229 +511,9 @@ function arm<A>(l: Life, fn: (a?: A) => void, when: When, a?: A): number {
 	return (i = put(l, timed ? TIMER : CALL, held, null, null));
 }
 
-function every_at(l: Life, fn: () => void, ms: number): number {
-	if (!is_time(ms)) throw machine_error('machine_bad_time', { where: 'every()', ms: String(ms) });
-	if (l._epoch < 0) return -1;
-	return put(l, TIMER, timers.every(fn, ms), null, null);
-}
-
-/** @internal A new life, its own root (`child` makes one under a parent). */
+/** @internal A new life, its own root (as `new Life(label)`). */
 export function root(label: string | null = null): Life {
-	return new Life(null, label);
-}
-
-/** @internal It has closed (and was not opened again). */
-export function closed(l: Life): boolean {
-	return l._epoch < 0;
-}
-
-/** @internal A life that closes when `l` does, before `l`'s own cleanups; closed when `l` is. */
-export function child(l: Life): Life {
-	return link(l, new Life(l, null));
-}
-
-function link(l: Life, k: Life): Life {
-	if (l._epoch < 0) {
-		k._parent = null;
-		k._epoch = -1;
-		return k;
-	}
-	const last = l._last;
-	k._prev = last;
-	if (last !== null) last._next = k;
-	l._last = k;
-	return k;
-}
-
-/** @internal Listens until `l` closes, as `Scope.on`, with no handle. */
-export const listen: <T extends ListenerTarget, K extends string>(
-	l: Life,
-	target: T,
-	type: K,
-	listener: (event: EventOf<T, K>) => void,
-	options?: boolean | AddEventListenerOptions
-) => void = hear as never;
-
-/** @internal Runs `fn(a)` once after `when`, unless `l` closes first, as `Scope.timeout`, with no
- *  handle. Passing the one value `fn` needs as `a` makes no closure for it. */
-export const later: <A>(l: Life, fn: (a: A) => void, when: When, a?: A) => void = arm as never;
-
-/** @internal `later`, with the function that cancels it sooner, as `Scope.timeout` returns. */
-export function timeout(l: Life, fn: () => void, when: When): () => void {
-	return early(l, arm(l, fn, when));
-}
-
-/** @internal Runs `fn` every `ms` until `l` closes, with the function that stops sooner, as
- *  `Scope.every`. */
-export function every(l: Life, fn: () => void, ms: number): () => void {
-	return early(l, every_at(l, fn, ms));
-}
-
-/** @internal Listens until `l` closes, with the function that stops sooner, as `Scope.on`. */
-export function hear_until<T extends ListenerTarget, K extends string>(
-	l: Life,
-	target: T,
-	type: K,
-	listener: (event: EventOf<T, K>) => void,
-	options?: boolean | AddEventListenerOptions
-): () => void {
-	return early(l, hear(l, target, type, listener as (...args: never[]) => void, options));
-}
-
-/** @internal Runs `cleanup` once when `l` closes, newest first; at once on a closed life. */
-export function defer(l: Life, cleanup: () => void): void {
-	if (l._epoch < 0) cleanup();
-	else {
-		const list = l._cleanups;
-		if (list === null) l._cleanups = [cleanup];
-		else list.push(cleanup);
-	}
-}
-
-/** @internal Runs `fn(a, b, c)` once when `l` closes, as `defer` does: passing the values `fn`
- *  needs makes no closure for them. */
-export function on_close<A, B, C>(
-	l: Life,
-	fn: (a: A, b: B, c: C) => void,
-	a?: A,
-	b?: B,
-	c?: C
-): void {
-	if (l._epoch < 0) fn(a as A, b as B, c as C);
-	else put_cleanup(l, fn as Release, a, b, c);
-}
-
-/** @internal Disconnects `observer` when `l` closes (at once on a closed life). Returns it. */
-export function watch<O extends Watcher>(l: Life, observer: O): O {
-	if (l._epoch < 0) observer.disconnect();
-	else put_cleanup(l, disconnect, observer, null, null);
-	return observer;
-}
-
-/** @internal Disposes `disposable` when `l` closes (see `Scope.adopt`). Returns it. */
-export function adopt<D extends Disposable | AsyncDisposable>(l: Life, disposable: D): D {
-	const d = disposable as Partial<Disposable & AsyncDisposable>;
-	const open = l._epoch >= 0;
-	if (typeof d[DISPOSE] === 'function') {
-		if (open) put_cleanup(l, dispose, d, null, null);
-		else dispose(d as Disposable);
-	} else if (typeof d[ASYNC_DISPOSE] === 'function') {
-		if (open) put_cleanup(l, dispose_later, l, d, null);
-		else if (l._closing) dispose_later(l, d as AsyncDisposable);
-		// closed already (late work): its close has looked at its disposals, so this one is said
-		// here. One adopted by a cleanup of its own close still goes with the close's own.
-		else said(l, Promise.resolve((d as AsyncDisposable)[ASYNC_DISPOSE]()));
-	} else throw machine_error('machine_not_disposable', { value: typeof disposable });
-	return disposable;
-}
-
-/** @internal Aborts when `l` closes (already aborted on a closed life). */
-export function signal(l: Life): AbortSignal {
-	if (l._abort !== null) return l._abort.signal;
-	const abort = (l._abort = new AbortController());
-	if (l._epoch < 0) abort.abort();
-	return abort.signal;
-}
-
-/** @internal Runs `work` for `l` (see `Scope.task`): `STALE` once `l` closes. */
-export function task<R>(
-	l: Life,
-	work: (signal: AbortSignal) => R
-): Promise<Fresh<Awaited<R>> | Stale> {
-	if (l._epoch < 0) return Promise.resolve(STALE);
-	const sig = signal(l);
-	let out: R | Promise<never>;
-	try {
-		out = work(sig);
-	} catch (error) {
-		out = Promise.reject(error);
-	}
-	// (work that closed its own scope before it returned, by moving its machine on: the abort
-	// came before anyone could listen for it)
-	if (sig.aborted) {
-		Promise.resolve(out).then(noop, noop);
-		return Promise.resolve(STALE);
-	}
-	return new Promise((resolve, reject) => {
-		// settles the moment the scope closes, even when `work` ignores its signal and never does
-		const on_abort = () => resolve(STALE);
-		sig.addEventListener('abort', on_abort, { once: true });
-		Promise.resolve(out).then(
-			(value) => {
-				sig.removeEventListener('abort', on_abort);
-				resolve(sig.aborted ? STALE : whole(value as Awaited<R>));
-			},
-			(error: unknown) => {
-				sig.removeEventListener('abort', on_abort);
-				if (sig.aborted) resolve(STALE);
-				else reject(error);
-			}
-		);
-	});
-}
-
-/** @internal Closes `l` (see `Scope.close`). Safe twice. */
-export function close(l: Life): void {
-	const epoch = l._epoch;
-	if (epoch < 0) return;
-	l._epoch = -1 - epoch;
-	l._closing = true;
-	const parent = l._parent;
-	if (parent !== null) {
-		unlink(parent, l);
-		l._parent = null;
-	}
-	let errors: unknown[] | null = null;
-	for (let k = l._last; k !== null; k = l._last) {
-		try {
-			close(k);
-		} catch (error) {
-			(errors ??= []).push(error);
-		}
-		if (l._last === k) unlink(l, k);
-	}
-	l._abort?.abort();
-	// (a release that throws, an `off` of a target that is gone, is one more error: the others
-	// and the cleanups still run)
-	const firsts = l._firsts;
-	if (firsts !== null) {
-		l._firsts = null;
-		for (let i = 0; i < firsts.length; i += 4) {
-			const k = firsts[i];
-			if (k === DEAD) continue;
-			try {
-				free(k, firsts[i + 1], firsts[i + 2], firsts[i + 3]);
-			} catch (error) {
-				(errors ??= []).push(error);
-			}
-		}
-	}
-	const cleanups = l._cleanups;
-	if (cleanups !== null) {
-		l._cleanups = null;
-		for (let i = cleanups.length - 1; i >= 0; i--) {
-			const top = cleanups[i];
-			try {
-				if (top !== WITH) (top as () => void)();
-				else {
-					i -= 4;
-					(cleanups[i] as (a: unknown, b: unknown, c: unknown) => void)(
-						cleanups[i + 1],
-						cleanups[i + 2],
-						cleanups[i + 3]
-					);
-				}
-			} catch (error) {
-				(errors ??= []).push(error);
-			}
-		}
-	}
-	l._closing = false;
-	if (l._settling !== null && !l._awaited) for (const done of l._settling) said(l, done);
-	if (errors !== null)
-		throw errors.length === 1
-			? errors[0]
-			: new AggregateError(errors, `[ogygia] ${named(l)}: ${errors.length} cleanups threw`);
+	return new Life(label);
 }
 
 /** @internal What `l` still holds: live listeners, timers and cleanups, and open children. */
@@ -554,24 +537,16 @@ export function held(l: Life): number {
 export const ENDED: Life = /* @__PURE__ */ ended();
 
 function ended(): Life {
-	const l = new Life(null, null);
+	const l = new Life();
 	l._epoch = -1;
 	return l;
 }
 
 /**
- * The public `Scope`: a life with the methods an app calls, so a scope is its own life and every
- * function above works on it as it is.
+ * The public `Scope`: a life with the methods an app calls beyond its own, so a scope is its own
+ * life and the runtime's methods work on it as it is.
  */
 class Scoped extends Life implements Scope {
-	get closed(): boolean {
-		return this._epoch < 0;
-	}
-
-	get signal(): AbortSignal {
-		return signal(this);
-	}
-
 	on(
 		target: ListenerTarget | Emitter,
 		type: string,
@@ -581,40 +556,12 @@ class Scoped extends Life implements Scope {
 		return early(this, hear(this, target, type, listener, options));
 	}
 
-	timeout(fn: () => void, when: When): () => void {
-		return early(this, arm(this, fn, when));
-	}
-
-	every(fn: () => void, ms: number): () => void {
-		return early(this, every_at(this, fn, ms));
-	}
-
-	watch<O extends Watcher>(observer: O): O {
-		return watch(this, observer);
-	}
-
-	task<R>(work: (signal: AbortSignal) => R): Promise<Fresh<Awaited<R>> | Stale> {
-		return task(this, work);
-	}
-
-	child(): Scope {
-		return this._epoch < 0 ? CLOSED : (link(this, new Scoped(this, null)) as Scoped);
-	}
-
-	defer(cleanup: () => void): void {
-		defer(this, cleanup);
-	}
-
-	adopt<D extends Disposable | AsyncDisposable>(disposable: D): D {
-		return adopt(this, disposable);
-	}
-
-	close(): void {
-		close(this);
+	child(): Scoped {
+		return this._epoch < 0 ? CLOSED_SCOPE : link(this, new Scoped(null, this));
 	}
 
 	[DISPOSE](): void {
-		close(this);
+		this.close();
 	}
 
 	async [ASYNC_DISPOSE](): Promise<void> {
@@ -622,7 +569,7 @@ class Scoped extends Life implements Scope {
 		if (this._epoch >= 0) {
 			this._awaited = true;
 			try {
-				close(this);
+				this.close();
 			} catch (error) {
 				errors.push(error);
 			}
@@ -636,13 +583,15 @@ class Scoped extends Life implements Scope {
 }
 
 /** @internal What a public scope is made as: a life that is a `Scope` (a machine's visits, `scope()`). */
-export const SCOPED: new (parent: Life | null, label: string | null) => Life = Scoped;
+export const SCOPED: new (label?: string | null, parent?: Life | null) => Life = Scoped;
 
 /** The scope of an owner that has already ended: everything given to it is released at once. */
 export const CLOSED: Scope = /* @__PURE__ */ closed_scope();
 
+const CLOSED_SCOPE = CLOSED as Scoped;
+
 function closed_scope(): Scoped {
-	const s = new Scoped(null, null);
+	const s = new Scoped();
 	s._epoch = -1;
 	return s;
 }
@@ -654,5 +603,5 @@ export function life_of(s: Scope | Life): Life {
 
 /** A new scope; with `parent`, one that closes when the parent does (`parent.child()`). */
 export function scope(parent?: Scope): Scope {
-	return parent === undefined ? new Scoped(null, null) : parent.child();
+	return parent === undefined ? new Scoped() : parent.child();
 }

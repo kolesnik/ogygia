@@ -23,20 +23,7 @@
  */
 import { machine_error, warn_once } from './messages.ts';
 import { noop } from './noop.ts';
-import {
-	define as define_run,
-	go_to,
-	heard,
-	move_from,
-	now,
-	RULES,
-	Run,
-	stop,
-	visit,
-	wait_for,
-	watch_moves,
-	type Def
-} from './run.ts';
+import { define as define_run, heard, RULES, Run, watch_moves, type Def } from './run.ts';
 import { CLOSED, SCOPED, type Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
@@ -214,35 +201,13 @@ export function observe(observer: Observer): () => void {
 
 export { heard };
 
-type State = { readonly kind: string };
-
 /**
- * A machine as `machine()` hands it out: the runtime record with the methods of `Machine`; each
+ * A machine as `machine()` hands it out: the runtime record, whose methods are `Machine`'s; each
  * visit's life is a public scope, the same through the visit.
  */
 class Running extends Run {
-	get now(): State {
-		return now(this) as State;
-	}
-
 	get scope(): Scope {
-		return this._stopped ? CLOSED : (visit(this) as unknown as Scope);
-	}
-
-	go(to: string, data?: object): boolean {
-		return go_to(this, to, data);
-	}
-
-	move(from: string, to: string, data?: object): boolean {
-		return move_from(this, from, to, data);
-	}
-
-	wait(kind: string): Promise<State | Stale> {
-		return wait_for(this, kind);
-	}
-
-	stop(): void {
-		stop(this);
+		return this._stopped ? CLOSED : (this.visit() as unknown as Scope);
 	}
 }
 

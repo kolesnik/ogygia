@@ -12,7 +12,7 @@
  */
 import { clock, random as randomness, timers } from './ports.ts';
 import { machine_error } from './messages.ts';
-import { close, closed, listen, MAX_TIMEOUT_MS, on_close, root, task, type Life } from './scope.ts';
+import { Life, MAX_TIMEOUT_MS } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
 export interface Policy {
@@ -103,7 +103,7 @@ export function out_of_time(deadline: number, error: unknown): DOMException {
  * process with nothing else to do exits in the wait, and the send is neither done nor given up.
  */
 function alive(tries: Life, fn: () => void, ms: number): void {
-	on_close(tries, timers.cancel, timers.keep(fn, ms));
+	tries.on_close(timers.cancel, timers.keep(fn, ms));
 }
 
 /**
@@ -119,34 +119,34 @@ export async function under_policy<T>(
 	signal?: AbortSignal
 ): Promise<Awaited<T> | Stale> {
 	if (signal?.aborted) return STALE;
-	const tries = root();
+	const tries = new Life();
 	let left = false;
-	if (signal !== undefined) listen(tries, signal, 'abort', () => ((left = true), close(tries)));
+	if (signal !== undefined) tries.listen(signal, 'abort', () => ((left = true), tries.close()));
 	const started = p.deadline === Infinity ? 0 : clock.mono();
-	if (p.deadline !== Infinity) alive(tries, () => close(tries), p.deadline);
+	if (p.deadline !== Infinity) alive(tries, () => tries.close(), p.deadline);
 	let error: unknown = undefined;
 	try {
 		for (let n = 1; ; n++) {
 			try {
-				const answer = await task(tries, work);
-				if (!closed(tries)) return answer as Awaited<T>;
+				const answer = await tries.task(work);
+				if (!tries.closed) return answer as Awaited<T>;
 			} catch (e) {
 				error = e;
 			}
 			if (left) return STALE;
-			if (closed(tries)) throw out_of_time(p.deadline, error);
+			if (tries.closed) throw out_of_time(p.deadline, error);
 			if (n >= p.attempts) throw error;
 			const wait = backoffAfter(p, n);
 			// (a wait that ends past the deadline is a try that would only be aborted: out of time)
 			if (p.deadline !== Infinity && clock.mono() - started + wait >= p.deadline)
 				throw out_of_time(p.deadline, error);
 			if (wait > 0) {
-				await task(tries, () => new Promise<void>((r) => alive(tries, r, wait)));
+				await tries.task(() => new Promise<void>((r) => alive(tries, r, wait)));
 				if (left) return STALE;
-				if (closed(tries)) throw out_of_time(p.deadline, error);
+				if (tries.closed) throw out_of_time(p.deadline, error);
 			}
 		}
 	} finally {
-		close(tries);
+		tries.close();
 	}
 }
