@@ -251,7 +251,8 @@ bench('virtual constants: the define map of two option sets, and their generated
 		hooks: [],
 		kit_major: null,
 		version: '0.0.0',
-		dev_server: false
+		dev_server: false,
+		kit_pages: false
 	};
 	const on: ConstantInput = {
 		continuity_forms: true,
@@ -263,7 +264,8 @@ bench('virtual constants: the define map of two option sets, and their generated
 		hooks: ['regionMount', 'regionHydrated', 'navigated'],
 		kit_major: 3,
 		version: '1.2.3',
-		dev_server: true
+		dev_server: true,
+		kit_pages: true
 	};
 	let n = 0;
 	for (const input of [base, on]) n += Object.keys(core_defines(input)).length;
