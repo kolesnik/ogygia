@@ -15,6 +15,8 @@ const requested = (part: string) =>
 	performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
 
 test('the location 404s: the island wakes on the current build’s file', async () => {
+	// @why the browser keeps 250 resource entries and drops the rest; a dev run loads each source module as one (test: entry-location-fallback › the location 404s: the island wakes on the current build’s file)
+	performance.clearResourceTimings();
 	document.body.innerHTML = counter_html();
 	const region = document.querySelector('ogygia-region')!;
 	region.setAttribute('entry', IDENTITY);
