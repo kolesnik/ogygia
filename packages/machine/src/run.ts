@@ -96,7 +96,7 @@ export interface Def<S = unknown, T = unknown, I = unknown> {
 	/** The states each one reaches in one or more steps, as `masks` (built on the first `wait`). */
 	reach: number[] | null;
 	/** Each visit's value is made as the machine enters it, a copy of the data at that moment (the
-	 *  public `machine()`'s promise); else on first read. */
+	 *  public `machine()`'s promise, whose `create` makes the first one); else on first read. */
 	copies: boolean;
 	/** What a visit's life is made as (the public `machine()`'s: a `Scope`, its own life). */
 	life: new (label: string | null) => Life;
@@ -142,7 +142,6 @@ export class Run<S = any, T = any> {
 		this._state = s;
 		this.data = data as DataOf<S>;
 		if (DEV) checked_data(def, s, data);
-		if (def.copies) this._now = made(def.names[s]!, data);
 		if (def.after[s]) arm(this);
 	}
 
@@ -271,7 +270,8 @@ function value_of(m: Bare): State {
 	return m._now ?? (m._now = made(m._def.names[m._state]!, m.data));
 }
 
-function made(kind: string, data: object | undefined): State {
+/** A state's value: its kind and the data it was entered with (frozen in dev). */
+export function made(kind: string, data: object | undefined): State {
 	const value = data === undefined ? { kind } : { ...data, kind };
 	return DEV ? Object.freeze(value) : value;
 }

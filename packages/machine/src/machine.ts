@@ -23,7 +23,7 @@
  */
 import { machine_error, warn_once } from './messages.ts';
 import { noop } from './noop.ts';
-import { define as define_run, heard, RULES, Run, watch_moves, type Def } from './run.ts';
+import { define as define_run, heard, made, RULES, Run, watch_moves, type Def } from './run.ts';
 import { CLOSED, SCOPED, type Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
@@ -226,11 +226,16 @@ export function machine<S extends Shape<S>>(): <const T extends Steps<S>, const 
 
 function define(config: Parameters<typeof define_run>[0]): object {
 	const def = define_run(config, true, SCOPED);
+	const initial = def.names[def.initial]!;
 	return Object.freeze({
 		name: def.name,
-		initial: def.names[def.initial],
+		initial,
 		steps: def.steps,
-		create: (data?: object) => new Running(def, data),
+		create: (data?: object) => {
+			const m = new Running(def, data);
+			m._now = made(initial, data);
+			return m;
+		},
 		graph: RULES ? () => graph_of(def) : drawn_off,
 		paths: RULES ? () => paths_of(def) : drawn_off
 	});
