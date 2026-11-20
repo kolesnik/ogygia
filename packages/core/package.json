@@ -31,6 +31,15 @@
 			"types": "./dist/region-server.d.ts",
 			"browser": "./dist/region-server.browser.js",
 			"default": "./dist/region-server.js"
+		},
+		"#entry-load": {
+			"ogygia-source": {
+				"browser": "./src/entry-load.browser.ts",
+				"default": "./src/entry-load.ts"
+			},
+			"types": "./dist/entry-load.d.ts",
+			"browser": "./dist/entry-load.browser.js",
+			"default": "./dist/entry-load.js"
 		}
 	},
 	"exports": {
@@ -123,6 +132,11 @@
 				"types": "./dist/region-server.d.ts",
 				"browser": "./dist/region-server.browser.js",
 				"default": "./dist/region-server.js"
+			},
+			"#entry-load": {
+				"types": "./dist/entry-load.d.ts",
+				"browser": "./dist/entry-load.browser.js",
+				"default": "./dist/entry-load.js"
 			}
 		},
 		"exports": {
