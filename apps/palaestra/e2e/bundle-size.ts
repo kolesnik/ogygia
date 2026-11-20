@@ -61,6 +61,9 @@ const HOOK_CONSTANTS: string[] = existsSync(HOOKS_FILE)
 	: [];
 /** A build constant's name (`__OGYGIA_X__`), as it is left in code when nothing defined it. */
 const BUILD_CONSTANT_RE = /\b__OGYGIA_[A-Z0-9_]+__\b/g;
+/** The boot realm's virtual module (`ogygia:boot`, `ogygia:boot/…`), as an import a chunk kept.
+ *  (`ogygia:region` is the app's transport, the app's own code: external, like svelte.) */
+const VIRTUAL_ID_RE = /^ogygia:boot(\/|$)/;
 const SNAPSHOT = fileURLToPath(new URL('./bundle-size.snapshot.json', import.meta.url));
 // `--compare <json>`: gate against another build's `--json` (the PR's base) instead of the snapshot
 const COMPARE = arg('--compare');
@@ -220,6 +223,15 @@ async function measure(
 	if (undefined_constants.size)
 		throw new Error(
 			`bundle-size: build constants left undefined (define them as the plugin does): ${[...undefined_constants].join(', ')}`
+		);
+	// every virtual module is the build's own, as the plugin serves it: one left external keeps
+	// what its flags would fold (`FRAMES` off still ships the frame path), a size no real build ships
+	const unresolved_virtuals = new Set(
+		chunks.flatMap((c) => c.imports.filter((id) => VIRTUAL_ID_RE.test(id)))
+	);
+	if (unresolved_virtuals.size)
+		throw new Error(
+			`bundle-size: virtual modules left unresolved (serve them as the plugin does): ${[...unresolved_virtuals].join(', ')}`
 		);
 	// BOOT is the entry chunk plus everything it imports STATICALLY (a module the entry shares with
 	// a lazy chunk lands in a shared chunk the entry still loads at boot); the rest is lazy.
