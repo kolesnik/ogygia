@@ -59,7 +59,12 @@ describe('regex replacements answer what the regex did', () => {
 			'abcdefabcdef',
 			'１２',
 			'a'.repeat(64),
-			`${'f'.repeat(63)}g`
+			`${'f'.repeat(63)}g`,
+			`${'f'.repeat(63)}\n`,
+			`\n${'f'.repeat(63)}`,
+			`${'0'.repeat(11)}\n`,
+			`${'A'.repeat(64)}`,
+			`${'0'.repeat(32)}\u0000${'0'.repeat(31)}`
 		];
 		for (const s of inputs) {
 			expect(is_region_id(s)).toBe(/^[0-9a-f]{12}$/.test(s));
