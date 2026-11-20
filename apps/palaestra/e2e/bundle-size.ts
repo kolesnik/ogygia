@@ -90,45 +90,56 @@ const asJson = process.argv.includes('--json');
 
 // App profiles → the runtime marks a real app of that shape produces. `wire` + `remote-seeds` are
 // always on (props/seeds decode); `forms` is on by default for progressively-enhanced actions.
-const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks }> = [
+// `budget`: the most the profile's boot may weigh, brotli bytes, in every mode but `--core`: a
+// ceiling of its own, whatever the base branch weighs (raise it on purpose, with the PR's
+// `Size baseline:` line).
+const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks; budget: number }> = [
 	{
 		name: 'Static content',
 		blurb: 'load-hydrated islands',
-		marks: { complete: true, hydrate: ['load'], forms: false }
+		marks: { complete: true, hydrate: ['load'], forms: false },
+		budget: 25_850
 	},
 	{
 		name: 'Interactive',
 		blurb: 'interaction-hydrated widgets',
-		marks: { complete: true, hydrate: ['interaction'], forms: false }
+		marks: { complete: true, hydrate: ['interaction'], forms: false },
+		budget: 25_850
 	},
 	{
 		name: 'Forms',
 		blurb: 'progressively-enhanced actions',
-		marks: { complete: true, hydrate: ['load'], forms: true }
+		marks: { complete: true, hydrate: ['load'], forms: true },
+		budget: 26_350
 	},
 	{
 		name: 'SPA router',
 		blurb: 'client-side navigation',
-		marks: { complete: true, hydrate: ['load'], router: true, forms: true }
+		marks: { complete: true, hydrate: ['load'], router: true, forms: true },
+		budget: 31_600
 	},
 	{
 		name: 'Frozen regions',
 		blurb: 'lakes',
-		marks: { complete: true, hydrate: ['none'], lakes: true, forms: false }
+		marks: { complete: true, hydrate: ['none'], lakes: true, forms: false },
+		budget: 32_350
 	},
 	{
 		name: 'Live regions',
 		blurb: 'streaming held regions',
-		marks: { complete: true, hydrate: ['load'], live: true, morph: true }
+		marks: { complete: true, hydrate: ['load'], live: true, morph: true },
+		budget: 34_800
 	},
 	{
 		name: 'Context',
 		blurb: 'cross-island Provide / setContext',
-		marks: { complete: true, hydrate: ['load'], context: true, forms: false }
+		marks: { complete: true, hydrate: ['load'], context: true, forms: false },
+		budget: 25_800
 	},
 	{
 		name: 'Everything',
 		blurb: 'kitchen sink, with the profiler beacon and a client plugin',
+		budget: 40_050,
 		marks: {
 			complete: true,
 			hydrate: ['load', 'interaction', 'none'],
@@ -428,8 +439,17 @@ if (!arg('--core')) {
 					leaks.push(`${r.name}: its boot holds ${p.name} ('${text}'), which its marks never run`);
 			}
 		}
+	for (const p of PROFILES) {
+		const r = rows.find((row) => row.name === p.name)!;
+		if (r.boot.brotli > p.budget)
+			leaks.push(
+				`${r.name}: its boot weighs ${r.boot.brotli} B brotli, over its budget ${p.budget}`
+			);
+	}
 	if (leaks.length) {
-		console.error(`✗ bundle-size: a program in the wrong boot:\n  ${leaks.join('\n  ')}`);
+		console.error(
+			`✗ bundle-size: a program in the wrong boot, or a boot over budget:\n  ${leaks.join('\n  ')}`
+		);
 		// (`--json` still writes the numbers; the run fails after)
 		process.exitCode = 1;
 		if (!asJson) process.exit(1);
