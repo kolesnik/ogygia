@@ -38,7 +38,12 @@ export function importedGate(name: string, spec: string, exported: string): Gate
 	return { name, check: (emitter) => emitter.imported(spec, exported) };
 }
 
-/** A gate hoisted once per file as `const <local> = <expression>;`, under `local` or, when the file
+const WHITESPACE_RE = /\s+/g;
+const same_code = (a: string, b: string): boolean =>
+	a.replace(WHITESPACE_RE, '') === b.replace(WHITESPACE_RE, '');
+
+/** A gate hoisted once per file as `const <local> = <expression>;` (a file that declares that
+ *  constant itself, at its top and of the same expression, keeps its own), under `local` or, when the file
  *  binds it, `local_1`…. */
 export function hoistedGate(name: string, local: string, expression: string): Gate {
 	const declared = new WeakMap<Emitter, string>();
@@ -47,6 +52,11 @@ export function hoistedGate(name: string, local: string, expression: string): Ga
 		check(emitter) {
 			const known = declared.get(emitter);
 			if (known !== undefined) return known;
+			const own = new RegExp(`^const ${local}\\s*=([^;]*);`, 'm').exec(emitter.s.original);
+			if (own !== null && same_code(own[1]!, expression)) {
+				declared.set(emitter, local);
+				return local;
+			}
 			const fresh = emitter.fresh(local);
 			emitter.hoisted.push(`const ${fresh} = ${expression};`);
 			declared.set(emitter, fresh);
