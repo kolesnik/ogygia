@@ -1,10 +1,10 @@
 /**
  * Option bags checked at build. A call of `flights`, `flights.keyed<I>()`, `cache`, `queue`, `say`
- * or `policy` imported from `@ogygia/machine` (or the boot link's `flights` / `cache`) whose options
- * the build can read is checked here by the machine's own checks (`check_*` of
- * `@ogygia/machine/internal`, the ones the public makers run), so a bad option fails the build with
- * the code it would throw at runtime (`machine_bad_option`). The call then makes its value without
- * checking again:
+ * or `policy` imported from `@ogygia/machine` (or `plain_flights`, `pass_queue` or `lru` from
+ * `@ogygia/machine/internal`) whose options the build can read is checked here by the machine's own
+ * checks (`check_*` of `@ogygia/machine/internal`, the ones the public makers run), so a bad option
+ * fails the build with the code it would throw at runtime (`machine_bad_option`). The call then
+ * makes its value without checking again:
  *
  *   flights({ name: 'x', run })        →  trusted_flights({ name: 'x', run })
  *   policy({ attempts: 2, backoff: 0 }) →  the policy itself, as frozen data
@@ -12,8 +12,7 @@
  * so production ships no option checks for ogygia's own calls. The build reads literals, a module's
  * own consts of them, and functions (as functions); anything else (a value only the runtime has) is
  * fine where the checks never read it. A call whose checks read a value the build cannot know keeps
- * the runtime check (and the build says so). The boot link hands lazy chunks the unchecked makers,
- * so a linked call the build cannot check is refused.
+ * the runtime check (and the build says so).
  *
  * @packageDocumentation
  */
@@ -70,19 +69,12 @@ const TYPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
 	['retry', policy.standard]
 ]);
 
-/** The boot link's makers, by their index's name (core runtime/boot-link-index.ts). */
-const LINKED: ReadonlyMap<string, string> = new Map([
-	['L_FLIGHTS', 'flights'],
-	['L_CACHE', 'cache']
-]);
-
 /** Whether `code` may call a maker the build checks (so the file is compiled). */
 export function calls_makers(code: string): boolean {
 	return (
 		(code.includes("'@ogygia/machine'") && /\b(?:flights|cache|queue|say|policy)\b/.test(code)) ||
 		(code.includes("'@ogygia/machine/internal'") &&
-			/\b(?:plain_flights|pass_queue|lru)\b/.test(code)) ||
-		/\[L_(?:FLIGHTS|CACHE)\]/.test(code)
+			/\b(?:plain_flights|pass_queue|lru)\b/.test(code))
 	);
 }
 
@@ -122,10 +114,9 @@ export class OptionsPass implements Pass<Scope> {
 	}
 
 	call(node: N, v: Visit<Scope>): boolean {
-		const found = this.#maker(node, v.scope);
-		if (found === null) return false;
+		const name = this.#maker(node, v.scope);
+		if (name === null) return false;
 		const c = this.#c;
-		const { name, linked } = found;
 		const maker = MAKERS.get(name)!;
 		const arg = node.arguments[0];
 		const here: Mod = { program: c.program, path: c.options.path ?? null };
@@ -143,11 +134,6 @@ export class OptionsPass implements Pass<Scope> {
 			}
 		}
 		if (unread !== null) {
-			if (linked)
-				c.report.fail(
-					node,
-					`the boot link's ${name} makes its value unchecked: its options are checked at build, and the build cannot read ${unread}. Write them as a literal.`
-				);
 			c.report.warn(node, `${name}(…) keeps its runtime check: the build cannot read ${unread}.`);
 			return false;
 		}
@@ -156,22 +142,20 @@ export class OptionsPass implements Pass<Scope> {
 			e.rewrite(node, code`${policy_data(policy(options as Partial<Policy>))}`);
 			return true;
 		}
-		if (!linked) e.rewrite(node.callee, code`${e.imported(TRUSTED_RUNTIME, maker.trusted!)}`);
+		e.rewrite(node.callee, code`${e.imported(TRUSTED_RUNTIME, maker.trusted!)}`);
 		v.next();
 		return true;
 	}
 
 	/** The maker `node` calls, or null. */
-	#maker(node: N, scope: Scope): { name: string; linked: boolean } | null {
+	#maker(node: N, scope: Scope): string | null {
 		const callee = node.callee;
 		const top = this.#c.tracker.root;
 		if (callee?.type === 'Identifier') {
 			const name = this.#imports.get(callee.name);
 			if (name === undefined || scope.find_owner(callee.name) !== top) return null;
-			return { name, linked: false };
+			return name;
 		}
-		if (callee?.type === 'MemberExpression' && callee.computed)
-			return linked_maker(callee.property);
 		if (callee?.type !== 'CallExpression' || callee.arguments.length !== 0) return null;
 		const keyed = callee.callee;
 		if (keyed?.type !== 'MemberExpression' || keyed.computed || keyed.property.name !== 'keyed')
@@ -181,19 +165,10 @@ export class OptionsPass implements Pass<Scope> {
 			const maker = this.#imports.get(of.name);
 			if ((maker !== 'flights' && maker !== 'plain_flights') || scope.find_owner(of.name) !== top)
 				return null;
-			return { name: `${maker}.keyed`, linked: false };
-		}
-		if (of?.type === 'MemberExpression' && of.computed) {
-			const link = linked_maker(of.property);
-			return link?.name === 'flights' ? { name: 'flights.keyed', linked: true } : null;
+			return `${maker}.keyed`;
 		}
 		return null;
 	}
-}
-
-function linked_maker(property: N): { name: string; linked: boolean } | null {
-	const name = property?.type === 'Identifier' ? LINKED.get(property.name) : undefined;
-	return name === undefined ? null : { name, linked: true };
 }
 
 const num = (n: number): string => (n === Infinity ? 'Infinity' : String(n));

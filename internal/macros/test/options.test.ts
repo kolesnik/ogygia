@@ -2,8 +2,7 @@
  * Option bags checked at build (src/options-pass.ts): a maker of `@ogygia/machine` called with options
  * the build reads is checked by the machine's own checks, fails the build with the code the runtime
  * would throw, and then makes its value unchecked; a `policy({ … })` is its frozen data. Options the
- * checks need and the build cannot read keep the runtime check, and the boot link (whose makers are
- * unchecked) refuses them.
+ * checks need and the build cannot read keep the runtime check.
  */
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -180,25 +179,25 @@ describe('options the build cannot read', () => {
 		expect(code ?? '').not.toContain('trusted_queue');
 	});
 
-	test("the boot link's makers are unchecked: a linked call the build cannot read is refused", () => {
-		const linked = (call: string) =>
+	test('only an imported maker is read: a maker reached through a value is left to its own checks', () => {
+		const through = (call: string) =>
 			compile(
 				lines(
-					"import { boot_link, L_FLIGHTS, L_CACHE } from './link';",
+					"import { makers } from './link';",
 					'declare const n: number;',
 					`export const x = ${call};`
 				),
 				'a.ts',
 				OPTIONS
 			);
-		expect(() => linked("boot_link()[L_CACHE]({ name: 'a', max: n })")).toThrow(/boot link.*max/s);
-		expect(() =>
-			linked(
-				'boot_link()[L_FLIGHTS].keyed<{ id: string }>()({ key: ["id"], run: async () => 1, max: 0 })'
-			)
-		).toThrow(/machine_bad_option/);
-		const ok = linked("boot_link()[L_CACHE]({ name: 'a', max: 512 })");
-		expect(ok === null || ok.code.includes('boot_link()[L_CACHE]({')).toBe(true);
+		for (const call of [
+			"makers()['cache']({ name: 'a', max: n })",
+			"makers()['cache']({ name: 'a', max: 0 })",
+			'makers()[0].keyed<{ id: string }>()({ key: ["id"], run: async () => 1, max: 0 })'
+		]) {
+			const out = through(call);
+			expect(out?.code ?? '').not.toContain('trusted_');
+		}
 	});
 
 	test('a policy imported from another module of the build is read (a retry of flights)', () => {
