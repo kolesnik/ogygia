@@ -452,6 +452,12 @@ export class SeedIndex {
 		return index;
 	}
 
+	/** The plan of `props` against this index: which of its nodes cross as references. (The props
+	 *  wire asks it here, so a server that never ships a seed never carries the plan.) */
+	plan(props: unknown): SeedRefPlan {
+		return new SeedRefPlan(this, props);
+	}
+
 	constructor(data: unknown, min_bytes: number) {
 		if (is_plain(data)) {
 			const memo = (this.#memo = analysis(data).memo);

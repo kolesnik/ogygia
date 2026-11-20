@@ -13,7 +13,7 @@ import { serialize_provided_context } from '../context-bridge.ts';
 import { set_ctx_recorder, set_ctx_script_reader } from '../context-registry.ts';
 import { OGYGIA_PROVIDE_PAGE } from '../wire-markup.ts';
 
-const request_ctx = shared<WeakMap<Request, Map<string, unknown>>>({
+const request_ctx = /* @__PURE__ */ shared<WeakMap<Request, Map<string, unknown>>>({
 	name: 'ogygia.request-context',
 	version: 1,
 	make: () => new WeakMap()
