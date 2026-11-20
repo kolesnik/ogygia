@@ -21,6 +21,8 @@ const { compile, compileModule } = core_require(
 	'svelte/compiler'
 ) as typeof import('svelte/compiler');
 const RUNES_MODULE_RE = /\.svelte\.(ts|js)$/;
+/** What Heisenbench's counted code reaches its runtime by (its runtime/index.ts). */
+const HEISENBENCH_RUNTIME = Symbol.for('heisenbench.runtime');
 
 const STUBS = new URL('../../../packages/core/test/_stubs/', import.meta.url);
 /** Core's source: its own `#` imports resolve to source there (package.json, `ogygia-source`), as
@@ -49,6 +51,13 @@ function hydrate_core_import(context: { parentURL?: string }): boolean {
 	if (!parent) return false;
 	const q = parent.indexOf('?');
 	return (q === -1 ? parent : parent.slice(0, q)).endsWith(HYDRATE_CORE);
+}
+
+/** Heisenbench counts this run: it compiles every runes module it loads (each one it counts, and it
+ *  counts every module but its own and the bench files), so this preload compiles none of them (a
+ *  second compile fails on the first one's output). */
+function counted(): boolean {
+	return (globalThis as Record<symbol, unknown>)[HEISENBENCH_RUNTIME] !== undefined;
 }
 
 registerHooks({
@@ -80,7 +89,7 @@ registerHooks({
 			return { format: 'module', source: js.code, shortCircuit: true };
 		}
 		const runes = RUNES_MODULE_RE.exec(filename);
-		if (!runes) return next(url, context);
+		if (!runes || counted()) return next(url, context);
 		const source = readFileSync(filename, 'utf8');
 		const plain = runes[1] === 'ts' ? stripTypeScriptTypes(source, { mode: 'strip' }) : source;
 		const { js } = compileModule(plain, { generate: 'server', filename });
