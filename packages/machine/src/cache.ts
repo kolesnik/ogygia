@@ -115,7 +115,8 @@ export function cache<K, V>(o: CacheOptions<K, V>): Cache<K, V> {
 	return new Store(o, refused !== null);
 }
 
-function refused_max<K, V>(
+/** @internal Why `max` is no bound (null: it is one), as {@link cache} refuses it. */
+export function refused_max<K, V>(
 	o: CacheOptions<K, V>
 ): { option: string; value: string; rule: string } | null {
 	const max = o.max;

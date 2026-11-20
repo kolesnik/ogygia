@@ -7,6 +7,7 @@
  * @packageDocumentation
  */
 import { DEV } from 'esm-env';
+import { refused_max } from './cache.ts';
 import { machine_error, report } from './messages.ts';
 import { DISPOSE, Life, type Scope } from './scope.ts';
 
@@ -57,7 +58,7 @@ class Bounded<K, V> implements Lru<K, V> {
 	#life: Life;
 
 	constructor(o: LruOptions, refused: boolean) {
-		this.#room = refused ? 1 : Math.floor(o.max);
+		this.#room = Math.floor(o.max);
 		const l = (this.#life = o.owner === undefined ? new Life() : (o.owner as Life).child());
 		l.defer(() => this.clear());
 		if (refused) l.close();
@@ -129,11 +130,11 @@ class Bounded<K, V> implements Lru<K, V> {
 	}
 }
 
-/** @internal A bounded cache of `max` values, least recently used out first (see the module). */
+/** @internal A bounded cache of `max` values, least recently used out first (see the module): its
+ *  max refused as `cache()` refuses it. The build checks a call's options and makes it
+ *  {@link trusted_lru} (internal/macros options pass). */
 export function lru<K, V>(o: LruOptions): Lru<K, V> {
-	// a bound is a finite number more than 0: Infinity is no bound. In dev it throws; in production
-	// the cache is refused (it keeps nothing) and the code is printed
-	const refused = refused_lru(o);
+	const refused = refused_max(o as { max: number });
 	if (refused !== null) {
 		if (DEV) throw machine_error('machine_bad_option', refused);
 		report('machine_bad_option', refused);
@@ -141,20 +142,7 @@ export function lru<K, V>(o: LruOptions): Lru<K, V> {
 	return new Bounded<K, V>(o, refused !== null);
 }
 
-function refused_lru(o: LruOptions): { option: string; value: string; rule: string } | null {
-	const max = o.max;
-	if (typeof max === 'number' && max > 0 && Number.isFinite(max)) return null;
-	return { option: 'max', value: String(max), rule: 'a finite number more than 0' };
-}
-
-/** @internal {@link lru}'s checks of its options alone, as dev runs them: `machine_bad_option`. */
-export function check_lru(o: LruOptions): void {
-	const refused = refused_lru(o);
-	if (refused !== null) throw machine_error('machine_bad_option', refused);
-}
-
-/** @internal {@link lru} for options its caller's build checked ({@link check_lru}, run on a
- *  literal). */
+/** @internal {@link lru} for options its caller's build checked (`check_cache`, run on a literal). */
 export function trusted_lru<K, V>(o: LruOptions): Lru<K, V> {
 	return new Bounded<K, V>(o, false);
 }

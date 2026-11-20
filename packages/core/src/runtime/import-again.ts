@@ -23,7 +23,8 @@
  * imports nothing of the boot (only `@ogygia/machine`, which the boot runs on); the boot hands it
  * its message (`on_reload_needed`).
  */
-import { buggify, flights, noop, registry, say, STALE } from '@ogygia/machine';
+import { buggify, noop, registry, say, STALE } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import * as life from '@ogygia/machine/internal';
 import { lru } from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
@@ -298,7 +299,7 @@ const file_loaders = lru<string, () => Promise<unknown>>({
  *  one retry, so a failure gets one fresh URL and the module runs once (#271). */
 type FileLoads = { readonly get: (url: string) => Promise<unknown> };
 
-const file_loads: FileLoads = flights({
+const file_loads: FileLoads = plain_flights({
 	name: 'island file',
 	run: (url: string) => {
 		let again = file_loaders.get(url);

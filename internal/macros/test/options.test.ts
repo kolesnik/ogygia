@@ -2,8 +2,7 @@
  * Option bags checked at build (src/options-pass.ts): a maker of `@ogygia/machine` called with options
  * the build reads is checked by the machine's own checks, fails the build with the code the runtime
  * would throw, and then makes its value unchecked; a `policy({ … })` is its frozen data. Options the
- * checks need and the build cannot read keep the runtime check, and the boot link (whose makers are
- * unchecked) refuses them.
+ * checks need and the build cannot read keep the runtime check.
  */
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -68,6 +67,58 @@ describe('a literal the checks pass: made unchecked', () => {
 		expect(Object.isFrozen(p)).toBe(true);
 		expect(Object.isFrozen((p as { backoff: unknown }).backoff)).toBe(true);
 		expect(made(/q = (.*);/.exec(code)![1])).toEqual(policy({ attempts: 1 }));
+	});
+});
+
+describe("the runtime's lean makers (`@ogygia/machine/internal`)", () => {
+	const INTERNAL = "import { lru, pass_queue, plain_flights } from '@ogygia/machine/internal';";
+	const lean = (...rows: ReadonlyArray<string>) =>
+		compile(lines(INTERNAL, ...rows), 'a.ts', OPTIONS)?.code ?? null;
+	const lean_fails = (...rows: ReadonlyArray<string>) => {
+		try {
+			lean(...rows);
+		} catch (error) {
+			return String((error as Error).message);
+		}
+		throw new Error('compiled');
+	};
+
+	test('each is checked as its public maker is, and calls its trusted lean form', () => {
+		const code = lean(
+			"export const a = plain_flights({ name: 'a', run: async () => 1 });",
+			"export const b = plain_flights.keyed<{ id: string }>()({ key: ['id'], run: async () => 1 });",
+			"export const c = lru({ name: 'c', max: 64 });",
+			"export const d = pass_queue({ name: 'd', budget: { ms: 30, yield: (f: () => void) => f() }, start: () => {} });"
+		)!;
+		expect(code).toContain('trusted_plain_flights');
+		expect(code).toContain('trusted_lru');
+		expect(code).toContain('trusted_pass_queue');
+		expect(code).not.toMatch(/\b(?:plain_flights|lru|pass_queue)\(/);
+		expect(code).not.toContain('.keyed');
+	});
+
+	test.each([
+		["plain_flights({ name: 'a', run: async () => 1, max: Infinity })", /max/],
+		[
+			"plain_flights({ name: 'a', run: async () => 1, weigh: () => 1, max: 9 })",
+			/flights\(\) only/
+		],
+		[
+			"plain_flights.keyed<{ a: string; b: string }>()({ key: ['a', 'b'], run: async () => 1 })",
+			/flights\(\) only/
+		],
+		["lru({ name: 'c', max: 0 })", /max/],
+		['pass_queue({ max: 1.5 })', /max/]
+	])('%s fails the build', (call, rule) => {
+		const message = lean_fails(`export const x = ${call};`);
+		expect(message).toContain('machine_bad_option');
+		expect(message).toMatch(rule);
+	});
+
+	test('a public maker of the same name is not one of them', () => {
+		const code = out("export const a = flights({ name: 'a', run: async () => 1 });")!;
+		expect(code).toContain('trusted_flights');
+		expect(code).not.toContain('trusted_plain_flights');
 	});
 });
 
@@ -149,25 +200,25 @@ describe('options the build cannot read', () => {
 		expect(code ?? '').not.toContain('trusted_queue');
 	});
 
-	test("the boot link's makers are unchecked: a linked call the build cannot read is refused", () => {
-		const linked = (call: string) =>
+	test('only an imported maker is read: a maker reached through a value is left to its own checks', () => {
+		const through = (call: string) =>
 			compile(
 				lines(
-					"import { boot_link, L_FLIGHTS, L_CACHE } from './link';",
+					"import { makers } from './link';",
 					'declare const n: number;',
 					`export const x = ${call};`
 				),
 				'a.ts',
 				OPTIONS
 			);
-		expect(() => linked("boot_link()[L_CACHE]({ name: 'a', max: n })")).toThrow(/boot link.*max/s);
-		expect(() =>
-			linked(
-				'boot_link()[L_FLIGHTS].keyed<{ id: string }>()({ key: ["id"], run: async () => 1, max: 0 })'
-			)
-		).toThrow(/machine_bad_option/);
-		const ok = linked("boot_link()[L_CACHE]({ name: 'a', max: 512 })");
-		expect(ok === null || ok.code.includes('boot_link()[L_CACHE]({')).toBe(true);
+		for (const call of [
+			"makers()['cache']({ name: 'a', max: n })",
+			"makers()['cache']({ name: 'a', max: 0 })",
+			'makers()[0].keyed<{ id: string }>()({ key: ["id"], run: async () => 1, max: 0 })'
+		]) {
+			const out = through(call);
+			expect(out?.code ?? '').not.toContain('trusted_');
+		}
 	});
 
 	test('a policy imported from another module of the build is read (a retry of flights)', () => {

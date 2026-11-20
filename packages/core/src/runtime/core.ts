@@ -2,7 +2,6 @@ import {
 	backoffAfter,
 	buggify,
 	clock,
-	flights,
 	registry,
 	STALE,
 	tasks,
@@ -11,6 +10,7 @@ import {
 	type Stale,
 	type Turn
 } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import type { Life, Run } from '@ogygia/machine/internal';
 import { frameAddress, older_by, stands_at } from '../frame.ts';
 import { on_trigger, WAKE } from '../contract/trigger.ts';
@@ -182,7 +182,7 @@ const now_ms = clock.mono;
 type HydrateCore = typeof import('./hydrate-core.ts');
 let loaded_core: HydrateCore | null = null;
 const import_core = import_again(() => import('./hydrate-core.ts'));
-const hydrate_core = flights({
+const hydrate_core = plain_flights({
 	name: 'hydrate core',
 	run: () =>
 		yield_task()

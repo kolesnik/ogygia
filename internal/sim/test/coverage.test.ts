@@ -21,10 +21,12 @@ describe('coverage', () => {
 		expect(all_steps(u).has(step_key('import-again', 'failed', 'stuck'))).toBe(true);
 	});
 
-	it('reads a flights the boot link hands by number (`boot_link()[L_FLIGHTS].keyed()`)', () => {
+	it("reads a flights the router makes itself (`flights.keyed()`) and the runtime's plain ones", () => {
 		const u = universe(ROOT);
 		expect(u.get('router pages')?.pkg).toBe('core');
 		expect(u.get('router pages')?.steps.flying).toContain('gone');
+		// (`plain_flights.keyed<Warm>()({ name: 'island warm', … })`, region-endpoint-url.ts)
+		expect(u.get('island warm')?.steps.kept).toContain('gone');
 	});
 
 	it("gives a flights only the entry steps its options and its file's calls can take", () => {

@@ -1,4 +1,5 @@
-import { flights, type Flights } from './flights.ts';
+import { flights } from './flights-full.ts';
+import type { Flights } from './flights.ts';
 import { mailbox, type Mailbox } from './mailbox.ts';
 import { Life } from './scope.ts';
 import { machine_error, report } from './messages.ts';

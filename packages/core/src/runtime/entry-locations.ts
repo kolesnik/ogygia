@@ -1,6 +1,7 @@
 import { import_file } from './import-again.ts';
 import { code_url_or_refuse, is_location_of } from './code-origins.ts';
-import { backoffAfter, flights, net, STALE } from '@ogygia/machine';
+import { backoffAfter, net, STALE } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import * as life from '@ogygia/machine/internal';
 import { lru } from '@ogygia/machine/internal';
 import { rollover } from '../policies.ts';
@@ -60,7 +61,7 @@ export function entry_location(entry: string, base?: string): string | undefined
 }
 
 const BUILD_MAP_ATTR = OG_LOCATIONS;
-const build_map = flights({
+const build_map = plain_flights({
 	name: 'build location map',
 	run: (url: string) =>
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a map that could not be read is not kept: the next load asks again, and loads keep their stable URLs meanwhile
@@ -132,7 +133,7 @@ export function island_entry_of(el: Element): string | null {
 	return entry;
 }
 
-const current_maps = flights({
+const current_maps = plain_flights({
 	name: 'current build map',
 	run: (file: string) =>
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a map that could not be read is not kept: the next ask reads again

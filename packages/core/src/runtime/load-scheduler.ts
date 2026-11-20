@@ -1,6 +1,7 @@
 import { after_document_painted, yield_task } from './schedule.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
-import { clock, flights, type InFlight, type Place, type Queue, type Stale } from '@ogygia/machine';
+import { clock, type InFlight, type Place, type Queue, type Stale } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
@@ -70,7 +71,10 @@ function waits_for_critical(kind: LoadKind, cls: LoadClass): boolean {
 
 class LoadScheduler {
 	gate = fsm.create(gate_definition);
-	readonly critical = flights({ name: 'critical resources', run: () => this.#until_critical() });
+	readonly critical = plain_flights({
+		name: 'critical resources',
+		run: () => this.#until_critical()
+	});
 	#owner: Life = life.root();
 	line: Queue<LoadSlot> = this.#open_line();
 

@@ -1203,12 +1203,6 @@
 			"name": "refuses a max that is no bound, as cache() does"
 		},
 		{
-			"site": "packages/machine/src/lru.ts > check_lru > throw:0",
-			"reason": "`throw machine_error('machine_bad_option', refused);`: the build's check of a literal lru (internal/macros options pass)",
-			"test": "internal/macros/test/options.test.ts",
-			"name": "the internal entry’s makers (lru, pass_queue) are checked at build and made trusted too"
-		},
-		{
 			"site": "packages/machine/src/cache.ts > check_cache > throw:0",
 			"reason": "`throw machine_error('machine_bad_option', refused);`: the build's check of a literal cache (internal/macros options pass)",
 			"test": "internal/macros/test/options.test.ts",
@@ -1419,7 +1413,7 @@
 			"name": "a weigh with no max is refused: the default max counts answers, not the weigh’s unit"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:0",
+			"site": "packages/machine/src/flights-full.ts > Full > constructor > throw:0",
 			"reason": "`throw bad_option('world', typeof o.world, 'a world from world()');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
@@ -1881,7 +1875,7 @@
 			"name": "a flights with no bound is thrown where it is written, even in production"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > _moved > catch:0",
+			"site": "packages/machine/src/flights-full.ts > Full > _moved > catch:0",
 			"reason": "`catch { return true; // (what it read cannot be told: made again, nev…`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/world.test.ts",
 			"name": "a touches that throws: the kept answer goes on a move, a landing fails its callers"
@@ -5509,6 +5503,12 @@
 			"reason": "a state's time function that throws: reported (machine_timeout_failed), no timer set, the state stays; proved: the catch made to rethrow turns the test red",
 			"test": "packages/machine/test/after.test.ts",
 			"name": "a time made from the state that throws: reported, and the state does not end at once"
+		},
+		{
+			"site": "packages/machine/src/flights.ts > check_plain_flights > throw:0",
+			"reason": "a world, weigh, touches or two-field key given to plain_flights() is refused in dev and rules builds; proved: the throw made a no-op turns the test red",
+			"test": "packages/machine/test/plain-flights.test.ts",
+			"name": "refuses, in dev and rules builds, what only flights() takes"
 		}
 	],
 	"impossible": [
@@ -6381,7 +6381,7 @@
 		"packages/insights/src/session-insights.ts > path_of > catch:0",
 		"packages/insights/src/session-insights.ts > same_origin_get > catch:0",
 		"packages/insights/src/third-party.ts > host_of > catch:0",
-		"packages/machine/src/flights.ts > id_of > catch:0",
+		"packages/machine/src/flights-full.ts > id_of > catch:0",
 		"packages/machine/src/mailbox.ts > Box > _start > reject:0",
 		"packages/machine/src/policy.ts > under_policy > throw:3",
 		"packages/machine/src/ports/net.ts > fetch > fetch:0",

@@ -1,6 +1,7 @@
 import { watch_viewport } from './viewport.ts';
 import { watch_turns } from './rules.ts';
-import { clock, flights, tasks, timers, type MachineGraph, type Stale } from '@ogygia/machine';
+import { clock, tasks, timers, type MachineGraph, type Stale } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
 import { pass_queue } from '@ogygia/machine/internal';
@@ -206,7 +207,7 @@ function post_background(fn: () => void): void {
 	timers.after(fn, 0);
 }
 
-const document_painted = flights({ name: 'document painted', run: () => until_painted() });
+const document_painted = plain_flights({ name: 'document painted', run: () => until_painted() });
 
 /**
  * Resolves once the document is parsed AND painted: after `DOMContentLoaded`, then one rendered

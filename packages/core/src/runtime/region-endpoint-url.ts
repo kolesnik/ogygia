@@ -3,7 +3,8 @@ import type { HoleRefusal } from '../contract/runtime-hooks.ts';
 import { preload_island_graph } from './island-graph-preload.ts';
 import { LoadSlot } from './load-scheduler.ts';
 import { class_at, fetch_priority_of, PRIORITY, type LoadClass } from './load-class.ts';
-import { flights, STALE, type Flights } from '@ogygia/machine';
+import { STALE, type Flights } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import { entry_location } from './entry-locations.ts';
 import { import_file } from './import-again.ts';
 import { code_url, type CodeUrl } from './code-origins.ts';
@@ -157,7 +158,7 @@ type Warm = { key: string; entry: string; base: string | undefined; url: CodeUrl
 let warm_flights: Flights<Warm, unknown, Pick<Warm, 'key'>> | undefined;
 const warms = () => (warm_flights ??= make_warms());
 const make_warms = () =>
-	flights.keyed<Warm>()({
+	plain_flights.keyed<Warm>()({
 		name: 'island warm',
 		key: ['key'],
 		ignore: {

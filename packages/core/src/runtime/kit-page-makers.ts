@@ -3,13 +3,18 @@
  * macros never compile a runes file, and here they check the options at build (internal/macros
  * options pass), so the boot ships no option checks for them.
  */
-import { flights, say, type Flights, type Stale } from '@ogygia/machine';
+import { say, type Flights, type Stale } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 
 /** The one shared wait for Kit's page: `run` is the thread's own; an answer is kept for no time. */
 export function kit_page_flights(
 	run: (_: void, signal: AbortSignal) => Promise<void>
 ): Flights<void, void | Stale, void> {
-	return flights({ name: 'kit page thread', run, keep: 0 }) as Flights<void, void | Stale, void>;
+	return plain_flights({ name: 'kit page thread', run, keep: 0 }) as Flights<
+		void,
+		void | Stale,
+		void
+	>;
 }
 
 /** Each Kit file that failed to load, said once. */

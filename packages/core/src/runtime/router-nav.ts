@@ -1,5 +1,6 @@
 import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
-import { buggify, clock, net, stage, world } from '@ogygia/machine';
+import { buggify, clock, flights, net, stage, world } from '@ogygia/machine';
+import { lru } from '@ogygia/machine/internal';
 import type { PageGlobals } from '../page-globals.ts';
 import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
 import {
@@ -33,9 +34,7 @@ import {
 	L_ADD_HEAD_OWNERS,
 	L_ADOPT_OWNER_RECORD,
 	L_ADOPT_RESPONSE,
-	L_CACHE,
 	L_FETCH_PRIORITY_OF,
-	L_FLIGHTS,
 	L_HEAD_OWNERS,
 	L_INIT_SHADOW_REGISTRIES,
 	L_IS_WARMED_MODULE,
@@ -417,7 +416,7 @@ type Pages = import('@ogygia/machine').Flights<PageAsk, Fetched, Pick<PageAsk, '
 let page_flights: Pages | undefined;
 let page_world: import('@ogygia/machine').World | undefined;
 const pages = (): Pages =>
-	(page_flights ??= boot_link()[L_FLIGHTS].keyed<PageAsk>()({
+	(page_flights ??= flights.keyed<PageAsk>()({
 		name: 'router pages',
 		key: ['href', 'known'],
 		ignore: { purpose: 'a navigation joins the prefetch out for its address: how, not what' },
@@ -430,8 +429,7 @@ const pages = (): Pages =>
 	}));
 type Memo<K, V> = import('@ogygia/machine/internal').Lru<K, V>;
 let warmed_pages_memo: Memo<string, true> | undefined;
-const warmed_pages = () =>
-	(warmed_pages_memo ??= boot_link()[L_CACHE]({ name: 'warmed pages', max: 512 }));
+const warmed_pages = () => (warmed_pages_memo ??= lru({ name: 'warmed pages', max: 512 }));
 let announcer: HTMLElement | null = null;
 
 /** Moves the world the cached pages are made in: what is kept goes, and a fetch that started before

@@ -602,16 +602,16 @@ export function trusted_queue<J>(options: QueueOptions<J>): Queue<J> {
 	return new PlainLine(options);
 }
 
-/** @internal A queue whose jobs are ranked, gated, windowed or budgeted (`queue()` for those
- *  options), for ogygia's runtime: a boot that makes no first-come-first-served queue carries
- *  none of its code. */
-export function passes<J>(options: QueueOptions<J>): Queue<J> {
+/** @internal {@link queue} for options that rank, gate, window or budget its jobs (or set no
+ *  max), for ogygia's runtime: a runtime whose queues all do carries no first-come-first-served
+ *  line. The build checks a call's options and makes it {@link trusted_pass_queue}. */
+export function pass_queue<J>(options: QueueOptions<J>): Queue<J> {
 	check_queue(options);
-	return trusted_passes(options);
+	return new PassLine(options);
 }
 
-/** {@link passes} for options its caller's build checked ({@link check_queue}, run on a literal). */
-export function trusted_passes<J>(options: QueueOptions<J>): Queue<J> {
+/** @internal {@link pass_queue} for options its caller's build checked ({@link check_queue}). */
+export function trusted_pass_queue<J>(options: QueueOptions<J>): Queue<J> {
 	return new PassLine(options);
 }
 

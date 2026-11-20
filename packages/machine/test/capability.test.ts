@@ -74,6 +74,14 @@ describe('capability: what checks', () => {
 		);
 	});
 
+	it('the signed message is the same bytes in every release (a token outlives a deploy)', () => {
+		const { cap } = setup();
+		expect(cap.message(AUD, 1_060_000, 'nonce', ['a', '', 'é|:'])).toBe(
+			'6:region|1:1|19:https://app.example|7:1060000|5:nonce|3|1:a|0:|3:é|:'
+		);
+		expect(cap.message(AUD, 5, '', [])).toBe('6:region|1:1|19:https://app.example|1:5|0:|0');
+	});
+
 	it('any changed character of a token is refused', () => {
 		const { cap } = setup();
 		const token = cap.mint(AUD, ['x'], 10_000);
