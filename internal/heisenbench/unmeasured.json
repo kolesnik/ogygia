@@ -1333,11 +1333,11 @@
 			"reason": "browser only: the wait for Kit to apply its page (a global accessor and a Svelte effect root), once per wait; proven in packages/core/test/browser/kit-page-thread.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~a7cf26 > one",
+			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~3b1a67 > one",
 			"reason": "browser only: a critical resource's load or error event, once per resource per document; proven in packages/core/test/browser/load-scheduler.test.ts and load-scheduler-critical-error.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~a7cf26 > later:0~301398",
+			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~3b1a67 > later:0~301398",
 			"reason": "browser only: the critical wait's cap (2.5 s), once per document; proven in packages/core/test/browser/load-scheduler.test.ts"
 		},
 		{
@@ -6991,6 +6991,22 @@
 		{
 			"id": "packages/core/src/region-server.browser.ts > need_program",
 			"reason": "the browser's stand-in: does nothing (the server's word gates what the server writes), constant work"
+		},
+		{
+			"id": "packages/core/src/server/stream-regions.ts > batch_definition",
+			"reason": "module setup made lazy: the batch stream's machine definition, once per process at the first batch; the stream is proven in packages/core/test/batch-stream-cancel.test.ts"
+		},
+		{
+			"id": "packages/core/src/region-server.ts > import_entry",
+			"reason": "the server's refusal of a browser-only entry load (behind BROWSER at its one caller): never runs in a correct build; proven in packages/core/test/region-server-browser.test.ts"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > entry_load_server_only > details",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > entry_load_server_only > text",
+			"reason": "a message table entry: wording only"
 		}
 	]
 }
