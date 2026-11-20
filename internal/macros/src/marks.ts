@@ -14,8 +14,14 @@ import { fileCache, relativeImports } from 'ogygia-internal-compilerkit/modules'
 /** Each gating mark, by the gate it puts calls behind. */
 export const GATE_MARKS: Readonly<Record<string, string>> = { $dev: 'dev', $rules: 'rules' };
 
-/** Each mark, by the place of the function among its arguments. */
-export const MARK_PLACES: Readonly<Record<string, number>> = { $dev: 0, $rules: 0 };
+/** Each mark at a definition (the gating marks, and `$hot`/`$layout`, ./hot-pass.ts), by the place
+ *  of the function among its arguments. */
+export const MARK_PLACES: Readonly<Record<string, number>> = {
+	$dev: 0,
+	$rules: 0,
+	$hot: 0,
+	$layout: 0
+};
 
 /** A top-level statement's marked definition (exported or not), or null. */
 export function marked_definition(statement: N): MarkedDefinition | null {
@@ -33,7 +39,7 @@ export function marks_of(program: N): Map<string, string> {
 	return out;
 }
 
-const MARK_RE = /\$(?:dev|rules)\(/;
+const MARK_RE = /\$(?:dev|rules|hot|layout)\(/;
 
 /** The functions the module at `file` marks, name → mark; null when it cannot be read. */
 export const marked_in: (file: string) => ReadonlyMap<string, string> | null = fileCache(

@@ -9,6 +9,7 @@ import { dedent } from '../../../packages/core/src/contract/dedent.ts';
 import type { Compiler } from './compiler.ts';
 import { AwaitPass } from './await-pass.ts';
 import { GatePass } from './gate-pass.ts';
+import { HotPass } from './hot-pass.ts';
 
 /** `$dev(…)` and `$rules(…)` (./gate-pass.ts). */
 const GATED = defineMacro<Compiler, Scope>({
@@ -41,5 +42,24 @@ const AWAIT = defineMacro<Compiler, Scope>({
 	pass: (c: Compiler) => new AwaitPass(c)
 });
 
+/** `$hot(…)`, `$hot.allow(…)` and `$layout(…)` (./hot-pass.ts): checks; the definitions compile to
+ *  their functions (./gate-pass.ts reads every marked definition). */
+const HOT = defineMacro<Compiler, Scope>({
+	names: ['$hot', '$layout'],
+	types: dedent`
+		/** Marks a function, where it is defined, as one on a per-event or per-turn path: the build
+		 *  fails at anything in it that may allocate or force a layout. Compiles to the function. */
+		const $hot: (<F extends (...args: never[]) => unknown>(fn: F) => F) & {
+			/** An allocation made on purpose in a $hot function, by its name from the closed list
+			 *  (internal/macros/src/hot.ts). Compiles to \`value\`. */
+			allow<T>(exception: string, value: T): T;
+		};
+		/** Marks a function, where it is defined, as one that forces a layout: a $hot function that
+		 *  calls it fails. Compiles to the function. */
+		function $layout<F extends (...args: never[]) => unknown>(fn: F): F;
+	`,
+	pass: (c: Compiler) => new HotPass(c)
+});
+
 /** Every macro, in walk order. */
-export const MACROS: ReadonlyArray<Macro<Compiler, Scope>> = [GATED, AWAIT];
+export const MACROS: ReadonlyArray<Macro<Compiler, Scope>> = [GATED, AWAIT, HOT];
