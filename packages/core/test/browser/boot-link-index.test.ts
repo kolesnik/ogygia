@@ -14,7 +14,12 @@ import {
 	warm_island_module
 } from '../../src/runtime/region-endpoint-url.ts';
 import { note_entry_location } from '../../src/runtime/entry-locations.ts';
-import { runs_entry } from '../../src/runtime/region-attrs.ts';
+import {
+	is_deferred,
+	ours_on_kit_document,
+	region_ssr_truncated,
+	runs_entry
+} from '../../src/runtime/region-attrs.ts';
 import { register_island_graph } from '../../src/runtime/island-graph-preload.ts';
 import { props_sidecar_of } from '../../src/runtime/sidecar.ts';
 import {
@@ -97,7 +102,11 @@ test('each place in the boot link holds the helper its number names', () => {
 		L_STALE: STALE,
 		L_FLIGHTS: flights,
 		L_CACHE: cache,
-		L_WORLD: world
+		L_WORLD: world,
+		L_IS_DEFERRED: is_deferred,
+		L_OURS_ON_KIT_DOCUMENT: ours_on_kit_document,
+		// (dev's alone: a production build's place holds null)
+		L_REGION_SSR_TRUNCATED: region_ssr_truncated
 	};
 	const places = index as unknown as Record<string, number>;
 	for (const [name, helper] of Object.entries(want)) expect(link[places[name]], name).toBe(helper);

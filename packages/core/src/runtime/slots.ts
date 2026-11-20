@@ -218,7 +218,12 @@ export type BootLink = [
 	 *  made in */
 	world: typeof import('@ogygia/machine').world,
 	/** the page's soft refresh (./soft-refresh.ts): `invalidateAll`, with the router or without it */
-	soft: import('./soft-refresh.ts').SoftRefresh
+	soft: import('./soft-refresh.ts').SoftRefresh,
+	/** a region's attributes as the hydrate core reads them (./region-attrs.ts); the truncation
+	 *  check is dev's alone (null in a production build) */
+	is_deferred: typeof import('./region-attrs.ts').is_deferred,
+	ours_on_kit_document: typeof import('./region-attrs.ts').ours_on_kit_document,
+	region_ssr_truncated: typeof import('./region-attrs.ts').region_ssr_truncated | null
 ];
 export type RouterLink = {
 	jump_to_hash: typeof import('./router.ts').jump_to_hash;

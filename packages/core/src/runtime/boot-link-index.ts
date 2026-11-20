@@ -52,3 +52,6 @@ export const L_FLIGHTS = 40;
 export const L_CACHE = 41;
 export const L_WORLD = 42;
 export const L_SOFT = 43;
+export const L_IS_DEFERRED = 44;
+export const L_OURS_ON_KIT_DOCUMENT = 45;
+export const L_REGION_SSR_TRUNCATED = 46;
