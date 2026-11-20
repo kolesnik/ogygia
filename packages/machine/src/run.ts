@@ -289,10 +289,9 @@ export function stop(m: Run): void {
 
 /** The one place a move happens: the new state first, then everything the old one owned. */
 function enter(m: Run, to: number, data: object | undefined): void {
+	if (RULES && observers.size !== 0) return enter_told(m, to, data);
 	const def = m._def;
 	if (DEV) checked_data(def, to, data);
-	const told = RULES && observers.size !== 0;
-	const prev = told ? value_of(m) : null;
 	m._state = to;
 	m._data = data;
 	m._now = def.copies ? made(def.names[to]!, data) : null;
@@ -305,7 +304,25 @@ function enter(m: Run, to: number, data: object | undefined): void {
 	const timed = def.after[to];
 	if (timed !== null) arm(m, timed);
 	if (m._waiters !== null) settle(m);
-	if (told) notify(def.name, prev!, value_of(m), m);
+	if (l !== null) close(l);
+}
+
+/** `enter` while observers watch (dev and rules builds): told the move, before the old visit
+ *  closes. */
+function enter_told(m: Run, to: number, data: object | undefined): void {
+	const def = m._def;
+	if (DEV) checked_data(def, to, data);
+	const prev = value_of(m);
+	m._state = to;
+	m._data = data;
+	m._now = def.copies ? made(def.names[to]!, data) : null;
+	m._epoch++;
+	const l = m._life;
+	m._life = null;
+	const timed = def.after[to];
+	if (timed !== null) arm(m, timed);
+	if (m._waiters !== null) settle(m);
+	notify(def.name, prev, value_of(m), m);
 	if (l !== null) close(l);
 }
 
