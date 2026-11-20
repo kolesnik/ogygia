@@ -1,4 +1,5 @@
-import { flights, noop, registry, STALE, type Stale } from '@ogygia/machine';
+import { noop, registry, STALE, type Stale } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import type { Life, Run } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
 import { LoadSlot } from './load-scheduler.ts';
@@ -129,7 +130,7 @@ const armed = registry.keyed<Element, Armed>();
 let installed = false;
 
 type Replay = typeof import('./interaction-replay.ts');
-const load_replay = flights({
+const load_replay = plain_flights({
 	name: 'interaction replay',
 	run: import_again(() => import('./interaction-replay.ts')),
 	retry: download

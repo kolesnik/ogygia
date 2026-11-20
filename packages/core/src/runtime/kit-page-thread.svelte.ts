@@ -1,5 +1,6 @@
 import { OgygiaError, warn } from '../messages/lazy.ts';
-import { flights, say, STALE, tasks } from '@ogygia/machine';
+import { say, STALE, tasks } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import { code_url, import_code, type CodeUrl } from './code-origins.ts';
@@ -33,7 +34,7 @@ export function kit_page_thread(signal?: AbortSignal): Promise<unknown> | null {
 	return pending.get(undefined, { signal });
 }
 
-const pending = flights({
+const pending = plain_flights({
 	name: 'kit page thread',
 	run: (_: void, signal: AbortSignal) => {
 		const wait = life.root();

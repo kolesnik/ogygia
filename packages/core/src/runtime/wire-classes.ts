@@ -1,4 +1,4 @@
-import { flights } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import { lru } from '@ogygia/machine/internal';
 import { wire_loaders, wire_all } from 'ogygia:region';
 import { import_again } from './import-again.ts';
@@ -19,7 +19,7 @@ const imports = lru<string, () => Promise<unknown>>({
 	name: 'class module loaders',
 	max: Math.max(1, paths.length)
 });
-const loads = flights({
+const loads = plain_flights({
 	name: 'wire class',
 	run: (path: string) => {
 		let import_class = imports.get(path);

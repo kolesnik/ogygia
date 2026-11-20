@@ -1,4 +1,5 @@
-import { clock, flights, net, storage } from '@ogygia/machine';
+import { clock, net, storage } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import { code_url } from './code-origins.ts';
 
 const STALE_DEP_RELOAD_KEY = 'ogygia:dev:dep-reload';
@@ -7,7 +8,7 @@ const STALE_DEP_RELOAD_WINDOW_MS = 6000;
 type Ask = { url: string; reload: () => void };
 
 const make_watch = () =>
-	flights.keyed<Ask>()({
+	plain_flights.keyed<Ask>()({
 		name: 'stale-dep reload',
 		key: [],
 		ignore: {

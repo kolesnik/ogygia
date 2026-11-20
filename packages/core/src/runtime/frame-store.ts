@@ -1,6 +1,5 @@
 import {
 	cache,
-	flights,
 	STALE,
 	world,
 	type Cache,
@@ -9,6 +8,7 @@ import {
 	type Stale,
 	type World
 } from '@ogygia/machine';
+import { plain_flights } from '@ogygia/machine/internal';
 import * as life from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
@@ -123,7 +123,7 @@ function make_store(): Store {
 			e.answer.stop();
 		}
 	});
-	const frames = flights.keyed<FrameAsk>()({
+	const frames = plain_flights.keyed<FrameAsk>()({
 		name: 'frames',
 		key: ['a'],
 		ignore: { work: 'one flight per address: a fetch or a batch part out there is joined' },
