@@ -800,7 +800,6 @@ test('form continuity: the page left is read before the swap, the next page is g
 	const calls: string[] = [];
 	const forms = slots.forms;
 	slots.forms = {
-		enabled: true,
 		snapshot: (root, key) =>
 			void calls.push(
 				`snapshot ${key} ${(root as Element).querySelector('#next') ? 'next' : 'first'}`

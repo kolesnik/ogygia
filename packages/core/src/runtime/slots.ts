@@ -2,7 +2,6 @@ import type { Scope, Stale } from '@ogygia/machine';
 import type { FrameOrder } from '../frame.ts';
 import type { FrameFetcher, StoredFrame } from './frame-store.ts';
 import type { VerifiedHtml } from './html-sink.ts';
-import { is_frozen } from './region-attrs.ts';
 
 /** A lake an island's hydrate adopts in place, held by its key to find it again after. */
 export type HeldLake = {
@@ -40,7 +39,6 @@ export type LakeOps = {
 };
 
 export type FormOps = {
-	enabled: boolean;
 	snapshot(root: ParentNode, pathKey: string): void;
 	restore(pathKey: string): void;
 };
@@ -231,8 +229,10 @@ export type InteractionLink = {
 };
 
 export type Slots = {
-	lakes: LakeOps;
-	forms: FormOps;
+	/** lakes, set by their feature's install (./lakes.ts); null in a build without them */
+	lakes: LakeOps | null;
+	/** form continuity, set by its feature's install (./form-continuity.ts); null without it */
+	forms: FormOps | null;
 	interaction: ArmFn | null;
 	morph: MorphFn | null;
 	/** props a live region or a kept island is hydrated with, pushed in place later (./live.ts) */
@@ -267,21 +267,8 @@ export type Slots = {
 
 /** The live registry. A feature's `install()` assigns its slot; core/router read them. */
 export const slots: Slots = {
-	lakes: {
-		on_frozen_connect: (el) => is_frozen(el),
-		wait_for_boundary: () => false,
-		hold: () => [],
-		release: () => {},
-		settle_in: () => {},
-		mark_frozen_settled: () => {},
-		after_html_swap: () => {},
-		after_fetch_exhausted: () => {}
-	},
-	forms: {
-		enabled: false,
-		snapshot: () => {},
-		restore: () => {}
-	},
+	lakes: null,
+	forms: null,
 	interaction: null,
 	morph: null,
 	Pushable: null,

@@ -596,7 +596,7 @@ export function hydrate_island(
 	}
 
 	let head_mark: HeadMark | null = null;
-	let held: HeldLake[] | null = slots.lakes.hold(region);
+	let held: HeldLake[] | null = slots.lakes?.hold(region) ?? null;
 	const drift =
 		ssr_html !== null && touched && region.isConnected
 			? repair_if_drifted(region, ssr_html)
@@ -685,7 +685,7 @@ export function hydrate_island(
 			if (import.meta.env.DEV) warn('ownership_conflict', { element: drift.conflict }, entry);
 		}
 
-		slots.lakes.release(region, held);
+		if (held) slots.lakes?.release(region, held);
 		held = null;
 
 		if (!region.isConnected) {
@@ -719,7 +719,7 @@ export function hydrate_island(
 		return out;
 	} finally {
 		head_mark?.stop();
-		if (held) slots.lakes.release(region, held);
+		if (held) slots.lakes?.release(region, held);
 	}
 }
 

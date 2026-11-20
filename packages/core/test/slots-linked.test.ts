@@ -15,10 +15,12 @@ it('a lazy chunk that runs before its boot linked it says so loudly, by its code
 });
 
 it('the slot registry imports no messages module: every chunk imports the registry', () => {
+	const imports_of = (source: string) =>
+		[...source.matchAll(/^import\s(?!type\b)[^;]*?from\s+'([^']+)'/gm)].map((m) => m[1]);
+	// (the reader is not vacuous: it finds a value import, and skips a type-only one)
+	expect(
+		imports_of("import { a } from './a.ts';\nimport type { B } from '../messages/core.ts';")
+	).toEqual(['./a.ts']);
 	const source = readFileSync(new URL('../src/runtime/slots.ts', import.meta.url), 'utf8');
-	const imports = [...source.matchAll(/^import\s(?!type\b)[^;]*?from\s+'([^']+)'/gm)].map(
-		(m) => m[1]
-	);
-	expect(imports.length).toBeGreaterThan(0);
-	for (const from of imports) expect(from, from).not.toMatch(/messages/);
+	for (const from of imports_of(source)) expect(from, from).not.toMatch(/messages/);
 });

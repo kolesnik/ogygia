@@ -8,7 +8,7 @@ export function install(): void {
 	const on =
 		typeof __OGYGIA_CONTINUITY_FORMS__ !== 'undefined' ? __OGYGIA_CONTINUITY_FORMS__ : true;
 	if (!on) return;
-	slots.forms = { enabled: true, snapshot: snapshot_forms, restore: arm_form_restore };
+	slots.forms = { snapshot: snapshot_forms, restore: arm_form_restore };
 }
 
 const VALUE_SELECTOR = 'input, textarea, select';
