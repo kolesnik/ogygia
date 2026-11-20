@@ -161,7 +161,7 @@ abstract class Line<J> implements Queue<J> {
 	}
 
 	push(job: J, deadline = Infinity): void {
-		if ((this._owner?._epoch ?? 0) < 0) return this._stale_job(job);
+		if (this._owner !== null && this._owner._epoch < 0) return this._stale_job(job);
 		this._jobs.push(job);
 		this._deadlines.push(deadline);
 		this._waiting++;
@@ -263,7 +263,7 @@ class PlainLine<J> extends Line<J> {
 	}
 
 	protected _drain(): void {
-		if ((this._owner?._epoch ?? 0) < 0) return;
+		if (this._owner !== null && this._owner._epoch < 0) return;
 		while (this._holding < this._max && this._head < this._jobs.length) {
 			const at = this._head++;
 			const job = this._jobs[at];
@@ -334,7 +334,8 @@ class PassLine<J> extends Line<J> {
 	protected _drain(): void {
 		const state = this.#state;
 		if (state === 'running' || state === 'ending') this.#state = 'again';
-		if (state !== 'idle' || this._waiting === 0 || (this._owner?._epoch ?? 0) < 0) return;
+		if (state !== 'idle' || this._waiting === 0 || (this._owner !== null && this._owner._epoch < 0))
+			return;
 		const budget = this.#budget;
 		if (budget?.defer) {
 			this.#state = 'deferred';
@@ -423,7 +424,7 @@ class PassLine<J> extends Line<J> {
 	}
 
 	#settled(budget: QueueBudget): void {
-		if ((this._owner?._epoch ?? 0) < 0) return this.#end();
+		if (this._owner !== null && this._owner._epoch < 0) return this.#end();
 		if (this._waiting > 0 && this._now() >= this.#until) return this.#yield(budget);
 		this.#run();
 	}
@@ -441,7 +442,11 @@ class PassLine<J> extends Line<J> {
 	}
 
 	#ended(): void {
-		if (this.#state !== 'again' || this._waiting === 0 || (this._owner?._epoch ?? 0) < 0)
+		if (
+			this.#state !== 'again' ||
+			this._waiting === 0 ||
+			(this._owner !== null && this._owner._epoch < 0)
+		)
 			return this.#end();
 		this.#state = 'running';
 		this.#until = this._now() + this.#budget!.ms;
@@ -454,7 +459,7 @@ class PassLine<J> extends Line<J> {
 		const resume = () => {
 			if (resumed || this.#state !== waited) return;
 			resumed = true;
-			if ((this._owner?._epoch ?? 0) < 0) return this.#end();
+			if (this._owner !== null && this._owner._epoch < 0) return this.#end();
 			this.#state = 'running';
 			this.#until = this._now() + budget.ms;
 			this.#run();
@@ -601,7 +606,10 @@ export function queue<J>(options: QueueOptions<J>): Queue<J> {
 	return new PlainLine(options);
 }
 
-function passes<J>(options: QueueOptions<J>): Queue<J> {
+/** @internal A queue whose jobs are ranked, gated, windowed or budgeted (`queue()` for those
+ *  options), for ogygia's runtime: a boot that makes no first-come-first-served queue carries
+ *  none of its code. */
+export function passes<J>(options: QueueOptions<J>): Queue<J> {
 	const windows = options.windows ?? [];
 	if (windows.length > MAX_WINDOWS)
 		throw machine_error('machine_bad_option', {
