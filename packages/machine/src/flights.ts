@@ -94,7 +94,7 @@ import { noop } from './noop.ts';
 import type { Policy } from './policy.ts';
 import { DISPOSE, Life } from './scope.ts';
 import { STALE, type Fresh, type Stale } from './stale.ts';
-import type { Watched, World } from './world.ts';
+import type { World } from './world.ts';
 
 /** Dev and rules builds (buggify points); folded out of any other (../rules-env.d.ts). */
 const RULES =
