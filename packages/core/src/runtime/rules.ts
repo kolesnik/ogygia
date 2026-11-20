@@ -30,6 +30,8 @@
  *   each in the heap its snapshot names (./schedule.ts `turns_counted`: the drain's pick rests on it).
  * - `rule_seed_key_unshipped`: island code reads no `page.data` key the server had and the shaped
  *   page seed left out (seed shaping, `dataShake()`; the seed names what it left out in rules builds).
+ * - `rule_region_program_shipped`: every region on the page has its program in the build's feature
+ *   word (`HAS`): a live region the live program, a deferred one the hole program.
  *
  * Each area tells this module what it holds (`note_mount`, `note_visit`, `watch_router`) only when
  * rules are on (`RULES`): every call site folds out of a build without them.
@@ -39,6 +41,8 @@ import { Rules, type BrokenRule } from '../rules.ts';
 import { warn } from '../messages/core.ts';
 import type { PageGlobals } from '../page-globals.ts';
 import { OG_PREFIX, OGYGIA_PREFIX, unknown_markers } from '../wire-markup.ts';
+import { HAS } from 'ogygia:boot';
+import { F_FRAMES, F_LIVE } from '../contract/features.ts';
 
 type RuntimeRule =
 	| 'rule_region_mounted_twice'
@@ -52,7 +56,8 @@ type RuntimeRule =
 	| 'rule_head_adopted'
 	| 'rule_lake_restored'
 	| 'rule_turns_counted'
-	| 'rule_seed_key_unshipped';
+	| 'rule_seed_key_unshipped'
+	| 'rule_region_program_shipped';
 
 /** The runtime's rules. */
 export const runtime_rules: Rules<RuntimeRule> = /* @__PURE__ */ new Rules<RuntimeRule>();
@@ -397,6 +402,23 @@ export const note_lake_restore: (region: Element, held: number, found: number) =
 const lakes_paired = (): string | null =>
 	R.lakes_unpaired.length === 0 ? null : R.lakes_unpaired.join('; ');
 
+// ── every region on the page has its program in the build ──
+
+/** The first region on the page that needs a program the build's word (`HAS`) left out: a live
+ *  region the live program, a deferred one the hole program (./core.ts guards each on its bits). */
+function programs_shipped(): string | null {
+	if (typeof document === 'undefined') return null;
+	const frames = (HAS & F_FRAMES) !== 0;
+	if (frames && (HAS & F_LIVE) !== 0) return null;
+	const left_out = (region: Element, program: string): string =>
+		`${entry_of(region)} needs the ${program} program, which this build left out`;
+	for (const region of document.querySelectorAll('ogygia-region')) {
+		if (region.hasAttribute('live')) return left_out(region, 'live');
+		if (!frames && region.getAttribute('render') === 'defer') return left_out(region, 'hole');
+	}
+	return null;
+}
+
 // ── the head gains no <base>, refresh, CSP or cookie meta (SPA-HEAD) ──
 
 type HeadDeny = Parameters<NonNullable<PageGlobals['__og_head_deny']>>[0];
@@ -465,6 +487,7 @@ export const install_rules: (dev: boolean) => void = $rules(function install_rul
 	runtime_rules.add('rule_region_answer_behind', regions_show_their_answers);
 	runtime_rules.add('rule_region_left_busy', regions_left_at_rest);
 	runtime_rules.add('rule_turns_counted', turns_counted);
+	runtime_rules.add('rule_region_program_shipped', programs_shipped);
 	watch_head();
 	(globalThis as PageGlobals).__og_parsed = note_parse;
 	runtime_rules.add('rule_seed_key_unshipped', no_unshipped_read);

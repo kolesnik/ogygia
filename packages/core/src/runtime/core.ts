@@ -301,6 +301,10 @@ function say_island_failed(entry: string | null, err: unknown): void {
 		console.error(new OgygiaError('island_hydrate_failed', { entry }), err);
 	}
 }
+/** A region needs a program its build's word left out (`HAS`): it keeps the server's HTML. */
+function say_program_missing(entry: string, program: 'hole' | 'live'): void {
+	console.error(new OgygiaError('region_program_missing', { entry, program }));
+}
 const nothing = (): void => {};
 const kit_boot_failed = (err: unknown): boolean =>
 	(err as { code?: unknown } | null)?.code === 'kit_boot_failed';
@@ -650,7 +654,8 @@ class OgygiaRegion extends HTMLElement {
 			this.#arm(when, this.#fire_hydrate);
 			return;
 		}
-		if (!(HAS & F_FRAMES) || !this.#hole_armed()) return;
+		if (!(HAS & F_FRAMES)) return say_program_missing(this.getAttribute('entry') || '', 'hole');
+		if (!this.#hole_armed()) return;
 		this.#arm(when, this.#fire_server);
 		const prefetch = this.getAttribute('prefetch');
 		if (prefetch && prefetch !== when && prefetch !== 'interaction') {
@@ -1487,7 +1492,7 @@ class OgygiaRegion extends HTMLElement {
 	 * - **Later tick, module changed:** unmount, swap, re-hydrate.
 	 */
 	async applyLive(desc: LiveTick): Promise<void> {
-		if (!(HAS & F_FRAMES) || !(HAS & F_LIVE)) return;
+		if (!(HAS & F_FRAMES) || !(HAS & F_LIVE)) return say_program_missing(desc.id, 'live');
 		this.#live_last = desc;
 		$await(this.#box.ask((turn) => this.#apply_live(desc, turn)));
 	}
