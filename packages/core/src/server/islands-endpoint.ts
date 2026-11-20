@@ -83,10 +83,6 @@ const MAX_REGION_BODY = 2_000_000;
 
 const MAX_BATCH_BODY = 512 * 1024;
 
-const RENDER_TIMEOUT_MS = render_policy.deadline;
-
-/** Process-local cap on concurrent region SSR (M1 CPU amp under valid MAC). */
-const render_gate = new ConcurrencyGate(REGION_RENDER_CONCURRENCY);
 /** The abandoned renders already told (one render's timeout reaches every call that joined it). */
 const told_abandoned = new WeakSet<Error>();
 
@@ -164,10 +160,16 @@ function region_css_links(id: string): string {
 
 /** The islands endpoint of one handle. */
 export class IslandsEndpoint {
+	/** Process-local cap on concurrent region SSR (M1 CPU amp under valid MAC): one for every
+	 *  endpoint of the process, made with the first. */
+	static #gate: ConcurrencyGate | null = null;
+
 	readonly #host: EndpointHost;
+	readonly #render_gate: ConcurrencyGate;
 
 	constructor(host: EndpointHost) {
 		this.#host = host;
+		this.#render_gate = IslandsEndpoint.#gate ??= new ConcurrencyGate(REGION_RENDER_CONCURRENCY);
 	}
 
 	/**
@@ -275,14 +277,15 @@ export class IslandsEndpoint {
 			return hole_head(out.head as string, base) + body + kit_page_facts_tail();
 		};
 		// One deadline for the hole, its wait for a slot and its render together (#195): it answers
-		// within RENDER_TIMEOUT_MS. A render still running then is abandoned (it cannot be cancelled):
-		// its hole keeps the fallback and its slot goes to the next hole, so renders stuck on a hung
-		// upstream never hold every slot.
+		// within the render policy's deadline. A render still running then is abandoned (it cannot be
+		// cancelled): its hole keeps the fallback and its slot goes to the next hole, so renders stuck
+		// on a hung upstream never hold every slot.
+		const render_gate = this.#render_gate;
 		try {
 			return await cached_render(
 				// (`render_signal`: this call's own, or a shared render's — aborted once nobody waits)
 				async (render_signal) => {
-					const gated = { deadline_ms: RENDER_TIMEOUT_MS, signal: render_signal };
+					const gated = { deadline_ms: render_policy.deadline, signal: render_signal };
 					// the page first, outside the gate: a render slot is never held while Kit runs the
 					// page's loads (and a cache hit never gets here)
 					await kit_page_ready(reads_page_data);
@@ -315,7 +318,7 @@ export class IslandsEndpoint {
 			// that joined a cached hole's render get the same error, render_cache.ts)
 			if (is_run_timeout(e) && render_gate.abandoned === 1 && !told_abandoned.has(e as Error)) {
 				told_abandoned.add(e as Error);
-				warn('region_render_abandoned', { ms: RENDER_TIMEOUT_MS });
+				warn('region_render_abandoned', { ms: render_policy.deadline });
 			}
 			// The response is an opaque 500 ("Region render failed"); the reason belongs in the
 			// server's log, in production as in dev (test/hole-throw-said.test.ts)

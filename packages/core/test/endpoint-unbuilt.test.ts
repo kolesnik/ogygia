@@ -114,3 +114,38 @@ describe('the islands endpoint', () => {
 		expect(logged.filter((l) => l.includes('region_endpoint_unbuilt'))).toHaveLength(1);
 	});
 });
+
+/** A page render (does its load's `setHeaders` reach the hole lifetime's note?) and a hole's page
+ *  look-up (Kit's data request, answered with the route it matched), through a handle for `word`. */
+async function page_requests(word: number) {
+	set_server_word(word);
+	const h = handle();
+	const page = event('/a');
+	const own = (page as { setHeaders: unknown }).setHeaders;
+	let seen: unknown;
+	await h({
+		event: page,
+		resolve: async (e: { setHeaders: unknown }) => {
+			seen = e.setHeaders;
+			return new Response('page');
+		}
+	} as never);
+	const facts = event('/a/__data.json', { headers: { 'x-ogygia-page-facts': '1' } });
+	(facts as { isDataRequest: boolean }).isDataRequest = true;
+	const answer = await h({ event: facts, resolve } as never);
+	return { noted: seen !== own, route: answer.headers.get('x-ogygia-page-route') };
+}
+
+describe("a page request's hole work", () => {
+	it("with the frames feature: a load's cache-control is noted for its holes, and a hole's page look-up gets the route", async () => {
+		const { noted, route } = await page_requests(ALL);
+		expect(noted).toBe(true);
+		expect(route).not.toBe(null);
+	});
+
+	it('without it: neither (no hole is minted, and no hole looks its page up)', async () => {
+		const { noted, route } = await page_requests(ALL & ~F_FRAMES);
+		expect(noted).toBe(false);
+		expect(route).toBe(null);
+	});
+});

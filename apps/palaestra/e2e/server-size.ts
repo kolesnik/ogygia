@@ -136,10 +136,62 @@ function measure(): Report {
 	};
 }
 
+/** THE SERVER'S LEAK GATE: the modules each feature's server code lives in. A server whose word
+ *  (ogygia:server/runtime-flags, the browser's `HAS`) holds the feature holds every one of them; a
+ *  server whose word lacks it holds none (packages/core/test/server-programs.test.ts holds what a
+ *  server without them refuses). */
+const SERVER_PROGRAMS: readonly { feature: string; bit: number; modules: readonly string[] }[] = [
+	{
+		feature: 'frames',
+		bit: 0x10,
+		modules: [
+			'core/HoleRegion.svelte',
+			'core/region-parts/hole-facts.svelte',
+			'core/server/islands-endpoint',
+			'core/server/stream-regions',
+			'core/server/hole-graph',
+			'core/server/hole-urls'
+		]
+	},
+	{ feature: 'lakes', bit: 0x20, modules: ['core/LakeRegion.svelte'] },
+	{
+		feature: 'live',
+		bit: 0x80,
+		modules: ['core/region-parts/live-value.svelte', 'core/PromiseRegionAwait.svelte']
+	}
+];
+const WORD_RE = /\b(?:var|const|let) HAS(?:\$\d+)? = (\d+);/;
+
+/** The server's feature word, as its build wrote it. */
+function server_word(): number | null {
+	for (const file of js_files(SERVER)) {
+		const m = WORD_RE.exec(readFileSync(file, 'utf8'));
+		if (m) return Number(m[1]);
+	}
+	return null;
+}
+
+function leaks_of(r: Report, word: number): string[] {
+	const out: string[] = [];
+	for (const p of SERVER_PROGRAMS)
+		for (const mod of p.modules) {
+			const held = (word & p.bit) !== 0;
+			if (held && !(mod in r.modules))
+				out.push(`its word holds ${p.feature}, but the server lacks ${mod}`);
+			else if (!held && mod in r.modules)
+				out.push(`its word has no ${p.feature}, but the server holds ${mod}`);
+		}
+	return out;
+}
+
 const report = measure();
+const word = server_word();
+const leaks =
+	word === null ? ['no server feature word found in the output (HAS = …)'] : leaks_of(report, word);
+for (const leak of leaks) console.error(`server-size: ${relative(REPO, APP)}: ${leak}`);
 if (AS_JSON) {
 	console.log(JSON.stringify(report, null, 2));
-	process.exit();
+	process.exit(leaks.length ? 1 : 0);
 }
 
 const base: Report | null = COMPARE ? (JSON.parse(readFileSync(COMPARE, 'utf8')) as Report) : null;
@@ -165,4 +217,8 @@ if (base) {
 	const gone = Object.keys(base.modules).filter((id) => !(id in report.modules));
 	if (gone.length) console.log(`\n  gone: ${gone.join(', ')}`);
 }
+console.log(
+	`\n  server word ${word ?? '?'}: ${leaks.length ? `${leaks.length} leak(s)` : 'no leak'}`
+);
 console.log('');
+if (leaks.length) process.exit(1);

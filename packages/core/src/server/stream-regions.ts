@@ -38,11 +38,15 @@ export type BatchAnswer = { slot: string; html: string } | null;
 
 type BatchStates = { streaming: {}; ended: {}; cancelled: {} };
 const batch_steps = { streaming: ['ended', 'cancelled'], ended: [], cancelled: [] } as const;
-const batch_def = $machine<BatchStates>()({
-	name: 'batch stream',
-	initial: 'streaming',
-	steps: batch_steps
-});
+/** The batch's machine, made with the first batch: a server that streams none never makes it. */
+function batch_definition() {
+	return $machine<BatchStates>()({
+		name: 'batch stream',
+		initial: 'streaming',
+		steps: batch_steps
+	});
+}
+let batch_def: ReturnType<typeof batch_definition> | null = null;
 
 /**
  * The batch's frame stream: every call renders at once, and each answer goes out as its parcel the
@@ -58,7 +62,7 @@ export function batch_stream(
 	owner?: Scope
 ): ReadableStream<Uint8Array> {
 	const encoder = new TextEncoder();
-	const batch = fsm.create(batch_def);
+	const batch = fsm.create((batch_def ??= batch_definition()));
 	owner?.defer(() => {
 		batch.move('streaming', 'cancelled');
 	});
