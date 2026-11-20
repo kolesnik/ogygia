@@ -56,12 +56,10 @@ export const OGYGIA_INJECTED_IMPORTS: ReadonlySet<string> = new Set([
  * `ogygia/internal/server` into a host or a generated island module, and a host in a monorepo
  * sub-package that doesn't depend on ogygia must still resolve them.
  *
- * A published install ships only `dist` → `dist/internal.js`. ogygia's OWN source checkout has `src/`,
- * and the rest of the app resolves ogygia through the `svelte` export condition (→ `src`), so there we
- * point at `src/internal.ts` too — same module, no Region/brand identity fork.
+ * Always the built files: a published install ships only `dist`, and ogygia's own checkout resolves
+ * the package to `dist` too (its source holds build-time macros only the build compiles), so the
+ * injected imports and the rest of the app share one module, no Region/brand identity fork.
  */
-const OG_HAS_SRC = fs.existsSync(path.join(CORE_ROOT, 'src/internal.ts'));
-
 /** ogygia's `Region.svelte` — either copy, as the POSIX id Vite hands the transform hook (a workspace
  *  can load the src one and the dist one both): its LateIsland import is the awaiting one where the
  *  app runs Svelte's async mode (late-island.ts). */
@@ -69,15 +67,10 @@ export const OGYGIA_REGION_MODULES: ReadonlySet<string> = new Set([
 	`${CORE_ROOT_ID}src/Region.svelte`,
 	`${CORE_ROOT_ID}dist/Region.svelte`
 ]);
-export const OGYGIA_INJECTED_FILES: Record<string, string> = OG_HAS_SRC
-	? {
-			'ogygia/internal': path.join(CORE_ROOT, 'src/internal.ts'),
-			'ogygia/internal/server': path.join(CORE_ROOT, 'src/internal-server.ts')
-		}
-	: {
-			'ogygia/internal': built('internal.js'),
-			'ogygia/internal/server': built('internal-server.js')
-		};
+export const OGYGIA_INJECTED_FILES: Record<string, string> = {
+	'ogygia/internal': built('internal.js'),
+	'ogygia/internal/server': built('internal-server.js')
+};
 
 /** Client-side shims aliased for island modules (Kit's client runtime is absent under csr=false). */
 export const APP_SHIMS: { '$app/state': string; '$app/stores': string; '$app/navigation': string } =

@@ -16,9 +16,6 @@ import { warn } from '../messages/core.ts';
 import { OG_LAKE } from '../wire-markup.ts';
 import { note_lake_restore } from './rules.ts';
 
-const RULES =
-	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-
 /** Feature entry: fill the `lakes` slot so core holds/releases frozen regions. */
 export function install(): void {
 	slots.lakes = {
@@ -89,7 +86,7 @@ export function release(parent: Element, held: HeldLake[]): void {
 			for (const r of lake.querySelectorAll('ogygia-region'))
 				(r as HTMLElement & { connectedCallback?(): void }).connectedCallback?.();
 	}
-	if (RULES) note_lake_restore(parent, held.length, found);
+	note_lake_restore(parent, held.length, found);
 }
 
 function unhosted(el: Element): boolean {

@@ -1081,9 +1081,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.1.2
-      esm-env:
-        specifier: 'catalog:'
-        version: 1.2.2
       rolldown:
         specifier: 'catalog:'
         version: 1.2.16

@@ -68,9 +68,6 @@ export type PageVisit = {
 	readonly initialized_lakes: Set<string>;
 };
 
-const RULES =
-	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-
 function page_visit(): PageVisit {
 	const owner = scope();
 	const visit: PageVisit = {
@@ -81,7 +78,7 @@ function page_visit(): PageVisit {
 		lake_cache: cache<string, LakeCacheEntry>({ name: 'lake cache', max: LAKE_CACHE_MAX, owner }),
 		initialized_lakes: new Set()
 	};
-	if (RULES) note_visit(visit, false);
+	note_visit(visit, false);
 	return visit;
 }
 
@@ -310,7 +307,7 @@ export class RuntimeSession {
 	reset(next: PageVisit = page_visit()): void {
 		const left = this.#visit;
 		this.#visit = next;
-		if (RULES) note_visit(next, true);
+		note_visit(next, true);
 		if (left !== next) left.scope.close();
 	}
 }

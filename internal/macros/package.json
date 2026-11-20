@@ -24,7 +24,6 @@
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
-		"esm-env": "catalog:",
 		"rolldown": "catalog:",
 		"typescript": "catalog:tsgo",
 		"vitest": "catalog:"

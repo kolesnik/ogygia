@@ -168,14 +168,16 @@ export function sim_define(env: Readonly<Record<string, string | undefined>>): {
 	return { __OGYGIA_SIM_ENV__: JSON.stringify(knobs) };
 }
 
+/**
+ * A package's Vitest config. A test that reads core's source by path reads it as core's build
+ * compiles it (`core_macros()`), and that source reads core's own `#` imports from source too (the
+ * `ogygia-source` condition); `@ogygia/core` itself resolves to its dist for everyone.
+ * `heisenbench_record()` adds nothing, unless the measurement-source gate records the tests' inputs.
+ */
 export function pluginTests(): ViteUserConfig {
 	return {
-		// heisenbench_record(): nothing, unless the measurement-source gate records the tests' inputs
-		// core_macros(): a test that reads core's source by path reads it as core's build compiles it
 		plugins: [core_macros(), svelte(), ...heisenbench_record()],
 		define: sim_define(process.env),
-		// core's source reads core's own `#` imports from source too (`ogygia-source`); the package's
-		// exports stay dist for everyone
 		resolve: { alias: stub_aliases(), conditions: ['ogygia-source', ...defaultClientConditions] },
 		ssr: { resolve: { conditions: ['ogygia-source', ...defaultServerConditions] } },
 		test: { include: ['test/**/*.test.ts'], environment: 'node' }

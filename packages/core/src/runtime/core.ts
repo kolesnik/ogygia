@@ -913,15 +913,15 @@ class OgygiaRegion extends HTMLElement {
 		this.#frame_address = address;
 		binding.defer(() => {
 			if (this.#binding === binding) this.#frame_address = null;
-			if (RULES) note_unbound(this);
+			note_unbound(this);
 		});
 		const box = this.#box;
 		let replayed = false;
 		const off = slots.frames?.subscribe(address, (f) => {
 			replayed = true;
-			if (RULES) note_handed(this, address, f.v, () => this.#paint.now.kind === 'painting');
+			note_handed(this, address, f.v, () => this.#paint.now.kind === 'painting');
 			box.post((turn) => {
-				if (RULES) note_turn(this);
+				note_turn(this);
 				return this.#apply(f.html, turn, f.v);
 			});
 		});
@@ -1000,7 +1000,7 @@ class OgygiaRegion extends HTMLElement {
 		const painting = this.#paint_next();
 		if (html === KEEP_FALLBACK_HTML) {
 			this.#painted(painting);
-			if (RULES && v !== undefined) note_shown(this, v);
+			if (v !== undefined) note_shown(this, v);
 			use_sheets(this, []); // (the fallback's sheets are the page's)
 			this.#answered('kept');
 			if (!is_awake(this)) this.setAttribute('data-hydrated', '');
@@ -1013,7 +1013,7 @@ class OgygiaRegion extends HTMLElement {
 		const { frag, ready, sheets } = region_fragment(html);
 		if ((await turn.wait(ready)) === STALE || this.#paint.now !== painting) return;
 		this.#painted(painting);
-		if (RULES && v !== undefined) note_shown(this, v);
+		if (v !== undefined) note_shown(this, v);
 		use_sheets(this, sheets);
 		this.#shown = html;
 		slots.lakes.settle_in(frag);
@@ -1383,12 +1383,12 @@ class OgygiaRegion extends HTMLElement {
 			// hydrate step edits it (lakes lifted): an untouched island skips the parse-and-compare.
 			const touched = ssr_html === null || region_changed(this);
 			// (dev: a Svelte hydration warning raised in this step is this island's)
-			if (import.meta.env.DEV) set_hydrating(this, this.#life);
+			set_hydrating(this, this.#life);
 			this.#app = core.hydrate_island(this, entry, mod, ssr_html, touched);
 			this.#ssr_html = null;
 			this.#unwatch();
 			if (!this.#app) return;
-			if (RULES) note_mount(this);
+			note_mount(this);
 			const t_done = now_ms();
 			// (Svelte's `hydrate()` runs `$effect` and onMount in a microtask it queued during the call; one
 			// awaited now runs after it — mounted means they ran)
@@ -1647,19 +1647,19 @@ class OgygiaRegion extends HTMLElement {
 		if (this.#hole.now.kind !== 'idle') this.#hole.go('idle');
 		if (this.#wake.now.kind !== 'cold') this.#wake.go('cold');
 		if (this.#paint.now.kind !== 'idle') this.#paint.go('idle');
-		if (RULES) note_left(this, () => busy_machines(this.#machines()));
+		note_left(this, () => busy_machines(this.#machines()));
 		this.#life.close();
 		this.#region.go('detached', detached());
 		if (this.#app) {
 			this.#app.dispose();
 			this.#app = null;
-			if (RULES) note_unmount(this);
+			note_unmount(this);
 		}
 	}
 }
 
-function apply_dev_head_region_css(): void {
-	if (!import.meta.env.DEV || typeof document === 'undefined') return;
+const apply_dev_head_region_css: () => void = $dev(function apply_dev_head_region_css(): void {
+	if (typeof document === 'undefined') return;
 	// oxlint-disable-next-line ogygia/no-silent-failures -- dom_ready never rejects, and the work in it catches
 	void dom_ready().then(() => {
 		const seen = new Set<string>();
@@ -1674,14 +1674,14 @@ function apply_dev_head_region_css(): void {
 			void import_code(url).catch(() => {});
 		}
 	});
-}
+});
 
 export function boot(
 	installers: Array<() => void> = [],
 	client_plugins: readonly ClientRealm[] = []
 ): void {
 	disclose_version();
-	if (RULES) install_rules(import.meta.env.DEV);
+	install_rules(import.meta.env.DEV);
 	runtime_session.adopt_document_head();
 	// island-side code (a shim) throws and logs through the runtime's own messages (messages/island.ts)
 	(globalThis as unknown as Record<symbol, unknown>)[Symbol.for('ogygia.messages')] ??= {
@@ -1704,7 +1704,7 @@ export function boot(
 	on_reload_needed(say_reload_needed);
 	on_file_load(note_code_sheets);
 
-	if (import.meta.env.DEV) apply_dev_head_region_css();
+	apply_dev_head_region_css();
 
 	// DEV: Svelte's hydration warnings (the server and the browser disagreed; Svelte kept the
 	// server's value, so only the console knew) reach the devtools and the profiler's browser half

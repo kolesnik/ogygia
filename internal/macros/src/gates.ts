@@ -2,16 +2,19 @@
  * ogygia's gates: the conditions its macros put code behind, as core's own hand-written code reads
  * them today.
  *
- * - `dev`: development only (esm-env's `DEV`). Every production build folds it, rules builds too.
+ * - `dev`: development only (`import.meta.env.DEV`). Every production build folds it, rules builds
+ *   too.
  * - `rules`: development, and production builds made with `OGYGIA_RULES=1` (the e2e suites' and
  *   the simulator's), where `__OGYGIA_RULES__` is defined true. Any other build folds it.
  *
  * @packageDocumentation
  */
-import { hoistedGate, importedGate, type Gate } from 'ogygia-internal-compilerkit';
+import { expressionGate, hoistedGate, type Gate } from 'ogygia-internal-compilerkit';
 
-/** Development only: esm-env's `DEV`, imported once per file. */
-export const DEV: Gate = importedGate('dev', 'esm-env', 'DEV');
+/** Development only: `import.meta.env.DEV`, as core's hand-written checks read it, written in
+ *  place (esm-env's `DEV` reaches a bundle through two re-exports, and rolldown kept the code
+ *  behind it: +126 B brotli on the boot). */
+export const DEV: Gate = expressionGate('dev', 'import.meta.env.DEV');
 
 /** The rules tier: development, or a build with `OGYGIA_RULES=1`; one constant per file. */
 export const RULES: Gate = hoistedGate(

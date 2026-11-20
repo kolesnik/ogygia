@@ -45,9 +45,8 @@ describe('the calls', () => {
 		const out = compiled({ 'a.ts': `${CHECKS}${lines('check(1);', 'note(2);')}` }, 'a.ts')!;
 		expect(out).toContain('export function check(n: number): void {');
 		expect(out).toContain('export function note(n: number): void {');
-		expect(out).toContain("import { DEV } from 'esm-env'");
 		expect(out).toContain('const RULES = import.meta.env?.DEV ||');
-		expect(out).toContain('DEV && check(1);');
+		expect(out).toContain('import.meta.env.DEV && check(1);');
 		expect(out).toContain('RULES && note(2);');
 		expect(out).not.toMatch(/\$dev|\$rules/);
 	});
@@ -66,7 +65,7 @@ describe('the calls', () => {
 			},
 			'b.ts'
 		)!;
-		expect(out).toContain('if (n) DEV && check(n);');
+		expect(out).toContain('if (n) import.meta.env.DEV && check(n);');
 		expect(out).toContain('RULES && note(n);');
 	});
 

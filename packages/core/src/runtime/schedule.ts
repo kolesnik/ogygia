@@ -12,9 +12,6 @@ import {
 	type Stale
 } from '@ogygia/machine';
 
-const RULES =
-	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-
 export type Turn = {
 	el: Element;
 	order: number;
@@ -61,7 +58,7 @@ export function turns_counted(p: PendingTurns = P): string | null {
 		? null
 		: `the scheduler counts ${p.count} pending turn(s) and holds ${held}`;
 }
-if (RULES) watch_turns(turns_counted);
+watch_turns(turns_counted);
 
 const drain_definition = machine<{ idle: {}; queued: {}; waiting: { at: number } }>()({
 	name: 'hydrate-drain',

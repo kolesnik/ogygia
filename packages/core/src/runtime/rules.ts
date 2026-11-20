@@ -77,16 +77,20 @@ class RuleRows {
 const R = new RuleRows();
 
 /** A region element mounted its island. */
-export function note_mount(region: Element): void {
+export const note_mount: (region: Element) => void = $rules(function note_mount(
+	region: Element
+): void {
 	R.mounts.set(region, (R.mounts.get(region) ?? 0) + 1);
-}
+});
 
 /** A region element let its island go. */
-export function note_unmount(region: Element): void {
+export const note_unmount: (region: Element) => void = $rules(function note_unmount(
+	region: Element
+): void {
 	const n = (R.mounts.get(region) ?? 0) - 1;
 	if (n > 0) R.mounts.set(region, n);
 	else R.mounts.delete(region);
-}
+});
 
 const entry_of = (region: Element): string => region.getAttribute('entry') ?? region.tagName;
 
@@ -105,9 +109,11 @@ function one_mount_per_region(): string | null {
 
 /** A region element left the page (its teardown ran): `busy` reads its machines not at rest, as
  *  `name state` (./region-machines.ts `busy_machines`). */
-export function note_left(region: Element, busy: () => readonly string[]): void {
-	R.left.set(region, busy);
-}
+export const note_left: (region: Element, busy: () => readonly string[]) => void = $rules(
+	function note_left(region: Element, busy: () => readonly string[]): void {
+		R.left.set(region, busy);
+	}
+);
 
 function regions_left_at_rest(): string | null {
 	for (const [region, read_busy] of R.left) {
@@ -153,10 +159,13 @@ let visit_n = 0;
 let current: Visit | null = null;
 
 /** A page visit was made (`current`: it is the page on screen's now). */
-export function note_visit(visit: Visit, is_current: boolean): void {
+export const note_visit: (visit: Visit, is_current: boolean) => void = $rules(function note_visit(
+	visit: Visit,
+	is_current: boolean
+): void {
 	if (!R.visits.some((v) => v.visit === visit)) R.visits.push({ visit, n: ++visit_n });
 	if (is_current) current = visit;
-}
+});
 
 function no_old_page_open(): string | null {
 	const now = R.visits.find((v) => v.visit === current);
@@ -176,7 +185,9 @@ interface RouterView {
 }
 
 /** The router started: its history model is checked against the address bar. */
-export function watch_router(router: RouterView): void {
+export const watch_router: (router: RouterView) => void = $rules(function watch_router(
+	router: RouterView
+): void {
 	runtime_rules.add('rule_address_bar_drift', () => {
 		if (router.nav.now.kind !== 'idle') return null;
 		const id = (history.state as { ogygia?: unknown } | null)?.ogygia;
@@ -187,7 +198,7 @@ export function watch_router(router: RouterView): void {
 			? null
 			: `the address bar is on entry ${id}, the history model on ${page.id}`;
 	});
-}
+});
 
 // ── no failure without a code ──
 
@@ -257,9 +268,11 @@ type Shows = {
 let held_at: ((address: string) => { v: number } | null) | null = null;
 
 /** The frame store is on the page: the rule reads what each address holds from it. */
-export function watch_frames(peek: (address: string) => { v: number } | null): void {
-	held_at = peek;
-}
+export const watch_frames: (peek: (address: string) => { v: number } | null) => void = $rules(
+	function watch_frames(peek: (address: string) => { v: number } | null): void {
+		held_at = peek;
+	}
+);
 
 // ── the scheduler counts the turns it holds ──
 
@@ -267,15 +280,22 @@ export function watch_frames(peek: (address: string) => { v: number } | null): v
 let turns_check: (() => string | null) | null = null;
 
 /** The scheduler is on the page: the rule asks it whether its count holds. */
-export function watch_turns(check: () => string | null): void {
+export const watch_turns: (check: () => string | null) => void = $rules(function watch_turns(
+	check: () => string | null
+): void {
 	turns_check = check;
-}
+});
 
 const turns_counted = (): string | null => (turns_check === null ? null : turns_check());
 
 /** The store handed `region` the answer with ticket `v` at `address` (`painting`: one of its
  *  answers is being painted now). */
-export function note_handed(
+export const note_handed: (
+	region: Element,
+	address: string,
+	v: number,
+	painting: () => boolean
+) => void = $rules(function note_handed(
 	region: Element,
 	address: string,
 	v: number,
@@ -286,24 +306,31 @@ export function note_handed(
 		s.handed = v;
 		s.out++;
 	} else R.shows.set(region, { address, handed: v, shown: 0, out: 1, painting });
-}
+});
 
 /** A handed answer's turn came (its paint starts, or it is dropped as older). */
-export function note_turn(region: Element): void {
+export const note_turn: (region: Element) => void = $rules(function note_turn(
+	region: Element
+): void {
 	const s = R.shows.get(region);
 	if (s) s.out--;
-}
+});
 
 /** `region` painted the answer with ticket `v`. */
-export function note_shown(region: Element, v: number): void {
+export const note_shown: (region: Element, v: number) => void = $rules(function note_shown(
+	region: Element,
+	v: number
+): void {
 	const s = R.shows.get(region);
 	if (s) s.shown = v;
-}
+});
 
 /** `region` let its address go. */
-export function note_unbound(region: Element): void {
+export const note_unbound: (region: Element) => void = $rules(function note_unbound(
+	region: Element
+): void {
 	R.shows.delete(region);
-}
+});
 
 function regions_show_their_answers(): string | null {
 	if (held_at === null) return null;
@@ -358,12 +385,14 @@ const no_unshipped_read = (): string | null =>
 
 /** An island's hydrate held `held` lakes of `region` and found `found` of them again after it
  *  (./lakes.ts `release`, by lake key): a count that differs drops content. */
-export function note_lake_restore(region: Element, held: number, found: number): void {
-	if (held !== found && R.lakes_unpaired.length < 10)
-		R.lakes_unpaired.push(
-			`${entry_of(region)} held ${held} lake(s) and found ${found} of them after its hydrate`
-		);
-}
+export const note_lake_restore: (region: Element, held: number, found: number) => void = $rules(
+	function note_lake_restore(region: Element, held: number, found: number): void {
+		if (held !== found && R.lakes_unpaired.length < 10)
+			R.lakes_unpaired.push(
+				`${entry_of(region)} held ${held} lake(s) and found ${found} of them after its hydrate`
+			);
+	}
+);
 
 const lakes_paired = (): string | null =>
 	R.lakes_unpaired.length === 0 ? null : R.lakes_unpaired.join('; ');
@@ -421,7 +450,9 @@ function check_soon(): void {
  *  checked after machine moves, and what broke is said with its code. `globalThis.__ogygia_moves()`
  *  gives this document's machine moves, one line each (the last 500), for a failing e2e test to
  *  print. */
-export function install_rules(dev: boolean): void {
+export const install_rules: (dev: boolean) => void = $rules(function install_rules(
+	dev: boolean
+): void {
 	if (installed || typeof window === 'undefined') return;
 	installed = true;
 	own_code = own_code_of(import.meta.url);
@@ -448,4 +479,4 @@ export function install_rules(dev: boolean): void {
 	// oxlint-disable-next-line ogygia/owned-effects -- the rules' ear for failures nobody caught, installed once: it lives as long as the document
 	window.addEventListener('error', (event) => failure(event.error ?? event.message));
 	if (dev) observe(check_soon);
-}
+});

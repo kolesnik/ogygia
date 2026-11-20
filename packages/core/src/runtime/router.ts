@@ -15,9 +15,6 @@ import { report_thrown } from '../report-thrown.ts';
 import { download } from '../policies.ts';
 import { watch_router } from './rules.ts';
 
-const RULES =
-	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-
 const WS = /\s+/;
 
 /**
@@ -509,7 +506,7 @@ export class SpaRouter {
 			document_key(new URL(document_address())) !== document_key(new URL(location.href)) &&
 			this.history.find(history.state) !== null;
 		if (!stepped) this.history.start();
-		if (RULES) watch_router(this);
+		watch_router(this);
 		const body = document.body;
 		if (body) record_server_body(body, body, Array.from(body.childNodes));
 
