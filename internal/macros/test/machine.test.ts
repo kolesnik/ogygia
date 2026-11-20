@@ -172,31 +172,24 @@ describe('reference and compiled drive the same', () => {
 					const to = all[next()]!;
 					if (step % 5 === 0) {
 						const target = all[next() % 5]!;
-						waits[0]!.push(
-							(rt.wait as never as (m: rt.Run, k: string) => Promise<unknown>)(a, target)
-						);
-						waits[1]!.push(
-							(rt.wait as never as (m: rt.Run, k: string) => Promise<unknown>)(b, target)
-						);
+						waits[0]!.push(a.wait(target));
+						waits[1]!.push(b.wait(target));
 					}
-					let x: unknown;
-					let y: unknown;
-					try {
-						x = (rt.go as never as (m: rt.Run, k: string) => boolean)(a, to);
-					} catch (error) {
-						x = String(error);
-					}
-					try {
-						y = (rt.go as never as (m: rt.Run, k: string) => boolean)(b, to);
-					} catch (error) {
-						y = String(error);
-					}
-					expect(x).toEqual(y);
-					expect(rt.kind(a)).toBe(rt.kind(b));
-					expect(rt.epoch(a)).toBe(rt.epoch(b));
+					// every third step a move from a state drawn at random: taken, lost, or refused
+					const from = step % 3 === 2 ? all[next()]! : null;
+					const moved = (m: rt.Run): unknown => {
+						try {
+							return from === null ? m.go(to) : m.move(from, to);
+						} catch (error) {
+							return String(error);
+						}
+					};
+					expect(moved(a)).toEqual(moved(b));
+					expect(a.kind).toBe(b.kind);
+					expect(a.epoch).toBe(b.epoch);
 				}
-				rt.stop(a);
-				rt.stop(b);
+				a.stop();
+				b.stop();
 				const [wa, wb] = await Promise.all(waits.map((w) => Promise.all(w)));
 				expect(wa!.map((v) => (v === STALE ? 'STALE' : (v as { kind: string }).kind))).toEqual(
 					wb!.map((v) => (v === STALE ? 'STALE' : (v as { kind: string }).kind))
