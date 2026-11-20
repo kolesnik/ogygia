@@ -8,6 +8,9 @@ export type Program = {
 	kit?: true;
 	modules: string[];
 	strings?: string[];
+	/** `hydrate`: the program rides the hydrate core (a hydrate-phase feature), so its modules are
+	 *  in a lazy chunk exactly when its feature is selected, and never in the boot. */
+	phase?: 'hydrate';
 };
 
 /**
@@ -36,8 +39,13 @@ export const PROGRAMS: readonly Program[] = [
 	},
 	// the region element's hole program: fetch, apply, revalidate, retry (its revalidated mark)
 	{ name: 'hole program', feature: 'frames', modules: [], strings: ['data-revalidated'] },
-	// the region element's live program: a held region's ticks (its tick's event)
-	{ name: 'live program', feature: ['frames', 'live'], modules: [], strings: ['ogygia:live'] },
+	// the live program, a held region's ticks: the live feature's, in the hydrate core
+	{
+		name: 'live program',
+		feature: 'live',
+		phase: 'hydrate',
+		modules: ['packages/core/dist/runtime/live-program.js']
+	},
 	// a page's lakes: each one's settle machine and the visit's cache of their server DOM
 	{ name: 'lake state', feature: 'lakes', modules: [], strings: ['lake cache'] },
 	// the region element's calls into the lakes feature (the arm it hands a frozen region)

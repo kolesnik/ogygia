@@ -411,6 +411,17 @@ if (!arg('--core')) {
 			const held = p.kit ? r.kit : needs.length > 0 && needs.every((f) => r.features.includes(f));
 			const selects = p.kit ? 'Kit pages' : needs.join(' + ');
 			for (const mod of p.modules) {
+				if (p.phase === 'hydrate') {
+					if (mod in r.modules)
+						leaks.push(`${r.name}: its boot holds ${mod} (${p.name}), a hydrate-phase program`);
+					else if (held !== r.lazy_modules.includes(mod))
+						leaks.push(
+							held
+								? `${r.name}: selects ${selects}, but no lazy chunk holds ${mod} (${p.name})`
+								: `${r.name}: a lazy chunk holds ${mod} (${p.name}), which its marks never run`
+						);
+					continue;
+				}
 				if (held && !(mod in r.modules))
 					leaks.push(`${r.name}: selects ${selects}, but its boot lacks ${mod} (${p.name})`);
 				else if (!held && mod in r.modules)

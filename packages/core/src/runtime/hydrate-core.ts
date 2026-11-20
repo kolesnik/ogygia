@@ -6,14 +6,15 @@ import type { PushableProps } from './pushable-props.svelte.ts';
 import { foreign_region_prop_revivers } from './foreign-props.ts';
 import { SEED_REF_KEY, seed_ref_reviver } from '../seed-ref-reviver.ts';
 import { parse_sidecar_text } from './wire-format.ts';
-import { boot_link, slots, type HeldLake } from './slots.ts';
+import { boot_link, slots, wake_link, type HeldLake } from './slots.ts';
 import { report_thrown } from '../report-thrown.ts';
 import type { HeadMark } from './session.ts';
 import { install_hydrate_features } from 'ogygia:boot';
 import { emit as dt_emit } from '../events/bus.ts';
 import { warn } from '../messages/lazy.ts';
 import { OG_FP, OG_HEALED, OG_RECOVERED, OGYGIA_KEEP } from '../wire-markup.ts';
-import { say } from '@ogygia/machine';
+import { clock, say, type Fresh, type Stale } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine/internal';
 import { ANCHOR, BLOCK_CLOSE, BLOCK_OPEN, FIRST_BRANCH_OPEN } from './svelte-markers.ts';
 import { unmark_html_ranges } from './html-ranges.ts';
 import {
@@ -51,6 +52,8 @@ const is_self_owned = (el: Element) => boot_link()[L_IS_SELF_OWNED](el);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
+const HOOK_REGION_HYDRATED: boolean =
+	typeof __OGYGIA_HOOK_REGION_HYDRATED__ !== 'undefined' ? __OGYGIA_HOOK_REGION_HYDRATED__ : true;
 const HOOK_REGION_MISMATCHED =
 	typeof __OGYGIA_HOOK_REGION_MISMATCHED__ !== 'undefined'
 		? __OGYGIA_HOOK_REGION_MISMATCHED__
@@ -772,4 +775,116 @@ export function hydrate_live(
 	}
 	after_hydrate?.();
 	return out;
+}
+
+/** Waits on `el`'s wake visit (the region element's `#hydrate` turn): `STALE` once the visit is
+ *  over or the element left the page. */
+export type WakeTurn = { wait<T>(work: PromiseLike<T> | T): Promise<Fresh<T> | Stale> };
+
+/** When a wake reached each of its points, for the region element's hooks (`regionHydrated`,
+ *  `regionFailed`). */
+export type WakeTimes = { t0: number; loaded: number; turn: number | undefined };
+
+const SNIPPET_BOOTS = Symbol.for('ogygia.snippet-boots');
+const SNIPPET_BOOT_CAP_MS = 10_000;
+const nothing = (): void => {};
+
+/** The Kit page's thread an island on a Kit-hydrated document waits for, or null. */
+export function kit_page_wait(el: Element, visit: Life): Promise<unknown> | null {
+	if (!KIT_PAGES || !kit_hydrates_page() || !boot_link()[L_OURS_ON_KIT_DOCUMENT](el)) return null;
+	return kit_page_thread(visit.signal);
+}
+
+async function snippets_settled(region: Element, visit: Life): Promise<void> {
+	const host = region as Element & { [SNIPPET_BOOTS]?: Promise<unknown>[] };
+	const wait = visit.child();
+	const cap = new Promise<void>((r) => wait.defer(r));
+	wait.close_after(SNIPPET_BOOT_CAP_MS);
+	try {
+		for (
+			let batch = host[SNIPPET_BOOTS];
+			batch?.length && !wait.closed;
+			batch = host[SNIPPET_BOOTS]
+		) {
+			host[SNIPPET_BOOTS] = [];
+			await Promise.race([Promise.allSettled(batch), cap]);
+			await Promise.resolve(); // (their effects, and the snippets they render, register)
+		}
+	} finally {
+		wait.close();
+		delete host[SNIPPET_BOOTS];
+	}
+}
+
+/**
+ * An island's wake, once its module and this core are in (the region element's `#hydrate` loads
+ * them, and handles what fails): its stylesheets, the Kit page, the seeds, the visitor's replay and
+ * its scheduler turn, then the hydrate step and what follows it. It reaches the element's state
+ * through `slots.wake_link` (./slots.ts `WakeLink`). A wait gone `STALE` ends it quietly.
+ */
+export async function wake_island(
+	el: HTMLElement,
+	entry: string,
+	mod: IslandModule,
+	visit: Life,
+	turn: WakeTurn,
+	times: WakeTimes
+): Promise<void> {
+	const link = wake_link();
+	link.use_code_sheets(el, mod);
+	$await(turn.wait(kit_page_wait(el, visit)));
+	// The page's seeds parse now, BEFORE the turn: data arriving is not the hydrate step. The
+	// first island parses the seed once (700 KB on a large CMS page), and inside its turn that
+	// parse plus the hydrate made one long task. (The step calls these again: a no-op by then.)
+	seed_remote_once();
+	seed_page_once();
+	// A visitor woke it (or reached it while it loaded): what replays their input is in before
+	// the island is live, so the input lands AT wake. Live first, the replay came in later over
+	// a slow network, beside the visitor's next click (#260). A visitor who came while it waited
+	// for its turn: their replay too, and a turn after it.
+	let visitor: Promise<unknown> | null;
+	do {
+		visitor = link.visitor(el);
+		// (a replay that failed says so itself)
+		if (visitor) $await(turn.wait(visitor.catch(nothing)));
+		$await(turn.wait(link.hydrate_turn(el)));
+		if (link.app(el)) return;
+	} while (link.visitor(el) !== visitor);
+	times.turn = clock.mono();
+	const ssr_html = link.ssr_html(el);
+	// Was the island touched while it slept (runtime/drift-watch.ts)? Read HERE, before the
+	// hydrate step edits it (lakes lifted): an untouched island skips the parse-and-compare.
+	const touched = ssr_html === null || link.region_changed(el);
+	// (dev: a Svelte hydration warning raised in this step is this island's)
+	link.hydrating(el);
+	const app = hydrate_island(el, entry, mod, ssr_html, touched);
+	link.hydrated(el, app);
+	if (!app) return;
+	link.mounted(el);
+	const t_done = clock.mono();
+	// (Svelte's `hydrate()` runs `$effect` and onMount in a microtask it queued during the call; one
+	// awaited now runs after it — mounted means they ran)
+	await Promise.resolve();
+	const t_mounted = clock.mono();
+	$await(turn.wait(snippets_settled(el, visit)));
+	if (!link.app(el)) return;
+	el.setAttribute('data-hydrated', '');
+	if (HOOK_REGION_HYDRATED)
+		slots.hooks?.regionHydrated?.({
+			el,
+			t0: times.t0,
+			tLoaded: times.loaded,
+			tTurn: times.turn,
+			tDone: t_done,
+			ssrHtml: ssr_html
+		});
+	if (DEVTOOLS)
+		dt_emit({
+			domain: 'runtime',
+			name: 'region.hydrate.done',
+			entry: el.getAttribute('entry') || undefined,
+			fp: el.getAttribute(OG_FP) || undefined,
+			ms: t_mounted - times.t0
+		});
+	el.dispatchEvent(new CustomEvent('ogygia:hydrated', { bubbles: true }));
 }
