@@ -210,8 +210,9 @@ export type BootLink = [
 	STALE: typeof import('@ogygia/machine').STALE,
 	/** keyed shared async work (`@ogygia/machine`): the router's page fetches */
 	flights: typeof import('@ogygia/machine').flights,
-	/** a bounded, owned store (`@ogygia/machine`): the router's per-address memos */
-	cache: typeof import('@ogygia/machine').cache,
+	/** a bounded, owned store of values that weigh one each and never age (`@ogygia/machine`'s
+	 *  `lru`): the router's per-address memos */
+	cache: typeof import('@ogygia/machine/internal').lru,
 	/** a stamp that only moves forward (`@ogygia/machine`): the world the router's page cache is
 	 *  made in */
 	world: typeof import('@ogygia/machine').world,

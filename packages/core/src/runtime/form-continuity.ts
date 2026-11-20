@@ -1,5 +1,5 @@
-import { cache } from '@ogygia/machine';
 import * as fsm from '@ogygia/machine/internal';
+import { lru } from '@ogygia/machine/internal';
 import { element_address, resolve_address } from './interaction.ts';
 import { slots } from './slots.ts';
 import { OGYGIA_NO_KEEP } from '../wire-markup.ts';
@@ -23,7 +23,7 @@ type FieldRec = {
 	checked: boolean | undefined;
 };
 
-const store = cache<string, FieldRec[]>({ name: 'form continuity', max: MAX_PAGES });
+const store = lru<string, FieldRec[]>({ name: 'form continuity', max: MAX_PAGES });
 
 const RESTORE_WINDOW_MS = 5000;
 

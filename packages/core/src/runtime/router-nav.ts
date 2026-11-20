@@ -429,7 +429,7 @@ const pages = (): Pages =>
 		weigh: (answer) =>
 			Math.max((answer.page?.html.length ?? 0) * 2, PAGE_CACHE_MAX_BYTES / PAGE_CACHE_MAX_ENTRIES)
 	}));
-type Memo<K, V> = import('@ogygia/machine').Cache<K, V>;
+type Memo<K, V> = import('@ogygia/machine/internal').Lru<K, V>;
 let warmed_pages_memo: Memo<string, true> | undefined;
 const warmed_pages = () =>
 	(warmed_pages_memo ??= boot_link()[L_CACHE]({ name: 'warmed pages', max: 512 }));

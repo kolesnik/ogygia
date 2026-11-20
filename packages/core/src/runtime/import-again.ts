@@ -23,8 +23,9 @@
  * imports nothing of the boot (only `@ogygia/machine`, which the boot runs on); the boot hands it
  * its message (`on_reload_needed`).
  */
-import { buggify, cache, flights, noop, registry, say, STALE } from '@ogygia/machine';
+import { buggify, flights, noop, registry, say, STALE } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
+import { lru } from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
 import { code_url_or_refuse, import_code, type CodeUrl } from './code-origins.ts';
@@ -46,7 +47,7 @@ const ENTRY_WAIT_MS = 1000;
 /** Downloads recorded, at most (the oldest go first): enough for every file a page loads. */
 const RESPONSES_MAX = 2000;
 /** Each download heard: its status (`null`: no response came, a dropped download). */
-const responses = cache<string, number | null>({ name: 'heard downloads', max: RESPONSES_MAX });
+const responses = lru<string, number | null>({ name: 'heard downloads', max: RESPONSES_MAX });
 /** Callers waiting for a download's entry, each held by its wait's scope: called with its status
  *  when it lands. */
 const landing = registry<{ url: string; done: (status: number | null) => void }>();
@@ -288,7 +289,7 @@ const file_definition = $machine<{
  *  asks for next (the file, or a fresh URL after a failed download). The files this document's
  *  islands came from; past the bound the least recently loaded goes (its next load starts fresh,
  *  and the browser's module map still holds what it loaded). */
-const file_loaders = cache<string, () => Promise<unknown>>({
+const file_loaders = lru<string, () => Promise<unknown>>({
 	name: 'island file loaders',
 	max: 2000
 });

@@ -1,13 +1,14 @@
 import { import_file } from './import-again.ts';
 import { code_url_or_refuse, is_location_of } from './code-origins.ts';
-import { backoffAfter, cache, flights, net, STALE } from '@ogygia/machine';
+import { backoffAfter, flights, net, STALE } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
+import { lru } from '@ogygia/machine/internal';
 import { rollover } from '../policies.ts';
 import { OG_LOCATIONS } from '../wire-markup.ts';
 import { browser_offline } from './network.ts';
 import { document_address } from './document-address.ts';
 
-const locations = cache<string, string>({ name: 'entry locations', max: 10_000 });
+const locations = lru<string, string>({ name: 'entry locations', max: 10_000 });
 
 /** A load that fell back to its identity: who hears about it (the runtime registers the devtools
  *  and beacon reporter at boot). This module imports nothing: app code (a portable snippet) uses it
@@ -18,7 +19,7 @@ export function on_entry_fallback(reporter: (report: EntryFallbackReport) => voi
 	fallback_reporter = reporter;
 }
 
-const resolved_urls = cache<string, string>({ name: 'resolved entry urls', max: 4000 });
+const resolved_urls = lru<string, string>({ name: 'resolved entry urls', max: 4000 });
 
 function absolute(url: string, base?: string): string {
 	const b = base ?? location.href;
