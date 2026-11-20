@@ -8,6 +8,7 @@ import { dispose_by_close } from './rules/dispose-by-close.ts';
 import { fake_timers_whole } from './rules/fake-timers-whole.ts';
 import { html_sink } from './rules/html-sink.ts';
 import { markup_from_vocabulary } from './rules/markup-from-vocabulary.ts';
+import { no_macro_in_svelte } from './rules/no-macro-in-svelte.ts';
 import { no_promise_cache } from './rules/no-promise-cache.ts';
 import { no_silent_failures } from './rules/no-silent-failures.ts';
 import { no_string_concat } from './rules/no-string-concat.ts';
@@ -29,6 +30,7 @@ export default {
 		'one-markup-walk': one_markup_walk,
 		'markup-from-vocabulary': markup_from_vocabulary,
 		'one-hash': one_hash,
+		'no-macro-in-svelte': no_macro_in_svelte,
 		'no-promise-cache': no_promise_cache,
 		'owned-effects': owned_effects,
 		'no-silent-failures': no_silent_failures,

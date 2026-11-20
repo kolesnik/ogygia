@@ -7,6 +7,7 @@ import { Emitter, Report, gated, parse } from 'ogygia-internal-compilerkit';
 import { dedent } from '../../../packages/core/src/contract/dedent.ts';
 import { compile } from '../src/compile.ts';
 import { RESERVED, VOCABULARY } from '../src/compiler.ts';
+import { MACRO_NAMES } from '../src/names.ts';
 import { DEV, GATES, RULES } from '../src/gates.ts';
 import { ogygia_macros, specifier } from '../src/plugin.ts';
 
@@ -76,5 +77,11 @@ describe('the gates', () => {
 
 	test('each by its name', () => {
 		expect([...GATES.keys()]).toEqual(['dev', 'rules']);
+	});
+});
+
+describe('the reserved names', () => {
+	test('every macro name is reserved, so the Svelte lint refuses it', () => {
+		expect(VOCABULARY.filter((n) => !MACRO_NAMES.includes(n))).toEqual([]);
 	});
 });

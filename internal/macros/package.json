@@ -8,6 +8,7 @@
 	"exports": {
 		"./compile": "./src/compile.ts",
 		"./gates": "./src/gates.ts",
+		"./names": "./src/names.ts",
 		"./packed": "./src/packed.ts",
 		"./plugin": "./src/plugin.ts",
 		"./package.json": "./package.json"
