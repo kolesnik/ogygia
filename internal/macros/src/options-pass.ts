@@ -1,7 +1,8 @@
 /**
  * Option bags checked at build. A call of `flights`, `flights.keyed<I>()`, `cache`, `queue`, `say`
- * or `policy` imported from `@ogygia/machine` (or `plain_flights`, `pass_queue` or `lru` from
- * `@ogygia/machine/internal`) whose options the build can read is checked here by the machine's own
+ * or `policy` imported from `@ogygia/machine` (or `plain_flights`, `pass_queue`, `plain_queue` or
+ * `lru` from `@ogygia/machine/internal`) whose options the build can read is checked here by the
+ * machine's own
  * checks (`check_*` of `@ogygia/machine/internal`, the ones the public makers run), so a bad option
  * fails the build with the code it would throw at runtime (`machine_bad_option`). The call then
  * makes its value without checking again:
@@ -24,6 +25,7 @@ import {
 	check_cache,
 	check_flights,
 	check_plain_flights,
+	check_plain_queue,
 	check_queue,
 	check_say
 } from '@ogygia/machine/internal';
@@ -53,12 +55,18 @@ const MAKERS: ReadonlyMap<string, { check: (o: never) => void; trusted: string |
 		{ check: (o: never) => check_plain_flights(o, true), trusted: 'trusted_plain_flights' }
 	],
 	['pass_queue', { check: (o: never) => check_queue(o), trusted: 'trusted_pass_queue' }],
+	['plain_queue', { check: (o: never) => check_plain_queue(o), trusted: 'trusted_plain_queue' }],
 	['lru', { check: (o: never) => check_cache(o), trusted: 'trusted_lru' }]
 ]);
 
 /** The makers of `@ogygia/machine/internal` the build checks (the rest of MAKERS are
  *  `@ogygia/machine`'s). */
-const INTERNAL_MAKERS: ReadonlySet<string> = new Set(['plain_flights', 'pass_queue', 'lru']);
+const INTERNAL_MAKERS: ReadonlySet<string> = new Set([
+	'plain_flights',
+	'pass_queue',
+	'plain_queue',
+	'lru'
+]);
 
 /** Options whose check is their type alone (a function; a policy): one the build cannot read takes
  *  this stand-in, since ogygia's own source, which this pass compiles, is type-checked. */
@@ -74,7 +82,7 @@ export function calls_makers(code: string): boolean {
 	return (
 		(code.includes("'@ogygia/machine'") && /\b(?:flights|cache|queue|say|policy)\b/.test(code)) ||
 		(code.includes("'@ogygia/machine/internal'") &&
-			/\b(?:plain_flights|pass_queue|lru)\b/.test(code))
+			/\b(?:plain_flights|pass_queue|plain_queue|lru)\b/.test(code))
 	);
 }
 

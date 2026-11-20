@@ -613,6 +613,41 @@ export function trusted_pass_queue<J>(options: QueueOptions<J>): Queue<J> {
 	return new PassLine(options);
 }
 
+/** @internal {@link queue} for a bounded first-come-first-served line (a `max`, and no priority,
+ *  ready, windows or budget), for ogygia's server: a server whose queues are all plain carries no
+ *  passes. */
+export function plain_queue<J>(options: QueueOptions<J>): Queue<J> {
+	check_plain_queue(options);
+	return new PlainLine(options);
+}
+
+/** @internal {@link plain_queue} for options its caller's build checked ({@link check_plain_queue}). */
+export function trusted_plain_queue<J>(options: QueueOptions<J>): Queue<J> {
+	return new PlainLine(options);
+}
+
+/** {@link plain_queue}'s checks: {@link check_queue}'s, a `max`, and none of what only passes take. */
+export function check_plain_queue<J>(options: QueueOptions<J>): void {
+	check_queue(options);
+	if (options.max === undefined)
+		throw machine_error('machine_bad_option', {
+			option: 'max',
+			value: 'missing',
+			rule: 'given to plain_queue(), a bounded line'
+		});
+	if (
+		options.priority !== undefined ||
+		options.ready !== undefined ||
+		options.windows !== undefined ||
+		options.budget !== undefined
+	)
+		throw machine_error('machine_bad_option', {
+			option: 'priority, ready, windows or budget',
+			value: 'given to plain_queue()',
+			rule: 'given to queue() or pass_queue() only'
+		});
+}
+
 /** {@link queue}'s checks of its options alone: `machine_bad_option` for one it refuses. */
 export function check_queue<J>(options: QueueOptions<J>): void {
 	const { max } = options;

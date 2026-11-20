@@ -71,7 +71,8 @@ describe('a literal the checks pass: made unchecked', () => {
 });
 
 describe("the runtime's lean makers (`@ogygia/machine/internal`)", () => {
-	const INTERNAL = "import { lru, pass_queue, plain_flights } from '@ogygia/machine/internal';";
+	const INTERNAL =
+		"import { lru, pass_queue, plain_flights, plain_queue } from '@ogygia/machine/internal';";
 	const lean = (...rows: ReadonlyArray<string>) =>
 		compile(lines(INTERNAL, ...rows), 'a.ts', OPTIONS)?.code ?? null;
 	const lean_fails = (...rows: ReadonlyArray<string>) => {
@@ -88,12 +89,14 @@ describe("the runtime's lean makers (`@ogygia/machine/internal`)", () => {
 			"export const a = plain_flights({ name: 'a', run: async () => 1 });",
 			"export const b = plain_flights.keyed<{ id: string }>()({ key: ['id'], run: async () => 1 });",
 			"export const c = lru({ name: 'c', max: 64 });",
-			"export const d = pass_queue({ name: 'd', budget: { ms: 30, yield: (f: () => void) => f() }, start: () => {} });"
+			"export const d = pass_queue({ name: 'd', budget: { ms: 30, yield: (f: () => void) => f() }, start: () => {} });",
+			"export const e = plain_queue({ name: 'e', max: 4, start: () => {} });"
 		)!;
 		expect(code).toContain('trusted_plain_flights');
 		expect(code).toContain('trusted_lru');
 		expect(code).toContain('trusted_pass_queue');
-		expect(code).not.toMatch(/\b(?:plain_flights|lru|pass_queue)\(/);
+		expect(code).toContain('trusted_plain_queue');
+		expect(code).not.toMatch(/\b(?:plain_flights|lru|pass_queue|plain_queue)\(/);
 		expect(code).not.toContain('.keyed');
 	});
 
@@ -108,7 +111,9 @@ describe("the runtime's lean makers (`@ogygia/machine/internal`)", () => {
 			/flights\(\) only/
 		],
 		["lru({ name: 'c', max: 0 })", /max/],
-		['pass_queue({ max: 1.5 })', /max/]
+		['pass_queue({ max: 1.5 })', /max/],
+		['plain_queue({ start: () => {} })', /max/],
+		['plain_queue({ max: 2, start: () => {}, priority: () => 0 })', /plain_queue/]
 	])('%s fails the build', (call, rule) => {
 		const message = lean_fails(`export const x = ${call};`);
 		expect(message).toContain('machine_bad_option');

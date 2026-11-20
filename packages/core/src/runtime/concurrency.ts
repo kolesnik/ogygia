@@ -1,4 +1,5 @@
-import { clock, queue, type Place, type Queue } from '@ogygia/machine';
+import { clock, type Place, type Queue } from '@ogygia/machine';
+import { plain_queue } from '@ogygia/machine/internal';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 
@@ -15,8 +16,8 @@ const RUN_TIMEOUT = 'region render timeout';
 const WAIT_TIMEOUT = 'region render queue timeout';
 
 export class ConcurrencyGate {
-	/** The slots (@ogygia/machine `queue()`, first come first served): a freed slot is handed to the
-	 *  next call in the same step, and a call whose deadline came is passed over. */
+	/** The slots (@ogygia/machine/internal `plain_queue()`, first come first served): a freed slot
+	 *  is handed to the next call in the same step, and a call whose deadline came is passed over. */
 	readonly #slots: Queue<Waiter>;
 	readonly #limit: number;
 	#abandoned = 0;
@@ -24,7 +25,7 @@ export class ConcurrencyGate {
 	constructor(max: number) {
 		const limit = Math.max(1, max);
 		this.#limit = Number.isFinite(limit) ? Math.ceil(limit) : Number.MAX_SAFE_INTEGER;
-		this.#slots = queue<Waiter>({
+		this.#slots = plain_queue<Waiter>({
 			name: 'render gate',
 			max: this.#limit,
 			start: (w, place) => w.enter(place),

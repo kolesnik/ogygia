@@ -28,10 +28,12 @@ import {
 	life_of,
 	pass_queue,
 	plain_flights,
+	plain_queue,
 	root,
 	trusted_flights,
 	trusted_pass_queue,
-	trusted_plain_flights
+	trusted_plain_flights,
+	trusted_plain_queue
 } from '../src/internal.ts';
 import { KEYS_KEPT } from '../src/world.ts';
 import { MACHINE_ERRORS, machine_error, report } from '../src/messages.ts';
@@ -1079,4 +1081,24 @@ bench(
 		return settled.filter((v) => v === STALE).length;
 	},
 	{ setup: () => ({ n: 200 }), scale: (_ctx, k) => ({ n: 200 * k }) }
+);
+
+bench(
+	"queue: the server's plain lines (checked and trusted), renders through two places",
+	async ({ n }) => {
+		let started = 0;
+		const make = (checked: boolean) =>
+			(checked ? plain_queue : trusted_plain_queue)<number>({
+				max: 2,
+				start: (_job, place) => {
+					started++;
+					void Promise.resolve().then(() => place.release());
+				}
+			});
+		const queues = [make(true), make(false)];
+		for (let i = 0; i < n; i++) queues[i % 2]!.push(i);
+		while (queues.some((q) => q.waiting > 0)) await Promise.resolve();
+		return started;
+	},
+	{ setup: () => ({ n: 300 }), scale: (_ctx, k) => ({ n: 300 * k }) }
 );

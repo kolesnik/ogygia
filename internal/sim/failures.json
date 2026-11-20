@@ -1731,6 +1731,18 @@
 			"name": "a bad max is refused with machine_bad_option"
 		},
 		{
+			"site": "packages/machine/src/queue.ts > check_plain_queue > throw:0",
+			"reason": "`throw machine_error('machine_bad_option', { option: 'max', value: 'mi…`: a plain queue with no max is refused",
+			"test": "packages/machine/test/plain-queue.test.ts",
+			"name": "it refuses what only passes take, and a missing max"
+		},
+		{
+			"site": "packages/machine/src/queue.ts > check_plain_queue > throw:1",
+			"reason": "`throw machine_error('machine_bad_option', { option: 'priority, rea…`: a plain queue given a pass's option is refused",
+			"test": "packages/machine/test/plain-queue.test.ts",
+			"name": "it refuses what only passes take, and a missing max"
+		},
+		{
 			"site": "packages/machine/src/say.ts > check_say > throw:0",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'max', value: Str…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/say.test.ts",
