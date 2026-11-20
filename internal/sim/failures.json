@@ -5521,6 +5521,24 @@
 			"reason": "a world, weigh, touches or two-field key given to plain_flights() is refused in dev and rules builds; proved: the throw made a no-op turns the test red",
 			"test": "packages/machine/test/plain-flights.test.ts",
 			"name": "refuses, in dev and rules builds, what only flights() takes"
+		},
+		{
+			"site": "packages/machine/src/flights-full.ts > id_of > catch:0",
+			"reason": "an engine without symbols as WeakMap keys (before ES2023) keeps a key's symbol in a Map instead; proved by hand: the catch emptied (the symbol gets a new id each time: two flights) and made to rethrow each turn the test red",
+			"test": "packages/machine/test/flights.test.ts",
+			"name": "on an engine that cannot hold a symbol weakly, a symbol is still one key by itself"
+		},
+		{
+			"site": "packages/machine/src/scope.ts > Life > signal > abort:0",
+			"reason": "a signal first asked of a life that has closed is made aborted, so work handed it never starts; proved by hand: the check made never true turns the test red",
+			"test": "packages/machine/test/scope.test.ts",
+			"name": "is one signal for the scope’s life; a closed scope’s is already aborted"
+		},
+		{
+			"site": "packages/machine/src/flights.ts > Flown > _move > throw:0",
+			"reason": "the rules build's refusal of a step ENTRY_STEPS does not list (an internal bug, never an input): proved by hand: the throw removed turns the test red",
+			"test": "packages/machine/test/flights.test.ts",
+			"name": "an entry that went is never moved again: a rules build refuses the step with its code, and tells no one"
 		}
 	],
 	"impossible": [
@@ -6393,14 +6411,12 @@
 		"packages/insights/src/session-insights.ts > path_of > catch:0",
 		"packages/insights/src/session-insights.ts > same_origin_get > catch:0",
 		"packages/insights/src/third-party.ts > host_of > catch:0",
-		"packages/machine/src/flights-full.ts > id_of > catch:0",
 		"packages/machine/src/mailbox.ts > Box > _start > reject:0",
 		"packages/machine/src/policy.ts > under_policy > throw:3",
 		"packages/machine/src/ports/net.ts > fetch > fetch:0",
 		"packages/machine/src/ports/timers.ts > after > timer:0",
 		"packages/machine/src/ports/timers.ts > keep > timer:0",
 		"packages/machine/src/ports/timers.ts > timeout > abort:0",
-		"packages/machine/src/scope.ts > Life > signal > abort:0",
 		"packages/machine/src/stage.ts > Staged > constructor > refused:0",
 		"packages/ogygia/src/cli.ts > installed > catch:0",
 		"packages/postrender/src/adapters/akamai.ts > AkamaiEdge > signed_post > fetch:0",
@@ -6521,8 +6537,7 @@
 		"packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > catch:0",
 		"packages/core/src/runtime/entry-locations.ts > recover_location > stale:0",
 		"packages/core/src/runtime/live-program.ts > live_hydrate > stale:3",
-		"packages/core/src/server/stream-regions.ts > batch_stream > start > stale:0",
-		"packages/machine/src/flights.ts > Flown > _move > throw:0"
+		"packages/core/src/server/stream-regions.ts > batch_stream > start > stale:0"
 	],
 	"step_points": [
 		{
