@@ -1,6 +1,7 @@
-import { buggify, cache, clock, net, STALE, tasks, type MachineGraph } from '@ogygia/machine';
+import { buggify, clock, net, STALE, tasks, type MachineGraph } from '@ogygia/machine';
 import type { Life } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
+import { lru } from '@ogygia/machine/internal';
 import { frameAddress } from '../frame.ts';
 import { stream } from '../policies.ts';
 import { is_idle, reserve, release, stamp, write } from './frame-store.ts';
@@ -21,7 +22,7 @@ const HOOK_HOLE_BATCH_MISSED =
 		: true;
 let batch_seq = 0;
 
-const batched = cache<string, { left: number; at: number; size: number }>({
+const batched = lru<string, { left: number; at: number; size: number }>({
 	name: 'batched hole timings',
 	max: 64
 });

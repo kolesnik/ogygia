@@ -21,13 +21,20 @@ import { code, parseSync, type N, type Pass, type Visit } from 'ogygia-internal-
 import { fileCache, relativeImports } from 'ogygia-internal-compilerkit/modules';
 import type { Scope } from 'periscopic';
 import { policy, MachineError, type Policy } from '@ogygia/machine';
-import { check_cache, check_flights, check_queue, check_say } from '@ogygia/machine/internal';
+import {
+	check_cache,
+	check_flights,
+	check_lru,
+	check_queue,
+	check_say
+} from '@ogygia/machine/internal';
 import type { Compiler } from './compiler.ts';
 
 /** Where the unchecked makers live. */
 export const TRUSTED_RUNTIME = '@ogygia/machine/internal';
 
-/** The makers whose options the build checks, by their name in `@ogygia/machine`. */
+/** The makers whose options the build checks, by their name in `@ogygia/machine` (or its
+ *  internal entry: `lru`, `pass_queue`). */
 const MAKERS: ReadonlyMap<string, { check: (o: never) => void; trusted: string | null }> = new Map<
 	string,
 	{ check: (o: never) => void; trusted: string | null }
@@ -37,6 +44,8 @@ const MAKERS: ReadonlyMap<string, { check: (o: never) => void; trusted: string |
 	['cache', { check: (o: never) => check_cache(o), trusted: 'trusted_cache' }],
 	['queue', { check: (o: never) => check_queue(o), trusted: 'trusted_queue' }],
 	['say', { check: (o: never) => check_say(o), trusted: 'trusted_say' }],
+	['lru', { check: (o: never) => check_lru(o), trusted: 'trusted_lru' }],
+	['pass_queue', { check: (o: never) => check_queue(o), trusted: 'trusted_pass_queue' }],
 	['policy', { check: (o: never) => void policy(o), trusted: null }]
 ]);
 
@@ -49,16 +58,23 @@ const TYPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
 	['retry', policy.standard]
 ]);
 
+/** Where the makers are imported from. */
+const MACHINE_ENTRIES: ReadonlySet<string> = new Set([
+	'@ogygia/machine',
+	'@ogygia/machine/internal'
+]);
+
 /** The boot link's makers, by their index's name (core runtime/boot-link-index.ts). */
 const LINKED: ReadonlyMap<string, string> = new Map([
 	['L_FLIGHTS', 'flights'],
-	['L_CACHE', 'cache']
+	['L_CACHE', 'lru']
 ]);
 
 /** Whether `code` may call a maker the build checks (so the file is compiled). */
 export function calls_makers(code: string): boolean {
 	return (
-		(code.includes("'@ogygia/machine'") && /\b(?:flights|cache|queue|say|policy)\b/.test(code)) ||
+		(code.includes("'@ogygia/machine") &&
+			/\b(?:flights|cache|queue|say|policy|lru|pass_queue)\b/.test(code)) ||
 		/\[L_(?:FLIGHTS|CACHE)\]/.test(code)
 	);
 }
@@ -86,7 +102,7 @@ export class OptionsPass implements Pass<Scope> {
 
 	prepare(): void {
 		for (const statement of this.#c.program.body as Array<N>) {
-			if (statement.type !== 'ImportDeclaration' || statement.source.value !== '@ogygia/machine')
+			if (statement.type !== 'ImportDeclaration' || !MACHINE_ENTRIES.has(statement.source.value))
 				continue;
 			if (statement.importKind === 'type') continue;
 			for (const s of statement.specifiers as Array<N>) {

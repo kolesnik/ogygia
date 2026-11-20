@@ -7,7 +7,7 @@ import { flights, STALE, type Flights } from '@ogygia/machine';
 import { entry_location } from './entry-locations.ts';
 import { import_file } from './import-again.ts';
 import { code_url, type CodeUrl } from './code-origins.ts';
-import { cache } from '@ogygia/machine';
+import { lru } from '@ogygia/machine/internal';
 
 /** Hoisted (hot paths — connectedCallback/hydrate run per region); shared with core's
  *  foreign-origin checks. */
@@ -151,7 +151,7 @@ export function island_module_url(entry: string, base?: string): string {
 	module_urls.set(key, out);
 	return out;
 }
-const module_urls = cache<string, string>({ name: 'island module urls', max: 4000 });
+const module_urls = lru<string, string>({ name: 'island module urls', max: 4000 });
 
 type Warm = { key: string; entry: string; base: string | undefined; url: CodeUrl };
 let warm_flights: Flights<Warm, unknown, Pick<Warm, 'key'>> | undefined;

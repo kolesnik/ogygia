@@ -1,17 +1,10 @@
 import { after_document_painted, yield_task } from './schedule.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
-import {
-	clock,
-	flights,
-	queue,
-	type InFlight,
-	type Place,
-	type Queue,
-	type Stale
-} from '@ogygia/machine';
+import { clock, flights, type InFlight, type Place, type Queue, type Stale } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
+import { pass_queue } from '@ogygia/machine/internal';
 import { emit as dt_emit } from '../events/bus.ts';
 import { class_at, PRIORITY, type LoadClass } from './load-class.ts';
 import { on_screen, watch_viewport } from './viewport.ts';
@@ -82,7 +75,7 @@ class LoadScheduler {
 	line: Queue<LoadSlot> = this.#open_line();
 
 	#open_line(): Queue<LoadSlot> {
-		return queue<LoadSlot>({
+		return pass_queue<LoadSlot>({
 			name: 'downloads',
 			owner: this.#owner,
 			priority: (s) => PRIORITY[s.cls()],

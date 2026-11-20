@@ -1,4 +1,5 @@
-import { cache, flights } from '@ogygia/machine';
+import { flights } from '@ogygia/machine';
+import { lru } from '@ogygia/machine/internal';
 import { wire_loaders, wire_all } from 'ogygia:region';
 import { import_again } from './import-again.ts';
 import { props_sidecar_of } from './sidecar.ts';
@@ -14,7 +15,7 @@ export function install(): void {
 
 const loaders = wire_loaders;
 const paths = Object.keys(loaders);
-const imports = cache<string, () => Promise<unknown>>({
+const imports = lru<string, () => Promise<unknown>>({
 	name: 'class module loaders',
 	max: Math.max(1, paths.length)
 });

@@ -1197,6 +1197,18 @@
 			"name": "no options at all is refused with a code, never a TypeError reading them"
 		},
 		{
+			"site": "packages/machine/src/lru.ts > lru > throw:0",
+			"reason": "`throw machine_error('machine_bad_option', refused);`: dev refuses a max that is no bound",
+			"test": "packages/machine/test/lru.test.ts",
+			"name": "refuses a max that is no bound, as cache() does"
+		},
+		{
+			"site": "packages/machine/src/lru.ts > check_lru > throw:0",
+			"reason": "`throw machine_error('machine_bad_option', refused);`: the build's check of a literal lru (internal/macros options pass)",
+			"test": "internal/macros/test/options.test.ts",
+			"name": "the internal entry’s makers (lru, pass_queue) are checked at build and made trusted too"
+		},
+		{
 			"site": "packages/machine/src/cache.ts > check_cache > throw:0",
 			"reason": "`throw machine_error('machine_bad_option', refused);`: the build's check of a literal cache (internal/macros options pass)",
 			"test": "internal/macros/test/options.test.ts",

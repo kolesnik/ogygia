@@ -10,9 +10,9 @@
  * LEAF module: no feature imports (usable from the `$app/navigation` shim without dragging the
  * router graph). List rules (not document rules) so each hint targets exactly the asked URL.
  */
-import { cache } from '@ogygia/machine';
+import { lru } from '@ogygia/machine/internal';
 import { OGYGIA_SPECULATE_HINT } from '../wire-markup.ts';
-const hinted = cache<string, true>({ name: 'speculation hints', max: 512 });
+const hinted = lru<string, true>({ name: 'speculation hints', max: 512 });
 
 export function speculate_url(url: string | URL, kind: 'prefetch' | 'prerender'): void {
 	if (typeof document === 'undefined') return;

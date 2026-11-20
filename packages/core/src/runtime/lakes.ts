@@ -1,6 +1,7 @@
 import { on_schedule } from '../contract/trigger.ts';
-import { cache, clock, type Cache } from '@ogygia/machine';
+import { clock } from '@ogygia/machine';
 import * as fsm from '@ogygia/machine/internal';
+import { lru, type Lru } from '@ogygia/machine/internal';
 import {
 	FROZEN_SELECTOR,
 	document_is_stored,
@@ -47,7 +48,7 @@ type LakeMachine = fsm.RunOf<typeof LAKE>;
 /** What one page visit keeps of its lakes. */
 type VisitLakes = {
 	/** Its lakes' cached server DOM, for an `{#if}` remount. */
-	readonly cache: Cache<string, LakeCacheEntry>;
+	readonly cache: Lru<string, LakeCacheEntry>;
 	/** The lake ids whose first connect on this page ran. */
 	readonly initialized: Set<string>;
 };
@@ -72,7 +73,7 @@ export class LakeState {
 		let lakes = this.#visits.get(visit);
 		if (lakes === undefined) {
 			const owner = visit.scope;
-			const kept = cache<string, LakeCacheEntry>({
+			const kept = lru<string, LakeCacheEntry>({
 				name: 'lake cache',
 				max: LAKE_CACHE_MAX,
 				owner
@@ -83,7 +84,7 @@ export class LakeState {
 	}
 
 	/** The page's cache of its lakes' server DOM. */
-	get lake_cache(): Cache<string, LakeCacheEntry> {
+	get lake_cache(): Lru<string, LakeCacheEntry> {
 		return this.#visit().cache;
 	}
 

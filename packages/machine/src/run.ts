@@ -5,7 +5,9 @@
  * - A definition (`Def`) is its states as ints: their names in order (`names`), each state's steps
  *   as a bitmask of the states it may go to (`masks`, `words` words of 32 bits per state: one for
  *   a machine of 32 states or fewer), and the states each one reaches in one or more steps as the
- *   same kind of mask (made on the first `wait`).
+ *   same kind of mask (made on the first `wait`). A move reads its steps by name (`next`: each
+ *   state's steps as a record of name to int, built from the masks with the definition), so a
+ *   move is one lookup.
  * - A machine (`Run`) is its state's int, the data that state was entered with, and a count of its
  *   visits (`epoch`): a move tests one bit and writes a few fields, and makes no object. The state
  *   as one value (`now`) is made only when something reads it, once per visit, so `m.now === mine`
@@ -84,6 +86,9 @@ export interface Def<S = unknown, T = unknown, I = unknown> {
 	readonly words: number;
 	/** Each state's steps: bit `to & 31` of `masks[from * words + (to >>> 5)]`. */
 	readonly masks: readonly number[];
+	/** Each state's steps by name: the int of each state it may go to (null-prototype records,
+	 *  the same steps as `masks`). */
+	readonly next: readonly Readonly<Record<string, number>>[];
 	/** The steps as written, by name (frozen): what `steps`, `graph()` and a lost `move` read. */
 	readonly steps: Readonly<Record<string, readonly string[]>>;
 	/** Each state's own timeout, or null. */
@@ -132,19 +137,20 @@ export class Run<S = any, T = any> {
 	_waiters: Waiter[] | null = null;
 
 	constructor(def: Def, data: object | undefined) {
+		const s = def.initial;
 		this._def = def;
-		this._state = def.initial;
+		this._state = s;
 		this.data = data as DataOf<S>;
-		if (DEV) checked_data(def, def.initial, data);
-		if (def.copies) this._now = made(def.names[def.initial]!, data);
-		const timed = def.after[def.initial];
-		if (timed !== null) arm(this, timed);
+		if (DEV) checked_data(def, s, data);
+		if (def.copies) this._now = made(def.names[s]!, data);
+		if (def.after[s] !== null) arm(this);
 	}
 
 	/** The state it is in, as one value: `{ kind, ...data }`, the same value through the visit, a
 	 *  new one every visit (what an observer is given). */
 	get now(): ValueOf<S> {
-		return value_of(this) as ValueOf<S>;
+		return (this._now ??
+			(this._now = made(this._def.names[this._state]!, this.data))) as ValueOf<S>;
 	}
 
 	/** The name of the state it is in. */
@@ -173,15 +179,8 @@ export class Run<S = any, T = any> {
 	): boolean;
 	go(to: string, data?: object): boolean {
 		if (this._stopped) return false;
-		const def = this._def;
-		const t = def.ids[to];
-		const w = def.words;
-		const s = this._state;
-		if (
-			t === undefined ||
-			((w === 1 ? def.masks[s]! >>> t : def.masks[s * w + (t >>> 5)]! >>> (t & 31)) & 1) === 0
-		)
-			return illegal(def, def.names[s]!, to);
+		const t = this._def.next[this._state]![to];
+		if (t === undefined) return illegal(this._def, this._def.names[this._state]!, to);
 		enter(this, t, data);
 		return true;
 	}
@@ -196,16 +195,15 @@ export class Run<S = any, T = any> {
 	move(from: string, to: string, data?: object): boolean {
 		if (this._stopped) return false;
 		const def = this._def;
-		if (def.names[this._state] === from) return (this as Bare).go(to, data);
+		const s = this._state;
+		if (def.names[s] === from) {
+			const t = def.next[s]![to];
+			if (t === undefined) return illegal(def, from, to);
+			enter(this, t, data);
+			return true;
+		}
 		const f = def.ids[from];
-		const t = def.ids[to];
-		const w = def.words;
-		if (
-			f === undefined ||
-			t === undefined ||
-			((w === 1 ? def.masks[f]! >>> t : def.masks[f * w + (t >>> 5)]! >>> (t & 31)) & 1) === 0
-		)
-			return illegal(def, from, to);
+		if (f === undefined || def.next[f]![to] === undefined) return illegal(def, from, to);
 		return false;
 	}
 
@@ -260,7 +258,7 @@ function illegal(def: Def, from: string, to: string): false {
 }
 
 /** A machine as the functions below work on it, its types set aside (and its moves by any name:
- *  the public `machine()`'s, and `move` taking `go`'s). */
+ *  the public `machine()`'s). */
 interface Bare {
 	_def: Def;
 	_state: number;
@@ -298,8 +296,7 @@ function enter(m: Bare, to: number, data: object | undefined): void {
 	m._life = null;
 	// (armed before anything else runs: a waiter or an observer that moves the machine again
 	// then leaves this visit, and closing it clears this timer)
-	const timed = def.after[to];
-	if (timed !== null) arm(m, timed);
+	if (def.after[to] !== null) arm(m);
 	if (m._waiters !== null) settle(m);
 	if (l !== null) l.close();
 }
@@ -316,8 +313,7 @@ function enter_told(m: Bare, to: number, data: object | undefined): void {
 	m.epoch++;
 	const l = m._life;
 	m._life = null;
-	const timed = def.after[to];
-	if (timed !== null) arm(m, timed);
+	if (def.after[to] !== null) arm(m);
 	if (m._waiters !== null) settle(m);
 	notify(def.name, prev, value_of(m), m);
 	if (l !== null) l.close();
@@ -328,8 +324,9 @@ function enter_told(m: Bare, to: number, data: object | undefined): void {
  * (or stopping) clears it. A failure while taking it (its data, a cleanup) is reported and the
  * machine stays where it is: a timer has nobody to throw to.
  */
-function arm(m: Bare, timed: Timed): void {
+function arm(m: Bare): void {
 	const def = m._def;
+	const timed = def.after[m._state]!;
 	let ms: unknown;
 	try {
 		ms = typeof timed.ms === 'function' ? timed.ms(value_of(m)) : timed.ms;
@@ -455,10 +452,14 @@ export function define(
 	const steps: Record<string, readonly string[]> = Object.create(null);
 	const ids: Record<string, number> = Object.create(null);
 	const names: string[] = [];
+	const after: (Timed | null)[] = [];
+	const next: Record<string, number>[] = [];
 	for (const kind of Object.keys(config.steps)) {
 		steps[kind] = Object.freeze([...config.steps[kind]!]);
 		ids[kind] = names.length;
 		names.push(kind);
+		after.push(null);
+		next.push(Object.create(null));
 	}
 	// a machine with no state to start in cannot run at all: refused in every build
 	const initial = ids[config.initial];
@@ -466,15 +467,19 @@ export function define(
 		throw machine_error('machine_unknown_state', { name, state: config.initial, where: 'initial' });
 	const n = names.length;
 	const words = (n + 31) >>> 5;
-	const masks: number[] = Array.from({ length: n * words }, () => 0);
+	const masks: number[] = [];
+	for (let i = n * words; i > 0; i--) masks.push(0);
 	// (a production build skips a step naming no state, which dev refuses below: the move to it is
 	// then refused like any other)
-	for (let from = 0; from < n; from++)
+	for (let from = 0; from < n; from++) {
+		const row = next[from]!;
 		for (const to of steps[names[from]!]!) {
 			const t = ids[to];
-			if (t !== undefined) masks[from * words + (t >>> 5)]! |= 1 << (t & 31);
+			if (t === undefined) continue;
+			masks[from * words + (t >>> 5)]! |= 1 << (t & 31);
+			row[to] = t;
 		}
-	const after: (Timed | null)[] = names.map(() => null);
+	}
 	const def: Def = {
 		name,
 		names: Object.freeze(names),
@@ -482,6 +487,7 @@ export function define(
 		initial,
 		words,
 		masks,
+		next,
 		steps: Object.freeze(steps),
 		after,
 		reach: null,
@@ -496,8 +502,8 @@ export function define(
 		const k = ids[kind];
 		if (k === undefined)
 			throw machine_error('machine_unknown_state', { name, state: kind, where: 'after' });
-		const to = ids[timeout.to];
-		if (to === undefined || !has(masks, words, k, to))
+		const to = next[k]![timeout.to];
+		if (to === undefined)
 			throw machine_error('machine_bad_timeout', {
 				name,
 				state: kind,
@@ -540,17 +546,29 @@ export function compiled(
 	masks: readonly number[],
 	timed?: readonly CompiledTimeout[]
 ): Def {
+	const n = names.length;
+	const words = (n + 31) >>> 5;
 	const ids: Record<string, number> = Object.create(null);
-	for (let k = 0; k < names.length; k++) ids[names[k]!] = k;
-	const after: (Timed | null)[] = names.map(() => null);
+	const after: (Timed | null)[] = [];
+	const next: Record<string, number>[] = [];
+	for (let k = 0; k < n; k++) {
+		ids[names[k]!] = k;
+		after.push(null);
+		const row: Record<string, number> = Object.create(null);
+		for (let i = 0; i < words; i++)
+			for (let bits = masks[k * words + i]!, t = i << 5; bits !== 0; bits >>>= 1, t++)
+				if ((bits & 1) === 1) row[names[t]!] = t;
+		next.push(row);
+	}
 	if (timed !== undefined) for (const [k, ms, to, data] of timed) after[k] = { ms, to, data };
 	return {
 		name,
 		names,
 		ids,
 		initial,
-		words: (names.length + 31) >>> 5,
+		words,
 		masks,
+		next,
 		steps: NO_STEPS,
 		after,
 		reach: null,

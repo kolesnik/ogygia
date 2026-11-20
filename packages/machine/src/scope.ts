@@ -167,7 +167,7 @@ const CAPTURE: EventListenerOptions = { capture: true };
 export class Life {
 	/** The machine whose visit it is, or null: names it in what its close throws. */
 	_label: string | null;
-	_parent: Life | null;
+	_parent: Life | null = null;
 	_prev: Life | null = null;
 	_next: Life | null = null;
 	_last: Life | null = null;
@@ -183,8 +183,7 @@ export class Life {
 	_settling: Promise<unknown>[] | null = null;
 
 	/** A new life, its own root (`child()` makes one under a parent). */
-	constructor(label: string | null = null, parent: Life | null = null) {
-		this._parent = parent;
+	constructor(label: string | null = null) {
 		this._label = label;
 	}
 
@@ -204,7 +203,7 @@ export class Life {
 	/** A life that closes when this one does, before this one's own cleanups; closed when this
 	 *  one is. */
 	child(): Life {
-		return link(this, new Life(null, this));
+		return link(this, new Life());
 	}
 
 	/** Listens until it closes, as `Scope.on`, with no handle. */
@@ -422,10 +421,10 @@ function unlink(parent: Life, k: Life): void {
 
 function link<L extends Life>(l: Life, k: L): L {
 	if (l._epoch < 0) {
-		k._parent = null;
 		k._epoch = -1;
 		return k;
 	}
+	k._parent = l;
 	const last = l._last;
 	k._prev = last;
 	if (last !== null) last._next = k;
@@ -566,7 +565,7 @@ class Scoped extends Life implements Scope {
 	}
 
 	child(): Scoped {
-		return this._epoch < 0 ? CLOSED_SCOPE : link(this, new Scoped(null, this));
+		return this._epoch < 0 ? CLOSED_SCOPE : link(this, new Scoped());
 	}
 
 	[DISPOSE](): void {

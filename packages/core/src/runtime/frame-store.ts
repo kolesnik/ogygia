@@ -136,8 +136,8 @@ function make_store(): Store {
 }
 
 function shown_of(e: Entry): Shown | null {
-	const now = e.answer.now;
-	return now.kind === 'empty' ? null : now;
+	const answer = e.answer;
+	return answer.kind === 'empty' ? null : (answer.data as Shown);
 }
 
 /** A new stamp of the store's world, newer than every one before it: a fetch or a batch's part

@@ -207,6 +207,8 @@ export { heard };
  */
 class Running extends Run {
 	get scope(): Scope {
+		const life = this._life as unknown as Scope | null;
+		if (life !== null) return life;
 		return this._stopped ? CLOSED : (this.visit() as unknown as Scope);
 	}
 }
