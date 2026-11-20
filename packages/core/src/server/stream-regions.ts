@@ -54,7 +54,9 @@ let batch_def: ReturnType<typeof batch_definition> | null = null;
  * or that fails writes no parcel: the client fetches it on its own. `render` is handed the batch's
  * signal: it aborts when the stream is cancelled (the visitor left), or when `owner` (the request's)
  * ends first, so a call still waiting for a render slot leaves the queue and never renders (#245); a
- * parcel that lands after that is dropped, never written to the closed stream.
+ * parcel that lands after that is dropped, never written to the closed stream. Made for an owner
+ * that already ended (the visitor left while the batch's body was read), it renders nothing and
+ * ends empty.
  */
 export function batch_stream(
 	calls: readonly string[],
@@ -68,6 +70,10 @@ export function batch_stream(
 	});
 	return new ReadableStream<Uint8Array>({
 		async start(controller) {
+			if (batch.kind !== 'streaming') {
+				controller.close();
+				return;
+			}
 			const streaming = batch.epoch;
 			$await(
 				batch.visit().task((signal) =>
