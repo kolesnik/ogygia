@@ -160,9 +160,8 @@ const CAPTURE: EventListenerOptions = { capture: true };
  *   three values followed by `WITH`, run newest first. Holding one makes no closure.
  * - Its children are a list through their `_prev`/`_next`, newest `_last`: one that closes leaves
  *   in constant time.
- * - `_epoch` is 0 or more while open and `-1 - epoch` once closed. A closed life stays closed: a
- *   machine's next visit is a life of its own, so code that kept a visit's life past the visit
- *   (across an `await`) only ever finds it closed.
+ * - A closed life stays closed (`_closed`): a machine's next visit is a life of its own, so code
+ *   that kept a visit's life past the visit (across an `await`) only ever finds it closed.
  */
 export class Life {
 	/** The machine whose visit it is, or null: names it in what its close throws. */
@@ -171,7 +170,7 @@ export class Life {
 	_prev: Life | null = null;
 	_next: Life | null = null;
 	_last: Life | null = null;
-	_epoch = 0;
+	_closed = false;
 	/** Its close is running (a cleanup that adopts goes with the close's own disposals). */
 	_closing = false;
 	/** `await using` waits for its async disposals. */
@@ -189,14 +188,14 @@ export class Life {
 
 	/** It has closed. */
 	get closed(): boolean {
-		return this._epoch < 0;
+		return this._closed;
 	}
 
 	/** Aborts when it closes (already aborted on a closed life). */
 	get signal(): AbortSignal {
 		if (this._abort !== null) return this._abort.signal;
 		const abort = (this._abort = new AbortController());
-		if (this._epoch < 0) abort.abort();
+		if (this._closed) abort.abort();
 		return abort.signal;
 	}
 
@@ -231,12 +230,12 @@ export class Life {
 	 *  `Scope.every`). */
 	every(fn: () => void, ms: number): () => void {
 		if (!is_time(ms)) throw machine_error('machine_bad_time', { where: 'every()', ms: String(ms) });
-		return this._epoch < 0 ? noop : early(this, put(this, TIMER, timers.every(fn, ms), null, null));
+		return this._closed ? noop : early(this, put(this, TIMER, timers.every(fn, ms), null, null));
 	}
 
 	/** Runs `cleanup` once when it closes, newest first; at once on a closed life. */
 	defer(cleanup: () => void): void {
-		if (this._epoch < 0) cleanup();
+		if (this._closed) cleanup();
 		else {
 			const list = this._cleanups;
 			if (list === null) this._cleanups = [cleanup];
@@ -247,20 +246,20 @@ export class Life {
 	/** Runs `fn(a, b, c)` once when it closes, as `defer` does: passing the values `fn` needs
 	 *  makes no closure for them. */
 	on_close<A, B, C>(fn: (a: A, b: B, c: C) => void, a?: A, b?: B, c?: C): void {
-		if (this._epoch < 0) fn(a as A, b as B, c as C);
+		if (this._closed) fn(a as A, b as B, c as C);
 		else put_cleanup(this, fn as Release, a, b, c);
 	}
 
 	/** Disconnects `observer` when it closes (at once on a closed life). Returns it. */
 	watch<O extends Watcher>(observer: O): O {
-		if (this._epoch < 0) observer.disconnect();
+		if (this._closed) observer.disconnect();
 		else put_cleanup(this, disconnect, observer, null, null);
 		return observer;
 	}
 
 	/** Runs `work` for it (see `Scope.task`): `STALE` once it closes. */
 	task<R>(work: (signal: AbortSignal) => R): Promise<Fresh<Awaited<R>> | Stale> {
-		if (this._epoch < 0) return Promise.resolve(STALE);
+		if (this._closed) return Promise.resolve(STALE);
 		const sig = this.signal;
 		let out: R | Promise<never>;
 		try {
@@ -294,9 +293,8 @@ export class Life {
 
 	/** Closes it (see `Scope.close`). Safe twice. */
 	close(): void {
-		const epoch = this._epoch;
-		if (epoch < 0) return;
-		this._epoch = -1 - epoch;
+		if (this._closed) return;
+		this._closed = true;
 		this._closing = true;
 		const parent = this._parent;
 		if (parent !== null) {
@@ -420,8 +418,8 @@ function unlink(parent: Life, k: Life): void {
 }
 
 function link<L extends Life>(l: Life, k: L): L {
-	if (l._epoch < 0) {
-		k._epoch = -1;
+	if (l._closed) {
+		k._closed = true;
 		return k;
 	}
 	k._parent = l;
@@ -457,7 +455,7 @@ function hear(
 	listener: (...args: never[]) => void,
 	options: boolean | AddEventListenerOptions | undefined
 ): number {
-	if (l._epoch < 0) return -1;
+	if (l._closed) return -1;
 	if ('addEventListener' in target) {
 		const t = target as unknown as EventTarget;
 		const heard = listener as unknown as EventListener;
@@ -481,7 +479,7 @@ function hear(
 function arm<A>(l: Life, fn: (a?: A) => void, when: When, a?: A): number {
 	if (when !== 'frame' && when !== 'idle' && !is_time(when))
 		throw machine_error('machine_bad_time', { where: 'timeout()', ms: String(when) });
-	if (l._epoch < 0) return -1;
+	if (l._closed) return -1;
 	let i = -1;
 	const fire = () => {
 		const now = l._firsts;
@@ -504,7 +502,7 @@ export function root(label: string | null = null): Life {
 
 /** @internal What `l` still holds: live listeners, timers and cleanups, and open children. */
 export function held(l: Life): number {
-	if (l._epoch < 0) return 0;
+	if (l._closed) return 0;
 	let n = 0;
 	for (let k = l._last; k !== null; k = k._prev) n++;
 	const firsts = l._firsts;
@@ -524,7 +522,7 @@ export const ENDED: Life = /* @__PURE__ */ ended();
 
 function ended(): Life {
 	const l = new Life();
-	l._epoch = -1;
+	l._closed = true;
 	return l;
 }
 
@@ -550,7 +548,7 @@ class Scoped extends Life implements Scope {
 	/** Disposes `disposable` when it closes. Returns it. */
 	adopt<D extends Disposable | AsyncDisposable>(disposable: D): D {
 		const d = disposable as Partial<Disposable & AsyncDisposable>;
-		const open = this._epoch >= 0;
+		const open = !this._closed;
 		if (typeof d[DISPOSE] === 'function') {
 			if (open) put_cleanup(this, dispose, d, null, null);
 			else dispose(d as Disposable);
@@ -565,7 +563,7 @@ class Scoped extends Life implements Scope {
 	}
 
 	child(): Scoped {
-		return this._epoch < 0 ? CLOSED_SCOPE : link(this, new Scoped());
+		return this._closed ? CLOSED_SCOPE : link(this, new Scoped());
 	}
 
 	[DISPOSE](): void {
@@ -574,7 +572,7 @@ class Scoped extends Life implements Scope {
 
 	async [ASYNC_DISPOSE](): Promise<void> {
 		const errors: unknown[] = [];
-		if (this._epoch >= 0) {
+		if (!this._closed) {
 			this._awaited = true;
 			try {
 				this.close();
@@ -600,7 +598,7 @@ const CLOSED_SCOPE = CLOSED as Scoped;
 
 function closed_scope(): Scoped {
 	const s = new Scoped();
-	s._epoch = -1;
+	s._closed = true;
 	return s;
 }
 
