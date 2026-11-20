@@ -39,6 +39,7 @@ export const view_transitions: import('../dist/contract/virtual-modules.js').Vir
 export const runtime_url: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-url']['runtime_url'];
 export const build_key: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_key'];
 export const build_had_secret: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_had_secret'];
+export const HAS: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-flags']['HAS'];
 export const load_server_regions: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['load_server_regions'];
 export const region_url: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['region_url'];
 export const region_name: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['region_name'];
@@ -99,6 +100,10 @@ export const runtime_url: import('../dist/contract/virtual-modules.js').VirtualM
 declare module 'ogygia:server/secret' {
 export const build_key: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_key'];
 export const build_had_secret: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_had_secret'];
+}
+declare module 'ogygia:server/runtime-flags' {
+const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-flags'];
+export = module;
 }
 declare module 'ogygia:server/server-manifest' {
 const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest'];

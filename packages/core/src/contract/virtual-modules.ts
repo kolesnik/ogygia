@@ -123,6 +123,12 @@ export interface RuntimeFlagsModule {
 	load_wire_codec: (() => Promise<{ install(): void }>) | null;
 }
 
+export interface ServerFlagsModule {
+	/** the build's feature word, the browser's `HAS` (./features.ts): the server writes into a page
+	 *  only what the page's runtime can revive */
+	HAS: number;
+}
+
 export interface TransportablesModule {
 	/** client: a transportable class module's tag path → its lazy import, the file it imports (`null`
 	 *  when it has none of its own) and the URL that file is relative to (server: empty, eager) */
@@ -226,6 +232,7 @@ export interface VirtualModules {
 	'ogygia:region/transportables-eager': SideEffectModule;
 	'ogygia:dev/hmr': SideEffectModule;
 	'ogygia:dev/devtools-boot': SideEffectModule;
+	'ogygia:server/runtime-flags': ServerFlagsModule;
 	'ogygia:server/runtime-url': RuntimeUrlModule;
 	'ogygia:server/devtools-boot-url': DevtoolsBootUrlModule;
 	'ogygia:server/region-deps': RegionDepsModule;

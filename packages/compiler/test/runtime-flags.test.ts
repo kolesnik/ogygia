@@ -7,6 +7,7 @@ import { FEATURE_BITS, F_FRAMES, type FeatureName } from '@ogygia/core/contract'
 import {
 	FEATURE_ORDER,
 	generateRuntimeFlagsSource,
+	generateServerFlagsSource,
 	resolveFeatures,
 	type RuntimeMarks
 } from '../src/link/runtime-entry.ts';
@@ -73,5 +74,22 @@ describe('runtime flags', () => {
 	it('incomplete marks and dev keep every flag on', () => {
 		expect(flag({})).toBe(true);
 		expect(flag({ complete: true, hydrate: ['load'] }, true)).toBe(true);
+	});
+
+	it("the server's word is the browser's, for the same marks", () => {
+		const server_word = (marks: RuntimeMarks, all = false) =>
+			Number(/^export const HAS = (\d+);\n$/.exec(generateServerFlagsSource(marks, all))![1]);
+		const cases: RuntimeMarks[] = [
+			{ complete: true, hydrate: ['load'] },
+			{ complete: true, hydrate: ['load'], defer: ['idle'] },
+			{ complete: true, lakes: true },
+			{ complete: true, live: true, wire: true, context: true },
+			{ complete: true, foreign: true },
+			{}
+		];
+		for (const marks of cases)
+			for (const all of [false, true])
+				expect(server_word(marks, all), JSON.stringify(marks)).toBe(word(marks, all));
+		expect(server_word({ complete: true, hydrate: ['load'] }) & F_FRAMES).toBe(0);
 	});
 });

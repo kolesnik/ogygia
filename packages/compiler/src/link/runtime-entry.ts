@@ -292,3 +292,14 @@ export function generateRuntimeFlagsSource(
 		export const load_wire_codec = ${load_wire_codec};
 	`}\n`;
 }
+
+/**
+ * Emit `ogygia:server/runtime-flags`: the same feature word as the browser's `HAS`
+ * ({@link generateRuntimeFlagsSource}), for the server build. The server's code for a feature (a
+ * hole's render and endpoint, a lake's, a live region's) is written against it, so a server only
+ * writes into a page what the page's runtime can revive. The marks only grow while a build runs and
+ * the server leg reads them first, so its word never holds a feature the browser's lacks.
+ */
+export function generateServerFlagsSource(marks: RuntimeMarks, all = false): string {
+	return `export const HAS = ${feature_word(all ? FEATURE_ORDER : resolveFeatures(marks))};\n`;
+}

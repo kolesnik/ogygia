@@ -5,7 +5,8 @@ import { csrTrueRouteIds, errorCsrTrueRouteIds, rootLayoutCsrTrue } from '../kit
 import {
 	generateHydrateFeaturesSource,
 	generateRuntimeEntrySource,
-	generateRuntimeFlagsSource
+	generateRuntimeFlagsSource,
+	generateServerFlagsSource
 } from '../link/runtime-entry.ts';
 import { island_deps_module } from '../link/island-deps.ts';
 import { router_css_module } from '../link/router-css.ts';
@@ -47,6 +48,7 @@ import {
 	type RegionDepsModule,
 	type RouteConfigModule,
 	type RuntimeFlagsModule,
+	type ServerFlagsModule,
 	type ServerPluginsModule,
 	type ServerRegionsModule,
 	type ServerManifestModule,
@@ -184,6 +186,18 @@ export const runtime_flags: Family<RuntimeFlagsModule> = virtual.family({
 		if (!ctx.is_build) return generateRuntimeFlagsSource({}, ctx.runtime_dir, true);
 		app.prescan();
 		return generateRuntimeFlagsSource(app.program.runtime_marks, ctx.runtime_dir);
+	}
+});
+
+/** The browser's feature word, for the server leg (link/runtime-entry.ts `generateServerFlagsSource`). */
+export const server_flags: Family<ServerFlagsModule> = virtual.family({
+	realm: 'server',
+	id: 'runtime-flags',
+	exports: { HAS: 'HAS' },
+	load(app: CoreApp) {
+		if (!app.ctx.is_build) return generateServerFlagsSource({}, true);
+		app.prescan();
+		return generateServerFlagsSource(app.program.runtime_marks);
 	}
 });
 
@@ -687,6 +701,7 @@ export const CORE_VIRTUALS: readonly Entry<CoreApp>[] = [
 	runtime,
 	runtime_entry,
 	runtime_flags,
+	server_flags,
 	devtools_meta,
 	transport,
 	transportables,
