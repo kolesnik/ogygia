@@ -431,10 +431,12 @@ if (!arg('--core')) {
 	const leaks: string[] = [];
 	for (const r of rows)
 		for (const p of PROGRAMS) {
-			const held = p.feature !== null && [p.feature].flat().every((f) => r.features.includes(f));
+			const needs = p.feature === null ? [] : [p.feature].flat();
+			const held = needs.length > 0 && needs.every((f) => r.features.includes(f));
+			const selects = needs.join(' + ');
 			for (const mod of p.modules) {
 				if (held && !(mod in r.modules))
-					leaks.push(`${r.name}: selects ${p.feature}, but its boot lacks ${mod} (${p.name})`);
+					leaks.push(`${r.name}: selects ${selects}, but its boot lacks ${mod} (${p.name})`);
 				else if (!held && mod in r.modules)
 					leaks.push(`${r.name}: its boot holds ${mod} (${p.name}), which its marks never run`);
 				else if (p.feature === null && !r.lazy_modules.includes(mod))
@@ -443,7 +445,7 @@ if (!arg('--core')) {
 			const code = boot_codes.get(r.name) ?? '';
 			for (const text of p.strings ?? []) {
 				if (held && !code.includes(text))
-					leaks.push(`${r.name}: selects ${p.feature}, but its boot lacks ${p.name}`);
+					leaks.push(`${r.name}: selects ${selects}, but its boot lacks ${p.name}`);
 				else if (!held && code.includes(text))
 					leaks.push(`${r.name}: its boot holds ${p.name} ('${text}'), which its marks never run`);
 			}
