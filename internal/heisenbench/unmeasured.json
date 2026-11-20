@@ -4881,7 +4881,7 @@
 			"reason": "a slot's maker: builds the request bags' empty WeakMap, once per process, constant work"
 		},
 		{
-			"id": "packages/core/src/hooks.ts > shared:0~7e8304 > make",
+			"id": "packages/core/src/server/page-context.ts > shared:0~7e8304 > make",
 			"reason": "a slot's maker: builds the request contexts' empty WeakMap, once per process, constant work"
 		},
 		{
@@ -4893,7 +4893,7 @@
 			"reason": "a slot's maker: builds the ref names' empty WeakMap, once per process, constant work"
 		},
 		{
-			"id": "packages/core/src/hooks.ts > set_ctx_script_reader:0~6ca003",
+			"id": "packages/core/src/server/page-context.ts > install_page_context > set_ctx_script_reader:0~6ca003",
 			"reason": "a one-line reader: the request's page context marker through page_ctx_script, which is measured; its input is the live request, which a replay cannot hold"
 		},
 		{
@@ -6609,43 +6609,11 @@
 			"reason": "devtools builds only (__OGYGIA_DEVTOOLS__): one server event per region; folds out of a production build"
 		},
 		{
-			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set as_dual",
-			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
-		},
-		{
-			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set component",
-			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
-		},
-		{
-			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set entry",
-			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
-		},
-		{
 			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set fp",
 			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
 		},
 		{
-			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set has_slot_children",
-			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
-		},
-		{
-			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set in_tail",
-			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
-		},
-		{
 			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set module_url",
-			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
-		},
-		{
-			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set props",
-			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
-		},
-		{
-			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set props_body",
-			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
-		},
-		{
-			"id": "packages/core/src/region-parts/island-wire.svelte.ts > IslandWire > set props_inline",
 			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
 		},
 		{
