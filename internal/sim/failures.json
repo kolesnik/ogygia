@@ -5593,6 +5593,24 @@
 			"reason": "the cap on a snippet boot that never settles: the region's hydrated signal comes anyway; proved by hand: the cap removed turns the test red",
 			"test": "packages/core/test/browser/snippet-boots.test.ts",
 			"name": "a snippet that never boots holds its region’s hydrated signal 10 s at most"
+		},
+		{
+			"site": "packages/core/src/runtime/arm-idle.ts > on_idle > timer:0",
+			"reason": "a browser with no idle callback (WebKit) waits a short pause, not none; proved by hand: the timer's callback made to do nothing turns the test red",
+			"test": "packages/core/test/browser/hole-when.test.ts",
+			"name": "an idle hole in a browser with no idle callback fetches after a short pause, not at once"
+		},
+		{
+			"site": "packages/core/src/runtime/arm-idle.ts > on_idle > timer:1",
+			"reason": "the browser's idle moment starts it; proved by hand: the idle callback made to do nothing turns the test red (it waits for the cap)",
+			"test": "packages/core/test/browser/hole-when.test.ts",
+			"name": "an idle hole fetches at the browser's first idle moment, well before the cap"
+		},
+		{
+			"site": "packages/core/src/runtime/arm-idle.ts > on_idle > timer:2",
+			"reason": "the cap on a page that never goes idle; proved by hand: the cap's callback made to do nothing turns the test red",
+			"test": "packages/core/test/browser/hole-when.test.ts",
+			"name": "an idle hole on a page that never goes idle still fetches within 2 s"
 		}
 	],
 	"impossible": [
@@ -5931,9 +5949,6 @@
 		"packages/core/src/runtime/core.ts > OgygiaRegion > prefetch_html > .catch:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > fetch_failed > catch:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > fetch_failed > refused:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > on_idle > timer:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > on_idle > timer:1",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > on_idle > timer:2",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:0",
 		"packages/core/src/runtime/core.ts > apply_dev_head_region_css > .catch:0",
 		"packages/core/src/runtime/devalue-lane.ts > (module) > import:0",

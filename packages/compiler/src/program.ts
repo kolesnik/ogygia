@@ -44,6 +44,10 @@ export interface IslandDescriptor {
 	kind?: 'hydrate' | 'defer' | 'lake';
 	server?: boolean;
 	fetchWhen?: string;
+	/** a hole's `prefetch` schedule */
+	prefetch?: string;
+	/** a lake's `remount.revalidate` schedule */
+	revalidate?: string;
 	strategy?: string;
 	wakeAfter?: string;
 	held?: boolean;
@@ -159,6 +163,8 @@ export class Program {
 			remoteSeeds: false,
 			hydrate: [],
 			defer: [],
+			prefetch: [],
+			revalidate: [],
 			persistKeys: [],
 			router: init.router,
 			live: false,
@@ -192,6 +198,14 @@ export class Program {
 		}
 		if (patch.defer) {
 			runtime_marks.defer = [...new Set([...(runtime_marks.defer || []), ...patch.defer])];
+		}
+		if (patch.prefetch) {
+			runtime_marks.prefetch = [...new Set([...(runtime_marks.prefetch || []), ...patch.prefetch])];
+		}
+		if (patch.revalidate) {
+			runtime_marks.revalidate = [
+				...new Set([...(runtime_marks.revalidate || []), ...patch.revalidate])
+			];
 		}
 		if (patch.persistKeys) {
 			runtime_marks.persistKeys = [
@@ -266,6 +280,8 @@ export class Program {
 			if (kind === 'defer') this.note_runtime_mark({ defer: [isl.fetchWhen || 'load'] });
 			if (kind === 'hydrate') this.note_runtime_mark({ hydrate: [isl.strategy || 'load'] });
 			if (isl.wakeAfter) this.note_runtime_mark({ hydrate: [isl.wakeAfter] });
+			if (isl.prefetch) this.note_runtime_mark({ prefetch: [isl.prefetch] });
+			if (isl.revalidate) this.note_runtime_mark({ revalidate: [isl.revalidate] });
 			if (kind === 'lake') this.note_runtime_mark({ lakes: true, hydrate: ['none'] });
 			if (isl.held) this.note_runtime_mark({ live: true, morph: true });
 			if (isl.lakes?.length) this.note_runtime_mark({ lakes: true });

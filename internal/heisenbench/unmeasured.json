@@ -777,11 +777,11 @@
 			"reason": "browser only: a settled lake wakes the regions that waited on it (one DOM walk); proven in packages/core/test/browser/lake-swr-remount.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #on_idle > first",
+			"id": "packages/core/src/runtime/arm-idle.ts > on_idle > first",
 			"reason": "browser only: an idle schedule fires once, at idle time or the 2 s cap, whichever is first (two cancels and the fire), constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #on_media > listen:2~d003ad",
+			"id": "packages/core/src/runtime/arm-media.ts > on_media > listen:2~d003ad",
 			"reason": "browser only: a media schedule's change listener on its visit (a match check, then off and fire), constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts"
 		},
 		{
@@ -6991,6 +6991,26 @@
 		{
 			"id": "packages/core/src/region-server.browser.ts > need_program",
 			"reason": "the browser's stand-in: does nothing (the server's word gates what the server writes), constant work"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > say_schedule_missing",
+			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw): never on a bench path, where every arm is in; proven in packages/core/test/browser/schedules-missing.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > region_label",
+			"reason": "a message argument: two attribute reads, constant work, only when a region is said (unknown or missing schedule)"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #arm > on_trigger:2~e5c3eb > missing",
+			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw): never on a bench path, where every arm is in; proven in packages/core/test/browser/schedules-missing.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #lake_arm > missing",
+			"reason": "browser only, a lake revalidated on an arm its build left out; proven in packages/core/test/browser/lake-connect.test.ts"
+		},
+		{
+			"id": "packages/core/src/messages/core.ts > ERRORS > region_schedule_missing",
+			"reason": "a message table entry: wording only"
 		},
 		{
 			"id": "packages/core/src/server/stream-regions.ts > batch_definition",

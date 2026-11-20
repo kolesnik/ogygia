@@ -69,6 +69,16 @@ export const PROGRAMS: readonly Program[] = [
 	// cache()'s ages, weights, pins and notices: the frame store's alone; every other boot cache is
 	// lru()
 	{ name: 'aging cache', feature: 'frames', modules: ['packages/machine/src/cache.ts'] },
+	// a schedule's arm in the region element: each only where some region is scheduled on it
+	{ name: 'idle arm', feature: 'idle', modules: ['packages/core/dist/runtime/arm-idle.js'] },
+	{
+		name: 'visible arm',
+		feature: 'visible',
+		modules: ['packages/core/dist/runtime/arm-visible.js']
+	},
+	{ name: 'media arm', feature: 'media', modules: ['packages/core/dist/runtime/arm-media.js'] },
+	// the island graph's reader: only where some island's code can load
+	{ name: 'island graph', feature: 'graph', modules: ['packages/core/dist/island-graph.js'] },
 	// the probe for a page Kit hydrates (its boot script), with ogygia's regions on it: mixed mode
 	{ name: 'kit probe', feature: null, kit: true, modules: [], strings: ['__sveltekit_'] }
 ];

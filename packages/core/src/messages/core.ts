@@ -177,6 +177,22 @@ export const ERRORS = {
 			code (HTML from a CMS, a page from another build) does this; else ${BUG}
 		`
 	},
+	region_schedule_missing: {
+		text: (a: { region: string; value: string }): string => prose`
+			region ${a.region} is scheduled on "${a.value}", which this build left out: it runs on
+			load.
+		`,
+		details: (): string => prose`
+			The build reads when the app's regions run (a wake, a hole's fetch or prefetch, a lake's
+			revalidation) and ships only the schedules they use: \`idle\`, \`visible\` and media
+			queries each have code of their own, left out when no region asks for them. This page
+			has a region scheduled on one the build saw no region use, so it runs on load instead,
+			sooner than asked. A region written into the page from outside the app's code (HTML
+			from a CMS, a page from another build) does this, and so does a value no schedule
+			holds (a typo) in a build without media queries, which cannot tell the two apart; else
+			${BUG}
+		`
+	},
 	interaction_hydrate_failed: {
 		text: (): string => 'interaction island failed to hydrate — leaving it static.',
 		details: (): string => prose`

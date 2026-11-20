@@ -6,13 +6,18 @@ import type { LakeArm } from '../../src/runtime/slots.ts';
 let next = 0;
 const unique = (name: string) => `lake-connect-${name}-${next++}`;
 
-/** The arms a region hands its lake, counting what the lake asked of them. */
-function arms() {
-	const asked = { fetch: 0, idle: [] as (() => void)[] };
+/** The arms a region hands its lake, counting what the lake asked of them; `built: false`, a build
+ *  that left the idle arm out. */
+function arms(built = true) {
+	const asked = { fetch: 0, idle: [] as (() => void)[], missing: [] as string[] };
 	const arm: LakeArm = {
-		idle: (fire) => asked.idle.push(fire),
+		idle: built ? (fire) => asked.idle.push(fire) : null,
 		visible: () => {},
-		media: () => {},
+		media: { is: () => false, arm: () => {} },
+		missing: (value, fire) => {
+			asked.missing.push(value);
+			fire();
+		},
 		fetch_revalidate: () => asked.fetch++,
 		wake_children: () => {}
 	};
@@ -112,6 +117,17 @@ test('on a document served from a page store an swr lake revalidates at its firs
 	expect(idle.asked.idle).toHaveLength(1);
 	idle.asked.idle[0]();
 	expect(idle.asked.fetch, 'swr, when=idle, at idle').toBe(1);
+
+	const unbuilt = arms(false);
+	on_frozen_connect(
+		place(
+			lake(unique('stored-idle-unbuilt'), 'remount="swr" when="idle" endpoint="/e"'),
+			'[data-lake]'
+		),
+		unbuilt.arm
+	);
+	expect(unbuilt.asked.missing, 'swr, when=idle, no idle arm: said').toEqual(['idle']);
+	expect(unbuilt.asked.fetch, 'swr, when=idle, no idle arm: at once').toBe(1);
 });
 
 test('in dev, an swr lake with no region around it on a regular page says it will never revalidate', () => {

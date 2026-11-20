@@ -4,6 +4,8 @@ import { note_entry_location } from './entry-locations.ts';
 import { code_url } from './code-origins.ts';
 import { lru } from '@ogygia/machine/internal';
 import { runtime_session } from './session.ts';
+import { HAS } from 'ogygia:boot';
+import { F_GRAPH } from '../contract/features.ts';
 
 const GRAPH_SELECTOR = `script[${OGYGIA_GRAPH}]`;
 const MODULEPRELOAD_SELECTOR = 'link[rel="modulepreload"]';
@@ -31,6 +33,7 @@ function absolute(href: string, base: string): string | null {
 /** Merge one graph script's text; hrefs resolve against `base` (the document the text came from).
  *  Its locations (`s`) go to the runtime's one identity → location map. */
 export function register_island_graph(text: string, base: string = location.href): void {
+	if (!(HAS & F_GRAPH)) return;
 	for (const [entry, src] of decode_island_locations(text)) note_entry_location(entry, src, base);
 	for (const [entry, hrefs] of decode_island_graph(text)) {
 		const key = absolute(entry, base);
@@ -78,7 +81,7 @@ export function preload_island_graph(
 	base: string = location.href,
 	priority: Priority = 'auto'
 ): void {
-	if (typeof document === 'undefined') return;
+	if (!(HAS & F_GRAPH) || typeof document === 'undefined') return;
 	const key = absolute(entry, base);
 	if (!key) return;
 	let hrefs = graph.get(key);

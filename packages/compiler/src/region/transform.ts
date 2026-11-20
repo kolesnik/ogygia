@@ -1367,7 +1367,8 @@ class FileCompilation {
 						server: swr,
 						kind: 'lake',
 						lakes: ['OgygiaLakeInner'],
-						identity
+						identity,
+						revalidate: swr ? mark.options?.when : undefined
 					});
 				}
 				rewrite_binding(info.node, binding_rewrite(local, bindingPath, componentPath, true));
@@ -1433,6 +1434,7 @@ class FileCompilation {
 								identity,
 								strategy: mark.strategy,
 								fetchWhen: mark.options?.when,
+								prefetch: mark.options?.prefetch,
 								wakeAfter: deferred_hydrate ? mark.options?.hydrate : undefined,
 								keep: mark.options?.keep
 							}

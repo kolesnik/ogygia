@@ -3,6 +3,7 @@ import type { Life } from '@ogygia/machine/internal';
 import type { FrameOrder } from '../frame.ts';
 import type { FrameFetcher, StoredFrame } from './frame-store.ts';
 import type { VerifiedHtml } from './html-sink.ts';
+import type { ScheduleArms } from '../contract/trigger.ts';
 
 /** A lake an island's hydrate adopts in place, held by its key to find it again after. */
 export type HeldLake = {
@@ -10,11 +11,9 @@ export type HeldLake = {
 	lake: Element;
 };
 
-/** Region schedule hooks lakes need without importing the custom element. */
-export type LakeArm = {
-	idle: (fire: () => void) => void;
-	visible: (fire: () => void, margin?: string) => void;
-	media: (when: string, fire: () => void) => void;
+/** Region schedule hooks lakes need without importing the custom element: a schedule's arms (null
+ *  where the build left one out, contract/trigger.ts `ScheduleArms`), a revalidation, a wake. */
+export type LakeArm = ScheduleArms & {
 	fetch_revalidate: () => void;
 	wake_children: () => void;
 };

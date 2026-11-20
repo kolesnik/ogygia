@@ -73,8 +73,8 @@
 	},
 	{
 		"id": "idle-fallback-never-fires",
-		"file": "packages/core/src/runtime/core.ts",
-		"in": "OgygiaRegion > on_idle",
+		"file": "packages/core/src/runtime/arm-idle.ts",
+		"in": "on_idle",
 		"code": "s.later(() => fire(), 200);",
 		"operator": "statement",
 		"from": "s.later(() => fire(), 200);",
@@ -130,12 +130,12 @@
 	},
 	{
 		"id": "visible-margin-dropped",
-		"file": "packages/core/src/runtime/core.ts",
-		"in": "OgygiaRegion > on_visible",
-		"code": "const rootMargin = root_margin || this.getAttribute('margin') || '0px';",
+		"file": "packages/core/src/runtime/arm-visible.ts",
+		"in": "on_visible",
+		"code": "const rootMargin = root_margin || el.getAttribute('margin') || '0px';",
 		"operator": "logical",
-		"from": "n || t",
-		"to": "n && t"
+		"from": "margin || el",
+		"to": "margin && el"
 	},
 	{
 		"id": "peer-body-rewrite-inverted",
@@ -417,8 +417,8 @@
 	},
 	{
 		"id": "media-listener-kept",
-		"file": "packages/core/src/runtime/core.ts",
-		"in": "OgygiaRegion > on_media",
+		"file": "packages/core/src/runtime/arm-media.ts",
+		"in": "on_media",
 		"code": "once.close();",
 		"operator": "statement",
 		"from": "once.close();",
