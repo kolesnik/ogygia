@@ -102,8 +102,10 @@ const store_host = (typeof globalThis !== 'undefined' ? globalThis : {}) as {
 	[ANSWER_KEY]?: ReturnType<typeof answer_definition>;
 	[PART_KEY]?: ReturnType<typeof part_definition>;
 };
-const answers = (store_host[ANSWER_KEY] ??= answer_definition());
-const parts = (store_host[PART_KEY] ??= part_definition());
+// (made on first use: the module does nothing as it loads, so a server that reaches it through code
+// it never runs, a browser decode's write, carries none of it)
+const answers = () => (store_host[ANSWER_KEY] ??= answer_definition());
+const parts = () => (store_host[PART_KEY] ??= part_definition());
 
 function store(): Store {
 	return (store_host[STORE_KEY] ??= make_store());
@@ -183,7 +185,7 @@ function entry(a: string): Entry {
 	const entries = store().entries;
 	let e = entries.peek(a);
 	if (!e) {
-		e = { answer: fsm.create(answers), part: null, renewed: null, refused: null };
+		e = { answer: fsm.create(answers()), part: null, renewed: null, refused: null };
 		entries.set(a, e);
 	}
 	return e;
@@ -260,7 +262,7 @@ export function write(f: StoredFrame): boolean {
 export function reserve(a: string): void {
 	const e = entry(a);
 	if (shown_of(e) !== null || flying(a)) return;
-	const part = (e.part = fsm.create(parts));
+	const part = (e.part = fsm.create(parts()));
 	const landed = part.wait('landed').then((s) => (s === STALE ? STALE : s.html));
 	const settled = () => schedule_evict(a, e);
 	store().flights.get({ a, work: landed }).then(settled, settled);
