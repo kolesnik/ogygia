@@ -58,7 +58,7 @@ import {
 	region_hydrate_schedule,
 	region_schedule
 } from './region-attrs.ts';
-import { slots, type FrameOps, type LiveLink, type LiveTick } from './slots.ts';
+import { slots, type FrameOps, type LiveLink, type LiveTick, type WakeLink } from './slots.ts';
 import { say_reload_needed } from './reload-needed.ts';
 import {
 	create_answer,
@@ -119,7 +119,7 @@ import { connected_regions } from './connected.ts';
 import { props_sidecar_of, restore_props_sidecar } from './sidecar.ts';
 import { hole_facts_of } from './hole-facts.ts';
 import { set_hydrating, tap_svelte_warnings, on_svelte_warning } from './svelte-warnings.ts';
-import type { IslandHandle, IslandModule } from './hydrate-core.ts';
+import type { IslandHandle, IslandModule, WakeTimes } from './hydrate-core.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import {
 	install_window_sink as dt_install_window_sink,
@@ -133,7 +133,6 @@ import {
 	HOOK_HOLE_ANSWERED,
 	HOOK_HOLE_FAILED,
 	HOOK_REGION_FAILED,
-	HOOK_REGION_HYDRATED,
 	HOOK_REGION_MOUNT,
 	HOOK_REGION_UNMOUNT,
 	HOOK_REGION_WOKE,
@@ -298,30 +297,6 @@ function say_program_missing(entry: string, program: 'hole' | 'live'): void {
 const nothing = (): void => {};
 const kit_boot_failed = (err: unknown): boolean =>
 	(err as { code?: unknown } | null)?.code === 'kit_boot_failed';
-
-const SNIPPET_BOOTS = Symbol.for('ogygia.snippet-boots');
-const SNIPPET_BOOT_CAP_MS = 10_000;
-
-async function snippets_settled(region: Element, visit: Life): Promise<void> {
-	const host = region as Element & { [SNIPPET_BOOTS]?: Promise<unknown>[] };
-	const wait = visit.child();
-	const cap = new Promise<void>((r) => wait.defer(r));
-	wait.close_after(SNIPPET_BOOT_CAP_MS);
-	try {
-		for (
-			let batch = host[SNIPPET_BOOTS];
-			batch?.length && !wait.closed;
-			batch = host[SNIPPET_BOOTS]
-		) {
-			host[SNIPPET_BOOTS] = [];
-			await Promise.race([Promise.allSettled(batch), cap]);
-			await Promise.resolve(); // (their effects, and the snippets they render, register)
-		}
-	} finally {
-		wait.close();
-		delete host[SNIPPET_BOOTS];
-	}
-}
 
 /**
  * Parse a fetched region's HTML into a fragment, HOISTING any `<link data-ogygia-region-css>` (or
@@ -1310,9 +1285,7 @@ class OgygiaRegion extends HTMLElement {
 		let failure: { error: unknown } | null = null;
 		let offline: { error: unknown } | null = null;
 		const t0 = now_ms();
-		const dt_t0 = DEVTOOLS ? t0 : 0;
-		let t_loaded = t0;
-		let t_turn: number | undefined;
+		const times: WakeTimes = { t0, loaded: t0, turn: undefined };
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'region.hydrate.start', ...dt_ids(this) });
 		if (HOOK_REGION_MOUNT) client_region_mount(this);
 		try {
@@ -1348,63 +1321,9 @@ class OgygiaRegion extends HTMLElement {
 			} finally {
 				release();
 			}
-			t_loaded = now_ms();
-			use_code_sheets(this, mod);
-			$await(turn.wait(this.#kit_page_ready(core, visit)));
-			// The page's seeds parse now, BEFORE the turn: data arriving is not the hydrate step. The
-			// first island parses the seed once (700 KB on a large CMS page), and inside its turn that
-			// parse plus the hydrate made one long task. (The step calls these again: a no-op by then.)
-			core.seed_remote_once();
-			core.seed_page_once();
-			// A visitor woke it (or reached it while it loaded): what replays their input is in before
-			// the island is live, so the input lands AT wake. Live first, the replay came in later over
-			// a slow network, beside the visitor's next click (#260). A visitor who came while it waited
-			// for its turn: their replay too, and a turn after it.
-			let visitor: Promise<unknown> | null;
-			do {
-				visitor = this.#visitor;
-				// (a replay that failed says so itself)
-				if (visitor) $await(turn.wait(visitor.catch(nothing)));
-				$await(turn.wait(hydrate_turn(this)));
-				if (this.#app) return;
-			} while (this.#visitor !== visitor);
-			t_turn = now_ms();
-			const ssr_html = this.#ssr_html;
-			// Was the island touched while it slept (runtime/drift-watch.ts)? Read HERE, before the
-			// hydrate step edits it (lakes lifted): an untouched island skips the parse-and-compare.
-			const touched = ssr_html === null || region_changed(this);
-			// (dev: a Svelte hydration warning raised in this step is this island's)
-			set_hydrating(this, this.#life);
-			this.#app = core.hydrate_island(this, entry, mod, ssr_html, touched);
-			this.#ssr_html = null;
-			this.#unwatch();
-			if (!this.#app) return;
-			note_mount(this);
-			const t_done = now_ms();
-			// (Svelte's `hydrate()` runs `$effect` and onMount in a microtask it queued during the call; one
-			// awaited now runs after it — mounted means they ran)
-			await Promise.resolve();
-			const t_mounted = now_ms();
-			$await(turn.wait(snippets_settled(this, visit)));
-			if (!this.#app) return;
-			this.setAttribute('data-hydrated', '');
-			if (HOOK_REGION_HYDRATED)
-				slots.hooks?.regionHydrated?.({
-					el: this,
-					t0,
-					tLoaded: t_loaded,
-					tTurn: t_turn,
-					tDone: t_done,
-					ssrHtml: ssr_html
-				});
-			if (DEVTOOLS)
-				dt_emit({
-					domain: 'runtime',
-					name: 'region.hydrate.done',
-					...dt_ids(this),
-					ms: t_mounted - dt_t0
-				});
-			this.dispatchEvent(new CustomEvent('ogygia:hydrated', { bubbles: true }));
+			times.loaded = now_ms();
+			slots.wake_link ??= OgygiaRegion.#wake_link();
+			await core.wake_island(this, entry, mod, visit, turn, times);
 		} catch (err) {
 			// A run whose visit is over fails quietly: the region left while it loaded, and what stands
 			// now (the region put back) is a new visit, which loads, fails or wakes on its own.
@@ -1422,7 +1341,7 @@ class OgygiaRegion extends HTMLElement {
 					el: this,
 					message: (err as { message?: string })?.message ?? String(err),
 					since: t0,
-					turn: t_turn
+					turn: times.turn
 				});
 			if (DEVTOOLS)
 				dt_emit({
@@ -1430,7 +1349,7 @@ class OgygiaRegion extends HTMLElement {
 					name: 'region.hydrate.failed',
 					...dt_ids(this),
 					message: (err as { message?: string })?.message ?? String(err),
-					...(t_turn !== undefined ? { turn: t_turn } : {})
+					...(times.turn !== undefined ? { turn: times.turn } : {})
 				});
 			say_island_failed(this.getAttribute('entry'), err);
 		} finally {
@@ -1494,9 +1413,27 @@ class OgygiaRegion extends HTMLElement {
 		return slots.live_program?.(this, desc, turn);
 	}
 
-	#kit_page_ready(core: HydrateCore, visit: Life): Promise<unknown> | null {
-		if (!kit_hydrates_page() || !ours_on_kit_document(this)) return null;
-		return core.kit_page_thread(visit.signal);
+	static #wake_link(): WakeLink {
+		return {
+			visitor: (el) => (el as OgygiaRegion).#visitor,
+			app: (el) => (el as OgygiaRegion).#app,
+			ssr_html: (el) => (el as OgygiaRegion).#ssr_html,
+			hydrated: (el, app) => {
+				const r = el as OgygiaRegion;
+				r.#app = app;
+				r.#ssr_html = null;
+				r.#unwatch();
+			},
+			use_code_sheets,
+			hydrate_turn,
+			region_changed,
+			hydrating: (el) => {
+				set_hydrating(el, (el as OgygiaRegion).#life);
+			},
+			mounted: (el) => {
+				note_mount(el);
+			}
+		};
 	}
 
 	static #live_link(): LiveLink {
@@ -1507,7 +1444,6 @@ class OgygiaRegion extends HTMLElement {
 			renew: (el) => {
 				if (el instanceof OgygiaRegion) el.#box.post((t) => el.#renew(t));
 			},
-			kit_page_ready: (el, core, visit) => (el as OgygiaRegion).#kit_page_ready(core, visit),
 			region_fragment,
 			settle_in: (frag) => {
 				if (HAS & F_LAKES) slots.lakes?.settle_in(frag);

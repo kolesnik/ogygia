@@ -246,11 +246,6 @@ export type LiveLink = {
 	box: (el: Element) => import('@ogygia/machine').Mailbox;
 	/** A nested region refreshes against the HTML that came in around it. */
 	renew: (el: Element) => void;
-	kit_page_ready: (
-		el: Element,
-		core: typeof import('./hydrate-core.ts'),
-		visit: import('@ogygia/machine/internal').Life
-	) => Promise<unknown> | null;
 	region_fragment: typeof import('./core.ts').region_fragment;
 	settle_in: (frag: DocumentFragment) => void;
 	absorb_page_facts_now: () => void;
@@ -274,6 +269,25 @@ export type LiveLink = {
 	kit_boot_failed: (err: unknown) => boolean;
 	say_island_failed: (entry: string | null, err: unknown) => void;
 	client_region_mount: typeof import('./client-plugins.ts').client_region_mount;
+};
+
+/** What an island's wake in the hydrate core (./hydrate-core.ts `wake_island`) reaches in the
+ *  boot: the region element's visitor replay, island and server copy, and the boot helpers of the
+ *  wake. Set by the element before its first wake (./core.ts). */
+export type WakeLink = {
+	visitor: (el: Element) => Promise<unknown> | null;
+	app: (el: Element) => import('./hydrate-core.ts').IslandHandle | null;
+	ssr_html: (el: Element) => string | null;
+	/** The island is in (or the hydrate step gave none): the element holds it, and lets its server
+	 *  copy and its sleep watch go. */
+	hydrated: (el: Element, app: import('./hydrate-core.ts').IslandHandle | null) => void;
+	use_code_sheets: typeof import('./region-sheets.ts').use_code_sheets;
+	hydrate_turn: typeof import('./schedule.ts').hydrate_turn;
+	region_changed: typeof import('./drift-watch.ts').region_changed;
+	/** Dev: a Svelte hydration warning raised from here on is this island's. */
+	hydrating: (el: Element) => void;
+	/** Rules: the island mounted. */
+	mounted: (el: Element) => void;
 };
 
 export type Slots = {
@@ -310,6 +324,8 @@ export type Slots = {
 	live_link: LiveLink | null;
 	/** A held region's ticks, set by the live feature's install in the hydrate core (./live.ts). */
 	live_program: typeof import('./live-program.ts').apply_live | null;
+	/** The region element's state and the boot's helpers for an island's wake (see {@link WakeLink}). */
+	wake_link: WakeLink | null;
 	/** Morph's attribute sync, for the navigation's body reconcile. */
 	sync_attributes: typeof import('./morph.ts').sync_attributes | null;
 	/** The runtime hooks the plugins' browser halves subscribe to, set at boot only when one does
@@ -336,6 +352,7 @@ export const slots: Slots = {
 	interaction_link: null,
 	live_link: null,
 	live_program: null,
+	wake_link: null,
 	sync_attributes: null
 };
 
@@ -349,5 +366,6 @@ export const router_link = (): RouterLink => linked(slots.router_link, 'router_l
 export const interaction_link = (): InteractionLink =>
 	linked(slots.interaction_link, 'interaction_link');
 export const live_link = (): LiveLink => linked(slots.live_link, 'live_link');
+export const wake_link = (): WakeLink => linked(slots.wake_link, 'wake_link');
 export const morph_sync_attributes = (): NonNullable<Slots['sync_attributes']> =>
 	linked(slots.sync_attributes, 'sync_attributes');

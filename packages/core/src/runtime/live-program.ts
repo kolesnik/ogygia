@@ -202,7 +202,7 @@ async function live_hydrate(
 		link.use_code_sheets(el, mod);
 		// (Kit cannot start: the region keeps its swapped HTML, and the wait said why)
 		$await(
-			turn.wait(link.kit_page_ready(el, core, live.visit())).catch((err) => {
+			turn.wait(core.kit_page_wait(el, live.visit())).catch((err) => {
 				if (link.kit_boot_failed(err)) return STALE;
 				throw err;
 			})
