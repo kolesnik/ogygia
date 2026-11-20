@@ -22,6 +22,7 @@
  */
 import { DEV } from 'esm-env';
 import { machine_error, report, warn_once } from './messages.ts';
+import { noop } from './noop.ts';
 import { registry } from './registry.ts';
 import { CLOSED, is_time, MAX_TIMEOUT_MS, scope, visit_scope, type Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
@@ -184,14 +185,24 @@ export type Observer = (
 	machine: AnyMachine
 ) => void;
 
+/** Moves are told only in dev and rules builds (tests, the rules, the simulator); folded out of any
+ *  other, with every check a move makes for an observer (../rules-env.d.ts). */
+const OBSERVED: boolean =
+	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
+
 /** Who watches every move, in the order they started: each held until its stop (never evicted). */
 const observers = registry<Observer>();
 
 /**
- * Watches every machine's moves (devtools, tests). Returns the function that stops watching. An
- * observer that throws is reported and does not break the move.
+ * Watches every machine's moves (tests, the rules, the simulator), in dev and rules builds. Returns
+ * the function that stops watching. An observer that throws is reported and does not break the
+ * move. In any other build it hears nothing, and says so once (`machine_observe_off`).
  */
 export function observe(observer: Observer): () => void {
+	if (!OBSERVED) {
+		warn_once('machine_observe_off', {});
+		return noop;
+	}
 	// (its owner is the watch itself: the caller holds no scope to hand in, and its stop is the
 	// watch's end)
 	const watch = scope();
@@ -199,10 +210,10 @@ export function observe(observer: Observer): () => void {
 	return () => watch.close();
 }
 
-/** A move of something that is not a `machine()` but keeps its states the same way (`loads()`'s
+/** A move of something that is not a `machine()` but keeps its states the same way (a flights'
  *  entries), told to the observers when there are any. */
 export function heard(name: string, from: State, to: State | null, machine: AnyMachine): void {
-	if (observers.size !== 0) notify(name, from, to, machine);
+	if (OBSERVED && observers.size !== 0) notify(name, from, to, machine);
 }
 
 function notify(name: string, from: State, to: State | null, machine: AnyMachine): void {
@@ -380,7 +391,7 @@ class Running implements AnyMachine {
 		const waiters = this._waiters;
 		this._scope = this._waiters = null;
 		if (waiters !== null) for (const w of waiters) w.resolve(STALE);
-		if (observers.size !== 0) notify(this._def.name, this._now, null, this);
+		if (OBSERVED && observers.size !== 0) notify(this._def.name, this._now, null, this);
 		scope?.close();
 	}
 
@@ -398,7 +409,7 @@ class Running implements AnyMachine {
 		// then leaves this visit, and closing it clears this timer)
 		if (target.timed !== null) this._arm(target.timed);
 		if (this._waiters !== null) this._settle(next);
-		if (observers.size !== 0) notify(def.name, prev, next, this);
+		if (OBSERVED && observers.size !== 0) notify(def.name, prev, next, this);
 		scope?.close();
 	}
 
