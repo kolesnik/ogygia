@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 import { boot_link } from './slots.ts';
+import { L_DEVALUE } from './boot-link-index.ts';
 import { OG_FORMAT } from '../wire-markup.ts';
 
 export const WIRE_FORMAT_JSON = 'json';
@@ -23,7 +24,7 @@ export function parse_wire_text(
 	revivers?: Record<string, (value: never) => unknown>
 ): unknown {
 	if (json) return JSON.parse(text);
-	const { parse } = boot_link().devalue();
+	const { parse } = boot_link()[L_DEVALUE]();
 	return parse(text, revivers as Parameters<typeof parse>[1]);
 }
 

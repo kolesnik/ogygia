@@ -10,6 +10,7 @@ import { DeferRef, defer_reducer } from '../src/server/page-stream.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
 import { load_devalue } from '../src/runtime/devalue-lane.ts';
 import { slots } from '../src/runtime/slots.ts';
+import { L_WITH_DEVALUE } from '../src/runtime/boot-link-index.ts';
 import {
 	create_deferred,
 	install_page_defer,
@@ -104,7 +105,9 @@ function devalue_held(): { arrive(): void; never(): void; [Symbol.dispose](): vo
 	const real = slots.boot!;
 	const reads: Array<{ fn: (d: typeof import('devalue')) => void; gone: (e: unknown) => void }> =
 		[];
-	slots.boot = { ...real, with_devalue: (fn, gone) => void reads.push({ fn, gone }) };
+	const held = [...real] as typeof real;
+	held[L_WITH_DEVALUE] = (fn, gone) => void reads.push({ fn, gone });
+	slots.boot = held;
 	return {
 		arrive: () => {
 			for (const r of reads.splice(0)) r.fn({ parse, stringify } as typeof import('devalue'));

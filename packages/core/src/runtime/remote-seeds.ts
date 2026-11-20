@@ -7,17 +7,18 @@
  * @packageDocumentation
  */
 import { boot_link, slots } from './slots.ts';
+import { L_RUNTIME_SESSION, L_SERVER_CHANNEL } from './boot-link-index.ts';
 import { seed_query_responses } from '../shims/kit-remote/client-stub.ts';
 import { clear_remote_seeds, release_remote_instances } from '../shims/kit-remote/remote-cache.ts';
 
 const REMOTE_SEED_SELECTOR = 'script[type="application/ogygia-remote"]';
 
 function seed_once(): void {
-	const session = boot_link().runtime_session;
+	const session = boot_link()[L_RUNTIME_SESSION];
 	if (session.remote_seeded) return;
 	session.mark_remote_seeded();
 	if (typeof document === 'undefined') return;
-	const text = boot_link().server_channel(document, REMOTE_SEED_SELECTOR)?.textContent;
+	const text = boot_link()[L_SERVER_CHANNEL](document, REMOTE_SEED_SELECTOR)?.textContent;
 	if (text) seed_query_responses(text);
 }
 

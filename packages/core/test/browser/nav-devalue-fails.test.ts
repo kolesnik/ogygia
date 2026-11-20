@@ -11,6 +11,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { boot_link } from '../../src/runtime/slots.ts';
+import { L_LOAD_DEVALUE } from '../../src/runtime/boot-link-index.ts';
 
 const real_fetch = window.fetch;
 const real_report = window.reportError;
@@ -33,7 +34,10 @@ afterEach(() => {
 });
 
 test('devalue that fails to load ends the navigation and gives the address to the browser', async () => {
-	vi.spyOn(boot_link(), 'load_devalue').mockRejectedValue(
+	vi.spyOn(
+		boot_link() as unknown as Record<number, () => Promise<unknown>>,
+		L_LOAD_DEVALUE
+	).mockRejectedValue(
 		new TypeError('Failed to fetch dynamically imported module: /devalue.js?og-retry=1')
 	);
 	const r = new SpaRouter();

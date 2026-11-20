@@ -323,3 +323,41 @@ describe('island-side modules reach the runtime only through its handles', () =>
 		expect(boot.has(BUNDLED_PACKAGES.get('@ogygia/machine')!)).toBe(true);
 	});
 });
+
+// The boot realm (`ogygia:boot`) exists in the browser's runtime build only. The package's entries
+// load on the server too (the app's server imports `ogygia`, its hooks, its island code), and the
+// build refuses a boot module the server leg imports (virtual_wrong_realm): the whole app fails to
+// build. So nothing an entry reaches may import from it; the runtime hands a word in at boot instead.
+describe('no package entry reaches the boot realm', () => {
+	const ENTRIES = [
+		'index.ts',
+		'hooks.ts',
+		'app.ts',
+		'internal.ts',
+		'internal-server.ts',
+		'internal-instruments.ts',
+		'internal-register.ts',
+		'internal-reconcile.ts',
+		'messages/index.ts',
+		'events/index.ts',
+		'contract/index.ts'
+	];
+	const imports_boot_realm = (file: string): boolean => {
+		if (file.endsWith('.svelte')) return false;
+		return scan(file).specs.some(
+			(spec) => spec === 'ogygia:boot' || spec.startsWith('ogygia:boot/')
+		);
+	};
+	for (const entry of ENTRIES) {
+		it(`${entry} reaches no module that imports ogygia:boot`, () => {
+			const importers = [...static_files(path.join(SRC, entry), true)]
+				.filter(([f]) => imports_boot_realm(f))
+				.map(([, chain]) => chain.join(' > '));
+			expect(importers).toEqual([]);
+		});
+	}
+
+	it('the check is not vacuous: the region element imports the feature word', () => {
+		expect(imports_boot_realm(path.join(RUNTIME, 'core.ts'))).toBe(true);
+	});
+});

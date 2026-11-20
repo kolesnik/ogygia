@@ -11,6 +11,7 @@ import { devalue } from '../../src/runtime/devalue-lane.ts';
 import { region_fragment } from './_html.ts';
 import { prepare_spa_document, seed_page_once } from '../../src/runtime/seeds.ts';
 import { boot_link } from '../../src/runtime/slots.ts';
+import { L_LOAD_DEVALUE } from '../../src/runtime/boot-link-index.ts';
 import { page_state } from '../../src/shims/page-store.svelte.ts';
 
 test('facts a hole brought before devalue loaded join page.data once it has, never dropped', async () => {
@@ -24,13 +25,13 @@ test('facts a hole brought before devalue loaded join page.data once it has, nev
 	// an island that woke before the answer hydrates now, devalue still not loaded
 	seed_page_once();
 	// the held island's wake loads devalue, and its hydrate asks again
-	await boot_link().load_devalue();
+	await boot_link()[L_LOAD_DEVALUE]();
 	seed_page_once();
 	expect((page_state.data as { who?: string }).who).toBe('hole');
 });
 
 test('facts that do not parse are skipped, the readable ones still join, and dev says why', async () => {
-	await boot_link().load_devalue();
+	await boot_link()[L_LOAD_DEVALUE]();
 	seed_page_once();
 	const said = vi.spyOn(console, 'warn').mockImplementation(() => {});
 	try {

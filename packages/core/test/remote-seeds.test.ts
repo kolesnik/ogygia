@@ -12,6 +12,7 @@ const { install } = await import('../src/runtime/remote-seeds.ts');
 const { slots } = await import('../src/runtime/slots.ts');
 const { RuntimeSession } = await import('../src/runtime/session.ts');
 const { server_channel } = await import('../src/runtime/response-mark.ts');
+const { L_RUNTIME_SESSION, L_SERVER_CHANNEL } = await import('../src/runtime/boot-link-index.ts');
 
 /** A script the server wrote: it bears the document's response mark. */
 const server_script = (text: string) => ({ textContent: text, getAttribute: () => 'mark' });
@@ -28,7 +29,10 @@ beforeEach(() => {
 		querySelectorAll: (sel: string) =>
 			sel === 'script[type="application/ogygia-remote"]' && script ? [script] : []
 	});
-	slots.boot = { runtime_session: session, server_channel } as unknown as typeof slots.boot;
+	const link: unknown[] = [];
+	link[L_RUNTIME_SESSION] = session;
+	link[L_SERVER_CHANNEL] = server_channel;
+	slots.boot = link as unknown as typeof slots.boot;
 	session.reset();
 	install();
 });

@@ -17,6 +17,19 @@ import { OG_FP, OG_HEALED, OG_RECOVERED, OGYGIA_KEEP } from '../wire-markup.ts';
 import { say } from '@ogygia/machine';
 import { ANCHOR, BLOCK_CLOSE, BLOCK_OPEN, FIRST_BRANCH_OPEN } from './svelte-markers.ts';
 import { unmark_html_ranges } from './html-ranges.ts';
+import {
+	L_ABSOLUTE_URL_SCHEME,
+	L_INIT_SHADOW_REGISTRIES,
+	L_IS_SELF_OWNED,
+	L_KIT_HYDRATES_PAGE,
+	L_PARSE_REGION_HTML,
+	L_PROPS_SIDECAR_OF,
+	L_REGION_HYDRATE,
+	L_RUNTIME_SESSION,
+	L_SET_INNER_HTML,
+	L_VOUCH_PAGE_HTML,
+	L_WALK_ENTERS
+} from './boot-link-index.ts';
 
 export const seed_page_once = (): void => slots.page?.seed_page_once();
 export const seed_remote_once = (): void => slots.remoteSeeds?.seed_once();
@@ -25,14 +38,14 @@ export const kit_page_thread = (signal: AbortSignal): Promise<unknown> | null =>
 
 install_hydrate_features();
 
-const kit_hydrates_page = () => boot_link().kit_hydrates_page();
-const props_sidecar_of = (region: Element) => boot_link().props_sidecar_of(region);
+const kit_hydrates_page = () => boot_link()[L_KIT_HYDRATES_PAGE]();
+const props_sidecar_of = (region: Element) => boot_link()[L_PROPS_SIDECAR_OF](region);
 const parse_own_html = (html: string) =>
-	boot_link().parse_region_html(boot_link().vouch_page_html(html));
+	boot_link()[L_PARSE_REGION_HTML](boot_link()[L_VOUCH_PAGE_HTML](html));
 const set_own_inner_html = (el: Element, html: string) =>
-	boot_link().set_inner_html(el, boot_link().vouch_page_html(html));
-const walk_enters = (el: Element) => boot_link().walk_enters(el);
-const is_self_owned = (el: Element) => boot_link().is_self_owned(el);
+	boot_link()[L_SET_INNER_HTML](el, boot_link()[L_VOUCH_PAGE_HTML](html));
+const walk_enters = (el: Element) => boot_link()[L_WALK_ENTERS](el);
+const is_self_owned = (el: Element) => boot_link()[L_IS_SELF_OWNED](el);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const HOOK_REGION_MISMATCHED =
@@ -292,7 +305,7 @@ export function repair_if_drifted(
 			: null;
 	conflict = null;
 	repair_markup(region, want);
-	boot_link().init_shadow_registries(region);
+	boot_link()[L_INIT_SHADOW_REGISTRIES](region);
 	const met = conflict;
 	conflict = null;
 	return { repaired: true, reason, conflict: met };
@@ -350,7 +363,9 @@ function quietly<T>(fn: () => T): T {
 
 /** Is this entry another build's (fragment federation): absolute, different origin. */
 export function is_foreign_entry(entry: string): boolean {
-	return boot_link().ABSOLUTE_URL_SCHEME.test(entry) && new URL(entry).origin !== location.origin;
+	return (
+		boot_link()[L_ABSOLUTE_URL_SCHEME].test(entry) && new URL(entry).origin !== location.origin
+	);
 }
 
 let cached_wire: (typeof slots)['wire'] | undefined;
@@ -588,7 +603,7 @@ export function hydrate_island(
 			: { repaired: false, reason: null, conflict: null };
 	const repaired = drift.repaired;
 	try {
-		head_mark = kit_hydrates_page() ? null : boot_link().runtime_session.mark_head();
+		head_mark = kit_hydrates_page() ? null : boot_link()[L_RUNTIME_SESSION].mark_head();
 		if (!region.isConnected) return null;
 		unmark_html_ranges(region);
 		const ssr_children = Array.from(region.children);
@@ -629,7 +644,7 @@ export function hydrate_island(
 		let out: IslandHandle;
 		let healed = false;
 		let strict_error: unknown = null;
-		const after_hydrate = boot_link().region_hydrate(region);
+		const after_hydrate = boot_link()[L_REGION_HYDRATE](region);
 		try {
 			out = quietly(() => attempt(false));
 			healed = repaired;
@@ -700,7 +715,7 @@ export function hydrate_island(
 			warn('hydration_discarded', { entry, drift: drift.reason, strict });
 		}
 
-		if (head_mark) boot_link().runtime_session.record_island_head(head_mark);
+		if (head_mark) boot_link()[L_RUNTIME_SESSION].record_island_head(head_mark);
 		return out;
 	} finally {
 		head_mark?.stop();
@@ -728,7 +743,7 @@ export function hydrate_live(
 		return null;
 	}
 	const provided_ctx = capture_region_ids(region, () => slots.context?.(region));
-	const after_hydrate = boot_link().region_hydrate(region);
+	const after_hydrate = boot_link()[L_REGION_HYDRATE](region);
 	set_current_region(region);
 	let out: IslandHandle;
 	try {

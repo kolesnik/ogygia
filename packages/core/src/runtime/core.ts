@@ -89,7 +89,8 @@ import {
 	note_shown,
 	note_turn,
 	note_unbound,
-	note_unmount
+	note_unmount,
+	watch_programs
 } from './rules.ts';
 import { PAGE_FACTS_SELECTOR } from '../page-facts-script.ts';
 import { link_boot } from './boot-link.ts';
@@ -1721,6 +1722,7 @@ export function boot(
 ): void {
 	disclose_version();
 	install_rules(import.meta.env.DEV);
+	watch_programs(HAS);
 	runtime_session.adopt_document_head();
 	// island-side code (a shim) throws and logs through the runtime's own messages (messages/island.ts)
 	(globalThis as unknown as Record<symbol, unknown>)[Symbol.for('ogygia.messages')] ??= {

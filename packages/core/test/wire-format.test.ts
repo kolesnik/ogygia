@@ -3,6 +3,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { parse, stringify } from 'devalue';
 import { slots, type BootLink } from '../src/runtime/slots.ts';
+import { L_DEVALUE } from '../src/runtime/boot-link-index.ts';
 import { parse_sidecar_text, parse_wire_text, wire_is_json } from '../src/runtime/wire-format.ts';
 
 const was = slots.boot;
@@ -13,7 +14,9 @@ afterEach(() => {
 /** A boot whose devalue is the real one, counting how often it is asked for. */
 function boot() {
 	const devalue = vi.fn(() => ({ parse }));
-	slots.boot = { devalue } as unknown as BootLink;
+	const link: unknown[] = [];
+	link[L_DEVALUE] = devalue;
+	slots.boot = link as unknown as BootLink;
 	return { devalue };
 }
 

@@ -31,7 +31,8 @@
  * - `rule_seed_key_unshipped`: island code reads no `page.data` key the server had and the shaped
  *   page seed left out (seed shaping, `dataShake()`; the seed names what it left out in rules builds).
  * - `rule_region_program_shipped`: every region on the page has its program in the build's feature
- *   word (`HAS`): a live region the live program, a deferred one the hole program.
+ *   word (`HAS`, handed in by the boot: `watch_programs`): a live region the live program, a
+ *   deferred one the hole program.
  *
  * Each area tells this module what it holds (`note_mount`, `note_visit`, `watch_router`) only when
  * rules are on (`RULES`): every call site folds out of a build without them.
@@ -42,7 +43,6 @@ import { Rules, type BrokenRule } from '../rules.ts';
 import { warn } from '../messages/core.ts';
 import type { PageGlobals } from '../page-globals.ts';
 import { OG_PREFIX, OGYGIA_PREFIX, unknown_markers } from '../wire-markup.ts';
-import { HAS } from 'ogygia:boot';
 import { F_FRAMES, F_LIVE } from '../contract/features.ts';
 
 type RuntimeRule =
@@ -405,12 +405,26 @@ const lakes_paired = (): string | null =>
 
 // ── every region on the page has its program in the build ──
 
-/** The first region on the page that needs a program the build's word (`HAS`) left out: a live
- *  region the live program, a deferred one the hole program (./core.ts guards each on its bits). */
+/** The build's feature word, as the boot handed it in (null: no boot yet, nothing to check). This
+ *  module loads on the server too, where the boot realm (`ogygia:boot`) does not exist, so it never
+ *  imports the word (packages/compiler/test/runtime-boot-svelte-free.test.ts). */
+let programs_word: number | null = null;
+
+/** The boot's feature word (`HAS`): the rule checks each region on the page has its program. */
+export const watch_programs: (word: number) => void = $rules(function watch_programs(
+	word: number
+): void {
+	if (programs_word === null) runtime_rules.add('rule_region_program_shipped', programs_shipped);
+	programs_word = word;
+});
+
+/** The first region on the page that needs a program the build's word left out: a live region the
+ *  live program, a deferred one the hole program (./core.ts guards each on its bits). */
 function programs_shipped(): string | null {
-	if (typeof document === 'undefined') return null;
-	const frames = (HAS & F_FRAMES) !== 0;
-	if (frames && (HAS & F_LIVE) !== 0) return null;
+	const word = programs_word;
+	if (word === null || typeof document === 'undefined') return null;
+	const frames = (word & F_FRAMES) !== 0;
+	if (frames && (word & F_LIVE) !== 0) return null;
 	const left_out = (region: Element, program: string): string =>
 		`${entry_of(region)} needs the ${program} program, which this build left out`;
 	for (const region of document.querySelectorAll('ogygia-region')) {
@@ -488,7 +502,6 @@ export const install_rules: (dev: boolean) => void = $rules(function install_rul
 	runtime_rules.add('rule_region_answer_behind', regions_show_their_answers);
 	runtime_rules.add('rule_region_left_busy', regions_left_at_rest);
 	runtime_rules.add('rule_turns_counted', turns_counted);
-	runtime_rules.add('rule_region_program_shipped', programs_shipped);
 	watch_head();
 	(globalThis as PageGlobals).__og_parsed = note_parse;
 	runtime_rules.add('rule_seed_key_unshipped', no_unshipped_read);

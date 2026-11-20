@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 import { install as install_morph, morph_children } from '../../src/runtime/morph.ts';
 import { install_head_style } from '../../src/runtime/router-nav.ts';
 import { slots } from '../../src/runtime/slots.ts';
+import { L_RUNTIME_SESSION } from '../../src/runtime/boot-link-index.ts';
 
 /** Elements as the HTML parser makes them from `html`: it takes attribute names (one that starts
  *  with `-`, `@click`, `:class`) that `setAttribute` refused in every engine before the DOM's 2025
@@ -66,9 +67,9 @@ test("a navigation's head style with such an attribute name is installed with it
 	install_morph();
 	const was_boot = slots.boot;
 	const claimed: Node[] = [];
-	slots.boot = {
-		runtime_session: { claim_page_head: (n: Node) => claimed.push(n) }
-	} as unknown as typeof slots.boot;
+	const fake: unknown[] = [];
+	fake[L_RUNTIME_SESSION] = { claim_page_head: (n: Node) => claimed.push(n) };
+	slots.boot = fake as unknown as typeof slots.boot;
 
 	let el: HTMLStyleElement;
 	try {

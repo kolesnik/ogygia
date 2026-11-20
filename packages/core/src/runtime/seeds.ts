@@ -6,13 +6,14 @@ import { transport_decoders } from './app-transport.ts';
 import { capture_region_ids } from './region-ids.ts';
 import { kit_page_thread } from './kit-page-thread.svelte.ts';
 import { boot_link, slots } from './slots.ts';
+import { L_RUNTIME_SESSION, L_SERVER_CHANNEL, L_WITH_DEVALUE } from './boot-link-index.ts';
 import { warn } from '../messages/lazy.ts';
 import { PAGE_SEED_SELECTOR } from '../page-seed-selector.ts';
 import { OGYGIA_PAGE_UNSHIPPED } from '../wire-markup.ts';
 
-const session = () => boot_link().runtime_session;
+const session = () => boot_link()[L_RUNTIME_SESSION];
 const server_channel = (doc: Document, selector: string) =>
-	boot_link().server_channel(doc, selector);
+	boot_link()[L_SERVER_CHANNEL](doc, selector);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 
@@ -139,7 +140,7 @@ export function seed_page_once(): void {
 }
 
 function absorb_page_facts(): void {
-	boot_link().with_devalue(
+	boot_link()[L_WITH_DEVALUE](
 		() => merge_page_facts(),
 		(error) => warn('page_payload_unreadable', { what: 'facts' }, error)
 	);
