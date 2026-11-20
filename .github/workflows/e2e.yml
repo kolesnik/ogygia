@@ -148,6 +148,12 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node internal/checks/new-comments.ts --base HEAD^1
 
+      # a line the PR adds in core's source never does by hand what a built macro does
+      # (internal/checks/new-drift.ts)
+      - name: No new hand-written macro work
+        if: github.event_name == 'pull_request'
+        run: node internal/checks/new-drift.ts --base HEAD^1
+
       # a raw NUL byte hides a source file from grep and rg (internal/checks/nul-bytes.ts, #1239)
       - name: No NUL byte in source
         run: node internal/checks/nul-bytes.ts
