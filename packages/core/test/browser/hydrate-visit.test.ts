@@ -17,6 +17,8 @@ const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 afterEach(() => {
 	vi.restoreAllMocks();
 	document.body.innerHTML = '';
+	// @why the browser keeps 250 resource entries and drops the rest; a dev run loads each source module as one (test: hydrate-visit › an old run’s failure leaves the new visit alone)
+	performance.clearResourceTimings();
 });
 
 /** Out of the page past its task, then back where it was (in front of its props sidecar). */
