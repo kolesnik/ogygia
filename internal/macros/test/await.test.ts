@@ -66,7 +66,7 @@ describe('the shapes', () => {
 	});
 
 	test("STALE is the file's own import when it has one, else the output imports it", () => {
-		expect(out('async function f(s) {', '\t$await(s.task(g));', '}')).toContain(
+		expect(out('async function f(s) {', '\t$await(s.task(g));', '\tgo();', '}')).toContain(
 			"import { STALE } from '@ogygia/machine'"
 		);
 		expect(
@@ -74,9 +74,45 @@ describe('the shapes', () => {
 				"import { STALE as S } from '@ogygia/machine';",
 				'async function f(s) {',
 				'\t$await(s.task(g));',
+				'\tgo();',
 				'}'
 			)
 		).toContain('if ((await s.task(g)) === S) return;');
+	});
+
+	test("a function's last statement gives up by ending: no check, and no STALE import for it", () => {
+		expect(out('async function f(s) {', '\tgo();', '\t$await(s.task(g));', '}')).toBe(
+			`${dedent`
+				async function f(s) {
+					go();
+					await s.task(g);
+				}
+			`}\n`
+		);
+		expect(out('const f = async (s) => {', '\t$await(s.wait(1));', '};')).toContain(
+			'await s.wait(1);\n};'
+		);
+		expect(
+			out(IMPORT, 'class A {', '\tasync m(s) {', '\t\t$await(s.ask(h));', '\t}', '}')
+		).toContain('\t\tawait s.ask(h);\n\t}');
+	});
+
+	test('a last statement with what to give up with, or one inside a block, keeps its check', () => {
+		const code = out(
+			IMPORT,
+			'async function f(s, v) {',
+			'\tif (v) {',
+			'\t\t$await(s.task(g));',
+			'\t}',
+			'\ttry {',
+			'\t\t$await(s.task(h));',
+			'\t} finally {}',
+			'\t$await(s.wait(1), v);',
+			'}'
+		)!;
+		expect(code).toContain('if ((await s.task(g)) === STALE) return;');
+		expect(code).toContain('if ((await s.task(h)) === STALE) return;');
+		expect(code).toContain('if ((await s.wait(1)) === STALE) return v;');
 	});
 });
 

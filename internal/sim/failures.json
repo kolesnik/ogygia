@@ -6517,12 +6517,10 @@
 		"packages/tsdown-plugin-svelte/src/index.ts > default_preprocess > throw:0",
 		"packages/tsdown-plugin-svelte/src/index.ts > svelte > writeBundle > import:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > fetch_html > stale:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > applyLive > stale:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > stale:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > catch:0",
 		"packages/core/src/runtime/entry-locations.ts > recover_location > stale:0",
 		"packages/core/src/runtime/live-program.ts > live_hydrate > stale:3",
-		"packages/core/src/runtime/load-scheduler.ts > LoadScheduler > until_critical > stale:0",
 		"packages/core/src/server/stream-regions.ts > batch_stream > start > stale:0",
 		"packages/machine/src/flights.ts > Flown > _move > throw:0"
 	],
