@@ -1,5 +1,6 @@
-// A production build folds the telling of machine moves out: observe() hears nothing there, and
-// says so once with its code (a watch that silently heard nothing would be a silent failure).
+// A production build folds out what only dev and rules builds use: observe() hears nothing there and
+// says so once with its code (a watch that silently heard nothing would be a silent failure), and a
+// definition's graph() and paths() throw theirs.
 import { afterEach, expect, it, vi } from 'vitest';
 
 afterEach(() => {
@@ -28,4 +29,17 @@ it('in a production build observe() hears no move, and says machine_observe_off 
 	expect(heard).toEqual([]);
 	expect(warn).toHaveBeenCalledOnce();
 	expect(String(warn.mock.calls[0]![0])).toContain('machine_observe_off');
+});
+
+it('in a production build a definition draws no graph or paths: machine_graph_off, thrown', async () => {
+	vi.stubEnv('DEV', false);
+	vi.resetModules();
+	const { machine, MachineError } = await import('../src/index.ts');
+	const light = machine<{ red: {}; green: {} }>()({
+		name: 'light',
+		initial: 'red',
+		steps: { red: ['green'], green: ['red'] }
+	});
+	expect(() => light.graph()).toThrow(MachineError);
+	expect(() => light.paths()).toThrow(/machine_graph_off/);
 });

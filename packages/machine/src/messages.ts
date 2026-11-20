@@ -33,6 +33,7 @@ export type MachineErrors = {
 	machine_evict_failed: Entry<{ name: string; why: string }>;
 	machine_flight_raise_failed: Entry<{ name: string }>;
 	machine_observe_off: Entry<Record<string, never>>;
+	machine_graph_off: Entry<Record<string, never>>;
 	machine_queue_start_failed: Entry<{ name: string }>;
 	machine_queue_stale_failed: Entry<{ name: string }>;
 	machine_queue_yield_failed: Entry<{ name: string }>;
@@ -175,6 +176,12 @@ In dev this throws, so the mismatch is fixed where it starts: give the app one v
 			'observe() hears nothing in this build: machine moves are told only in dev and rules builds.',
 		details: (): string =>
 			`\`observe()\` (and \`trace()\`, which is made on it) watches machine moves for tests, ogygia's rules and the simulator. A production build folds the telling out, with the check every move made for an observer, so a watch started there hears nothing. Watch in dev, or in a rules build (\`OGYGIA_RULES=1\`).`
+	},
+	machine_graph_off: {
+		text: (): string =>
+			"a machine definition's graph() and paths() are drawn only in dev and rules builds.",
+		details: (): string =>
+			`\`graph()\` and \`paths()\` read a definition for tests, devtools' diagrams and the simulator's coverage. A production build leaves the drawing out of every boot. Ask for them in dev, or in a rules build (\`OGYGIA_RULES=1\`).`
 	},
 	machine_flight_raise_failed: {
 		text: (a: { name: string }): string =>

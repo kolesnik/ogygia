@@ -173,8 +173,8 @@
 			"reason": "browser only: a dev server fetch of one app file, then the map parse (lines_of_map, measured on its own)"
 		},
 		{
-			"id": "packages/machine/src/flights.ts > Flown > get _weight",
-			"reason": "the flights' total kept weight, read from its cache: one field read, constant work; run by packages/machine/test/flights.test.ts"
+			"id": "packages/machine/src/machine.ts > drawn_off",
+			"reason": "constant work: throws machine_graph_off in a production build; proven in packages/machine/test/observe-production.test.ts"
 		},
 		{
 			"id": "packages/machine/src/cache.ts > Store > get weight",
