@@ -193,7 +193,7 @@ export const runtime_flags: Family<RuntimeFlagsModule> = virtual.family({
 export const server_flags: Family<ServerFlagsModule> = virtual.family({
 	realm: 'server',
 	id: 'runtime-flags',
-	exports: { HAS: 'HAS' },
+	exports: { HAS: 'HAS', HAS_FRAMES: 'HAS_FRAMES', HAS_LAKES: 'HAS_LAKES', HAS_LIVE: 'HAS_LIVE' },
 	load(app: CoreApp) {
 		if (!app.ctx.is_build) return generateServerFlagsSource({}, true);
 		app.prescan();

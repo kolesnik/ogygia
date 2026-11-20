@@ -42,7 +42,19 @@ const BUNDLED_PACKAGES = new Map([
 	['@ogygia/machine', path.resolve(__dirname, '../../machine/src/index.ts')]
 ]);
 
+/** Core's own `#` imports, as the browser build resolves them from source (package.json `imports`,
+ *  the `ogygia-source` then `browser` conditions): this walk is the browser's graph. */
+const CORE_IMPORTS = (
+	JSON.parse(fs.readFileSync(path.join(SRC, '../package.json'), 'utf8')) as {
+		imports: Record<string, { 'ogygia-source': { browser: string } }>;
+	}
+).imports;
+
 function resolve(from: string, spec: string): string | null {
+	if (spec.startsWith('#')) {
+		const target = CORE_IMPORTS[spec]?.['ogygia-source']?.browser;
+		return target ? path.resolve(SRC, '..', target) : null;
+	}
 	const base = path.resolve(path.dirname(from), spec);
 	for (const c of [base.replace(/\.js$/, '.ts'), base, `${base}.ts`]) {
 		if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
@@ -108,7 +120,7 @@ function static_files(entry: string, components = false): Map<string, string[]> 
 				walk(bundled, [...chain, spec]);
 				continue;
 			}
-			if (!spec.startsWith('.') || (spec.endsWith('.svelte') && !components)) continue;
+			if (!/^[.#]/.test(spec) || (spec.endsWith('.svelte') && !components)) continue;
 			const next = resolve(file, spec);
 			if (next && !next.startsWith(DEVTOOLS)) walk(next, [...chain, path.relative(SRC, next)]);
 		}

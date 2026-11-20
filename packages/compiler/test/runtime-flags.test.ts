@@ -3,7 +3,7 @@
 // select it: the element's fetch / apply / morph path is only ever reached through the frame store,
 // so a build without the store must not ship that path, and a build with it must keep it.
 import { describe, expect, it } from 'vitest';
-import { FEATURE_BITS, F_FRAMES, type FeatureName } from '@ogygia/core/contract';
+import { FEATURE_BITS, F_FRAMES, F_LAKES, F_LIVE, type FeatureName } from '@ogygia/core/contract';
 import {
 	FEATURE_ORDER,
 	generateRuntimeFlagsSource,
@@ -77,8 +77,18 @@ describe('runtime flags', () => {
 	});
 
 	it("the server's word is the browser's, for the same marks", () => {
-		const server_word = (marks: RuntimeMarks, all = false) =>
-			Number(/^export const HAS = (\d+);\n$/.exec(generateServerFlagsSource(marks, all))![1]);
+		const server_word = (marks: RuntimeMarks, all = false) => {
+			const src = generateServerFlagsSource(marks, all);
+			const word = Number(/^export const HAS = (\d+);$/m.exec(src)![1]);
+			// (its three programs, as booleans, are the word's bits)
+			for (const [name, bit] of [
+				['HAS_FRAMES', F_FRAMES],
+				['HAS_LAKES', F_LAKES],
+				['HAS_LIVE', F_LIVE]
+			] as const)
+				expect(src, name).toContain(`export const ${name} = ${(word & bit) !== 0};`);
+			return word;
+		};
 		const cases: RuntimeMarks[] = [
 			{ complete: true, hydrate: ['load'] },
 			{ complete: true, hydrate: ['load'], defer: ['idle'] },

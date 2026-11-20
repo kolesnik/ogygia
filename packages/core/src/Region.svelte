@@ -35,8 +35,7 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 	import PromiseRegion from './PromiseRegion.svelte';
 	import HoleRegion from './HoleRegion.svelte';
 	import LakeRegion from './LakeRegion.svelte';
-	import { HAS } from '#region-server';
-	import { F_FRAMES, F_LAKES, F_LIVE } from './contract/features.ts';
+	import { HAS_FRAMES, HAS_LAKES, HAS_LIVE } from '#region-server';
 
 	const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 
@@ -73,10 +72,10 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 			: null;
 	if (!BROWSER) untrack(() => new PageSeedAsk(rp, island).record());
 	const graph = !BROWSER && island ? new IslandGraph(rp, island) : null;
-	const hole = HAS & F_FRAMES && plan.family === 'hole' ? new HoleFacts(rp, () => __props) : null;
+	const hole = HAS_FRAMES && plan.family === 'hole' ? new HoleFacts(rp, () => __props) : null;
 	const head = BROWSER ? null : new RegionHead(rp, { island, graph, hole });
 
-	const live = HAS & F_LIVE && !rp.placed ? new LiveValue(rp) : null;
+	const live = HAS_LIVE && !rp.placed ? new LiveValue(rp) : null;
 	const baked = live?.baked;
 
 	const stringify_devalue = stringify;
@@ -136,9 +135,9 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 			data-og-fp={island.fp || undefined}
 			src={island.src || undefined}><Component {...island.props_body} /></ogygia-region
 		><!-- svelte-ignore hydration_html_changed -->{@html island.props_inline}{/if}
-{:else if HAS & F_FRAMES && hole}
+{:else if HAS_FRAMES && hole}
 	<HoleRegion {rp} {hole} props={__props} fallback={ogygiaFallback} />
-{:else if HAS & F_LAKES && plan.family === 'lake'}
+{:else if HAS_LAKES && plan.family === 'lake'}
 	<LakeRegion {rp} props={__props} {children} />
 {:else if rp.arm === 'inline'}
 	{@const held = rp.resolved as InlineRegion}
@@ -152,11 +151,11 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 	<Component {...held.props}
 		>{#if children}{@render children()}{/if}</Component
 	>
-{:else if HAS & F_LIVE && live && (rp.arm === 'live' || rp.arm === 'live-baked')}
+{:else if HAS_LIVE && live && (rp.arm === 'live' || rp.arm === 'live-baked')}
 	{#if rp.arm === 'live-baked'}{@render baked!()}{:else}<ogygia-region live {@attach live.attach}
 			>{#if placeholder}{@render placeholder()}{:else if children}{@render children()}{/if}</ogygia-region
 		>{/if}
-{:else if HAS & F_FRAMES && rp.arm === 'deferred'}
+{:else if HAS_FRAMES && rp.arm === 'deferred'}
 	{@const d = rp.resolved as DeferredRegion}
 	{#key identity(d)}
 		<ogygia-region
@@ -170,6 +169,6 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 			>{#if placeholder}{@render placeholder()}{:else if children}{@render children()}{/if}</ogygia-region
 		><!-- svelte-ignore hydration_html_changed -->{@html held_props_script}
 	{/key}
-{:else if HAS & F_LIVE && rp.arm === 'promise'}
+{:else if HAS_LIVE && rp.arm === 'promise'}
 	<PromiseRegion of={of as Promise<RegionValue>} {placeholder} {children} />
 {/if}

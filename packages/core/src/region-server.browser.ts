@@ -1,13 +1,10 @@
 /**
- * THE BROWSER'S HALF of a region's render (./region-server.ts), typed against the server's: what
- * `Region.svelte`, `context.ts` and a region snippet get from `#region-server` in the browser
+ * THE BROWSER'S STAND-INS for the server's half of a region's render (./region-server.ts), typed
+ * against it: what `Region.svelte` and `context.ts` get from `#region-server` in the browser
  * (package.json `imports`, the `browser` condition). The browser reads nothing of the server's:
  * the server's HTML already carries every hint, link and address, so each reader answers "none".
- * Its own is the entry load a snippet boots with, which the server never carries.
  */
 import type * as Server from './region-server.ts';
-
-export { import_entry } from './runtime/entry-locations.ts';
 
 const none = (): null => null;
 const empty = (): string[] => [];
@@ -42,5 +39,7 @@ export const head_owner_attr: typeof Server.head_owner_attr = blank;
 export const document_tail: typeof Server.document_tail = none;
 export const island_graph_script: typeof Server.island_graph_script = blank;
 export const modulepreload_tag: typeof Server.modulepreload_tag = blank;
-export const HAS: typeof Server.HAS = -1;
+export const HAS_FRAMES: typeof Server.HAS_FRAMES = true;
+export const HAS_LAKES: typeof Server.HAS_LAKES = true;
+export const HAS_LIVE: typeof Server.HAS_LIVE = true;
 export const need_program: typeof Server.need_program = () => {};
