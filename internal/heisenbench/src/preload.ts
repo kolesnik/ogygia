@@ -8,11 +8,13 @@
  * browser fetches from the page's origin (runtime/code-origins.ts refuses any other), are the
  * stand-in island module, one instance per file: `<ISLAND_FILES><name>` -> island-module.ts?entry=<name>.
  * And a `.svelte` file a module imports (core's RenderSnippet.svelte) is compiled for the server by
- * core's own Svelte, as the app's Vite would.
+ * core's own Svelte, as the app's Vite would. And a core file with macros loads as core's build
+ * compiles it (./macros.ts).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire, registerHooks, stripTypeScriptTypes } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { register_macro_mirror } from './macros.ts';
 
 const core_require = createRequire(new URL('../../../packages/core/package.json', import.meta.url));
 const { compile, compileModule } = core_require(
@@ -77,3 +79,5 @@ registerHooks({
 		return { format: 'module', source: js.code, shortCircuit: true };
 	}
 });
+
+register_macro_mirror();

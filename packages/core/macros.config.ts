@@ -3,9 +3,13 @@
  * Vitest projects, and Heisenbench through its mirror), so each counts and tests what ships.
  */
 import { fileURLToPath } from 'node:url';
-import { ogygia_macros } from 'ogygia-internal-macros/plugin';
+import { relative } from 'node:path';
+import { compile, type CompileResult, type Mode } from 'ogygia-internal-macros/compile';
+import { ogygia_macros, specifier } from 'ogygia-internal-macros/plugin';
 
 const here = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
+
+const ROOT = here('./');
 
 /** Where compiled output imports the macros' runtime from. */
 export const MACRO_RUNTIME: string = here('./src/runtime/macros.ts');
@@ -18,7 +22,18 @@ export function core_macros(): ReturnType<typeof ogygia_macros> {
 	return ogygia_macros({
 		mode: 'dev',
 		runtime: MACRO_RUNTIME,
-		root: here('./'),
+		root: ROOT,
 		roots: MACRO_ROOTS
+	});
+}
+
+/** One core file compiled as the build compiles it (`mode` `prod` for what an app's production
+ *  build runs), for a tool that reads files itself (Heisenbench's mirror); null when it has no
+ *  macro. */
+export function core_compile(code: string, file: string, mode: Mode): CompileResult | null {
+	return compile(code, relative(ROOT, file), {
+		mode,
+		runtime: specifier(file, MACRO_RUNTIME),
+		reference: specifier(file, MACRO_RUNTIME)
 	});
 }
