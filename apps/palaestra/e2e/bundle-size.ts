@@ -73,6 +73,8 @@ const BUILD_CONSTANT_RE = /\b__OGYGIA_[A-Z0-9_]+__\b/g;
 const VIRTUAL_ID_RE = /^ogygia:boot(\/|$)/;
 /** A generated module's `export const <name>`. */
 const EXPORTED_CONST_RE = /^export const (\w+)/gm;
+/** A sourcemap source's leading `../` steps (the path is relative to the chunk). */
+const SOURCE_UP_RE = /^(\.\.\/)+/;
 const SNAPSHOT = fileURLToPath(new URL('./bundle-size.snapshot.json', import.meta.url));
 // `--compare <json>`: gate against another build's `--json` (the PR's base) instead of the snapshot
 const COMPARE = arg('--compare');
@@ -259,7 +261,7 @@ async function measure(
 		},
 		logLevel: 'silent'
 	});
-	const { output } = await bundle.generate({ format: 'es', minify: true, sourcemap: !!OUT });
+	const { output } = await bundle.generate({ format: 'es', minify: true, sourcemap: 'hidden' });
 	await bundle.close();
 	const chunks = output.filter((o): o is OutputChunk => o.type === 'chunk');
 	if (OUT) {
@@ -308,15 +310,71 @@ async function measure(
 	const lazy = chunks
 		.filter((c) => !boot_set.has(c.fileName))
 		.map((c) => ({ name: c.name, ...size(c.code) }));
-	// each module of the boot, by its minified length (`--modules`): what to look at first
+	// each module of the boot, by its minified length: what to look at first. Read off the
+	// sourcemap, after minify: a module's rendered length is measured before it, and counts a module
+	// the minifier then drops whole (every call to it behind a flag that folded off).
 	const modules: Record<string, number> = {};
 	const lazy_modules: string[] = [];
 	for (const c of chunks)
-		for (const [id, m] of Object.entries(c.modules))
-			if (m.renderedLength === 0) continue;
-			else if (boot_set.has(c.fileName)) modules[module_name(id)] = m.renderedLength;
+		for (const [id, bytes] of minified_lengths(c))
+			if (boot_set.has(c.fileName)) modules[module_name(id)] = bytes;
 			else lazy_modules.push(module_name(id));
 	return { boot, total, lazy, modules, lazy_modules };
+}
+
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/** The minified bytes of `chunk` each source module wrote, by its sourcemap: each mapped segment
+ *  runs to the next one on its line. */
+function minified_lengths(chunk: OutputChunk): Map<string, number> {
+	const map = chunk.map;
+	if (!map) throw new Error(`bundle-size: no sourcemap for ${chunk.fileName}`);
+	const lines = chunk.code.split('\n');
+	const out = new Map<string, number>();
+	let source = 0;
+	map.mappings.split(';').forEach((line, at) => {
+		const segments: Array<[column: number, source: number]> = [];
+		let column = 0;
+		for (const segment of line.split(',')) {
+			if (!segment) continue;
+			const fields = vlq(segment);
+			column += fields[0];
+			if (fields.length >= 4) source += fields[1];
+			segments.push([column, fields.length >= 4 ? source : -1]);
+		}
+		const text = lines[at] ?? '';
+		segments.forEach(([from, of], i) => {
+			if (of === -1) return;
+			const id = map.sources[of];
+			const to = i + 1 < segments.length ? segments[i + 1][0] : text.length;
+			out.set(id, (out.get(id) ?? 0) + Buffer.byteLength(text.slice(from, to)));
+		});
+	});
+	// (sources are written relative to the chunk; the module ids rolldown names are absolute)
+	const by_id = new Map<string, number>();
+	for (const id of Object.keys(chunk.modules)) {
+		const bytes = out.get(map.sources.find((s) => id.endsWith(s.replace(SOURCE_UP_RE, ''))) ?? '');
+		if (bytes) by_id.set(id, bytes);
+	}
+	return by_id;
+}
+
+/** One sourcemap segment's fields (base64 VLQ). */
+function vlq(segment: string): number[] {
+	const fields: number[] = [];
+	let shift = 0;
+	let value = 0;
+	for (const ch of segment) {
+		const digit = BASE64.indexOf(ch);
+		value += (digit & 31) << shift;
+		if (digit & 32) shift += 5;
+		else {
+			fields.push(value & 1 ? -(value >> 1) : value >> 1);
+			value = 0;
+			shift = 0;
+		}
+	}
+	return fields;
 }
 
 /** A module's id, short: its path from the repo's packages (or its package in node_modules). */
