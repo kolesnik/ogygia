@@ -6,6 +6,7 @@
 			"inputs": [
 				"$TURBO_DEFAULT$",
 				"$TURBO_ROOT$/apps/pure-csr/**",
+				"$TURBO_ROOT$/apps/plain-islands/**",
 				"$TURBO_ROOT$/internal/repro-deep-csr/**",
 				"$TURBO_ROOT$/internal/repro-kit3/**",
 				"$TURBO_ROOT$/internal/repro-subpkg/**",

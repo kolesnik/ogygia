@@ -2,7 +2,7 @@
 // region, no lake), so its feature word (`HAS`, ogygia:boot) has no F_FRAMES and the region
 // element's hole and live programs fold out of its boot (apps/palaestra/e2e/bundle-size.ts PROGRAMS,
 // the leak gate). What is left still wakes an island, and a region it has no program for is left as
-// the server wrote it: no fetch, no tick applied. (The frames feature is installed here all the
+// the server wrote it (no fetch, no tick applied) and says so with a code: the compiler missed it. (The frames feature is installed here all the
 // same, as bootDev installs every one: only the word keeps the programs from running.)
 import { afterAll, afterEach, beforeAll, beforeEach, expect, inject, test } from 'vitest';
 import { page } from 'vitest/browser';
@@ -11,6 +11,7 @@ import { bootDev } from '../../src/runtime/full.ts';
 import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
 import { F_FRAMES } from '../../src/contract/features.ts';
 import { mark_live_head } from './_response-mark.ts';
+import { errors_during } from './_logged-errors.ts';
 
 const ALL = HAS;
 beforeAll(() => set_feature_word(ALL & ~F_FRAMES));
@@ -56,24 +57,46 @@ test('a load island wakes in a build without frames', async () => {
 	await expect.element(page.getByTestId('count')).toHaveTextContent('4');
 });
 
-test('a deferred region in a build without frames fetches nothing and keeps its fallback', async () => {
-	const calls = await fetches_during(async () => {
-		document.body.innerHTML = `<ogygia-region render="defer" when="load" endpoint="${ENDPOINT}"><p id="fallback">fallback</p></ogygia-region>`;
-		bootDev();
+test('a deferred region in a build without frames fetches nothing, keeps its fallback, and says so with a code', async () => {
+	let calls: string[] = [];
+	const errors = await errors_during(async () => {
+		calls = await fetches_during(async () => {
+			document.body.innerHTML = `<ogygia-region render="defer" when="load" entry="late" endpoint="${ENDPOINT}"><p id="fallback">fallback</p></ogygia-region>`;
+			bootDev();
+		});
 	});
 	expect(calls.filter((url) => url.includes('cafebabe0011'))).toEqual([]);
 	expect(document.querySelector('#fallback')).not.toBeNull();
 	expect(document.querySelector('#answered')).toBeNull();
+	expect(errors).toHaveLength(1);
+	expect(errors[0]).toMatch(/^region_program_missing .*late.*hole/s);
 });
 
-test('a live region in a build without frames applies no tick', async () => {
+test('a live region in a build without frames applies no tick, and says so with a code', async () => {
 	document.body.innerHTML = '<ogygia-region live><p id="first">first</p></ogygia-region>';
 	bootDev();
 	const region = document.querySelector('ogygia-region') as HTMLElement & {
 		applyLive(desc: unknown): Promise<void>;
 	};
-	await region.applyLive({ id: 'x', module: '', props: {}, html: '<p id="tick">tick</p>' });
+	const errors = await errors_during(() =>
+		region.applyLive({ id: 'ticker', module: '', props: {}, html: '<p id="tick">tick</p>' })
+	);
 	expect(document.querySelector('#first')).not.toBeNull();
 	expect(document.querySelector('#tick')).toBeNull();
 	expect(region.hasAttribute('render')).toBe(false);
+	expect(errors).toHaveLength(1);
+	expect(errors[0]).toMatch(/^region_program_missing .*ticker.*live/s);
+});
+
+test('a load island in a build without frames says nothing', async () => {
+	const errors = await errors_during(async () => {
+		document.body.innerHTML = from_b64(inject('counter_ssr_b64'));
+		bootDev();
+		await expect
+			.poll(() => document.querySelector('ogygia-region[data-hydrated]') !== null, {
+				timeout: 10_000
+			})
+			.toBe(true);
+	});
+	expect(errors).toEqual([]);
 });
