@@ -18,3 +18,7 @@ export {
 	type RunOf
 } from './run.ts';
 export { graph, paths } from './machine.ts';
+export { check_flights, trusted_flights } from './flights.ts';
+export { check_cache, trusted_cache } from './cache.ts';
+export { check_queue, trusted_queue } from './queue.ts';
+export { check_say, trusted_say } from './say.ts';

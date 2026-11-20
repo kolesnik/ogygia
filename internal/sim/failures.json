@@ -1197,13 +1197,19 @@
 			"name": "no options at all is refused with a code, never a TypeError reading them"
 		},
 		{
-			"site": "packages/machine/src/cache.ts > Store > constructor > throw:0",
+			"site": "packages/machine/src/cache.ts > check_cache > throw:0",
+			"reason": "`throw machine_error('machine_bad_option', refused);`: the build's check of a literal cache (internal/macros options pass)",
+			"test": "internal/macros/test/options.test.ts",
+			"name": "a cache with no bound fails the build, as it throws in dev (production would refuse it)"
+		},
+		{
+			"site": "packages/machine/src/cache.ts > cache > throw:1",
 			"reason": "`throw machine_error('machine_bad_option', args);`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/cache.test.ts",
 			"name": "max is required: there is no unbounded default"
 		},
 		{
-			"site": "packages/machine/src/cache.ts > Store > constructor > throw:1",
+			"site": "packages/machine/src/cache.ts > check_keep > throw:0",
 			"reason": "`throw bad_option('keep', keep, 'a time in ms of 0 or more, or a funct…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/cache.test.ts",
 			"name": "a keep that is no time is refused: a negative one, or one that is not a number or function"
@@ -1353,55 +1359,55 @@
 			"name": "a raise listener that throws is said, and the join and the other listeners go on"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:0",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:1",
 			"reason": "`throw bad_option('run', typeof o?.run, 'a function');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "refuses options it cannot take"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:1",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:2",
 			"reason": "`throw bad_option('key', String(fields), 'a list of the input fields t…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:2",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:3",
 			"reason": "`throw bad_option('ignore', field, 'a field the key leaves out, not on…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:3",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:4",
 			"reason": "`throw bad_option('ignore', field, 'the reason the key leaves it out');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:4",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:5",
 			"reason": "`throw bad_option('ignore', 'without key', 'beside a key');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:5",
+			"site": "packages/machine/src/flight.ts > check_retry > throw:0",
 			"reason": "`throw bad_option('retry', typeof retry, 'a policy from policy()');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "refuses options it cannot take"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:6",
+			"site": "packages/machine/src/flight.ts > check_keep > throw:0",
 			"reason": "`throw bad_option('keep', keep, 'a time in ms of 0 or more, or a funct…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "refuses options it cannot take"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:7",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:6",
 			"reason": "`throw bad_option('max', 'missing', 'given with weigh, in its unit');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a weigh with no max is refused: the default max counts answers, not the weigh’s unit"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:9",
+			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:0",
 			"reason": "`throw bad_option('world', typeof o.world, 'a world from world()');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
@@ -1467,7 +1473,7 @@
 			"name": "every caller of a failed run gets the failure, then the next get starts fresh"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > keyed > throw:0",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:0",
 			"reason": "`throw bad_option('key', 'none', 'the input fields that make the key');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
@@ -1695,7 +1701,7 @@
 			"name": "a bad window max, too many windows or a bad budget is refused with machine_bad_option"
 		},
 		{
-			"site": "packages/machine/src/queue.ts > passes > throw:1",
+			"site": "packages/machine/src/queue.ts > check_queue > throw:2",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'budget.ms', …`: a budget below 0 or not finite is refused",
 			"test": "packages/machine/test/queue-passes.test.ts",
 			"name": "a bad window max, too many windows or a bad budget is refused with machine_bad_option"
@@ -1707,19 +1713,19 @@
 			"name": "a stale hook that throws is reported, and the other waiting jobs still go stale and none hangs"
 		},
 		{
-			"site": "packages/machine/src/queue.ts > passes > throw:0",
+			"site": "packages/machine/src/queue.ts > check_queue > throw:1",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'windows', …`: 32 windows are refused",
 			"test": "packages/machine/test/queue-passes.test.ts",
 			"name": "a bad window max, too many windows or a bad budget is refused with machine_bad_option"
 		},
 		{
-			"site": "packages/machine/src/queue.ts > queue > throw:0",
+			"site": "packages/machine/src/queue.ts > check_queue > throw:0",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'max', value: Str…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/queue.test.ts",
 			"name": "a bad max is refused with machine_bad_option"
 		},
 		{
-			"site": "packages/machine/src/say.ts > say > throw:0",
+			"site": "packages/machine/src/say.ts > check_say > throw:0",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'max', value: Str…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/say.test.ts",
 			"name": "a bound that is not a whole number above 0 is refused"
@@ -1857,7 +1863,7 @@
 			"name": "scope.task"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:8",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:7",
 			"reason": "`throw bad_option('max', max, 'a finite number more than 0');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/production.test.ts",
 			"name": "a flights with no bound is thrown where it is written, even in production"
@@ -2547,13 +2553,13 @@
 			"name": "a page's own click listener hears an early click once when the island fails to wake: replayed onto the server markup (#922)"
 		},
 		{
-			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > run > reject:0",
+			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > (module) > reject:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the rejection handler made to rethrow turns the test red",
 			"test": "packages/core/test/browser/kit-page-thread.test.ts",
 			"name": "a wait for a Kit whose boot import failed ends: it fails with kit_boot_failed, said once (#820)"
 		},
 		{
-			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > run > reject:1",
+			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > (module) > reject:1",
 			"reason": "a test reaches its recovery path: a route node Kit's start loads fails, and the wait ends with kit_boot_failed",
 			"test": "packages/core/test/browser/kit-page-thread.test.ts",
 			"name": "a wait for a Kit whose start failed on a page node (its entries loaded) ends with kit_boot_failed (#2002): %s"
@@ -5491,7 +5497,7 @@
 	],
 	"equivalent": [
 		{
-			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > run > stale:0",
+			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > (module) > stale:0",
 			"why": "the entry's import is STALE only when the wait's scope closed (Kit applied its page, or every waiter left). Without the check, STALE has no node loaders, so nothing is called; and a loader called through the closed scope's task is never run: the same nothing as the check's return (test: kit-page-thread.test.ts › a wait Kit ended by applying its page does not fail later on a node)."
 		},
 		{

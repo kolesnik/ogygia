@@ -80,7 +80,8 @@ import {
 	FLYING,
 	join,
 	priority_of,
-	keep_of,
+	check_keep,
+	check_retry,
 	retry_of,
 	STALE_NOW,
 	type FlightEntry,
@@ -299,36 +300,14 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 			ignore?: Record<PropertyKey, string>;
 		}
 	) {
-		if (typeof o?.run !== 'function') throw bad_option('run', typeof o?.run, 'a function');
-		this._fields = null;
-		this._keys = null;
-		if (o.key !== undefined) {
-			const fields = o.key;
-			if (!Array.isArray(fields) || new Set(fields).size !== fields.length)
-				throw bad_option('key', String(fields), 'a list of the input fields that make the key');
-			for (const [field, why] of Object.entries(o.ignore ?? {})) {
-				if (fields.includes(field))
-					throw bad_option('ignore', field, 'a field the key leaves out, not one of its fields');
-				if (typeof why !== 'string' || why.trim() === '')
-					throw bad_option('ignore', field, 'the reason the key leaves it out');
-			}
-			this._fields = Object.freeze([...fields]);
-			this._keys = new Map();
-		} else if (o.ignore !== undefined) throw bad_option('ignore', 'without key', 'beside a key');
-		const retry = retry_of(o.retry);
-		const keep = keep_of(o.keep);
-		// (the default counts answers: a weigh in another unit, bytes say, would keep nothing past it)
-		if (o.weigh !== undefined && o.max === undefined)
-			throw bad_option('max', 'missing', 'given with weigh, in its unit');
-		const max = o.max ?? DEFAULT_MAX;
-		if (!(typeof max === 'number' && max > 0 && Number.isFinite(max)))
-			throw bad_option('max', max, 'a finite number more than 0');
+		this._fields = o.key === undefined ? null : Object.freeze([...o.key]);
+		this._keys = o.key === undefined ? null : new Map();
 		this._run = o.run;
 		this._name = o.name ?? 'flights';
-		this._keep = keep as number | ((answer: V, input: I) => number);
-		this._max = max;
+		this._keep = (o.keep ?? Infinity) as number | ((answer: V, input: I) => number);
+		this._max = o.max ?? DEFAULT_MAX;
 		this._weigh = o.weigh as ((answer: V, input: I) => number) | undefined;
-		this._retry = retry;
+		this._retry = retry_of(o.retry);
 		this._world = o.world;
 		this._touches = o.touches as ((answer: V) => Iterable<unknown>) | undefined;
 		if (o.world !== undefined) {
@@ -669,7 +648,50 @@ export type KeyedFlights<I> = <
 function make_flights<I = void, V = unknown, W = never>(
 	options: FlightsOptions<I, V, W>
 ): Flights<I, Fresh<Awaited<V>>, I> {
+	check_flights(options as FlightsOptions<unknown, unknown, unknown>);
 	return new Flown(options as FlightsOptions<unknown, unknown, unknown>) as never;
+}
+
+type AnyFlightsOptions = FlightsCommon<never, unknown, unknown> & {
+	key?: readonly PropertyKey[];
+	ignore?: Record<PropertyKey, string>;
+};
+
+/** {@link flights}'s checks of its options alone (`keyed`: as `flights.keyed<I>()` takes them):
+ *  `machine_bad_option` for one it refuses. */
+export function check_flights(o: AnyFlightsOptions, keyed = false): void {
+	if (keyed && (typeof o !== 'object' || o === null || o.key === undefined))
+		throw bad_option('key', 'none', 'the input fields that make the key');
+	if (typeof o?.run !== 'function') throw bad_option('run', typeof o?.run, 'a function');
+	if (o.key !== undefined) {
+		const fields = o.key;
+		if (!Array.isArray(fields) || new Set(fields).size !== fields.length)
+			throw bad_option('key', String(fields), 'a list of the input fields that make the key');
+		for (const [field, why] of Object.entries(o.ignore ?? {})) {
+			if (fields.includes(field))
+				throw bad_option('ignore', field, 'a field the key leaves out, not one of its fields');
+			if (typeof why !== 'string' || why.trim() === '')
+				throw bad_option('ignore', field, 'the reason the key leaves it out');
+		}
+	} else if (o.ignore !== undefined) throw bad_option('ignore', 'without key', 'beside a key');
+	check_retry(o.retry);
+	check_keep(o.keep);
+	// (the default counts answers: a weigh in another unit, bytes say, would keep nothing past it)
+	if (o.weigh !== undefined && o.max === undefined)
+		throw bad_option('max', 'missing', 'given with weigh, in its unit');
+	const max = o.max ?? DEFAULT_MAX;
+	if (!(typeof max === 'number' && max > 0 && Number.isFinite(max)))
+		throw bad_option('max', max, 'a finite number more than 0');
+}
+
+/** {@link flights} (or `flights.keyed<I>()`) for options its caller's build checked
+ *  ({@link check_flights}, run on a literal). */
+export const trusted_flights: typeof flights = /* @__PURE__ */ Object.assign(trusted, {
+	keyed: <I extends object>(): KeyedFlights<I> => trusted as KeyedFlights<I>
+});
+
+function trusted(options: unknown): never {
+	return new Flown(options as never) as never;
 }
 
 /** Keyed shared async work (see the module's comment). `flights.keyed<I>()` is its keyed form: a
@@ -685,7 +707,6 @@ export const flights: {
 });
 
 function keyed(options: KeyedFlightsOptions<object, never, never, unknown>): unknown {
-	if (typeof options !== 'object' || options === null || options.key === undefined)
-		throw bad_option('key', 'none', 'the input fields that make the key');
+	check_flights(options as AnyFlightsOptions, true);
 	return new Flown(options);
 }

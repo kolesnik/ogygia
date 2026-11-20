@@ -208,10 +208,12 @@ export type BootLink = [
 	warn: typeof import('../messages/core.ts').warn,
 	/** what a machine's task answers once its visit is left (`@ogygia/machine`, which the boot runs on) */
 	STALE: typeof import('@ogygia/machine').STALE,
-	/** keyed shared async work (`@ogygia/machine`): the router's page fetches */
-	flights: typeof import('@ogygia/machine').flights,
-	/** a bounded, owned store (`@ogygia/machine`): the router's per-address memos */
-	cache: typeof import('@ogygia/machine').cache,
+	/** keyed shared async work (`@ogygia/machine`): the router's page fetches. Its options are
+	 *  checked at build (internal/macros options pass), so it is the maker that checks none */
+	flights: typeof import('@ogygia/machine/internal').trusted_flights,
+	/** a bounded, owned store (`@ogygia/machine`): the router's per-address memos, its options
+	 *  checked at build likewise */
+	cache: typeof import('@ogygia/machine/internal').trusted_cache,
 	/** a stamp that only moves forward (`@ogygia/machine`): the world the router's page cache is
 	 *  made in */
 	world: typeof import('@ogygia/machine').world,

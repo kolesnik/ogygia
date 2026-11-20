@@ -11,6 +11,7 @@ import { AwaitPass } from './await-pass.ts';
 import { GatePass } from './gate-pass.ts';
 import { HotPass } from './hot-pass.ts';
 import { MachinePass } from './machine-pass.ts';
+import { OptionsPass } from './options-pass.ts';
 
 /** `$dev(…)` and `$rules(…)` (./gate-pass.ts). */
 const GATED = defineMacro<Compiler, Scope>({
@@ -80,5 +81,12 @@ const MACHINE = defineMacro<Compiler, Scope>({
 	pass: (c: Compiler) => new MachinePass(c)
 });
 
+/** The option bags of `@ogygia/machine`'s makers, checked at build (./options-pass.ts): no name of
+ *  its own, the makers' calls are its. */
+const OPTIONS = defineMacro<Compiler, Scope>({
+	names: [],
+	pass: (c: Compiler) => new OptionsPass(c)
+});
+
 /** Every macro, in walk order. */
-export const MACROS: ReadonlyArray<Macro<Compiler, Scope>> = [GATED, AWAIT, HOT, MACHINE];
+export const MACROS: ReadonlyArray<Macro<Compiler, Scope>> = [GATED, AWAIT, HOT, MACHINE, OPTIONS];

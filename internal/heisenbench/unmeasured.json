@@ -1333,7 +1333,11 @@
 			"reason": "browser only: the reads of this build's location map and the current build's ogygia.json (fetch), kept once read; proven in packages/core/test/browser/entry-location-map.test.ts and entry-location-rollover.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/kit-page-thread.svelte.ts > flights:0",
+			"id": "packages/core/src/runtime/seeds.ts > no_kit_wait",
+			"reason": "answers null, constant work, in a build without Kit pages only; proven in packages/core/test/browser/kit-pages-off.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/kit-page-thread.svelte.ts > kit_page_flights:0",
 			"reason": "browser only: the wait for Kit to apply its page (a global accessor and a Svelte effect root), once per wait; proven in packages/core/test/browser/kit-page-thread.test.ts"
 		},
 		{
@@ -2309,7 +2313,7 @@
 			"reason": "prints one warning (console output, not replayable), constant work"
 		},
 		{
-			"id": "packages/machine/src/say.ts > say > get size",
+			"id": "packages/machine/src/say.ts > trusted_say > get size",
 			"reason": "reads a Map's size, constant work; proven in packages/machine/test/say.test.ts"
 		},
 		{
