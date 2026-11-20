@@ -93,8 +93,15 @@ const asJson = process.argv.includes('--json');
 // always on (props/seeds decode); `forms` is on by default for progressively-enhanced actions.
 // `budget`: the most the profile's boot may weigh, brotli bytes, in every mode but `--core`: a
 // ceiling of its own, whatever the base branch weighs (raise it on purpose, with the PR's
-// `Size baseline:` line).
-const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks; budget: number }> = [
+// `Size baseline:` line). `kit`: the app has pages Kit hydrates (`__OGYGIA_KIT_PAGES__`, compiler
+// kit.ts `kit_may_hydrate`); every other profile's routes are all csr=false, the plain ogygia app.
+const PROFILES: Array<{
+	name: string;
+	blurb: string;
+	marks: RuntimeMarks;
+	budget: number;
+	kit?: boolean;
+}> = [
 	{
 		name: 'Static content',
 		blurb: 'load-hydrated islands',
@@ -147,6 +154,7 @@ const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks; budget
 		name: 'Everything',
 		blurb: 'kitchen sink, with the profiler beacon and a client plugin',
 		budget: 39_700,
+		kit: true,
 		marks: {
 			complete: true,
 			hydrate: ['load', 'interaction', 'none'],
@@ -170,6 +178,8 @@ type Row = {
 	name: string;
 	blurb: string;
 	features: string[];
+	/** It has pages Kit hydrates. */
+	kit: boolean;
 	boot: Size;
 	total: Size;
 	lazy: Array<{ name: string } & Size>;
@@ -212,6 +222,7 @@ function boot_realm(marks: RuntimeMarks): Plugin {
 async function measure(
 	marks: RuntimeMarks,
 	extras: boolean,
+	kit: boolean,
 	profile: string
 ): Promise<
 	Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'> & { boot_code: string }
@@ -244,6 +255,7 @@ async function measure(
 				__OGYGIA_RULES__: 'false', // ogygia's rules on itself: dev and e2e builds only, never shipped
 				__OGYGIA_CONTINUITY_FORMS__: 'true', // form continuity on by default (gated by the profile's marks)
 				__OGYGIA_SERVER_DELTA__: 'false', // server-delta nav is opt-in
+				__OGYGIA_KIT_PAGES__: String(kit), // the app has pages Kit hydrates (the kitchen sink)
 				// the profiler's browser half and plugin hooks: on only for an app that configured the
 				// profiler or devtools, or installs a client plugin (the kitchen-sink profile does)
 				__OGYGIA_BEACON__: String(extras),
@@ -383,9 +395,10 @@ const rows: Row[] = [];
 /** Each profile's boot code, by its name (for the leak gate's strings). */
 const boot_codes = new Map<string, string>();
 for (const p of PROFILES) {
-	const { boot_code, ...m } = await measure(p.marks, p.name === 'Everything', p.name);
+	const kit = p.kit === true;
+	const { boot_code, ...m } = await measure(p.marks, p.name === 'Everything', kit, p.name);
 	boot_codes.set(p.name, boot_code);
-	rows.push({ name: p.name, blurb: p.blurb, features: resolveFeatures(p.marks), ...m });
+	rows.push({ name: p.name, blurb: p.blurb, features: resolveFeatures(p.marks), kit, ...m });
 }
 
 // The leak gate (PROGRAMS), on this checkout's runtime; another checkout's (`--core`, the base
@@ -395,8 +408,8 @@ if (!arg('--core')) {
 	for (const r of rows)
 		for (const p of PROGRAMS) {
 			const needs = p.feature === null ? [] : [p.feature].flat();
-			const held = needs.length > 0 && needs.every((f) => r.features.includes(f));
-			const selects = needs.join(' + ');
+			const held = p.kit ? r.kit : needs.length > 0 && needs.every((f) => r.features.includes(f));
+			const selects = p.kit ? 'Kit pages' : needs.join(' + ');
 			for (const mod of p.modules) {
 				if (held && !(mod in r.modules))
 					leaks.push(`${r.name}: selects ${selects}, but its boot lacks ${mod} (${p.name})`);

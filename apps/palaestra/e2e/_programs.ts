@@ -4,6 +4,8 @@ import type { FeatureName } from '../../../packages/core/src/contract/features.t
 export type Program = {
 	name: string;
 	feature: FeatureName | FeatureName[] | null;
+	/** Held exactly in an app with pages Kit hydrates (`__OGYGIA_KIT_PAGES__`), not by a feature. */
+	kit?: true;
 	modules: string[];
 	strings?: string[];
 };
@@ -39,5 +41,7 @@ export const PROGRAMS: readonly Program[] = [
 	// a page's lakes: each one's settle machine and the visit's cache of their server DOM
 	{ name: 'lake state', feature: 'lakes', modules: [], strings: ['lake cache'] },
 	// the region element's calls into the lakes feature (the arm it hands a frozen region)
-	{ name: 'lake calls', feature: 'lakes', modules: [], strings: ['fetch_revalidate'] }
+	{ name: 'lake calls', feature: 'lakes', modules: [], strings: ['fetch_revalidate'] },
+	// the probe for a page Kit hydrates (its boot script), with ogygia's regions on it: mixed mode
+	{ name: 'kit probe', feature: null, kit: true, modules: [], strings: ['__sveltekit_'] }
 ];
