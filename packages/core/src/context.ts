@@ -127,7 +127,7 @@ export function isOgygiaPage(): boolean {
 /** The same fact from a route id in hand (the handle has the event): is this route's leaf page
  *  csr=true? A build-time answer — never a scan of the rendered document. */
 export function route_is_csr_true(id: string | null | undefined): boolean {
-	return id != null && csr_true_routes.has(normalize_route_id(id));
+	return id != null && csr_true_routes.size !== 0 && csr_true_routes.has(normalize_route_id(id));
 }
 
 /** The ERROR-page twin: does Kit hydrate this route's `+error.svelte`? Kit renders an error page
@@ -135,7 +135,7 @@ export function route_is_csr_true(id: string | null | undefined): boolean {
  *  the layouts' answer; a routeless response (no route matched) is the root layout's. */
 export function error_route_is_csr_true(id: string | null | undefined): boolean {
 	if (id == null) return root_layout_csr_true;
-	return error_csr_true_routes.has(normalize_route_id(id));
+	return error_csr_true_routes.size !== 0 && error_csr_true_routes.has(normalize_route_id(id));
 }
 
 // The head claims below are per render root, by its event, not per request: a held region's root
