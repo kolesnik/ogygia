@@ -34,38 +34,58 @@ export class RegionHead {
 	readonly owner: string;
 	readonly runtime: string;
 
-	#dual_css: string = $derived.by(() => {
+	#html: string | null = null;
+
+	/** The head's HTML, made at its first read (a server render reads it once): each sheet and mark
+	 *  is claimed then, in the order the HTML lists them. */
+	get html(): string {
+		return (this.#html ??= this.#make());
+	}
+
+	#make(): string {
+		const head = this.#rp.plan.head;
+		if (head === 'none') return '';
+		if (head === 'island') {
+			const preload = this.#graph?.preload_head ?? '';
+			const island_css = this.#island_css();
+			const kit_meta = this.#kit_meta();
+			return `${this.runtime}${preload}${island_css}${kit_meta}${this.#dual_css()}${this.#content_css()}`;
+		}
+		if (head === 'hole') {
+			const preload = this.#hole?.preload ?? '';
+			const hole_css = this.#hole_css();
+			return `${this.runtime}${preload}${hole_css}${this.#dual_css()}${this.#content_css()}`;
+		}
+		return `${this.runtime}${this.#dual_css()}${this.#content_css()}`;
+	}
+
+	#dual_css(): string {
 		const value = this.#rp.resolved;
 		return value?.kind === 'dual' ? this.sheet_tags(region_css(value.module)) : '';
-	});
-	#island_css: string = $derived.by(() => {
+	}
+
+	#island_css(): string {
 		const entry = this.#island?.entry;
 		return !this.#rp.plan.island_css || !entry ? '' : this.sheet_tags(region_css(entry));
-	});
-	#kit_meta: string = $derived.by(() => {
+	}
+
+	#kit_meta(): string {
 		const entry = this.#island?.entry;
 		if (!this.#rp.plan.kit_meta || !entry || !claim_kit_island(entry)) return '';
 		const content = escape_amp_quot(String(entry));
 		return `<meta name="ogygia-kit-island" content="${content}"${head_owner_attr(this.owner)}>`;
-	});
-	#content_css: string = $derived.by(() => {
+	}
+
+	#content_css(): string {
 		const value = this.#rp.resolved;
 		return value?.kind !== 'inline' || !value.content_id
 			? ''
 			: this.sheet_tags(content_css(value.content_id));
-	});
-	#hole_css: string = $derived.by(() =>
-		this.#rp.plan.hole_css && this.#hole ? this.sheet_tags(hole_css(this.#hole.entry)) : ''
-	);
-	html: string = $derived.by(() => {
-		const head = this.#rp.plan.head;
-		if (head === 'none') return '';
-		if (head === 'island')
-			return `${this.runtime}${this.#graph?.preload_head ?? ''}${this.#island_css}${this.#kit_meta}${this.#dual_css}${this.#content_css}`;
-		if (head === 'hole')
-			return `${this.runtime}${this.#hole?.preload ?? ''}${this.#hole_css}${this.#dual_css}${this.#content_css}`;
-		return `${this.runtime}${this.#dual_css}${this.#content_css}`;
-	});
+	}
+
+	#hole_css(): string {
+		return this.#rp.plan.hole_css && this.#hole ? this.sheet_tags(hole_css(this.#hole.entry)) : '';
+	}
 
 	/** A region's head, on the server: it names the owner of its head tags (the island around it,
 	 *  else its own island) and claims the page's runtime script when its plan asks for it. */
