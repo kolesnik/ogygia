@@ -7011,6 +7011,22 @@
 		{
 			"id": "packages/core/src/messages/core.ts > ERRORS > region_schedule_missing",
 			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/server/stream-regions.ts > batch_definition",
+			"reason": "module setup made lazy: the batch stream's machine definition, once per process at the first batch; the stream is proven in packages/core/test/batch-stream-cancel.test.ts"
+		},
+		{
+			"id": "packages/core/src/region-server.ts > import_entry",
+			"reason": "the server's refusal of a browser-only entry load (behind BROWSER at its one caller): never runs in a correct build; proven in packages/core/test/region-server-browser.test.ts"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > entry_load_server_only > details",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > entry_load_server_only > text",
+			"reason": "a message table entry: wording only"
 		}
 	]
 }

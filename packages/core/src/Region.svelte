@@ -76,7 +76,7 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 	const hole = HAS & F_FRAMES && plan.family === 'hole' ? new HoleFacts(rp, () => __props) : null;
 	const head = BROWSER ? null : new RegionHead(rp, { island, graph, hole });
 
-	const live = HAS & F_LIVE ? new LiveValue(rp) : null;
+	const live = HAS & F_LIVE && !rp.placed ? new LiveValue(rp) : null;
 	const baked = live?.baked;
 
 	const stringify_devalue = stringify;

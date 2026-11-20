@@ -8,31 +8,26 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
-const packages = new Map<
-	string,
-	readonly [root: string, imports: Readonly<Record<string, string>>] | null
->();
+/** A package's `imports`: each alias's target, a path or (by the build's conditions) an object. */
+type Imports = Readonly<Record<string, unknown>>;
 
-function packageOf(
-	dir: string
-): readonly [root: string, imports: Readonly<Record<string, string>>] | null {
+const packages = new Map<string, readonly [root: string, imports: Imports] | null>();
+
+function packageOf(dir: string): readonly [root: string, imports: Imports] | null {
 	const known = packages.get(dir);
 	if (known !== undefined) return known;
 	const file = join(dir, 'package.json');
-	let found: readonly [string, Readonly<Record<string, string>>] | null;
+	let found: readonly [string, Imports] | null;
 	if (existsSync(file)) {
-		const imports = (
-			JSON.parse(readFileSync(file, 'utf8')) as {
-				imports?: Record<string, string>;
-			}
-		).imports;
+		const imports = (JSON.parse(readFileSync(file, 'utf8')) as { imports?: Imports }).imports;
 		found = imports === undefined ? null : [dir, imports];
 	} else found = dirname(dir) === dir ? null : packageOf(dirname(dir));
 	packages.set(dir, found);
 	return found;
 }
 
-/** The file `spec`, imported from the file `from`, names; null for a package it does not follow. */
+/** The file `spec`, imported from the file `from`, names; null for a package it does not follow,
+ *  or an alias whose target the build's conditions pick (a browser/server twin: no one file). */
 export function resolveSpecifier(from: string, spec: string): string | null {
 	if (spec.startsWith('.')) return resolve(dirname(from), spec);
 	if (!spec.startsWith('#')) return null;
@@ -40,6 +35,10 @@ export function resolveSpecifier(from: string, spec: string): string | null {
 	if (pkg === null) return null;
 	const [root, imports] = pkg;
 	for (const [key, target] of Object.entries(imports)) {
+		if (typeof target !== 'string') {
+			if (key === spec) return null;
+			continue;
+		}
 		if (key === spec) return resolve(root, target);
 		const star = key.indexOf('*');
 		if (

@@ -27,4 +27,11 @@ describe('#region-server in the browser', () => {
 	it('refuses getRequestEvent with request_event_server_only', () => {
 		expect(() => browser.get_request_event()).toThrow(/e\/request_event_server_only/);
 	});
+
+	it("loads an island entry with the runtime's own entry load, which the server's half refuses", async () => {
+		const { import_entry } = await import('../src/runtime/entry-locations.ts');
+		const server = await import('../src/region-server.ts');
+		expect(browser.import_entry).toBe(import_entry);
+		await expect(server.import_entry('/x.js')).rejects.toThrow(/e\/entry_load_server_only/);
+	});
 });

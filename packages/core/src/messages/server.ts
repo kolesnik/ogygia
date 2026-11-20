@@ -55,6 +55,16 @@ export const SERVER_ERRORS = {
 			that shows it.
 		`
 	},
+	entry_load_server_only: {
+		text: (a: { entry: string }): string =>
+			`the server was asked to load island entry ${a.entry}, which only a browser loads.`,
+		details: (): string => prose`
+			A region snippet boots its island in the browser, from the entry the page names. The
+			server renders the snippet's HTML and loads no entry. Something called the browser's entry
+			load during a server render; it is an ogygia bug: please report it with the page that
+			shows it.
+		`
+	},
 	region_endpoint_unbuilt: {
 		text: (): string => prose`
 			the islands endpoint was asked for a region, but this build has no region that streams

@@ -665,7 +665,7 @@ class OgygiaHandle {
 			// PAGE FACTS (server/page-facts.ts): a render outside its page looks the page up through
 			// Kit's own data request. Nothing renders here: no bag, no store. The answer names the
 			// route and params Kit matched, which the data alone does not carry.
-			if (event.isDataRequest && event.request.headers.has(PAGE_FACTS_HEADER)) {
+			if (HAS & F_FRAMES && event.isDataRequest && event.request.headers.has(PAGE_FACTS_HEADER)) {
 				const res = await resolve(event);
 				try {
 					res.headers.set(
@@ -741,13 +741,15 @@ class OgygiaHandle {
 			// Response after `resolve` is invisible here — the runtime's renewal covers that case.
 			// (SvelteKit 3 types `setHeaders` as readonly; at runtime it is a plain property Kit
 			// reassigns itself after the response, so this wrapper works on 2 and 3 alike)
-			const set_headers = event.setHeaders;
-			(event as { setHeaders: RequestEvent['setHeaders'] }).setHeaders = (headers) => {
-				set_headers(headers);
-				for (const key in headers)
-					if (key.toLowerCase() === 'cache-control')
-						note_cache_control(event.request, headers[key]);
-			};
+			if (HAS & F_FRAMES) {
+				const set_headers = event.setHeaders;
+				(event as { setHeaders: RequestEvent['setHeaders'] }).setHeaders = (headers) => {
+					set_headers(headers);
+					for (const key in headers)
+						if (key.toLowerCase() === 'cache-control')
+							note_cache_control(event.request, headers[key]);
+				};
+			}
 			const response = await resolve(event, {
 				transformPageChunk: async ({ html, done }) =>
 					this.inject_client_seeds(
@@ -880,7 +882,8 @@ class OgygiaHandle {
 		// THE EARLY START (early-holes.ts): the requests of this page's `load` holes start during the
 		// parse, from one data block and one constant script in the chunk that carries `</head>`. A
 		// policy that would block the script gets its hash: a <meta> one here, a header after `resolve`.
-		const early = head === null || !event ? [] : take_early_holes(event.request);
+		const early =
+			!(HAS & F_FRAMES) || head === null || !event ? [] : take_early_holes(event.request);
 		const csp_sources: string[] = early.length ? [EARLY_HOLES_SOURCE] : [];
 		if (bag && head !== null) bag.csp_sources = csp_sources;
 		const early_head = early_holes_head(early);
