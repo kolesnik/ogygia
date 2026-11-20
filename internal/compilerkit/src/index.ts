@@ -44,4 +44,4 @@ export { resolveSpecifier } from './specifier.ts';
 export { crossings, endsInDollar, shortNames, shorten, type Shortened } from './shorten.ts';
 export { declarations, dts, publishedTypes, type PublishedRules, type Typed } from './types.ts';
 export { ambientTypes, emitDeclarations, type AmbientOptions } from './ambient.ts';
-export { macroPlugin, notSource, type Compiled, type PluginOptions } from './plugin.ts';
+export { macroPlugin, notSource, svelteFile, type Compiled, type PluginOptions } from './plugin.ts';

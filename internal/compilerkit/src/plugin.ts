@@ -17,7 +17,8 @@ export interface Compiled {
 /** The plugin's options. */
 export interface PluginOptions<C extends Compiled> {
 	readonly name: string;
-	/** A file the compiler never sees. Default: anything but `.ts` sources outside `node_modules`. */
+	/** A file the compiler never sees. Default: anything but `.ts` sources outside `node_modules`.
+	 *  Svelte's files are never seen, whatever this says. */
 	readonly skip?: (file: string) => boolean;
 	/** Compiles one file, or null when it has nothing to compile. */
 	readonly compile: (code: string, file: string) => C | null;
@@ -29,9 +30,25 @@ export interface PluginOptions<C extends Compiled> {
 	readonly bundle?: (emit: (fileName: string, source: string) => void) => void;
 }
 
+const SVELTE_RE = /\.svelte(\.[cm]?[jt]s)?$/;
+
+/**
+ * Whether a file is Svelte's: a component, or a rune module (`.svelte.ts`, `.svelte.js`). Svelte
+ * owns every `$` name there (a store read in a component; a rune, or an error, in a module), so no
+ * macro compiler ever reads one, whatever its `skip` says.
+ */
+export function svelteFile(file: string): boolean {
+	return SVELTE_RE.test(file);
+}
+
 /** Whether a file is not a TypeScript source the compiler reads. */
 export function notSource(file: string): boolean {
-	return !/\.[cm]?ts$/.test(file) || /\.d\.[cm]?ts$/.test(file) || file.includes('/node_modules/');
+	return (
+		!/\.[cm]?ts$/.test(file) ||
+		/\.d\.[cm]?ts$/.test(file) ||
+		file.includes('/node_modules/') ||
+		svelteFile(file)
+	);
 }
 
 /** The plugin. */
@@ -49,7 +66,7 @@ export function macroPlugin<C extends Compiled>(options: PluginOptions<C>) {
 			order: 'pre' as const,
 			handler(code: string, id: string): { code: string; map: C['map'] } | null {
 				const file = id.split('?')[0]!;
-				if (skip(file)) return null;
+				if (svelteFile(file) || skip(file)) return null;
 				const out = options.compile(code, file);
 				if (out === null) return null;
 				for (const w of out.warnings ?? []) warnings.add(w);

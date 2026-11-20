@@ -11,6 +11,7 @@ import {
 	declarations,
 	dts,
 	macroPlugin,
+	notSource,
 	pipeline,
 	publishedTypes,
 	shortNames,
@@ -178,6 +179,18 @@ describe('types', () => {
 });
 
 describe('the plugin', () => {
+	test('never compiles Svelte: a component or a rune module, even when a skip lets it through', () => {
+		const compile = (code: string) => ({ code: code.replace('$twice', 'twice'), map: null });
+		const plugin = macroPlugin({ name: 'twice', compile });
+		const open = macroPlugin({ name: 'twice', compile, skip: () => false });
+		for (const p of [plugin, open])
+			for (const file of ['/a.svelte', '/a.svelte.ts', '/a.svelte.js', '/a.svelte.ts?x=1'])
+				expect(p.transform.handler('$twice(1)', file)).toBeNull();
+		expect(open.transform.handler('$twice(1)', '/a.ts')!.code).toBe('twice(1)');
+		expect(notSource('/a.svelte.ts')).toBe(true);
+		expect(notSource('/a.ts')).toBe(false);
+	});
+
 	test('compiles sources, skips the rest, and emits what the compiles gathered', () => {
 		const seen: Array<string> = [];
 		const plugin = macroPlugin({
