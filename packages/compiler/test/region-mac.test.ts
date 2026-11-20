@@ -5,6 +5,7 @@ import { encode_region_props } from '../../core/src/server/region-props.ts';
 import { MAX_REGION_PROPS_LEN } from '../../core/src/server/endpoint.ts';
 import { html_has_kit_bootstrap } from '../../core/src/server/html-scan.ts';
 import { RuntimeSession } from '../../core/src/runtime/session.ts';
+import { LakeState } from '../../core/src/runtime/lakes.ts';
 import { islandId } from '../src/region/transform.ts';
 import { SnippetRender } from '../../core/src/snippet-render.ts';
 
@@ -46,9 +47,10 @@ describe('encode_region_props (SWR / defer mint bound)', () => {
 	});
 });
 
-describe('RuntimeSession lake_cache (SPA reset)', () => {
+describe('LakeState lake_cache (SPA reset)', () => {
 	it('reset clears lake_cache and initialized_lakes', () => {
-		const s = new RuntimeSession();
+		const session = new RuntimeSession();
+		const s = new LakeState(session);
 		s.lake_cache.set('a', {
 			frag: {} as Node,
 			endpoint: '/x',
@@ -57,13 +59,13 @@ describe('RuntimeSession lake_cache (SPA reset)', () => {
 			maxAgeMs: 0
 		});
 		s.initialized_lakes.add('a');
-		s.reset();
+		session.reset();
 		expect(s.lake_cache.size).toBe(0);
 		expect(s.initialized_lakes.size).toBe(0);
 	});
 
 	it('SWR refresh replaces an entry without growing the map', () => {
-		const s = new RuntimeSession();
+		const s = new LakeState(new RuntimeSession());
 		const frag1 = {} as Node;
 		const frag2 = {} as Node;
 		const entry = (frag: Node) => ({
