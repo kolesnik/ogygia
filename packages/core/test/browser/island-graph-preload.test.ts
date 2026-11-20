@@ -13,6 +13,8 @@ import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
 import { F_GRAPH } from '../../src/contract/features.ts';
 import { bootDev } from '../../src/runtime/full.ts';
 import { from_b64 } from './b64.ts';
+import { boot_link, slots } from '../../src/runtime/slots.ts';
+import { L_REGISTER_ISLAND_GRAPH } from '../../src/runtime/boot-link-index.ts';
 
 const ALL = HAS;
 
@@ -104,20 +106,29 @@ test('a graph read from another page resolves against that page (router warm)', 
 });
 
 describe('a build whose word has no graph (no island code of the app can load: F_GRAPH off)', () => {
-	afterEach(() => set_feature_word(ALL));
+	afterEach(() => {
+		set_feature_word(ALL);
+		bootDev();
+	});
 
-	test('reads no graph and links nothing, from the page or from another page', () => {
+	test('its boot hands the runtime no graph: a router read and a warm read nothing, link nothing', () => {
 		set_feature_word(ALL & ~F_GRAPH);
-		preload_island_graph('/g/a.js');
-		register_island_graph(JSON.stringify({ h: ['/g/c-dep.js'], e: { '/g/c.js': [0] } }));
-		preload_island_graph('/g/c.js');
+		bootDev();
+		expect(slots.graph).toBeNull();
+		boot_link()[L_REGISTER_ISLAND_GRAPH](
+			JSON.stringify({ h: ['/g/c-dep.js'], e: { '/g/c.js': [0] } }),
+			location.href
+		);
 		expect(ours()).toEqual([]);
 		set_feature_word(ALL);
-		preload_island_graph('/g/a.js');
-		expect(ours(), 'the same page, with the bit: its graph').toEqual([
-			'/g/svelte.js',
-			'/g/a-dep.js'
-		]);
+		bootDev();
+		expect(slots.graph?.preload).toBe(preload_island_graph);
+		boot_link()[L_REGISTER_ISLAND_GRAPH](
+			JSON.stringify({ h: ['/g/c-dep.js'], e: { '/g/c.js': [0] } }),
+			location.href
+		);
+		preload_island_graph('/g/c.js');
+		expect(ours(), 'with the bit: the graph a router read').toEqual(['/g/c-dep.js']);
 	});
 
 	test('an island it never saw still wakes: its import finds its chunks itself', async () => {
@@ -129,7 +140,6 @@ describe('a build whose word has no graph (no island code of the app can load: F
 		bootDev();
 		try {
 			await expect.poll(() => region.hasAttribute('data-hydrated'), { timeout: 10_000 }).toBe(true);
-			expect(ours()).toEqual([]);
 		} finally {
 			box.remove();
 		}

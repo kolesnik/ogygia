@@ -18,7 +18,15 @@ import { OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from '../wire-m
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
 import { HAS } from 'ogygia:boot';
-import { F_FRAMES, F_IDLE, F_LAKES, F_LIVE, F_MEDIA, F_VISIBLE } from '../contract/features.ts';
+import {
+	F_FRAMES,
+	F_GRAPH,
+	F_IDLE,
+	F_LAKES,
+	F_LIVE,
+	F_MEDIA,
+	F_VISIBLE
+} from '../contract/features.ts';
 import { wire_for_wake } from './wire-on-use.ts';
 import { report_thrown } from '../report-thrown.ts';
 import { kit_hydrates_page, publish_kit_hydrates } from './kit-boot.ts';
@@ -113,7 +121,7 @@ import {
 	use_sheets,
 	type RegionSheet
 } from './region-sheets.ts';
-import { preload_island_graph } from './island-graph-preload.ts';
+import { preload_island_graph, register_island_graph } from './island-graph-preload.ts';
 import { fetch_priority_of, LoadSlot, viewport_class, type LoadClass } from './load-scheduler.ts';
 import { PRIORITY } from './load-class.ts';
 import type { FrameFetcher } from './frame-store.ts';
@@ -262,7 +270,7 @@ function arm_on_demand(region: Element, fire: () => void, owner: Life): void {
 }
 
 const load_island = (entry: string, cls: LoadClass = 'visible') => {
-	preload_island_graph(entry, undefined, fetch_priority_of(cls));
+	if (HAS & F_GRAPH) preload_island_graph(entry, undefined, fetch_priority_of(cls));
 	return import_entry<IslandModule>(entry, island_module_url(entry));
 };
 
@@ -1527,6 +1535,8 @@ export function boot(
 		warn,
 		line
 	};
+	slots.graph =
+		HAS & F_GRAPH ? { preload: preload_island_graph, register: register_island_graph } : null;
 	link_boot();
 	for (const install of installers) install();
 	// The build's location map, pinned to this page's address before any navigation moves it
