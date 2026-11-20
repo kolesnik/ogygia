@@ -70,25 +70,23 @@ export function batch_stream(
 	});
 	return new ReadableStream<Uint8Array>({
 		async start(controller) {
-			if (batch.kind !== 'streaming') {
-				controller.close();
-				return;
-			}
-			const streaming = batch.epoch;
-			$await(
-				batch.visit().task((signal) =>
-					Promise.all(
-						calls.map(async (endpoint) => {
-							// oxlint-disable-next-line ogygia/no-silent-failures -- the render says its own failure; the hole keeps its fallback and fetches itself
-							const out = await render(endpoint, signal).catch(() => null);
-							if (out && batch.epoch === streaming)
-								controller.enqueue(encoder.encode(build_parcel(out.slot, out.html)));
-						})
+			if (batch.kind === 'streaming') {
+				const streaming = batch.epoch;
+				$await(
+					batch.visit().task((signal) =>
+						Promise.all(
+							calls.map(async (endpoint) => {
+								// oxlint-disable-next-line ogygia/no-silent-failures -- the render says its own failure; the hole keeps its fallback and fetches itself
+								const out = await render(endpoint, signal).catch(() => null);
+								if (out && batch.epoch === streaming)
+									controller.enqueue(encoder.encode(build_parcel(out.slot, out.html)));
+							})
+						)
 					)
-				)
-			);
-			if (!batch.move('streaming', 'ended')) return;
-			controller.enqueue(encoder.encode(done_parcel()));
+				);
+				if (!batch.move('streaming', 'ended')) return;
+				controller.enqueue(encoder.encode(done_parcel()));
+			}
 			controller.close();
 		},
 		cancel() {
