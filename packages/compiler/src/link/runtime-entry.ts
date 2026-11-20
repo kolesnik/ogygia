@@ -1,4 +1,11 @@
-import { dedent, feature_word, type FeatureName } from '@ogygia/core/contract';
+import {
+	dedent,
+	feature_word,
+	F_FRAMES,
+	F_LAKES,
+	F_LIVE,
+	type FeatureName
+} from '@ogygia/core/contract';
 import { client_realms_source, type ClientRealmFile } from './caps.ts';
 
 const HYPHEN = /-/g;
@@ -299,7 +306,15 @@ export function generateRuntimeFlagsSource(
  * hole's render and endpoint, a lake's, a live region's) is written against it, so a server only
  * writes into a page what the page's runtime can revive. The marks only grow while a build runs and
  * the server leg reads them first, so its word never holds a feature the browser's lacks.
+ * `HAS_FRAMES`, `HAS_LAKES`, `HAS_LIVE`: three of its bits as booleans, for a component the
+ * browser's island code shares (Region.svelte), which may not import the runtime's numbering.
  */
 export function generateServerFlagsSource(marks: RuntimeMarks, all = false): string {
-	return `export const HAS = ${feature_word(all ? FEATURE_ORDER : resolveFeatures(marks))};\n`;
+	const word = feature_word(all ? FEATURE_ORDER : resolveFeatures(marks));
+	return `${dedent`
+		export const HAS = ${word};
+		export const HAS_FRAMES = ${(word & F_FRAMES) !== 0};
+		export const HAS_LAKES = ${(word & F_LAKES) !== 0};
+		export const HAS_LIVE = ${(word & F_LIVE) !== 0};
+	`}\n`;
 }

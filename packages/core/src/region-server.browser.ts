@@ -42,5 +42,7 @@ export const head_owner_attr: typeof Server.head_owner_attr = blank;
 export const document_tail: typeof Server.document_tail = none;
 export const island_graph_script: typeof Server.island_graph_script = blank;
 export const modulepreload_tag: typeof Server.modulepreload_tag = blank;
-export const HAS: typeof Server.HAS = -1;
+export const HAS_FRAMES: typeof Server.HAS_FRAMES = true;
+export const HAS_LAKES: typeof Server.HAS_LAKES = true;
+export const HAS_LIVE: typeof Server.HAS_LIVE = true;
 export const need_program: typeof Server.need_program = () => {};

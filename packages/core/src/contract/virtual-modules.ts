@@ -127,6 +127,12 @@ export interface ServerFlagsModule {
 	/** the build's feature word, the browser's `HAS` (./features.ts): the server writes into a page
 	 *  only what the page's runtime can revive */
 	HAS: number;
+	/** the word's frames bit (a region streams HTML: holes, held regions) */
+	HAS_FRAMES: boolean;
+	/** the word's lakes bit */
+	HAS_LAKES: boolean;
+	/** the word's live bit (a held region's updates) */
+	HAS_LIVE: boolean;
 }
 
 export interface TransportablesModule {

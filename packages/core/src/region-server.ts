@@ -25,7 +25,9 @@ export {
 	csr_true_routes,
 	error_csr_true_routes,
 	root_layout_csr_true,
-	HAS
+	HAS_FRAMES,
+	HAS_LAKES,
+	HAS_LIVE
 } from 'ogygia:server';
 export { runtime_bootstrap } from './server/entry-location.ts';
 export { need_program } from './server/programs.ts';
