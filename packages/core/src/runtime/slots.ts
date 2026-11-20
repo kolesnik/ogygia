@@ -146,8 +146,8 @@ export type NavOps = {
  * and Kit's client build (`preserveEntrySignatures: 'strict'`) forbids the runtime chunk from
  * exporting it, so the bundler splits every such module into a file of its own — the runtime's
  * boot arrived as nine. Each link is filled before its lazy chunk can load: `boot` by core's boot
- * (./boot-link.ts), `router_link` and `interaction_link` by the very loader that imports their chunk
- * (the router's `nav()`, interaction's `replay()`), `sync_attributes` by morph's install. Types only
+ * (./boot-link.ts), `router_link`, `interaction_link` and `live_link` by the very loader that imports
+ * their chunk (the router's `nav()`, interaction's `replay()`, the region element's tick), `sync_attributes` by morph's install. Types only
  * below (erased), so this registry imports none of them.
  * `test/runtime-boot-svelte-free.test.ts` pins that no lazy chunk imports a boot module.
  * The boot link is read by number (`boot_link()[L_PROPS_SIDECAR_OF]`, ./boot-link-index.ts), so no
@@ -225,6 +225,57 @@ export type InteractionLink = {
 	resolve_address: typeof import('./interaction.ts').resolve_address;
 };
 
+/** A held region's tick, as `applyLive` takes it (./core.ts, ./live-program.ts). */
+export type LiveTick = {
+	id: string;
+	module: string;
+	props: Record<string, unknown>;
+	html: string;
+	url?: string;
+	hydrate?: string;
+	hydrateMargin?: string;
+	written?: import('../frame.ts').FrameOrder | undefined;
+};
+
+/** What the live program (./live-program.ts) reaches in the boot: a region element's live and
+ *  paint machines and mailbox, its nested regions' refresh, and the boot's helpers it shares with
+ *  the element's other programs. Set by the element's loader of that chunk (./core.ts). */
+export type LiveLink = {
+	live: (el: Element) => import('./region-machines.ts').Live;
+	paint: (el: Element) => import('./region-machines.ts').Paint;
+	box: (el: Element) => import('@ogygia/machine').Mailbox;
+	/** A nested region refreshes against the HTML that came in around it. */
+	renew: (el: Element) => void;
+	kit_page_ready: (
+		el: Element,
+		core: typeof import('./hydrate-core.ts'),
+		visit: import('@ogygia/machine/internal').Life
+	) => Promise<unknown> | null;
+	region_fragment: typeof import('./core.ts').region_fragment;
+	settle_in: (frag: DocumentFragment) => void;
+	absorb_page_facts_now: () => void;
+	use_sheets: typeof import('./region-sheets.ts').use_sheets;
+	use_code_sheets: typeof import('./region-sheets.ts').use_code_sheets;
+	init_shadow_registries: typeof import('./html-sink.ts').init_shadow_registries;
+	vouch_remote_answer: typeof import('./html-sink.ts').vouch_remote_answer;
+	frameAddress: typeof import('../frame.ts').frameAddress;
+	older_by: typeof import('../frame.ts').older_by;
+	stands_at: typeof import('../frame.ts').stands_at;
+	island_entry_of: typeof import('./entry-locations.ts').island_entry_of;
+	viewport_class: typeof import('./load-scheduler.ts').viewport_class;
+	LoadSlot: typeof import('./load-scheduler.ts').LoadSlot;
+	load_island: (
+		entry: string,
+		cls: import('./load-scheduler.ts').LoadClass
+	) => Promise<import('./hydrate-core.ts').IslandModule>;
+	hydrate_core: () => Promise<typeof import('./hydrate-core.ts') | import('@ogygia/machine').Stale>;
+	devalue_for_wake: () => Promise<unknown> | undefined;
+	dom_ready: () => Promise<unknown>;
+	kit_boot_failed: (err: unknown) => boolean;
+	say_island_failed: (entry: string | null, err: unknown) => void;
+	client_region_mount: typeof import('./client-plugins.ts').client_region_mount;
+};
+
 export type Slots = {
 	/** lakes, set by their feature's install (./lakes.ts); null in a build without them */
 	lakes: LakeOps | null;
@@ -255,6 +306,10 @@ export type Slots = {
 	router_link: RouterLink | null;
 	/** Interaction's address resolver for its replay chunk (see {@link InteractionLink}). */
 	interaction_link: InteractionLink | null;
+	/** The region element's state and the boot's helpers for the live program (see {@link LiveLink}). */
+	live_link: LiveLink | null;
+	/** A held region's ticks, set by the live feature's install in the hydrate core (./live.ts). */
+	live_program: typeof import('./live-program.ts').apply_live | null;
 	/** Morph's attribute sync, for the navigation's body reconcile. */
 	sync_attributes: typeof import('./morph.ts').sync_attributes | null;
 	/** The runtime hooks the plugins' browser halves subscribe to, set at boot only when one does
@@ -279,6 +334,8 @@ export const slots: Slots = {
 	boot: null,
 	router_link: null,
 	interaction_link: null,
+	live_link: null,
+	live_program: null,
 	sync_attributes: null
 };
 
@@ -291,5 +348,6 @@ export const boot_link = (): BootLink => linked(slots.boot, 'boot');
 export const router_link = (): RouterLink => linked(slots.router_link, 'router_link');
 export const interaction_link = (): InteractionLink =>
 	linked(slots.interaction_link, 'interaction_link');
+export const live_link = (): LiveLink => linked(slots.live_link, 'live_link');
 export const morph_sync_attributes = (): NonNullable<Slots['sync_attributes']> =>
 	linked(slots.sync_attributes, 'sync_attributes');
