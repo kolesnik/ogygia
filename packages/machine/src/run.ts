@@ -158,12 +158,6 @@ export class Run<S = any, T = any> {
 		return this._def.names[this._state] as KindOf<S>;
 	}
 
-	/** It is in state `name`. */
-	is<S>(this: Run<S>, name: Kind<S>): boolean;
-	is(name: string): boolean {
-		return this._def.names[this._state] === name;
-	}
-
 	/** The life of the visit it is in now (made on first need): closed by the move that leaves the
 	 *  visit, closed for good on a stopped machine. */
 	visit(): Life {
