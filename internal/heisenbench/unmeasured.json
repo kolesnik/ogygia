@@ -6989,6 +6989,22 @@
 			"reason": "browser only, a lake revalidated on an arm its build left out; proven in packages/core/test/browser/lake-connect.test.ts"
 		},
 		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #arm > on_trigger:2~e5c3eb > media > arm",
+			"reason": "browser only (matchMedia): hands a wake's media query to on_media, constant work; proven in packages/core/test/browser/schedules-missing.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #lake_arm > media > arm",
+			"reason": "browser only (matchMedia): hands a hole's or lake's media query to on_media while it is armed, constant work; proven in packages/core/test/browser/hole-when.test.ts and hole-lifecycle.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/arm-media.ts > on_media",
+			"reason": "browser only (matchMedia): one query, fired now or one change listener in the visit's scope, constant work; proven in packages/core/test/browser/hole-when.test.ts and hole-lifecycle.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/boot-link.ts > register_graph",
+			"reason": "a forwarder: one optional call to the boot's graph reader (island-graph-preload's register_island_graph, measured on its own); proven in packages/core/test/browser/island-graph-preload.test.ts"
+		},
+		{
 			"id": "packages/core/src/messages/core.ts > ERRORS > region_schedule_missing",
 			"reason": "a message table entry: wording only"
 		},
