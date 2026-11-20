@@ -58,9 +58,8 @@ function hear_responses(): void {
 	timeline = life.root();
 	try {
 		// (buffered: what the timeline already holds is heard at once, then every entry after it)
-		life
+		timeline
 			.watch(
-				timeline,
 				new PerformanceObserver((list) => {
 					for (const e of list.getEntries()) heard(e.name, status_of([e]));
 				})
@@ -94,11 +93,11 @@ function response_landed(url: string): Promise<number | null> {
 	const wait = life.root();
 	return new Promise<number | null>((resolve) => {
 		const done = (status: number | null) => {
-			life.close(wait);
+			wait.close();
 			resolve(status);
 		};
 		landing.add({ url, done }, wait);
-		life.later(wait, done, ENTRY_WAIT_MS, null);
+		wait.later(done, ENTRY_WAIT_MS, null);
 	});
 }
 
@@ -207,7 +206,7 @@ export function import_again<T>(
 	hear_responses();
 	const state = fsm.create(file_definition);
 	const next = (): Promise<T> => {
-		const s = fsm.now(state);
+		const s = state.now;
 		if (s.kind === 'loaded') return s.run as Promise<T>;
 		if (s.kind === 'stuck') return Promise.reject(s.error);
 		// (a retry that failed is not yet known to be a drop or a dependency's failure: ask once it is)
@@ -216,23 +215,23 @@ export function import_again<T>(
 		if (s.kind === 'failed') {
 			// (each retry its own URL, counted as it starts: two calls at once ask under two)
 			const attempt = s.attempt + 1;
-			fsm.go(state, 'failed', { url: s.url, attempt });
+			state.go('failed', { url: s.url, attempt });
 			const url = retry_url(s.url, attempt);
 			run = (fresh(url) as Promise<T>).catch((error: unknown) => {
 				const wait = (verdict?: Promise<void>) => {
-					const now = fsm.now(state);
+					const now = state.now;
 					if (now.kind === 'failed')
-						fsm.go(state, 'failed', { url: now.url, attempt: now.attempt, verdict });
+						state.go('failed', { url: now.url, attempt: now.attempt, verdict });
 				};
 				// Whether its own file came is read once its timing entry lands (Firefox on a loaded
 				// machine: after the import rejects; WebKit gives a dropped download none, so the wait
 				// runs out). The caller hears the failure now; a later call waits for the verdict.
 				const verdict: Promise<void> = response_landed(url).then((status) => {
 					// its own file came, and it still failed: a dependency's failure, which no URL fixes
-					if (status !== null && status < 400 && fsm.move(state, 'failed', 'stuck', { error }))
+					if (status !== null && status < 400 && state.move('failed', 'stuck', { error }))
 						reload.once('reload', () => say_reload_needed(url, error));
 					// (only a failed state holds a verdict)
-					else if ((fsm.now(state) as { verdict?: unknown }).verdict === verdict) wait();
+					else if ((state.now as { verdict?: unknown }).verdict === verdict) wait();
 				});
 				wait(verdict);
 				throw error;
@@ -240,14 +239,14 @@ export function import_again<T>(
 		} else {
 			run = load().catch((error: unknown) => {
 				const url = file != null && is_failed_import(error) ? file_url(file, base) : null;
-				if (url !== null) fsm.move(state, 'fresh', 'failed', { url, attempt: 0 });
+				if (url !== null) state.move('fresh', 'failed', { url, attempt: 0 });
 				throw error;
 			});
 		}
 		// oxlint-disable-next-line ogygia/no-silent-failures -- the failure is the caller's: `run` itself is returned and rejects to it
 		run.then(
 			() => {
-				if (fsm.kind(state) !== 'loaded') fsm.go(state, 'loaded', { run });
+				if (state.kind !== 'loaded') state.go('loaded', { run });
 			},
 			() => {}
 		);

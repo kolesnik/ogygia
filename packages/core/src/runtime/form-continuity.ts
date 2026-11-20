@@ -38,7 +38,7 @@ const restore_window = fsm.create(
 );
 
 function close_restore(): void {
-	if (fsm.kind(restore_window) === 'open') fsm.go(restore_window, 'idle');
+	if (restore_window.kind === 'open') restore_window.go('idle');
 }
 
 const is_checkable = (f: HTMLInputElement) => f.type === 'checkbox' || f.type === 'radio';
@@ -143,8 +143,8 @@ export function arm_form_restore(pathKey: string): void {
 		if (name !== undefined) apply_region(region, name, recs);
 	};
 	const on_answer = () => (names = read_names());
-	fsm.go(restore_window, 'open');
-	const open = life.visit(restore_window);
-	life.listen(open, document, 'ogygia:hydrated', on_hydrated, true);
-	life.listen(open, document, 'ogygia:server', on_answer, true);
+	restore_window.go('open');
+	const open = restore_window.visit();
+	open.listen(document, 'ogygia:hydrated', on_hydrated, true);
+	open.listen(document, 'ogygia:server', on_answer, true);
 }

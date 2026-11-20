@@ -37,16 +37,16 @@ const pending = flights({
 	name: 'kit page thread',
 	run: (_: void, signal: AbortSignal) => {
 		const wait = life.root();
-		life.listen(wait, signal, 'abort', () => life.close(wait));
+		wait.listen(signal, 'abort', () => wait.close());
 		return new Promise<void>((resolve, reject) => {
 			const fail = (url: string, error: unknown) => {
-				life.close(wait);
+				wait.close();
 				reject(kit_boot_failed(url, error));
 			};
 			const boot = kit_boot();
 			for (const url of boot.urls) {
-				void life
-					.task(wait, () => import_code<unknown>(url))
+				void wait
+					.task(() => import_code<unknown>(url))
 					.then(
 						(entry) => {
 							if (entry === STALE) return;
@@ -54,8 +54,8 @@ const pending = flights({
 							for (const id of boot.node_ids) {
 								const load = nodes?.[id];
 								if (typeof load !== 'function') continue;
-								void life
-									.task(wait, () => load())
+								void wait
+									.task(() => load())
 									.then(undefined, (error: unknown) => fail(`${url} nodes[${id}]`, error));
 							}
 						},
@@ -63,20 +63,16 @@ const pending = flights({
 					);
 			}
 			if (import.meta.env.DEV) {
-				life.later(
-					wait,
-					() => {
-						warn('kit_page_waiting', {
-							seconds: DEV_STILL_WAITING_MS / 1000,
-							booted: bridge_of() != null
-						});
-					},
-					DEV_STILL_WAITING_MS
-				);
+				wait.later(() => {
+					warn('kit_page_waiting', {
+						seconds: DEV_STILL_WAITING_MS / 1000,
+						booted: bridge_of() != null
+					});
+				}, DEV_STILL_WAITING_MS);
 			}
 			await_bridge(wait, (bridge) =>
 				await_applied(wait, bridge, () => {
-					life.close(wait);
+					wait.close();
 					resolve();
 				})
 			);
@@ -161,15 +157,11 @@ function await_bridge(wait: Life, cb: (bridge: Bridge) => void): void {
 			set: settle
 		});
 	} catch {
-		const stop = life.every(
-			wait,
-			() => {
-				if (g[KIT_PAGE_KEY] == null) return;
-				stop();
-				cb(g[KIT_PAGE_KEY] as Bridge);
-			},
-			50
-		);
+		const stop = wait.every(() => {
+			if (g[KIT_PAGE_KEY] == null) return;
+			stop();
+			cb(g[KIT_PAGE_KEY] as Bridge);
+		}, 50);
 	}
 }
 
@@ -188,5 +180,5 @@ function await_applied(wait: Life, bridge: Bridge, done: () => void): void {
 			done();
 		});
 	});
-	life.defer(wait, end);
+	wait.defer(end);
 }

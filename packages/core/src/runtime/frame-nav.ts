@@ -159,24 +159,24 @@ export async function streamFrames(
 	let refused: 'redirected' | 'document' | undefined;
 	let final_url: string | undefined;
 	const stream = fsm.create(batch_stream);
-	const batch_scope = life.child(visit);
-	life.defer(batch_scope, () => fsm.stop(stream));
+	const batch_scope = visit.child();
+	batch_scope.defer(() => stream.stop());
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a machine's wait never rejects
-	void fsm.wait(stream, 'stalled').then((s) => s !== STALE && life.close(batch_scope));
+	void stream.wait('stalled').then((s) => s !== STALE && batch_scope.close());
 
 	try {
 		let res: Response;
 		try {
 			if (RULES && buggify.fires('batch.fetch-fails')) throw new TypeError('Failed to fetch');
 			res = $await(
-				life.task(life.visit(stream), () =>
+				stream.visit().task(() =>
 					net.fetch(path, {
 						method: 'POST',
 						credentials: 'same-origin',
 						headers: { 'content-type': 'application/json' },
 						body: JSON.stringify(endpoints),
 						...(page !== undefined ? { referrer: page } : {}),
-						signal: life.signal(batch_scope)
+						signal: batch_scope.signal
 					})
 				)
 			);
@@ -185,7 +185,7 @@ export async function streamFrames(
 			return;
 		}
 		if (RULES && buggify.fires('batch.refused')) res = new Response('busy', { status: 503 });
-		fsm.go(stream, 'reading');
+		stream.go('reading');
 		status = res.status;
 		if ((DEVTOOLS || HOOK_HOLE_BATCH_MISSED) && res.redirected) {
 			refused = 'redirected';
@@ -199,7 +199,7 @@ export async function streamFrames(
 
 		const reader = res.body.getReader();
 		// oxlint-disable-next-line ogygia/no-silent-failures -- the batch ended: a failed cancel has nothing left to stop
-		life.defer(batch_scope, () => void reader.cancel().catch(() => {}));
+		batch_scope.defer(() => void reader.cancel().catch(() => {}));
 		const decoder = new TextDecoder();
 		let buffer = '';
 		let parcels = false;
@@ -207,16 +207,16 @@ export async function streamFrames(
 			let read: ReadableStreamReadResult<Uint8Array>;
 			try {
 				if (RULES && buggify.fires('batch.body-breaks')) throw new TypeError('network error');
-				read = $await(life.task(life.visit(stream), () => reader.read()));
+				read = $await(stream.visit().task(() => reader.read()));
 				// oxlint-disable-next-line ogygia/no-silent-failures -- the body broke off, as a request can fail: the holes it still owes fetch on their own
 			} catch {
 				return;
 			}
 			if (RULES && buggify.fires('batch.body-stalls')) return;
 			const { done, value } = read;
-			if (life.closed(batch_scope)) return;
+			if (batch_scope.closed) return;
 			if (done) break;
-			fsm.go(stream, 'reading');
+			stream.go('reading');
 			buffer += decoder.decode(value, { stream: true });
 			let consumed = 0;
 			for (let p = read_parcel(buffer, 0); p; p = read_parcel(buffer, consumed)) {
@@ -250,10 +250,10 @@ export async function streamFrames(
 			final_url = res.url;
 		}
 	} finally {
-		fsm.stop(stream);
-		life.close(batch_scope);
+		stream.stop();
+		batch_scope.close();
 		for (const a of reserved) release(a);
-		if (HOOK_HOLE_BATCH_MISSED && delivered < reserved.length && !life.closed(visit))
+		if (HOOK_HOLE_BATCH_MISSED && delivered < reserved.length && !visit.closed)
 			slots.hooks?.holeBatchMissed?.({
 				sent: reserved.length,
 				delivered,

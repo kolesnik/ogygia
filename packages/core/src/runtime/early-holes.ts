@@ -32,17 +32,17 @@ export function adopt_early_holes(visit: Life): void {
 			async (signal) => {
 				// @why its last caller leaving cancels the request in the network (test: test/browser/early-holes.test.ts › that nobody joins, left before its answer lands: cancelled in the network, nothing written, nothing unhandled)
 				const tie = life.root();
-				life.listen(tie, signal, 'abort', () => controller.abort(signal.reason));
+				tie.listen(signal, 'abort', () => controller.abort(signal.reason));
 				try {
 					return await read_hole(url, response, {
 						signal,
 						renewed: (fresh) => renew(address, fresh)
 					});
 				} finally {
-					life.close(tie);
+					tie.close();
 				}
 			},
-			life.signal(visit)
+			visit.signal
 		);
 	}
 }

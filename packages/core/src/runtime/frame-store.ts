@@ -119,8 +119,8 @@ function make_store(): Store {
 		owner: own,
 		onEvict: (a, e, why) => {
 			if (why === 'age' && live(a) && entries.set(a, e, HELD)) return;
-			if (e.part !== null) fsm.stop(e.part);
-			fsm.stop(e.answer);
+			if (e.part !== null) e.part.stop();
+			e.answer.stop();
 		}
 	});
 	const frames = flights.keyed<FrameAsk>()({
@@ -131,12 +131,12 @@ function make_store(): Store {
 		run: ({ a, work }, signal, flight): Promise<VerifiedHtml | Stale> =>
 			typeof work === 'function' ? fetch_frame(a, work, signal, flight) : work
 	});
-	life.defer(own, () => frames[life.DISPOSE]());
+	own.defer(() => frames[life.DISPOSE]());
 	return { life: own, world: world(), entries, flights: frames };
 }
 
 function shown_of(e: Entry): Shown | null {
-	const now = fsm.now(e.answer);
+	const now = e.answer.now;
 	return now.kind === 'empty' ? null : now;
 }
 
@@ -233,7 +233,7 @@ export function write(f: StoredFrame): boolean {
 	const why = older_by(f, s);
 	if (why !== null) {
 		const shown = s as Shown;
-		fsm.go(e.answer, 'kept', {
+		e.answer.go('kept', {
 			v: shown.v,
 			d: shown.d,
 			html: shown.html,
@@ -241,9 +241,9 @@ export function write(f: StoredFrame): boolean {
 		});
 		return false;
 	}
-	fsm.go(e.answer, 'shown', { ...stands_at(s, f), html: f.html });
+	e.answer.go('shown', { ...stands_at(s, f), html: f.html });
 	e.refused = null;
-	if (e.part !== null) fsm.move(e.part, 'promised', 'landed', { html: f.html });
+	if (e.part !== null) e.part.move('promised', 'landed', { html: f.html });
 	notify(frame_id(f.a), f);
 	schedule_evict(f.a, e);
 	return true;
@@ -261,7 +261,7 @@ export function reserve(a: string): void {
 	const e = entry(a);
 	if (shown_of(e) !== null || flying(a)) return;
 	const part = (e.part = fsm.create(parts));
-	const landed = fsm.wait(part, 'landed').then((s) => (s === STALE ? STALE : s.html));
+	const landed = part.wait('landed').then((s) => (s === STALE ? STALE : s.html));
 	const settled = () => schedule_evict(a, e);
 	store().flights.get({ a, work: landed }).then(settled, settled);
 }
@@ -286,7 +286,7 @@ export function start(a: string, fetcher: FrameFetcher, signal: AbortSignal): vo
  */
 export function release(a: string): void {
 	const part = store().entries.peek(a)?.part;
-	if (part != null) fsm.move(part, 'promised', 'missed');
+	if (part != null) part.move('promised', 'missed');
 }
 
 /**
@@ -350,7 +350,7 @@ export async function ensure(
 				if (e.refused === err) e.refused = null;
 				throw err;
 			}
-			if (html !== STALE || signal?.aborted || life.closed(st.life)) return html;
+			if (html !== STALE || signal?.aborted || st.life.closed) return html;
 			fresh = false;
 		}
 	} finally {
@@ -363,5 +363,5 @@ export async function ensure(
 export function _reset(): void {
 	const old = store_host[STORE_KEY];
 	store_host[STORE_KEY] = undefined;
-	if (old !== undefined) life.close(old.life);
+	if (old !== undefined) old.life.close();
 }

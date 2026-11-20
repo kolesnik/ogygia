@@ -102,23 +102,23 @@ class LoadScheduler {
 	}
 
 	critical_done(): boolean {
-		return fsm.kind(this.gate) === 'settled';
+		return this.gate.kind === 'settled';
 	}
 
 	on_first_input(): void {
-		const kind = fsm.kind(this.gate);
-		if (kind === 'fresh') fsm.go(this.gate, 'touched');
+		const kind = this.gate.kind;
+		if (kind === 'fresh') this.gate.go('touched');
 		else if (kind === 'waiting') this.settle_critical('input');
 	}
 
 	settle_critical(outcome: CriticalOutcome): void {
-		const s = fsm.now(this.gate);
+		const s = this.gate.now;
 		if (s.kind === 'settled') return;
 		const report: CriticalReport =
 			s.kind === 'waiting'
 				? { outcome, resources: s.resources, waited_ms: Math.round(now() - s.t0) }
 				: { outcome, resources: 0, waited_ms: 0 };
-		fsm.go(this.gate, 'settled', { report });
+		this.gate.go('settled', { report });
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'load.critical', ...report });
 		if (HOOK_CRITICAL_SETTLED)
 			slots.hooks?.criticalSettled?.({
@@ -132,32 +132,32 @@ class LoadScheduler {
 	#until_critical(): Promise<void> {
 		return after_document_painted().then(async () => {
 			const gate = this.gate;
-			const s = fsm.now(gate);
+			const s = gate.now;
 			if (s.kind === 'settled') return;
 			const waiting =
 				s.kind === 'touched' || document.visibilityState === 'hidden' ? [] : pending_critical();
 			if (!waiting.length) return this.settle_critical('none');
-			fsm.go(gate, 'waiting', { t0: now(), resources: waiting.length });
-			const wait = life.visit(gate);
-			life.later(wait, () => this.settle_critical('cap'), CRITICAL_CAP_MS);
+			gate.go('waiting', { t0: now(), resources: waiting.length });
+			const wait = gate.visit();
+			wait.later(() => this.settle_critical('cap'), CRITICAL_CAP_MS);
 			let left = waiting.length;
 			const one = () => {
 				if (--left === 0) this.settle_critical('arrived');
 			};
 			for (const el of waiting) {
-				life.listen(wait, el, 'load', one, { once: true });
-				life.listen(wait, el, 'error', one, { once: true });
+				wait.listen(el, 'load', one, { once: true });
+				wait.listen(el, 'error', one, { once: true });
 			}
-			$await(fsm.wait(gate, 'settled'));
+			$await(gate.wait('settled'));
 		});
 	}
 
 	reset(): void {
-		life.close(this.#owner);
+		this.#owner.close();
 		this.#owner = life.root();
 		this.line = this.#open_line();
 		this.critical.drop(() => true);
-		fsm.stop(this.gate);
+		this.gate.stop();
 		this.gate = fsm.create(gate_definition);
 	}
 }
@@ -176,7 +176,7 @@ if (typeof document !== 'undefined') {
 
 /** The critical wait's outcome once it settled (the profiler's beacon reads it), else `null`. */
 export function critical_outcome(): CriticalReport | null {
-	const s = fsm.now(scheduler.gate);
+	const s = scheduler.gate.now;
 	return s.kind === 'settled' ? s.report : null;
 }
 

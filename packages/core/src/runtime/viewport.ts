@@ -52,7 +52,7 @@ class Tracker {
 		this.owner = owner;
 		const io = seen.observer((entries) => this.#report(entries), { rootMargin: root_margin });
 		if (!io) throw new ReferenceError('IntersectionObserver is not defined');
-		this.io = life.watch(owner, io);
+		this.io = owner.watch(io);
 	}
 
 	#swapped(records: MutationRecord[]): void {
@@ -125,8 +125,7 @@ class Tracker {
 		let by = this.#swap_targets.get(target);
 		if (!by) {
 			this.#swap_targets.set(target, (by = new Set()));
-			(this.#swaps ??= life.watch(
-				this.owner,
+			(this.#swaps ??= this.owner.watch(
 				new MutationObserver((records) => this.#swapped(records))
 			)).observe(target, { childList: true });
 		}
@@ -224,6 +223,6 @@ export function tracker_count(): number {
 
 /** Test seam: a fresh document (every observer disconnected, every watch forgotten). */
 export function reset_viewport(): void {
-	if (T !== null) life.close(T.owner);
+	if (T !== null) T.owner.close();
 	T = null;
 }

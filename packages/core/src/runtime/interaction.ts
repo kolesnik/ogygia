@@ -122,7 +122,7 @@ type Armed = {
 
 function disarm(a: Armed, over: boolean): void {
 	a.forget();
-	if (over) fsm.move(a.arming, 'woken', 'over');
+	if (over) a.arming.move('woken', 'over');
 }
 
 const armed = registry.keyed<Element, Armed>();
@@ -214,7 +214,7 @@ function wake(a: Armed, e: Event): void {
 			});
 		}
 	}
-	if (!fsm.move(a.arming, 'armed', 'woken')) return;
+	if (!a.arming.move('armed', 'woken')) return;
 	region.setAttribute(OG_WOKE, 'interaction');
 
 	const fields = snapshot_fields(region);
@@ -225,12 +225,12 @@ function wake(a: Armed, e: Event): void {
 	const replayed = replay();
 	Promise.all([replayed, Promise.resolve(a.fire(replayed))]).then(
 		([r]) => {
-			if (fsm.kind(a.arming) === 'over') return;
+			if (a.arming.kind === 'over') return;
 			disarm(a, false);
 			if (r !== STALE) r.after_wake(region, fields, focused, queued, a.owner);
 		},
 		(err) => {
-			if (fsm.kind(a.arming) === 'over') return;
+			if (a.arming.kind === 'over') return;
 			disarm(a, false);
 			replay().then(
 				(r) => r !== STALE && r.replay_clicks(region, queued, a.owner),

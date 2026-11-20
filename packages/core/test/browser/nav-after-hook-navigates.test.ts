@@ -38,7 +38,7 @@ test('an after hook that navigates: its navigation takes over while the first se
 	const handed: string[] = [];
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	const moves: string[] = [];
 	const off = observe((name, from, to) => {

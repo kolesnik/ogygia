@@ -101,7 +101,7 @@ export class LakeState {
 	/** May the regions authored in this lake run (its content is in, or it never gets any)? */
 	lake_settled(el: Element): boolean {
 		const m = this.#lakes.get(el);
-		const kind = m === undefined ? undefined : fsm.kind(m);
+		const kind = m === undefined ? undefined : m.kind;
 		return kind === 'settled' || kind === 'settling';
 	}
 
@@ -110,29 +110,29 @@ export class LakeState {
 	 *  back with the content (moved, they reconnect) or are woken by the caller. */
 	settle_lake(el: Element): void {
 		const m = this.#lake(el);
-		if (fsm.kind(m) !== 'settled') fsm.go(m, 'settled');
+		if (m.kind !== 'settled') m.go('settled');
 	}
 
 	/** A refresh's answer is in hand, its swap not done: the regions that connect from now on run (they
 	 *  come with the swap), and the ones that waited are woken by {@link wake_lake} after it. */
 	settle_lake_before_swap(el: Element): void {
 		const m = this.#lake(el);
-		if (fsm.kind(m) === 'open') fsm.go(m, 'settled');
-		else if (fsm.kind(m) === 'waited') fsm.go(m, 'settling');
+		if (m.kind === 'open') m.go('settled');
+		else if (m.kind === 'waited') m.go('settling');
 	}
 
 	/** A region in an unsettled lake waits on it: `true` when it must (the lake is not settled). */
 	wait_on_lake(el: Element): boolean {
 		const m = this.#lake(el);
-		if (fsm.kind(m) === 'open') fsm.go(m, 'waited');
-		return fsm.kind(m) === 'waited';
+		if (m.kind === 'open') m.go('waited');
+		return m.kind === 'waited';
 	}
 
 	/** After the lake's swap: `true` when regions waited on it and are to be woken now. */
 	wake_lake(el: Element): boolean {
 		const m = this.#lakes.get(el);
-		if (m === undefined || (fsm.kind(m) !== 'settling' && fsm.kind(m) !== 'waited')) return false;
-		fsm.go(m, 'settled');
+		if (m === undefined || (m.kind !== 'settling' && m.kind !== 'waited')) return false;
+		m.go('settled');
 		return true;
 	}
 

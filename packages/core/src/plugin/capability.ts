@@ -98,13 +98,13 @@ export function plugin_capabilities(signer: CapabilitySigner): PluginCapabilitie
 			// (one minted before capabilities named their key carries none: left to the MAC)
 			const k = params.get('k');
 			if (k !== null && k !== signer.fingerprint()) return refuse(signer.deny('foreign-key'));
-			fsm.go(r, 'prechecked');
-			fsm.go(r, 'probed');
+			r.go('prechecked');
+			r.go('probed');
 			const probe = signer.charge(event, 'probe');
 			if (probe) return refuse(probe);
 			if (!signer.verify(message(exp), params.get('sig') ?? '')) return refuse(signer.deny('sig'));
-			fsm.go(r, 'verified');
-			fsm.go(r, 'charged');
+			r.go('verified');
+			r.go('charged');
 			const render = signer.charge(event, 'render');
 			if (render) return refuse(render);
 			if (!renewal) return { ok: true, headers: {} };

@@ -47,7 +47,7 @@ test('two navigations in a row, each bringing a FOUC bag: both go in, one bag is
 	const handed: string[] = [];
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	for (const path of ['/nav-fouc-a', '/nav-fouc-b', '/nav-fouc-c']) {
 		await r.navigate(new URL(path, location.href));

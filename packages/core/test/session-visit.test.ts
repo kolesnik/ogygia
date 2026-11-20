@@ -47,7 +47,7 @@ test('a navigation that never swaps leaves the page on screen as it was', () => 
 	const lakes = new LakeState(session);
 	used(session, lakes);
 	const next = session.next_visit();
-	life.close(next.scope); // called off
+	next.scope.close(); // called off
 	expect(page_state(session, lakes).cached).toBe(1);
 	expect(session.page_seeded).toBe(true);
 });
@@ -56,7 +56,7 @@ test('the visit that ends closes its scope', () => {
 	const session = new RuntimeSession();
 	const left = session.visit;
 	session.reset();
-	expect(life.signal(left.scope).aborted).toBe(true);
+	expect(left.scope.signal.aborted).toBe(true);
 });
 
 test('past 64 lakes the one cached or refreshed longest ago goes; reading one keeps nothing', () => {

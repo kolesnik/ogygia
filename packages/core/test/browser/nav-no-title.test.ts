@@ -52,7 +52,7 @@ test('a page with no <title> keeps none after client navigations to it, and a ti
 	const handed: string[] = [];
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	const visits: [string, string[]][] = [
 		['/no-title-a', []],
@@ -76,7 +76,7 @@ test('back to a titled page from one with no <title>: exactly one <title>, as on
 	serve();
 	const r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation(() => {
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	const titles = () => [...document.querySelectorAll('title')].map((t) => t.textContent);
 	const settle = async (path: string) => {
@@ -109,7 +109,7 @@ test('back to a freshly loaded titled page from one with no <title>: exactly one
 	prepare_spa_document();
 	const r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation(() => {
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	const titles = () => [...document.querySelectorAll('title')].map((t) => t.textContent);
 	const settle = async (path: string) => {

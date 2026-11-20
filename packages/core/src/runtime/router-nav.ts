@@ -571,9 +571,9 @@ export async function navigate(
 		type?: string;
 		replace?: boolean;
 	} = {},
-	claim: number = fsm.epoch(r.nav)
+	claim: number = r.nav.epoch
 ): Promise<void> {
-	if (fsm.epoch(r.nav) !== claim) return;
+	if (r.nav.epoch !== claim) return;
 
 	const dt_t0 = DEVTOOLS ? dt_now() : 0;
 	const nav_t0 = clock.mono();
@@ -592,13 +592,13 @@ export async function navigate(
 			type
 		});
 
-	fsm.go(r.nav, 'loading', { href: url.href });
-	const mine = fsm.epoch(r.nav);
+	r.nav.go('loading', { href: url.href });
+	const mine = r.nav.epoch;
 	own_live_head(r.current_url);
-	const attempt = life.visit(r.nav);
+	const attempt = r.nav.visit();
 	const next = session().next_visit();
-	life.defer(attempt, () => {
-		if (session().visit !== next) life.close(next.scope);
+	attempt.defer(() => {
+		if (session().visit !== next) next.scope.close();
 	});
 
 	let move: HistoryMove = 'replace';
@@ -668,7 +668,7 @@ export async function navigate(
 		if (built === null) return;
 		const { doc, dest } = built;
 		const { soft } = boot_link();
-		if (fsm.kind(soft) === 'refreshing') fsm.go(soft, 'idle');
+		if (soft.kind === 'refreshing') soft.go('idle');
 		const left = r.current_url;
 		own_live_head(left);
 		r.history.commit(dest, move, pop);
@@ -710,7 +710,7 @@ export async function navigate(
 	} catch (error) {
 		return hand_off(error);
 	}
-	if (is_stale(built) || fsm.epoch(r.nav) !== mine) return;
+	if (is_stale(built) || r.nav.epoch !== mine) return;
 	if (built === null) return hand_off();
 	const { dest } = built;
 
@@ -741,10 +741,10 @@ export async function navigate(
 		swap();
 	}
 	if (out.failed) return hand_off(out.failed.error, built.written);
-	if (fsm.epoch(r.nav) !== mine) return;
+	if (r.nav.epoch !== mine) return;
 
-	fsm.move(r.nav, 'loading', 'settling', { href: url.href });
-	const settled = fsm.epoch(r.nav);
+	r.nav.move('loading', 'settling', { href: url.href });
+	const settled = r.nav.epoch;
 	if (HOOK_NAVIGATED)
 		slots.hooks?.navigated?.({
 			from: `${from.pathname}${from.search}`,
@@ -780,7 +780,7 @@ export async function navigate(
 
 	r.run_after(from, dest, type);
 	document.dispatchEvent(new Event('og:page-load'));
-	if (fsm.epoch(r.nav) === settled) fsm.go(r.nav, 'idle');
+	if (r.nav.epoch === settled) r.nav.go('idle');
 	r.scan_preload_links();
 }
 
@@ -816,39 +816,38 @@ export function hold_scroll(to: { x: number; y: number }, visit: Life): void {
 		at = { x: scrollX, y: scrollY };
 	};
 	put();
-	if (life.closed(visit)) return;
-	const hold = life.child(visit);
+	if (visit.closed) return;
+	const hold = visit.child();
 	const html = document.documentElement;
 	const anchoring = html.style.overflowAnchor;
 	html.style.overflowAnchor = 'none';
-	life.defer(hold, () => (html.style.overflowAnchor = anchoring));
-	life.later(hold, life.close, SCROLL_HOLD_MS, hold);
+	hold.defer(() => (html.style.overflowAnchor = anchoring));
+	hold.later(life.close, SCROLL_HOLD_MS, hold);
 	const above = new Set(islands_above(to.y));
 	const settled = () => {
-		if (above.size === 0) life.later(hold, () => life.later(hold, life.close, 0, hold), 'frame');
+		if (above.size === 0) hold.later(() => hold.later(life.close, 0, hold), 'frame');
 	};
-	life.listen(hold, document, 'ogygia:hydrated', (event: Event) => {
+	hold.listen(document, 'ogygia:hydrated', (event: Event) => {
 		if (above.delete(event.target as Element)) settled();
 	});
 	settled();
 	for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const)
-		life.listen(hold, window, type, () => life.close(hold), {
+		hold.listen(window, type, () => hold.close(), {
 			capture: true,
 			passive: true,
 			once: true
 		});
-	life.listen(
-		hold,
+	hold.listen(
 		window,
 		'scroll',
 		() => {
 			const ours = (scrollX === to.x && scrollY === to.y) || (scrollX === at.x && scrollY === at.y);
-			if (!ours) life.close(hold);
+			if (!ours) hold.close();
 		},
 		{ passive: true }
 	);
 	if (typeof ResizeObserver !== 'undefined')
-		life.watch(hold, new ResizeObserver(put)).observe(document.documentElement);
+		hold.watch(new ResizeObserver(put)).observe(document.documentElement);
 }
 
 function islands_above(y: number): Element[] {
@@ -891,10 +890,10 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 	const url = on_screen ?? new URL(location.href);
 
 	const { soft } = boot_link();
-	fsm.go(soft, 'refreshing', { href: url.href });
-	const mine = fsm.epoch(soft);
+	soft.go('refreshing', { href: url.href });
+	const mine = soft.epoch;
 
-	const staged = stage<Document | null>(life.visit(soft), {
+	const staged = stage<Document | null>(soft.visit(), {
 		name: 'soft refresh',
 		build: async ({ signal }) => {
 			const fetched = await fetch_page(url.href, signal);
@@ -919,7 +918,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 		if (is_stale(await staged.ready)) return;
 		staged.commit();
 	} finally {
-		if (fsm.epoch(soft) === mine) fsm.go(soft, 'idle');
+		if (soft.epoch === mine) soft.go('idle');
 	}
 }
 
@@ -1059,8 +1058,8 @@ function preload_stylesheets(
 		if (sheet.priority === null) link.setAttribute('fetchpriority', 'high');
 		pending.push(
 			new Promise<void>((resolve) => {
-				life.listen(attempt, link, 'load', () => resolve(), { once: true });
-				life.listen(attempt, link, 'error', () => resolve(), { once: true });
+				attempt.listen(link, 'load', () => resolve(), { once: true });
+				attempt.listen(link, 'error', () => resolve(), { once: true });
 			})
 		);
 		document.head.insertBefore(link, head_slot(node, live));
@@ -1070,11 +1069,11 @@ function preload_stylesheets(
 	}
 	if (!pending.length) return Promise.resolve();
 	return new Promise<void>((resolve) => {
-		const wait = life.child(attempt);
-		life.later(wait, resolve, STYLESHEET_WAIT_MS);
+		const wait = attempt.child();
+		wait.later(resolve, STYLESHEET_WAIT_MS);
 		// oxlint-disable-next-line ogygia/no-silent-failures -- every pending sheet resolves, on load or on error
 		void Promise.all(pending).then(() => {
-			life.close(wait);
+			wait.close();
 			resolve();
 		});
 	});

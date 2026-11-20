@@ -62,7 +62,7 @@ test('a whole-body swap keeps the objects the next page seed revived', async () 
 	const handed: string[] = [];
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	await r.navigate(new URL('/nav-fallback-seed-kept-next', location.href));
 	await expect.poll(() => r.nav.now.kind, { timeout: 2_000 }).toBe('idle');

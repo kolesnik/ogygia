@@ -181,7 +181,7 @@ async function recover_location(entry: string, failed: string): Promise<string |
 			if (n > 1) {
 				const wait = backoffAfter(rollover, n - 1);
 				$await(
-					life.task(waits, () => new Promise<void>((resolve) => life.later(waits, resolve, wait))),
+					waits.task(() => new Promise<void>((resolve) => waits.later(resolve, wait))),
 					current ?? null
 				);
 			}
@@ -191,7 +191,7 @@ async function recover_location(entry: string, failed: string): Promise<string |
 			current_maps.drop(current_map_file(absolute(entry))!);
 		}
 	} finally {
-		life.close(waits);
+		waits.close();
 	}
 	return current ?? null;
 }

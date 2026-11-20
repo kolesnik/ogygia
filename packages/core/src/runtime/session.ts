@@ -217,7 +217,7 @@ export class RuntimeSession {
 		const left = this.#visit;
 		this.#visit = next;
 		note_visit(next, true);
-		if (left !== next) life.close(left.scope);
+		if (left !== next) left.scope.close();
 	}
 }
 

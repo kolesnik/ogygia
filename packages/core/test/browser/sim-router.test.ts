@@ -97,7 +97,7 @@ describe('the router, simulated', () => {
 					const handed: string[] = [];
 					vi.spyOn(r, 'hand_off').mockImplementation((url, visit) => {
 						handed.push(new URL(url).pathname);
-						if (fsm.epoch(r.nav) === visit) fsm.go(r.nav, 'idle');
+						if (r.nav.epoch === visit) r.nav.go('idle');
 					});
 					/** the navigations, in the order they started */
 					const navs: Path[] = [];

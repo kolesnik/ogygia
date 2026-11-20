@@ -280,7 +280,7 @@ export function reset_document_painted(): void {
  */
 export function register_region(el: Element, owner: Life): void {
 	if (!order_of.has(el)) order_of.set(el, next_order++);
-	if (snapshot_of.has(el) || life.closed(owner)) return;
+	if (snapshot_of.has(el) || owner.closed) return;
 	const stop = watch_viewport(el, '0px', (intersecting) => {
 		in_viewport.set(el, intersecting);
 		sync_loading(el);
@@ -288,7 +288,7 @@ export function register_region(el: Element, owner: Life): void {
 		if (P.count) schedule_drain();
 	});
 	snapshot_of.set(el, stop);
-	life.on_close(owner, unsnap, el, stop);
+	owner.on_close(unsnap, el, stop);
 }
 
 function unsnap(el: Element, stop: () => void): void {
@@ -362,16 +362,16 @@ export function hydrate_turn(el: Element): Promise<void> {
 const now = clock.mono;
 
 function schedule_drain(): void {
-	if (fsm.kind(drainer) === 'queued') return;
-	fsm.go(drainer, 'queued');
+	if (drainer.kind === 'queued') return;
+	drainer.go('queued');
 	// oxlint-disable-next-line typescript/no-floating-promises -- a task hop never rejects, and the drain it starts is the drainer machine's own (queued until it runs)
 	yield_task().then(drain);
 }
 
 function drain_after(ms: number): void {
 	const at = now() + Math.max(1, ms);
-	fsm.go(drainer, 'waiting', { at });
-	life.later(life.visit(drainer), schedule_drain, Math.max(1, ms));
+	drainer.go('waiting', { at });
+	drainer.visit().later(schedule_drain, Math.max(1, ms));
 }
 
 function first_unsnapped(t: number): Turn | undefined {
@@ -385,7 +385,7 @@ function first_unsnapped(t: number): Turn | undefined {
 }
 
 function drain(): void {
-	fsm.go(drainer, 'idle');
+	drainer.go('idle');
 	if (!P.count) return;
 	const t = now();
 	const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
@@ -408,5 +408,5 @@ function drain(): void {
 
 /** Test seam: is a hydration turn queued or being drained right now? */
 export function schedule_idle(): boolean {
-	return P.count === 0 && fsm.kind(drainer) !== 'queued';
+	return P.count === 0 && drainer.kind !== 'queued';
 }

@@ -186,22 +186,22 @@ bench(
 		let arrived = 0;
 		for (let i = 0; i < n; i++) {
 			// a soft refresh out when the visitor clicks: the navigation ends it
-			fsm.go(soft, 'refreshing', { href: '/a' });
-			const refresh = life.task(life.visit(soft), async () => 'the page refreshed');
-			fsm.go(nav, 'claimed', { href: `/p${i}` });
-			const mine = fsm.epoch(nav);
-			if (fsm.kind(soft) === 'refreshing') fsm.go(soft, 'idle');
-			fsm.go(nav, 'loading', { href: `/p${i}` });
-			const page = life.task(life.visit(nav), async () => `<h1>p${i}</h1>`);
+			soft.go('refreshing', { href: '/a' });
+			const refresh = soft.visit().task(async () => 'the page refreshed');
+			nav.go('claimed', { href: `/p${i}` });
+			const mine = nav.epoch;
+			if (soft.kind === 'refreshing') soft.go('idle');
+			nav.go('loading', { href: `/p${i}` });
+			const page = nav.visit().task(async () => `<h1>p${i}</h1>`);
 			// every third click is taken over by a newer one while its page is out
-			if (i % 3 === 0) fsm.go(nav, 'claimed', { href: `/p${i}b` });
+			if (i % 3 === 0) nav.go('claimed', { href: `/p${i}b` });
 			const [html] = await Promise.all([page, refresh]);
-			if (typeof html !== 'string' || fsm.epoch(nav) !== mine) {
-				fsm.go(nav, 'idle');
+			if (typeof html !== 'string' || nav.epoch !== mine) {
+				nav.go('idle');
 				continue;
 			}
-			fsm.go(nav, 'settling', { href: `/p${i}` });
-			fsm.go(nav, 'idle');
+			nav.go('settling', { href: `/p${i}` });
+			nav.go('idle');
 			arrived++;
 		}
 		return arrived;
@@ -300,48 +300,48 @@ bench(
 			const hole = create_hole();
 			const answer = create_answer();
 			const wake = create_wake();
-			fsm.go(hole, 'armed', { attempts: 0, denied: 0 });
-			life.defer(life.visit(hole), leave); // (a schedule's listener)
-			fsm.go(hole, 'fetching', { attempts: 0, denied: 0, revalidate: false });
+			hole.go('armed', { attempts: 0, denied: 0 });
+			hole.visit().defer(leave); // (a schedule's listener)
+			hole.go('fetching', { attempts: 0, denied: 0, revalidate: false });
 			if (i % 3 === 0) {
 				// its fetch failed: it waits, re-arms, and tries again
-				fsm.go(hole, 'retrying', { attempts: 1, denied: 0, revalidate: false });
-				fsm.go(hole, 'armed', { attempts: 1, denied: 0 });
-				fsm.go(hole, 'fetching', { attempts: 1, denied: 0, revalidate: false });
+				hole.go('retrying', { attempts: 1, denied: 0, revalidate: false });
+				hole.go('armed', { attempts: 1, denied: 0 });
+				hole.go('fetching', { attempts: 1, denied: 0, revalidate: false });
 			}
 			if (i % 7 === 0) {
-				fsm.go(hole, 'failed');
+				hole.go('failed');
 				continue;
 			}
-			fsm.go(hole, 'idle');
-			fsm.go(answer, i % 5 === 0 ? 'kept' : 'answered');
-			if (fsm.kind(answer) === 'kept') continue;
-			fsm.go(wake, 'armed');
-			life.defer(life.visit(wake), leave); // (the capture, handed on to `waking`)
-			fsm.go(wake, 'waking');
-			if (i % 11 === 0) fsm.go(wake, 'failed', { error: i });
-			else fsm.go(wake, 'awake');
-			fsm.go(wake, 'cold');
+			hole.go('idle');
+			answer.go(i % 5 === 0 ? 'kept' : 'answered');
+			if (answer.kind === 'kept') continue;
+			wake.go('armed');
+			wake.visit().defer(leave); // (the capture, handed on to `waking`)
+			wake.go('waking');
+			if (i % 11 === 0) wake.go('failed', { error: i });
+			else wake.go('awake');
+			wake.go('cold');
 		}
 		for (let i = 0; i < n / 4; i++) {
 			const live = create_live();
-			fsm.go(live, 'static', { bound: { address: 'a' } });
-			life.defer(life.visit(live), leave); // (its subscription)
-			fsm.go(live, 'hydrating', { module: 'a', pending: { props: null } });
-			fsm.go(live, 'live', { module: 'a', app });
-			life.defer(life.visit(live), () => app.dispose());
-			fsm.go(live, 'hydrating', { module: 'b', pending: { props: null } });
-			fsm.go(live, 'idle');
+			live.go('static', { bound: { address: 'a' } });
+			live.visit().defer(leave); // (its subscription)
+			live.go('hydrating', { module: 'a', pending: { props: null } });
+			live.go('live', { module: 'a', app });
+			live.visit().defer(() => app.dispose());
+			live.go('hydrating', { module: 'b', pending: { props: null } });
+			live.go('idle');
 		}
 		// frames that wait for their sheets: a newer one takes over the older one's visit
 		let painted = 0;
 		for (let i = 0; i < n / 4; i++) {
 			const paint = create_paint();
-			fsm.go(paint, 'painting');
-			const older = fsm.epoch(paint);
-			fsm.go(paint, 'painting');
-			if (fsm.epoch(paint) !== older) painted++;
-			fsm.go(paint, 'idle');
+			paint.go('painting');
+			const older = paint.epoch;
+			paint.go('painting');
+			if (paint.epoch !== older) painted++;
+			paint.go('idle');
 		}
 		return left + painted;
 	},
@@ -355,13 +355,13 @@ bench(
 		const leave = () => void left++;
 		for (let i = 0; i < n; i++) {
 			const region = create_region_life();
-			fsm.go(region, 'connected', new_lifetime());
-			life.defer(fsm.data(region).life, leave);
-			fsm.move(region, 'connected', 'scheduled', lifetime_of(fsm.data(region)));
-			fsm.move(region, 'scheduled', 'connected', lifetime_of(fsm.data(region)));
-			fsm.move(region, 'connected', 'scheduled', lifetime_of(fsm.data(region)));
-			life.close(fsm.data(region).life);
-			fsm.go(region, 'detached', detached());
+			region.go('connected', new_lifetime());
+			region.data.life.defer(leave);
+			region.move('connected', 'scheduled', lifetime_of(region.data));
+			region.move('scheduled', 'connected', lifetime_of(region.data));
+			region.move('connected', 'scheduled', lifetime_of(region.data));
+			region.data.life.close();
+			region.go('detached', detached());
 		}
 		return left;
 	},

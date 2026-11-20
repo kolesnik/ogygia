@@ -67,7 +67,7 @@ export class ConcurrencyGate {
 				slot.release();
 			});
 		} finally {
-			life.close(call);
+			call.close();
 		}
 	}
 
@@ -102,7 +102,7 @@ export class ConcurrencyGate {
 			const slots = this.#slots;
 			const free = slots.waiting === 0 && slots.holding < this.#limit;
 			slots.push(waiter, free ? undefined : deadline);
-			if (signal && !entered) life.listen(call, signal, 'abort', () => this.#slots.cancel(waiter));
+			if (signal && !entered) call.listen(signal, 'abort', () => this.#slots.cancel(waiter));
 		});
 	}
 }
@@ -116,14 +116,10 @@ export function is_run_timeout(error: unknown): boolean {
 
 function within<T>(call: Life, work: Promise<T>, ms: number, on_timeout: () => void): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
-		life.later(
-			call,
-			() => {
-				on_timeout();
-				reject(new Error(RUN_TIMEOUT));
-			},
-			timer_ms(ms)
-		);
+		call.later(() => {
+			on_timeout();
+			reject(new Error(RUN_TIMEOUT));
+		}, timer_ms(ms));
 		work.then(resolve, reject);
 	});
 }

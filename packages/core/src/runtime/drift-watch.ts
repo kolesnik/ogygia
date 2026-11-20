@@ -24,7 +24,7 @@ class SleepWatch {
 	watch(sleep: Life, region: Element): void {
 		if (this.#woken) this.take();
 		this.#asleep.set(region, (this.#asleep.get(region) ?? 0) + 1);
-		life.defer(sleep, () => this.#woke(region));
+		sleep.defer(() => this.#woke(region));
 		// oxlint-disable-next-line ogygia/owned-effects -- one observer for every sleeping region: each region's sleep owns its place in it, and the rebuild after the wakes observes only the regions left
 		(this.#observer ??= new MutationObserver((records) => this.note(records))).observe(
 			region,
@@ -82,7 +82,7 @@ const watcher = new SleepWatch();
  * repairs, only a changed region (`region_changed`).
  */
 export function watch_region(sleep: Life, region: Element): void {
-	if (!supported || life.closed(sleep)) return;
+	if (!supported || sleep.closed) return;
 	watcher.watch(sleep, region);
 }
 

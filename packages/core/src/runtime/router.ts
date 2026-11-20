@@ -258,13 +258,13 @@ export class RouterHistory {
 }
 
 function on_idle(page: Life, fn: () => void, cap = 1000) {
-	const once = life.child(page);
+	const once = page.child();
 	const run = () => {
-		life.close(once);
+		once.close();
 		fn();
 	};
-	life.later(once, run, 'idle');
-	life.later(once, run, cap);
+	once.later(run, 'idle');
+	once.later(run, cap);
 }
 
 type Nav = typeof import('./router-nav.ts');
@@ -295,7 +295,7 @@ export class SpaRouter {
 	/** href of the router's navigation in flight (claimed or loading; cleared once it applied,
 	 *  ended, or went to the browser: `hand_off`) */
 	get nav_target(): string | null {
-		const s = fsm.now(this.nav);
+		const s = this.nav.now;
 		return s.kind === 'claimed' || s.kind === 'loading' ? s.href : null;
 	}
 	/**
@@ -353,7 +353,7 @@ export class SpaRouter {
 	 * swapping left the URL on the old page and `/plain` in the DOM).
 	 */
 	supersede(): void {
-		if (fsm.kind(this.nav) !== 'idle') fsm.go(this.nav, 'idle');
+		if (this.nav.kind !== 'idle') this.nav.go('idle');
 	}
 
 	/**
@@ -379,8 +379,8 @@ export class SpaRouter {
 	 * page whole.
 	 */
 	hand_off(url: URL, visit: number, move: HistoryMove, error?: unknown): void {
-		if (fsm.epoch(this.nav) !== visit) return;
-		fsm.go(this.nav, 'idle');
+		if (this.nav.epoch !== visit) return;
+		this.nav.go('idle');
 		if (error !== undefined) report_thrown(error);
 		if (move === 'push' && location.href !== url.href) location.assign(url.href);
 		else location.replace(url.href);
@@ -432,13 +432,11 @@ export class SpaRouter {
 
 		if (!this.run_before(from, url, type)) return;
 
-		fsm.go(this.nav, 'claimed', { href: url.href });
-		const mine = fsm.epoch(this.nav);
+		this.nav.go('claimed', { href: url.href });
+		const mine = this.nav.epoch;
 		let n: Nav | null;
 		try {
-			n = $await(
-				life.task(life.visit(this.nav), () => nav().then((c) => (c === STALE ? null : c)))
-			);
+			n = $await(this.nav.visit().task(() => nav().then((c) => (c === STALE ? null : c))));
 		} catch {
 			return this.hand_off(url, mine, move);
 		}
@@ -708,10 +706,7 @@ export class SpaRouter {
 				const rank = this.#preload_rank(anchor);
 				if (rank === PRELOAD_RANK.eager) this.#warm_anchor(anchor);
 				else if (rank === PRELOAD_RANK.viewport)
-					life.defer(
-						page,
-						once_on_screen(anchor, '0px', () => this.#warm_anchor(anchor))
-					);
+					page.defer(once_on_screen(anchor, '0px', () => this.#warm_anchor(anchor)));
 			}
 		});
 	}

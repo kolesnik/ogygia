@@ -96,7 +96,7 @@ beforeEach(async () => {
 	vi.spyOn(r, 'hand_off').mockImplementation((url, _visit, move) => {
 		handed.push(url.pathname);
 		handed_moves.push(move);
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 });
 afterEach(() => {
@@ -126,7 +126,7 @@ function first_document(path: string, html: string): Element {
 	r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.pathname);
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	return el;
 }
@@ -555,12 +555,12 @@ test('a next-page sheet loaded at high priority for the wait goes live at the pr
 test('a navigation whose claim a newer one took fetches nothing', async () => {
 	const nav = await import('../../src/runtime/router-nav.ts');
 	pages['/rn-claimed'] = { body: '<p>next</p>' };
-	fsm.go(r.nav, 'claimed', { href: 'about:first' });
-	const first = fsm.epoch(r.nav);
-	fsm.go(r.nav, 'claimed', { href: 'about:second' });
+	r.nav.go('claimed', { href: 'about:first' });
+	const first = r.nav.epoch;
+	r.nav.go('claimed', { href: 'about:second' });
 	await nav.navigate(r, new URL('/rn-claimed', location.href), r.current_url, {}, first);
 	expect(fetched).toEqual([]);
-	fsm.go(r.nav, 'idle');
+	r.nav.go('idle');
 });
 
 test('a back step reads the live head as written for the page on screen, not the address the browser moved to', async () => {
@@ -629,10 +629,10 @@ it_with_network_routes(
 			void r.navigate(new URL('/rn-called-off', location.href));
 			await in_head(`link[href="${held}"]`);
 			expect(visits).toHaveLength(1);
-			expect(life.closed(visits[0])).toBe(false);
+			expect(visits[0].closed).toBe(false);
 			const newer = r.navigate(new URL('/rn-newer', location.href));
 			await expect.poll(() => fetched.includes('/rn-newer')).toBe(true);
-			expect(life.closed(visits[0])).toBe(true);
+			expect(visits[0].closed).toBe(true);
 			answer.open();
 			await newer;
 			await expect.poll(() => r.nav.now.kind).toBe('idle');

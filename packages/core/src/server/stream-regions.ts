@@ -60,29 +60,29 @@ export function batch_stream(
 	const encoder = new TextEncoder();
 	const batch = fsm.create(batch_def);
 	owner?.defer(() => {
-		fsm.move(batch, 'streaming', 'cancelled');
+		batch.move('streaming', 'cancelled');
 	});
 	return new ReadableStream<Uint8Array>({
 		async start(controller) {
-			const streaming = fsm.epoch(batch);
+			const streaming = batch.epoch;
 			$await(
-				fsm.task(fsm.visit(batch), (signal) =>
+				batch.visit().task((signal) =>
 					Promise.all(
 						calls.map(async (endpoint) => {
 							// oxlint-disable-next-line ogygia/no-silent-failures -- the render says its own failure; the hole keeps its fallback and fetches itself
 							const out = await render(endpoint, signal).catch(() => null);
-							if (out && fsm.epoch(batch) === streaming)
+							if (out && batch.epoch === streaming)
 								controller.enqueue(encoder.encode(build_parcel(out.slot, out.html)));
 						})
 					)
 				)
 			);
-			if (!fsm.move(batch, 'streaming', 'ended')) return;
+			if (!batch.move('streaming', 'ended')) return;
 			controller.enqueue(encoder.encode(done_parcel()));
 			controller.close();
 		},
 		cancel() {
-			fsm.move(batch, 'streaming', 'cancelled');
+			batch.move('streaming', 'cancelled');
 		}
 	});
 }

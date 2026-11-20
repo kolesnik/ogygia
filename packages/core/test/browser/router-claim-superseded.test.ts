@@ -33,7 +33,7 @@ beforeEach(async () => {
 	r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.pathname);
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 });
 

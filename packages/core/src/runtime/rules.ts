@@ -178,7 +178,7 @@ function no_old_page_open(): string | null {
 	const now = R.visits.find((v) => v.visit === current);
 	if (now === undefined) return null;
 	for (let i = R.visits.length - 1; i >= 0; i--)
-		if (life.closed(R.visits[i].visit.scope)) R.visits.splice(i, 1);
+		if (R.visits[i].visit.scope.closed) R.visits.splice(i, 1);
 	const open = R.visits.filter((v) => v.n < now.n).length;
 	return open === 0 ? null : `${open} page visit(s) before the one on screen still open`;
 }
@@ -196,7 +196,7 @@ export const watch_router: (router: RouterView) => void = $rules(function watch_
 	router: RouterView
 ): void {
 	runtime_rules.add('rule_address_bar_drift', () => {
-		if (life.kind(router.nav) !== 'idle') return null;
+		if (router.nav.kind !== 'idle') return null;
 		const id = (history.state as { ogygia?: unknown } | null)?.ogygia;
 		// (an entry the router has not met yet: the browser's own fragment jump, the app's pushState)
 		if (typeof id !== 'string') return null;

@@ -42,7 +42,7 @@ test('devalue that fails to load ends the navigation and gives the address to th
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
 		// (what the browser's navigation would end: the router's visit)
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	const to = new URL('/nav-devalue-fails-next', location.href);
 	await r.navigate(to).catch(() => {});

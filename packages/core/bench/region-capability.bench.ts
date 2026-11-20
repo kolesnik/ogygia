@@ -51,12 +51,12 @@ bench(
 		let sent = 0;
 		for (let i = 0; i < n; i++) {
 			const r = fsm.create(region_request);
-			fsm.go(r, 'prechecked');
-			fsm.go(r, 'probed');
-			fsm.go(r, 'verified');
-			fsm.go(r, 'charged');
-			fsm.go(r, 'rendering');
-			if (fsm.go(r, 'sent')) sent++;
+			r.go('prechecked');
+			r.go('probed');
+			r.go('verified');
+			r.go('charged');
+			r.go('rendering');
+			if (r.go('sent')) sent++;
 		}
 		return sent;
 	},

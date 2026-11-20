@@ -58,7 +58,7 @@ test("the next page's own sheets land after the app's global <style>, as on a fr
 	const handed: string[] = [];
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
-		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
+		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
 	});
 	for (const path of ['/nav-order-a', '/nav-order-b']) {
 		await r.navigate(new URL(path, location.href));

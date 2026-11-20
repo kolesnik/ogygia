@@ -38,8 +38,8 @@ export const set_hydrating: (el: Element, owner: Life) => void = $dev(function s
 	const clear = () => {
 		if (hydrating === el) hydrating = null;
 	};
-	life.later(owner, clear, 0);
-	life.defer(owner, clear);
+	owner.later(clear, 0);
+	owner.defer(clear);
 });
 
 export function svelte_warnings(): SvelteWarning[] {

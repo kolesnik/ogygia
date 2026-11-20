@@ -70,8 +70,8 @@ describe('a region request, as a machine', () => {
 
 	it('render before verify is an illegal move', () => {
 		const r = fsm.create(region_request);
-		fsm.go(r, 'prechecked');
-		fsm.go(r, 'probed');
+		r.go('prechecked');
+		r.go('probed');
 		const go = fsm.go as (m: typeof r, to: string) => boolean;
 		expect(() => go(r, 'rendering')).toThrow(/machine_illegal_move/);
 		expect(() => go(r, 'charged')).toThrow(/machine_illegal_move/);

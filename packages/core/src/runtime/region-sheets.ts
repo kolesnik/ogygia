@@ -47,10 +47,10 @@ export function sheet_of(link: HTMLLinkElement): RegionSheet {
 	if (known !== undefined) return known;
 	const s = fsm.create(sheet_definition);
 	sheets.set(link, s);
-	const visit = life.visit(s);
-	life.listen(visit, link, 'load', () => fsm.go(s, 'loaded'));
-	life.listen(visit, link, 'error', () => fsm.go(s, 'failed'));
-	if (link.sheet !== null) fsm.go(s, 'loaded');
+	const visit = s.visit();
+	visit.listen(link, 'load', () => s.go('loaded'));
+	visit.listen(link, 'error', () => s.go('failed'));
+	if (link.sheet !== null) s.go('loaded');
 	return s;
 }
 
