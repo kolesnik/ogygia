@@ -130,6 +130,22 @@ const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks }> = [
 	}
 ];
 
+type FeatureId = ReturnType<typeof resolveFeatures>[number];
+
+/**
+ * The runtime's optional programs, each by the modules only it brings (a module's id as `modules`
+ * names it). `feature`: the feature (the compiler's `FEATURES`) whose install brings the program
+ * into the boot, so a profile's boot holds its modules exactly when its marks select that feature.
+ * `null`: a program no boot holds (it lives in a lazy chunk, loaded on use), whatever the marks.
+ * THE LEAK GATE: a program in a boot whose marks do not select it is a feature that page pays for
+ * and never runs; one missing from a boot that selects it would leave the server's markup with
+ * nothing to revive it. Both fail the run, in every mode.
+ */
+const PROGRAMS: ReadonlyArray<{ name: string; feature: FeatureId | null; modules: string[] }> = [
+	// the router's navigation and the soft refresh (lazy router-nav chunk): `stage`
+	{ name: 'navigation', feature: null, modules: ['packages/machine/src/stage.ts'] }
+];
+
 type Size = { raw: number; brotli: number };
 type Row = {
 	name: string;
@@ -140,6 +156,8 @@ type Row = {
 	lazy: Array<{ name: string } & Size>;
 	/** The boot's modules, by minified length. */
 	modules: Record<string, number>;
+	/** The lazy chunks' modules. */
+	lazy_modules: string[];
 };
 type Snapshot = Record<string, { boot: Size; total: Size }>;
 
@@ -151,7 +169,7 @@ const size = (code: string): Size => {
 async function measure(
 	marks: RuntimeMarks,
 	extras: boolean
-): Promise<Pick<Row, 'boot' | 'total' | 'lazy' | 'modules'>> {
+): Promise<Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'>> {
 	const { code } = generateRuntimeEntrySource(marks, RUNTIME_DIR);
 	const dir = mkdtempSync(join(tmpdir(), 'ogygia-size-'));
 	const entry = join(dir, 'entry.mjs');
@@ -225,11 +243,13 @@ async function measure(
 		.map((c) => ({ name: c.name, ...size(c.code) }));
 	// each module of the boot, by its minified length (`--modules`): what to look at first
 	const modules: Record<string, number> = {};
+	const lazy_modules: string[] = [];
 	for (const c of chunks)
-		if (boot_set.has(c.fileName))
-			for (const [id, m] of Object.entries(c.modules))
-				if (m.renderedLength > 0) modules[module_name(id)] = m.renderedLength;
-	return { boot, total, lazy, modules };
+		for (const [id, m] of Object.entries(c.modules))
+			if (m.renderedLength === 0) continue;
+			else if (boot_set.has(c.fileName)) modules[module_name(id)] = m.renderedLength;
+			else lazy_modules.push(module_name(id));
+	return { boot, total, lazy, modules, lazy_modules };
 }
 
 /** A module's id, short: its path from the repo's packages (or its package in node_modules). */
@@ -244,6 +264,28 @@ const rows: Row[] = [];
 for (const p of PROFILES) {
 	const m = await measure(p.marks, p.name === 'Everything');
 	rows.push({ name: p.name, blurb: p.blurb, features: resolveFeatures(p.marks), ...m });
+}
+
+// The leak gate (PROGRAMS), on this checkout's runtime; another checkout's (`--core`, the base
+// branch CI measures) is only measured.
+if (!arg('--core')) {
+	const leaks: string[] = [];
+	for (const r of rows)
+		for (const p of PROGRAMS) {
+			const held = p.feature !== null && r.features.includes(p.feature);
+			for (const mod of p.modules) {
+				if (held && !(mod in r.modules))
+					leaks.push(`${r.name}: selects ${p.feature}, but its boot lacks ${mod} (${p.name})`);
+				else if (!held && mod in r.modules)
+					leaks.push(`${r.name}: its boot holds ${mod} (${p.name}), which its marks never run`);
+				else if (p.feature === null && !r.lazy_modules.includes(mod))
+					leaks.push(`${r.name}: no lazy chunk holds ${mod} (${p.name})`);
+			}
+		}
+	if (leaks.length) {
+		console.error(`✗ bundle-size: a program in the wrong boot:\n  ${leaks.join('\n  ')}`);
+		process.exit(1);
+	}
 }
 
 if (update) {
