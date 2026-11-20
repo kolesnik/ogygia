@@ -3,7 +3,7 @@
 		"id": "hole-fetch-once-negated",
 		"file": "packages/core/src/runtime/core.ts",
 		"in": "OgygiaRegion > fetch_html",
-		"code": "if (!revalidate && this.#answer.now.kind !== 'none') return;",
+		"code": "if (!revalidate && this.#answer.kind !== 'none') return;",
 		"operator": "equality",
 		"from": "!== 'none'",
 		"to": "=== 'none'"
@@ -75,9 +75,9 @@
 		"id": "idle-fallback-never-fires",
 		"file": "packages/core/src/runtime/core.ts",
 		"in": "OgygiaRegion > on_idle",
-		"code": "s.timeout(() => fire(), 200);",
+		"code": "s.later(() => fire(), 200);",
 		"operator": "statement",
-		"from": "s.timeout(() => fire(), 200);",
+		"from": "s.later(() => fire(), 200);",
 		"to": ""
 	},
 	{
@@ -93,10 +93,10 @@
 		"id": "head-page-copy-kept",
 		"file": "packages/core/src/runtime/hydrate-core.ts",
 		"in": "hydrate_island",
-		"code": "head_mark = kit_hydrates_page() ? null : boot_link().runtime_session.mark_head();",
+		"code": "KIT_PAGES && kit_hydrates_page() ? null : boot_link()[L_RUNTIME_SESSION].mark_head();",
 		"operator": "statement",
-		"from": "head_mark = kit_hydrates_page() ? null : boot_link().runtime_session.mark_head();",
-		"to": ""
+		"from": "boot_link()[L_RUNTIME_SESSION].mark_head()",
+		"to": "null"
 	},
 	{
 		"id": "paint-gate-loading-passes",
@@ -409,7 +409,7 @@
 		"id": "prefetch-while-fetching",
 		"file": "packages/core/src/runtime/core.ts",
 		"in": "OgygiaRegion > prefetch_html",
-		"code": "if (this.#answer.now.kind !== 'none' || this.#hole.now.kind === 'fetching' || !this.isConnected)",
+		"code": "if (this.#answer.kind !== 'none' || this.#hole.kind === 'fetching' || !this.isConnected) return;",
 		"operator": "logical",
 		"from": "' || !",
 		"to": "' && !",
@@ -419,17 +419,17 @@
 		"id": "media-listener-kept",
 		"file": "packages/core/src/runtime/core.ts",
 		"in": "OgygiaRegion > on_media",
-		"code": "off();",
+		"code": "once.close();",
 		"operator": "statement",
-		"from": "off();",
+		"from": "once.close();",
 		"to": "",
 		"equivalent": "the listener belongs to the armed state's scope, which the first fire's wake leaves, dropping it; a second change before that starts a background task that sees the armed scope closed and fires nothing"
 	},
 	{
 		"id": "live-held-equal-ticket",
-		"file": "packages/core/src/runtime/core.ts",
-		"in": "OgygiaRegion > apply_live",
-		"code": "held && held.v > (this.#live_painted?.v ?? 0) ? held : this.#live_painted,",
+		"file": "packages/core/src/runtime/live-program.ts",
+		"in": "apply_live",
+		"code": "st.painted = link.stands_at(held && held.v > (st.painted?.v ?? 0) ? held : st.painted, mine);",
 		"operator": "relational",
 		"from": "> ",
 		"to": ">= ",
@@ -886,28 +886,28 @@
 		"id": "core-apply-note-shown",
 		"file": "packages/core/src/runtime/core.ts",
 		"in": "OgygiaRegion > apply",
-		"code": "if (RULES && v !== undefined) note_shown(this, v);",
+		"code": "if (v !== undefined) note_shown(this, v);",
 		"nth": 1,
 		"operator": "statement",
-		"from": "if (RULES && v !== undefined) note_shown(this, v);",
+		"from": "if (v !== undefined) note_shown(this, v);",
 		"to": ""
 	},
 	{
 		"id": "core-apply-live-sheets",
-		"file": "packages/core/src/runtime/core.ts",
-		"in": "OgygiaRegion > apply_live",
-		"code": "use_sheets(this, sheets);",
+		"file": "packages/core/src/runtime/live-program.ts",
+		"in": "apply_live",
+		"code": "link.use_sheets(el, sheets);",
 		"operator": "statement",
-		"from": "use_sheets(this, sheets);",
+		"from": "link.use_sheets(el, sheets);",
 		"to": ""
 	},
 	{
 		"id": "core-apply-live-settle",
-		"file": "packages/core/src/runtime/core.ts",
-		"in": "OgygiaRegion > apply_live",
-		"code": "slots.lakes.settle_in(frag);",
+		"file": "packages/core/src/runtime/live-program.ts",
+		"in": "apply_live",
+		"code": "link.settle_in(frag);",
 		"operator": "statement",
-		"from": "slots.lakes.settle_in(frag);",
+		"from": "link.settle_in(frag);",
 		"to": ""
 	}
 ]
