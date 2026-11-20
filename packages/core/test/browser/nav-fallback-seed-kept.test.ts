@@ -2,7 +2,6 @@
 // objects the NEXT page's seed revived. The seed is read before the swap; releasing the page's ids
 // after it must not take the incoming page's with the leaving page's.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';

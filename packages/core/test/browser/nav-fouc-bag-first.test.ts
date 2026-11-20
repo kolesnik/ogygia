@@ -5,7 +5,6 @@
 // merge took it out and then put the new bag above a node no longer in the head, which threw
 // inside the swap, so the navigation went to the browser as a full load.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';

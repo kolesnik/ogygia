@@ -1,6 +1,5 @@
 import type { Run } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
-import * as life from '@ogygia/machine/internal';
 import { connected_regions } from './connected.ts';
 import { head_owners } from '../head-owners.ts';
 import { OG_FP, OG_OWNER, OGYGIA_REGION_CSS } from '../wire-markup.ts';

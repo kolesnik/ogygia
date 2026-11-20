@@ -135,7 +135,7 @@ const load_replay = flights({
 	retry: download
 });
 function replay(): Promise<Replay | Stale> {
-	slots.interaction_link ??= { resolve_address, later: fsm.later };
+	slots.interaction_link ??= { resolve_address };
 	return load_replay.get();
 }
 

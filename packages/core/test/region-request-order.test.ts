@@ -72,9 +72,9 @@ describe('a region request, as a machine', () => {
 		const r = fsm.create(region_request);
 		r.go('prechecked');
 		r.go('probed');
-		const go = fsm.go as (m: typeof r, to: string) => boolean;
-		expect(() => go(r, 'rendering')).toThrow(/machine_illegal_move/);
-		expect(() => go(r, 'charged')).toThrow(/machine_illegal_move/);
+		const loose = r as unknown as { go(to: string): boolean };
+		expect(() => loose.go('rendering')).toThrow(/machine_illegal_move/);
+		expect(() => loose.go('charged')).toThrow(/machine_illegal_move/);
 	});
 
 	it('a GET walks every step in order', async () => {

@@ -2,7 +2,6 @@
 // swap starts it over, and a navigation's next visit holds nothing of the page on screen. The lakes
 // feature keeps its own part per visit (src/runtime/lakes.ts `LakeState`), on the same rule.
 import { expect, test } from 'vitest';
-import * as life from '@ogygia/machine/internal';
 import { RuntimeSession } from '../src/runtime/session.ts';
 import { LakeState } from '../src/runtime/lakes.ts';
 

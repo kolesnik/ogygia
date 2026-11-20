@@ -223,9 +223,9 @@ export class Life {
 		arm(this, fn as (a?: A) => void, when, a);
 	}
 
-	/** `later`, with the function that cancels it sooner (see `Scope.timeout`). */
-	timeout(fn: () => void, when: When): () => void {
-		return early(this, arm(this, fn, when));
+	/** Closes it after `when`, unless it closes first: a cap on how long it may stay open. */
+	close_after(when: When): void {
+		arm(this, shut, when, this);
 	}
 
 	/** Runs `fn` every `ms` until it closes, with the function that stops sooner (see
@@ -257,23 +257,6 @@ export class Life {
 		if (this._epoch < 0) observer.disconnect();
 		else put_cleanup(this, disconnect, observer, null, null);
 		return observer;
-	}
-
-	/** Disposes `disposable` when it closes (see `Scope.adopt`). Returns it. */
-	adopt<D extends Disposable | AsyncDisposable>(disposable: D): D {
-		const d = disposable as Partial<Disposable & AsyncDisposable>;
-		const open = this._epoch >= 0;
-		if (typeof d[DISPOSE] === 'function') {
-			if (open) put_cleanup(this, dispose, d, null, null);
-			else dispose(d as Disposable);
-		} else if (typeof d[ASYNC_DISPOSE] === 'function') {
-			if (open) put_cleanup(this, dispose_later, this, d, null);
-			else if (this._closing) dispose_later(this, d as AsyncDisposable);
-			// closed already (late work): its close has looked at its disposals, so this one is said
-			// here. One adopted by a cleanup of its own close still goes with the close's own.
-			else said(this, Promise.resolve((d as AsyncDisposable)[ASYNC_DISPOSE]()));
-		} else throw machine_error('machine_not_disposable', { value: typeof disposable });
-		return disposable;
 	}
 
 	/** Runs `work` for it (see `Scope.task`): `STALE` once it closes. */
@@ -385,6 +368,10 @@ function free(k: unknown, a: unknown, b: unknown, c: unknown): void {
 	else if (k === CALL) (a as () => void)();
 	else if (k === EMITTED) (a as Emitter).off(b as string, c as never);
 	else (a as EventTarget).removeEventListener(b as string, c as EventListener, k as object);
+}
+
+function shut(l?: Life): void {
+	(l as Life).close();
 }
 
 function disconnect(observer: Watcher): void {
@@ -554,6 +541,28 @@ class Scoped extends Life implements Scope {
 		options?: boolean | AddEventListenerOptions
 	): () => void {
 		return early(this, hear(this, target, type, listener, options));
+	}
+
+	/** `later`, with the function that cancels it sooner. */
+	timeout(fn: () => void, when: When): () => void {
+		return early(this, arm(this, fn, when));
+	}
+
+	/** Disposes `disposable` when it closes. Returns it. */
+	adopt<D extends Disposable | AsyncDisposable>(disposable: D): D {
+		const d = disposable as Partial<Disposable & AsyncDisposable>;
+		const open = this._epoch >= 0;
+		if (typeof d[DISPOSE] === 'function') {
+			if (open) put_cleanup(this, dispose, d, null, null);
+			else dispose(d as Disposable);
+		} else if (typeof d[ASYNC_DISPOSE] === 'function') {
+			if (open) put_cleanup(this, dispose_later, this, d, null);
+			else if (this._closing) dispose_later(this, d as AsyncDisposable);
+			// closed already (late work): its close has looked at its disposals, so this one is said
+			// here. One adopted by a cleanup of its own close still goes with the close's own.
+			else said(this, Promise.resolve((d as AsyncDisposable)[ASYNC_DISPOSE]()));
+		} else throw machine_error('machine_not_disposable', { value: typeof disposable });
+		return disposable;
 	}
 
 	child(): Scoped {

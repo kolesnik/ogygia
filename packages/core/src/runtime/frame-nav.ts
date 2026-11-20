@@ -1,5 +1,4 @@
 import { buggify, cache, clock, net, STALE, tasks, type MachineGraph } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
 import { frameAddress } from '../frame.ts';

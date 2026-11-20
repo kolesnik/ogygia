@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { machine, scope, STALE } from '../src/index.ts';
-import { held, life_of } from '../src/internal.ts';
+import { held, Life, life_of } from '../src/internal.ts';
 import { macrotask } from './_tick.ts';
 import { ASYNC_DISPOSE, DISPOSE } from './_dispose.ts';
 
@@ -764,5 +764,28 @@ describe('a machine visit is a scope', () => {
 		m.go('open');
 		m.go('shut');
 		expect((m as unknown as { _life: unknown })._life).toBeNull();
+	});
+});
+
+describe('a life that closes itself after a time (close_after)', () => {
+	it('closes once the time is up, running its cleanups', async () => {
+		const l = new Life();
+		const ran = vi.fn();
+		l.defer(ran);
+		l.close_after(5);
+		expect(l.closed).toBe(false);
+		await wait(20);
+		expect(l.closed).toBe(true);
+		expect(ran).toHaveBeenCalledOnce();
+	});
+
+	it('holds no timer once it closed sooner', async () => {
+		const l = new Life();
+		l.close_after(5);
+		expect(held(l)).toBe(1);
+		l.close();
+		expect(held(l)).toBe(0);
+		await wait(20);
+		expect(l.closed).toBe(true);
 	});
 });

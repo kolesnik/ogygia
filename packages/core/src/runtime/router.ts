@@ -1,6 +1,4 @@
 import { flights, random, STALE, type Stale } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import { fragment_is_top, fragment_target } from './fragment.ts';
 import { import_again } from './import-again.ts';

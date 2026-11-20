@@ -223,7 +223,6 @@ export type RouterLink = {
 };
 export type InteractionLink = {
 	resolve_address: typeof import('./interaction.ts').resolve_address;
-	later: typeof import('@ogygia/machine/internal').later;
 };
 
 export type Slots = {

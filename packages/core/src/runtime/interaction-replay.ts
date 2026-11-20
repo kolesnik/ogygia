@@ -66,7 +66,7 @@ export function replay_clicks(region: Element, queued: QueuedClick[], owner: Lif
 		}
 		queued.length = 0;
 	};
-	interaction_link().later(owner, replay, 'frame');
+	owner.later(replay, 'frame');
 }
 
 /** The island is live: put back what the visitor did while it was waking, at each element's

@@ -9,7 +9,6 @@ import {
 	type MachineGraph,
 	type Stale
 } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
 

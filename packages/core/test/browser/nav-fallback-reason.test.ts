@@ -2,7 +2,6 @@
 // words of the reason that held: an author's opt-out is an opt-out, not a shadow region.
 // (devtools on for this file: the gate is read off the global at first import)
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
 import { history_room } from './_history-budget.ts';
 
 (globalThis as unknown as { __OGYGIA_DEVTOOLS__: boolean }).__OGYGIA_DEVTOOLS__ = true;

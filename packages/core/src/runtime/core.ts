@@ -11,8 +11,6 @@ import {
 	type Stale,
 	type Turn
 } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
 import type { Life, Run } from '@ogygia/machine/internal';
 import { frameAddress, older_by, stands_at, type FrameOrder } from '../frame.ts';
 import { on_trigger, WAKE } from '../contract/trigger.ts';
@@ -318,7 +316,7 @@ async function snippets_settled(region: Element, visit: Life): Promise<void> {
 	const host = region as Element & { [SNIPPET_BOOTS]?: Promise<unknown>[] };
 	const wait = visit.child();
 	const cap = new Promise<void>((r) => wait.defer(r));
-	wait.later(life.close, SNIPPET_BOOT_CAP_MS, wait);
+	wait.close_after(SNIPPET_BOOT_CAP_MS);
 	try {
 		for (
 			let batch = host[SNIPPET_BOOTS];

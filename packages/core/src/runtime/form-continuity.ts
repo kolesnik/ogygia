@@ -1,6 +1,5 @@
 import { cache } from '@ogygia/machine';
 import * as fsm from '@ogygia/machine/internal';
-import * as life from '@ogygia/machine/internal';
 import { element_address, resolve_address } from './interaction.ts';
 import { slots } from './slots.ts';
 import { OGYGIA_NO_KEEP } from '../wire-markup.ts';

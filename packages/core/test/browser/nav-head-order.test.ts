@@ -4,7 +4,6 @@
 // router put every <style> and stylesheet <link> the next page carries at the TOP of <head>, above
 // the app's globals, so the same page looked different reached by a click than by a load.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';

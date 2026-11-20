@@ -3,7 +3,6 @@
 // `/dashboard/orders`, one file. A client navigation between the two must see one file, so the head
 // keeps one node for it, as a fresh load of the next page has.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';

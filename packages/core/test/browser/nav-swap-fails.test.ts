@@ -7,7 +7,6 @@
 // The view transition is the browser's own (Chromium has `startViewTransition`); the browser's
 // navigation is the router's `hand_off`, heard here instead of leaving the test page.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';

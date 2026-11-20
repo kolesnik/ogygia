@@ -1,7 +1,5 @@
 import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
 import { buggify, clock, net, stage } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
 import type { PageGlobals } from '../page-globals.ts';
 import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
 import {
@@ -822,10 +820,10 @@ export function hold_scroll(to: { x: number; y: number }, visit: Life): void {
 	const anchoring = html.style.overflowAnchor;
 	html.style.overflowAnchor = 'none';
 	hold.defer(() => (html.style.overflowAnchor = anchoring));
-	hold.later(life.close, SCROLL_HOLD_MS, hold);
+	hold.close_after(SCROLL_HOLD_MS);
 	const above = new Set(islands_above(to.y));
 	const settled = () => {
-		if (above.size === 0) hold.later(() => hold.later(life.close, 0, hold), 'frame');
+		if (above.size === 0) hold.later(() => hold.close_after(0), 'frame');
 	};
 	hold.listen(document, 'ogygia:hydrated', (event: Event) => {
 		if (above.delete(event.target as Element)) settled();

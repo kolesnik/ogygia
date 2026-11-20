@@ -18,7 +18,6 @@ import type { CapabilityOpened, PluginCapabilities } from './index.ts';
 import { expiry_refusal } from '../server/shared-cache.ts';
 import type { CapabilityLifetime } from '../server/capability-lifetime.ts';
 import { create_region_request } from '../server/region-request.ts';
-import * as fsm from '@ogygia/machine/internal';
 import { OgygiaError } from '../messages/server.ts';
 
 /** Why a plugin capability is refused (the region endpoint's reasons of the same name).

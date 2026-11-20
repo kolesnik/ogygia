@@ -88,7 +88,6 @@ import {
 import { expiry_refusal, note_cache_control } from './server/shared-cache.ts';
 import { app_lifetime, server_delta_on } from './server/region-endpoint.ts';
 import { create_region_request, type RegionRequest } from './server/region-request.ts';
-import * as fsm from '@ogygia/machine/internal';
 import { render_cache_key, cached_render, type RenderKey } from './server/render-cache.ts';
 import { render as render_policy } from './policies.ts';
 import { install_server_rules, note_region_answer } from './server/rules.ts';

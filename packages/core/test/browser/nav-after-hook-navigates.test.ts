@@ -3,7 +3,6 @@
 // must not end the second's visit when it finishes settling; the second lands, and the router
 // ends idle on its address.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
 import { observe } from '@ogygia/machine';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';

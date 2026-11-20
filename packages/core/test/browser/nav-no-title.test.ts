@@ -2,7 +2,6 @@
 // simulator (seed 4): the router set `document.title = doc.title`, and setting `document.title`
 // makes a <title> when the document has none, so the page gained an empty one.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';

@@ -37,8 +37,6 @@ import {
 import * as frames from '../src/runtime/frame-store.ts';
 import { vouch_page_html as html } from '../src/runtime/html-sink.ts';
 import { mailbox, scope, STALE } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
 import type { IslandHandle } from '../src/runtime/hydrate-core.ts';
 import { block, header } from './fixtures.ts';
 import { stamp_region_keys } from '../src/runtime/reconcile.ts';

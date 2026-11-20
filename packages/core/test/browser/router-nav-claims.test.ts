@@ -2,8 +2,6 @@
 // keeps and adds, the focus and announcer it leaves, the view transition, the sheets it waits for,
 // and every page it hands to the browser instead.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
-import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import { commands } from 'vitest/browser';
 import { it_with_network_routes } from './_browsers.ts';

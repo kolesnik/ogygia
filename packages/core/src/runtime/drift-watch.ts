@@ -1,4 +1,3 @@
-import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import { walk_enters } from './ownership.ts';
 
