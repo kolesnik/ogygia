@@ -552,7 +552,7 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#connect(turn: Turn): Promise<void> | undefined {
-		if (this.hasAttribute('live')) return this.#live_put_back(turn);
+		if (this.hasAttribute('live')) return HAS & F_FRAMES ? this.#live_put_back(turn) : undefined;
 		if (HAS & F_FRAMES && this.#minted_endpoint === null && is_deferred(this)) {
 			const minted = this.getAttribute('endpoint');
 			if (minted) this.#minted_endpoint = minted;
@@ -627,7 +627,7 @@ class OgygiaRegion extends HTMLElement {
 		if (!deferred && slots.lakes.wait_for_boundary(this, boundary)) return;
 		this.#region.move('connected', 'scheduled', lifetime_of(this.#region.now));
 		// A hole that had its answer, put back on the page: its schedule is spent (#336)
-		if (deferred && this.#answer.now.kind !== 'none') {
+		if (HAS & F_FRAMES && deferred && this.#answer.now.kind !== 'none') {
 			this.#put_back();
 			return;
 		}
@@ -649,7 +649,7 @@ class OgygiaRegion extends HTMLElement {
 			this.#arm(when, this.#fire_hydrate);
 			return;
 		}
-		if (!this.#hole_armed()) return;
+		if (!(HAS & F_FRAMES) || !this.#hole_armed()) return;
 		this.#arm(when, this.#fire_server);
 		const prefetch = this.getAttribute('prefetch');
 		if (prefetch && prefetch !== when && prefetch !== 'interaction') {
@@ -812,7 +812,7 @@ class OgygiaRegion extends HTMLElement {
 				load: start,
 				media: (query) => this.#on_media(query, start, owner),
 				interaction: (f) => {
-					if (owner === this.#hole) {
+					if (HAS & F_FRAMES && owner === this.#hole) {
 						arm_on_demand(
 							this,
 							() => {
@@ -906,6 +906,7 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#bind(endpoint: string): boolean {
+		if (!(HAS & F_FRAMES)) return false;
 		const address = frameAddress(endpoint);
 		if (this.#bound() && this.#frame_address === address) return false;
 		if (this.#hole.now.kind === 'fetching') this.#hole.go('idle');
