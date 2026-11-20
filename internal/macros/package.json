@@ -1,0 +1,26 @@
+{
+	"name": "ogygia-internal-macros",
+	"version": "0.0.0",
+	"private": true,
+	"description": "ogygia's own build-time macros ($dev, $await, …), on the vendored compilerkit: compiled by ogygia's own builds (core's tsdown, Vitest, Heisenbench) into plain JS, never shipped, never seen by an app.",
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./compile": "./src/compile.ts",
+		"./gates": "./src/gates.ts",
+		"./plugin": "./src/plugin.ts",
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"check": "tsc -p . && vitest run",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"ogygia-internal-compilerkit": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"typescript": "catalog:tsgo",
+		"vitest": "catalog:"
+	}
+}
