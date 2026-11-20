@@ -21,6 +21,12 @@ describe('coverage', () => {
 		expect(all_steps(u).has(step_key('import-again', 'failed', 'stuck'))).toBe(true);
 	});
 
+	it('reads a flights the boot link hands by number (`boot_link()[L_FLIGHTS].keyed()`)', () => {
+		const u = universe(ROOT);
+		expect(u.get('router pages')?.pkg).toBe('core');
+		expect(u.get('router pages')?.steps.flying).toContain('gone');
+	});
+
 	it("gives a flights only the entry steps its options and its file's calls can take", () => {
 		const u = universe(ROOT);
 		// (no caller asks it `fresh`: a flight is never replaced, a kept answer never run again)
