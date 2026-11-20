@@ -1,15 +1,9 @@
-import {
-	machine,
-	mailbox,
-	scope,
-	type Mailbox,
-	type Machine,
-	type MachineGraph,
-	type Scope
-} from '@ogygia/machine';
+import { machine, mailbox, type Mailbox, type Machine, type MachineGraph } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import type { IslandHandle } from './hydrate-core.ts';
 
-type Lifetime = { life: Scope; box: Mailbox };
+type Lifetime = { life: Life; box: Mailbox };
 
 type RegionStates = {
 	detached: Lifetime;
@@ -29,9 +23,7 @@ const region_definition = machine<RegionStates>()({
 	steps: region_steps
 });
 
-const NOT_CONNECTED = scope();
-NOT_CONNECTED.close();
-const DETACHED: Lifetime = { life: NOT_CONNECTED, box: mailbox(NOT_CONNECTED) };
+const DETACHED: Lifetime = { life: life.ENDED, box: mailbox(life.ENDED) };
 
 /**
  * A region element's lifetime in the page (core.ts). `detached`: before its first connect, and
@@ -54,8 +46,8 @@ export function create_region_life(): RegionLife {
 
 /** A new lifetime in the page: its scope and its mailbox. */
 export function new_lifetime(): Lifetime {
-	const life = scope();
-	return { life, box: mailbox(life) };
+	const l = life.root();
+	return { life: l, box: mailbox(l) };
 }
 
 /** The lifetime ended: what `detached` holds. */

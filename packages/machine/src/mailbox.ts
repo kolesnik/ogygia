@@ -1,5 +1,5 @@
 import { report_thrown } from './messages.ts';
-import type { Scope } from './scope.ts';
+import { closed, defer, life_of, type Life, type Scope } from './scope.ts';
 import { STALE, whole, type Fresh, type Stale } from './stale.ts';
 
 /** The handler's side of its turn. */
@@ -247,9 +247,10 @@ const CLOSED_BOX: Mailbox = /* @__PURE__ */ (() => {
  *   listener's throw is, and the box goes on. One posted (not asked) that rejects later is an
  *   unhandled rejection, as a direct call's would be.
  */
-export function mailbox(owner: Scope): Mailbox {
-	if (owner.closed) return CLOSED_BOX;
+export function mailbox(owner: Scope | Life): Mailbox {
+	const o = life_of(owner);
+	if (closed(o)) return CLOSED_BOX;
 	const box = new Box();
-	owner.defer(() => box._close());
+	defer(o, () => box._close());
 	return box;
 }

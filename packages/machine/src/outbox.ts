@@ -1,6 +1,6 @@
 import { flights, type Flights } from './flights.ts';
 import { mailbox, type Mailbox } from './mailbox.ts';
-import { scope } from './scope.ts';
+import { root } from './scope.ts';
 import { machine_error, report } from './messages.ts';
 import { policy, under_policy, type Policy } from './policy.ts';
 import { buggify } from './ports.ts';
@@ -72,7 +72,7 @@ class Box<T> implements Outbox<T> {
 		this._retry = o.retry ?? policy.standard;
 		this._give_up = o.giveUp;
 		this._wait_until = o.waitUntil;
-		this._box = o.inOrder === true ? mailbox(scope()) : null;
+		this._box = o.inOrder === true ? mailbox(root()) : null;
 		this._flights = flights.keyed<Put<T>>()({
 			name: this._name,
 			key: ['key'],

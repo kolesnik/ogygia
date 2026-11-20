@@ -2,16 +2,16 @@ import {
 	cache,
 	flights,
 	machine,
-	scope,
 	STALE,
 	world,
 	type Cache,
 	type Flights,
 	type InFlight,
-	type Scope,
 	type Stale,
 	type World
 } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { older_by, stands_at, type DropWhy, type Frame } from '../frame.ts';
 import type { VerifiedHtml } from './html-sink.ts';
 import { watch, notify, watcher_count } from '../ref-watch.ts';
@@ -88,7 +88,7 @@ const LINGER = { keep: EVICT_TTL };
 type FrameFlights = Flights<FrameAsk, VerifiedHtml, Pick<FrameAsk, 'a'>>;
 
 type Store = {
-	life: Scope;
+	life: Life;
 	world: World;
 	entries: Cache<string, Entry>;
 	flights: FrameFlights;
@@ -110,13 +110,13 @@ function store(): Store {
 }
 
 function make_store(): Store {
-	const life = scope();
+	const own = life.root();
 	const entries = cache<string, Entry>({
 		name: 'frames',
 		max: MAX_ADDRESSES,
 		keep: (_e, a) => (live(a) ? Infinity : EVICT_TTL),
 		pinned: (_e, a) => live(a),
-		owner: life,
+		owner: own,
 		onEvict: (a, e, why) => {
 			if (why === 'age' && live(a) && entries.set(a, e, HELD)) return;
 			e.part?.stop();
@@ -124,10 +124,11 @@ function make_store(): Store {
 		}
 	});
 	const s: Store = {
-		life,
+		life: own,
 		world: world(),
 		entries,
 		flights: life.adopt(
+			own,
 			flights.keyed<FrameAsk>()({
 				name: 'frames',
 				key: ['a'],
@@ -355,7 +356,7 @@ export async function ensure(
 				if (e.refused === err) e.refused = null;
 				throw err;
 			}
-			if (html !== STALE || signal?.aborted || st.life.closed) return html;
+			if (html !== STALE || signal?.aborted || life.closed(st.life)) return html;
 			fresh = false;
 		}
 	} finally {
@@ -368,5 +369,5 @@ export async function ensure(
 export function _reset(): void {
 	const old = store_host[STORE_KEY];
 	store_host[STORE_KEY] = undefined;
-	old?.life.close();
+	if (old !== undefined) life.close(old.life);
 }

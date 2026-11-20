@@ -6,9 +6,10 @@ import {
 	net,
 	STALE,
 	tasks,
-	type MachineGraph,
-	type Scope
+	type MachineGraph
 } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { frameAddress } from '../frame.ts';
 import { stream } from '../policies.ts';
 import { is_idle, reserve, release, stamp, write } from './frame-store.ts';
@@ -129,7 +130,7 @@ function sigOf(endpoint: string): string | null {
 export async function streamFrames(
 	endpoints: string[],
 	kind: 'page' | 'nav' = 'nav',
-	visit: Scope = runtime_session.visit.scope,
+	visit: Life = runtime_session.visit.scope,
 	page?: string
 ): Promise<void> {
 	if (!endpoints.length) return;
@@ -166,24 +167,24 @@ export async function streamFrames(
 	let refused: 'redirected' | 'document' | undefined;
 	let final_url: string | undefined;
 	const stream = batch_stream.create();
-	const batch_scope = visit.child();
-	batch_scope.defer(() => stream.stop());
+	const batch_scope = life.child(visit);
+	life.defer(batch_scope, () => stream.stop());
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a machine's wait never rejects
-	void stream.wait('stalled').then((s) => s !== STALE && batch_scope.close());
+	void stream.wait('stalled').then((s) => s !== STALE && life.close(batch_scope));
 
 	try {
 		let res: Response;
 		try {
 			if (RULES && buggify.fires('batch.fetch-fails')) throw new TypeError('Failed to fetch');
 			res = $await(
-				stream.scope.task(() =>
+				life.task(life.visit(stream), () =>
 					net.fetch(path, {
 						method: 'POST',
 						credentials: 'same-origin',
 						headers: { 'content-type': 'application/json' },
 						body: JSON.stringify(endpoints),
 						...(page !== undefined ? { referrer: page } : {}),
-						signal: batch_scope.signal
+						signal: life.signal(batch_scope)
 					})
 				)
 			);
@@ -206,7 +207,7 @@ export async function streamFrames(
 
 		const reader = res.body.getReader();
 		// oxlint-disable-next-line ogygia/no-silent-failures -- the batch ended: a failed cancel has nothing left to stop
-		batch_scope.defer(() => void reader.cancel().catch(() => {}));
+		life.defer(batch_scope, () => void reader.cancel().catch(() => {}));
 		const decoder = new TextDecoder();
 		let buffer = '';
 		let parcels = false;
@@ -214,14 +215,14 @@ export async function streamFrames(
 			let read: ReadableStreamReadResult<Uint8Array>;
 			try {
 				if (RULES && buggify.fires('batch.body-breaks')) throw new TypeError('network error');
-				read = $await(stream.scope.task(() => reader.read()));
+				read = $await(life.task(life.visit(stream), () => reader.read()));
 				// oxlint-disable-next-line ogygia/no-silent-failures -- the body broke off, as a request can fail: the holes it still owes fetch on their own
 			} catch {
 				return;
 			}
 			if (RULES && buggify.fires('batch.body-stalls')) return;
 			const { done, value } = read;
-			if (batch_scope.closed) return;
+			if (life.closed(batch_scope)) return;
 			if (done) break;
 			stream.go('reading');
 			buffer += decoder.decode(value, { stream: true });
@@ -258,9 +259,9 @@ export async function streamFrames(
 		}
 	} finally {
 		stream.stop();
-		batch_scope.close();
+		life.close(batch_scope);
 		for (const a of reserved) release(a);
-		if (HOOK_HOLE_BATCH_MISSED && delivered < reserved.length && !visit.closed)
+		if (HOOK_HOLE_BATCH_MISSED && delivered < reserved.length && !life.closed(visit))
 			slots.hooks?.holeBatchMissed?.({
 				sent: reserved.length,
 				delivered,
@@ -332,7 +333,7 @@ function gather(list: string[]): void {
 export function send_batches(
 	list: readonly string[],
 	kind: 'page' | 'nav',
-	visit: Scope = runtime_session.visit.scope,
+	visit: Life = runtime_session.visit.scope,
 	page?: string
 ): Promise<unknown> {
 	const by_path = new Map<string, string[]>();

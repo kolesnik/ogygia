@@ -4,6 +4,7 @@
 // at their address, inside a web component's shadow tree when that is where they landed, and not at
 // all when the region left first.
 import { afterEach, beforeEach, expect, test } from 'vitest';
+import { life_of } from '@ogygia/machine/internal';
 import { scope } from '@ogygia/machine';
 import {
 	resolve_address,
@@ -47,7 +48,7 @@ test('typed values come back at the field’s address, with input and change, an
 	const before = old_field('<input type="text">', 'hello');
 	before.setSelectionRange(1, 3);
 	const fields: FieldSnapshot[] = [{ el: before, addr: [1], tag: 'INPUT' }];
-	after_wake(region, fields, null, [], scope());
+	after_wake(region, fields, null, [], life_of(scope()));
 	expect(now.value).toBe('hello');
 	expect(seen).toEqual(['input', 'change']);
 	expect([now.selectionStart, now.selectionEnd]).toEqual([1, 3]);
@@ -58,7 +59,7 @@ test('a checkbox’s checked state comes back', () => {
 	const now = region.children[0] as HTMLInputElement;
 	const before = old_field('<input type="checkbox">', 'on');
 	before.checked = true;
-	after_wake(region, [{ el: before, addr: [0], tag: 'INPUT' }], null, [], scope());
+	after_wake(region, [{ el: before, addr: [0], tag: 'INPUT' }], null, [], life_of(scope()));
 	expect(now.checked).toBe(true);
 });
 
@@ -72,7 +73,7 @@ test('a field whose node hydration kept, or whose address now holds another tag,
 		{ el: kept, addr: [0], tag: 'INPUT' },
 		{ el: old_field('<input type="text">', 'lost'), addr: [1], tag: 'INPUT' }
 	];
-	after_wake(region, fields, null, [], scope());
+	after_wake(region, fields, null, [], life_of(scope()));
 	expect(kept_seen).toEqual([]);
 	expect(other.value).toBe('');
 });
@@ -82,7 +83,7 @@ const gone = (tag: string) => document.createElement(tag);
 
 test('focus comes back to the element at the focused address', () => {
 	region.innerHTML = '<button>a</button><input type="text">';
-	after_wake(region, [], { el: gone('input'), addr: [1], tag: 'INPUT' }, [], scope());
+	after_wake(region, [], { el: gone('input'), addr: [1], tag: 'INPUT' }, [], life_of(scope()));
 	expect(document.activeElement).toBe(region.children[1]);
 });
 
@@ -95,7 +96,7 @@ test('clicks replay a frame later, in order, at their address, and only on a mat
 		{ el: gone('button'), addr: [0], deep: null, tag: 'BUTTON', init: { bubbles: true } },
 		{ el: gone('button'), addr: [2], deep: null, tag: 'BUTTON', init: { bubbles: true } }
 	];
-	replay_clicks(region, queued, scope());
+	replay_clicks(region, queued, life_of(scope()));
 	expect(order).toEqual([]);
 	await frame();
 	expect(order).toEqual(['b', 'a']);
@@ -121,7 +122,7 @@ test('a click that landed inside a web component’s shadow tree replays there',
 				init: { bubbles: true, composed: true }
 			}
 		],
-		scope()
+		life_of(scope())
 	);
 	await frame();
 	expect(inner_clicks).toBe(1);
@@ -136,7 +137,7 @@ test('a click on an element the repair kept replays on it, though a node before 
 	const queued: QueuedClick[] = [
 		{ el: button, addr: [0, 2], deep: null, tag: 'BUTTON', init: { bubbles: true } }
 	];
-	replay_clicks(region, queued, scope());
+	replay_clicks(region, queued, life_of(scope()));
 	await frame();
 	expect(clicks).toBe(1);
 });
@@ -151,7 +152,7 @@ test('a field and focus the repair kept stay theirs, though a node before them w
 		[{ el: a, addr: [1], tag: 'INPUT' }],
 		{ el: a, addr: [1], tag: 'INPUT' },
 		[],
-		scope()
+		life_of(scope())
 	);
 	expect(b.value).toBe('');
 	expect(document.activeElement).toBe(a);
@@ -165,7 +166,7 @@ test('a region gone before the frame replays nothing', async () => {
 	replay_clicks(
 		region,
 		[{ el: region.children[0]!, addr: [0], deep: null, tag: 'BUTTON', init: {} }],
-		owner
+		life_of(owner)
 	);
 	owner.close();
 	await frame();

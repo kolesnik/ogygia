@@ -1,6 +1,7 @@
 // What belongs to one page lives on its visit (src/runtime/session.ts `PageVisit`): the next page's
 // swap starts it over, and a navigation's next visit holds nothing of the page on screen.
 import { expect, test } from 'vitest';
+import * as life from '@ogygia/machine/internal';
 import { RuntimeSession } from '../src/runtime/session.ts';
 
 const entry = { frag: {} as Node, endpoint: '', when: '', cachedAt: 0, maxAgeMs: 0 };
@@ -42,7 +43,7 @@ test('a navigation that never swaps leaves the page on screen as it was', () => 
 	const session = new RuntimeSession();
 	used(session);
 	const next = session.next_visit();
-	next.scope.close(); // called off
+	life.close(next.scope); // called off
 	expect(page_state(session).cached).toBe(1);
 	expect(session.page_seeded).toBe(true);
 });
@@ -51,7 +52,7 @@ test('the visit that ends closes its scope', () => {
 	const session = new RuntimeSession();
 	const left = session.visit;
 	session.reset();
-	expect(left.scope.signal.aborted).toBe(true);
+	expect(life.signal(left.scope).aborted).toBe(true);
 });
 
 test('past 64 lakes the one cached or refreshed longest ago goes; reading one keeps nothing', () => {

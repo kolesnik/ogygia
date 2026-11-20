@@ -91,7 +91,7 @@ import {
 import { bad_option, machine_error } from './messages.ts';
 import { noop } from './noop.ts';
 import type { Policy } from './policy.ts';
-import { DISPOSE, scope, type Scope } from './scope.ts';
+import { close, DISPOSE, root, task, type Life } from './scope.ts';
 import { STALE, type Fresh, type Stale } from './stale.ts';
 import { watch_world, type World } from './world.ts';
 
@@ -255,13 +255,13 @@ class Entry {
 	now: { readonly kind: 'flying' | 'kept' | 'gone' } = FLYING_NOW;
 	flight: Flight | null;
 	/** The flight's work: closing it aborts the run and makes its answer `STALE`. */
-	work: Scope | null;
+	work: Life | null;
 	/** The answer it keeps: its own once kept; while flying, the one kept before the flight. */
 	held: Kept | null;
 	/** Its last use, in the flights' count of uses: the least recently used go first past `max`. */
 	used = 0;
 
-	constructor(flight: Flight, work: Scope, held: Kept | null) {
+	constructor(flight: Flight, work: Life, held: Kept | null) {
 		this.flight = flight;
 		this.work = work;
 		this.held = held;
@@ -471,7 +471,7 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 			reject = rej;
 		});
 		const flight = new Flight(shared, stamp, priority, this._name);
-		const work = scope();
+		const work = root();
 		let entry: Entry;
 		if (e !== undefined) {
 			entry = e;
@@ -479,7 +479,7 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 			e.flight = flight;
 			e.work = work;
 			this._move(e, FLYING_NOW);
-			before?.close();
+			if (before !== null) close(before);
 		} else {
 			entry = new Entry(flight, work, null);
 			this._entries.set(key, entry);
@@ -524,24 +524,22 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 		};
 		// (the callers handle its failure; this one is the flights' own, so it is never unhandled)
 		shared.then(undefined, noop);
-		work
-			.task((s) => attempt(run, input, s, flight, retry))
-			.then(
-				(answer) => {
-					try {
-						resolve(landed(answer));
-					} catch (error) {
-						reject(error);
-					}
-				},
-				(error: unknown) => {
-					try {
-						resolve(failed(error));
-					} catch (thrown) {
-						reject(thrown);
-					}
+		task(work, (s) => attempt(run, input, s, flight, retry)).then(
+			(answer) => {
+				try {
+					resolve(landed(answer));
+				} catch (error) {
+					reject(error);
 				}
-			);
+			},
+			(error: unknown) => {
+				try {
+					resolve(failed(error));
+				} catch (thrown) {
+					reject(thrown);
+				}
+			}
+		);
 		return this._join(key, entry, flight, signal);
 	}
 
@@ -576,7 +574,7 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 		e.flight = null;
 		e.work = null;
 		this._move(e, e.held!);
-		work?.close();
+		if (work !== null) close(work);
 	}
 
 	/** The one place an entry moves: told to the observers, and in a rules build refused (thrown)
@@ -644,7 +642,7 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 		e.flight = null;
 		e.work = null;
 		this._move(e, GONE_NOW);
-		work?.close();
+		if (work !== null) close(work);
 	}
 }
 

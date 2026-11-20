@@ -1,4 +1,5 @@
 import { cache, machine } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
 import { element_address, resolve_address } from './interaction.ts';
 import { slots } from './slots.ts';
 import { OGYGIA_NO_KEEP } from '../wire-markup.ts';
@@ -140,6 +141,7 @@ export function arm_form_restore(pathKey: string): void {
 	};
 	const on_answer = () => (names = read_names());
 	restore_window.go('open');
-	restore_window.scope.on(document, 'ogygia:hydrated', on_hydrated, true);
-	restore_window.scope.on(document, 'ogygia:server', on_answer, true);
+	const open = life.visit(restore_window);
+	life.listen(open, document, 'ogygia:hydrated', on_hydrated, true);
+	life.listen(open, document, 'ogygia:server', on_answer, true);
 }

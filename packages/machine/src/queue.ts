@@ -42,7 +42,17 @@
  */
 import { machine_error, report_thrown } from './messages.ts';
 import { clock } from './ports.ts';
-import { MAX_TIMEOUT_MS, scope, type Scope } from './scope.ts';
+import {
+	child,
+	closed,
+	defer,
+	root,
+	life_of,
+	MAX_TIMEOUT_MS,
+	timeout,
+	type Life,
+	type Scope
+} from './scope.ts';
 
 export interface QueueOptions<J> {
 	/** Names the queue in messages. */
@@ -56,7 +66,7 @@ export interface QueueOptions<J> {
 	/** The clock deadlines and the budget are read on (ms). `clock.mono()` when left out. */
 	now?: () => number;
 	/** Closing it makes every waiting job stale, and any pushed after. */
-	owner?: Scope;
+	owner?: Scope | Life;
 	/** A waiting job's rank, read at the start of every pass: the higher starts first, ties in the
 	 *  order pushed. */
 	priority?: (job: J) => number;
@@ -130,7 +140,7 @@ abstract class Line<J> implements Queue<J> {
 	protected readonly _max: number;
 	protected readonly _start: (job: J, place: Place) => void;
 	protected readonly _now: () => number;
-	protected readonly _owner: Scope | null;
+	protected readonly _owner: Life | null;
 	protected readonly _jobs: Array<J | typeof GONE> = [];
 	protected readonly _deadlines: number[] = [];
 	protected _head = 0;
@@ -140,7 +150,7 @@ abstract class Line<J> implements Queue<J> {
 	#timed = 0;
 	#armed_at = Infinity;
 	#disarm: (() => void) | null = null;
-	#timers: Scope | null = null;
+	#timers: Life | null = null;
 
 	constructor(o: QueueOptions<J>) {
 		this._name = o.name ?? 'queue';
@@ -148,8 +158,13 @@ abstract class Line<J> implements Queue<J> {
 		this._start = o.start;
 		this.#stale = o.stale ?? null;
 		this._now = o.now ?? clock.mono;
-		this._owner = o.owner ?? null;
-		this._owner?.defer(() => this.#leave_where(() => true));
+		this._owner = o.owner === undefined ? null : life_of(o.owner);
+		if (this._owner !== null) defer(this._owner, () => this.#leave_where(() => true));
+	}
+
+	/** Its owner has closed. */
+	get _left(): boolean {
+		return this._owner !== null && closed(this._owner);
 	}
 
 	get waiting(): number {
@@ -161,7 +176,7 @@ abstract class Line<J> implements Queue<J> {
 	}
 
 	push(job: J, deadline = Infinity): void {
-		if (this._owner?.closed) return this._stale_job(job);
+		if (this._left) return this._stale_job(job);
 		this._jobs.push(job);
 		this._deadlines.push(deadline);
 		this._waiting++;
@@ -213,9 +228,9 @@ abstract class Line<J> implements Queue<J> {
 	#arm(at: number): void {
 		this.#disarm?.();
 		this.#armed_at = at;
-		const timers = (this.#timers ??= this._owner?.child() ?? scope());
+		const timers = (this.#timers ??= this._owner === null ? root() : child(this._owner));
 		const ms = Math.min(MAX_TIMEOUT_MS, Math.max(0, at - this._now()));
-		this.#disarm = timers.timeout(() => this.#expire(), ms);
+		this.#disarm = timeout(timers, () => this.#expire(), ms);
 	}
 
 	/** The deadlines that came: those jobs are stale; the timer goes on to the next one. */
@@ -262,7 +277,7 @@ class PlainLine<J> extends Line<J> {
 	}
 
 	protected _drain(): void {
-		if (this._owner?.closed) return;
+		if (this._left) return;
 		while (this._holding < this._max && this._head < this._jobs.length) {
 			const at = this._head++;
 			const job = this._jobs[at];
@@ -333,7 +348,7 @@ class PassLine<J> extends Line<J> {
 	protected _drain(): void {
 		const state = this.#state;
 		if (state === 'running' || state === 'ending') this.#state = 'again';
-		if (state !== 'idle' || this._waiting === 0 || this._owner?.closed) return;
+		if (state !== 'idle' || this._waiting === 0 || this._left) return;
 		const budget = this.#budget;
 		if (budget?.defer) {
 			this.#state = 'deferred';
@@ -422,7 +437,7 @@ class PassLine<J> extends Line<J> {
 	}
 
 	#settled(budget: QueueBudget): void {
-		if (this._owner?.closed) return this.#end();
+		if (this._left) return this.#end();
 		if (this._waiting > 0 && this._now() >= this.#until) return this.#yield(budget);
 		this.#run();
 	}
@@ -440,7 +455,7 @@ class PassLine<J> extends Line<J> {
 	}
 
 	#ended(): void {
-		if (this.#state !== 'again' || this._waiting === 0 || this._owner?.closed) return this.#end();
+		if (this.#state !== 'again' || this._waiting === 0 || this._left) return this.#end();
 		this.#state = 'running';
 		this.#until = this._now() + this.#budget!.ms;
 		this.#run();
@@ -452,7 +467,7 @@ class PassLine<J> extends Line<J> {
 		const resume = () => {
 			if (resumed || this.#state !== waited) return;
 			resumed = true;
-			if (this._owner?.closed) return this.#end();
+			if (this._left) return this.#end();
 			this.#state = 'running';
 			this.#until = this._now() + budget.ms;
 			this.#run();

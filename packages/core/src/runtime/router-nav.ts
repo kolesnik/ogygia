@@ -1,5 +1,6 @@
 import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
 import { buggify, clock, net } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
 import type { PageGlobals } from '../page-globals.ts';
 import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
 import {
@@ -43,7 +44,7 @@ const adopt_owner_record = (doc: ParentNode, head: ParentNode) =>
 	boot_link().adopt_owner_record(doc, head);
 const session = () => boot_link().runtime_session;
 const adopt_response = (next: Document) => boot_link().adopt_response(next);
-type Scope = import('@ogygia/machine').Scope;
+type Life = import('@ogygia/machine/internal').Life;
 type Stale = import('@ogygia/machine').Stale;
 type Staging = import('@ogygia/machine').Staging;
 const devalue_for = (doc: Document) =>
@@ -593,10 +594,10 @@ export async function navigate(
 	r.nav.go('loading', { href: url.href });
 	const mine = r.nav.now;
 	own_live_head(r.current_url);
-	const attempt = r.nav.scope;
+	const attempt = life.visit(r.nav);
 	const next = session().next_visit();
-	attempt.defer(() => {
-		if (session().visit !== next) next.scope.close();
+	life.defer(attempt, () => {
+		if (session().visit !== next) life.close(next.scope);
 	});
 
 	let move: HistoryMove = 'replace';
@@ -799,7 +800,7 @@ export const SCROLL_HOLD_MS = 10_000;
  * wakes). Instant, never smooth: CSS `scroll-behavior: smooth` must not animate a programmatic
  * restore.
  */
-export function hold_scroll(to: { x: number; y: number }, visit: Scope): void {
+export function hold_scroll(to: { x: number; y: number }, visit: Life): void {
 	let at = { x: scrollX, y: scrollY };
 	const put = () => {
 		if (scrollX === to.x && scrollY === to.y) return;
@@ -814,34 +815,39 @@ export function hold_scroll(to: { x: number; y: number }, visit: Scope): void {
 		at = { x: scrollX, y: scrollY };
 	};
 	put();
-	if (visit.closed) return;
-	const hold = visit.child();
+	if (life.closed(visit)) return;
+	const hold = life.child(visit);
 	const html = document.documentElement;
 	const anchoring = html.style.overflowAnchor;
 	html.style.overflowAnchor = 'none';
-	hold.defer(() => (html.style.overflowAnchor = anchoring));
-	hold.timeout(() => hold.close(), SCROLL_HOLD_MS);
+	life.defer(hold, () => (html.style.overflowAnchor = anchoring));
+	life.later(hold, life.close, SCROLL_HOLD_MS, hold);
 	const above = new Set(islands_above(to.y));
 	const settled = () => {
-		if (above.size === 0) hold.timeout(() => hold.timeout(() => hold.close(), 0), 'frame');
+		if (above.size === 0) life.later(hold, () => life.later(hold, life.close, 0, hold), 'frame');
 	};
-	hold.on(document, 'ogygia:hydrated', (event: Event) => {
+	life.listen(hold, document, 'ogygia:hydrated', (event: Event) => {
 		if (above.delete(event.target as Element)) settled();
 	});
 	settled();
 	for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const)
-		hold.on(window, type, () => hold.close(), { capture: true, passive: true, once: true });
-	hold.on(
+		life.listen(hold, window, type, () => life.close(hold), {
+			capture: true,
+			passive: true,
+			once: true
+		});
+	life.listen(
+		hold,
 		window,
 		'scroll',
 		() => {
 			const ours = (scrollX === to.x && scrollY === to.y) || (scrollX === at.x && scrollY === at.y);
-			if (!ours) hold.close();
+			if (!ours) life.close(hold);
 		},
 		{ passive: true }
 	);
 	if (typeof ResizeObserver !== 'undefined')
-		hold.watch(new ResizeObserver(put)).observe(document.documentElement);
+		life.watch(hold, new ResizeObserver(put)).observe(document.documentElement);
 }
 
 function islands_above(y: number): Element[] {
@@ -887,7 +893,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 	soft.go('refreshing', { href: url.href });
 	const mine = soft.now;
 
-	const staged = stage<Document | null>(soft.scope, {
+	const staged = stage<Document | null>(life.visit(soft), {
 		name: 'soft refresh',
 		build: async ({ signal }) => {
 			const fetched = await fetch_page(url.href, signal);
@@ -1022,7 +1028,7 @@ function head_slot(node: Element, live: ReadonlyMap<string, Element>): Node | nu
 
 function preload_stylesheets(
 	new_head: HTMLHeadElement,
-	attempt: Scope,
+	attempt: Life,
 	sheets: InertSheet[],
 	discard: Staging['discard']
 ): Promise<unknown> {
@@ -1052,8 +1058,8 @@ function preload_stylesheets(
 		if (sheet.priority === null) link.setAttribute('fetchpriority', 'high');
 		pending.push(
 			new Promise<void>((resolve) => {
-				attempt.on(link, 'load', () => resolve(), { once: true });
-				attempt.on(link, 'error', () => resolve(), { once: true });
+				life.listen(attempt, link, 'load', () => resolve(), { once: true });
+				life.listen(attempt, link, 'error', () => resolve(), { once: true });
 			})
 		);
 		document.head.insertBefore(link, head_slot(node, live));
@@ -1063,7 +1069,7 @@ function preload_stylesheets(
 	}
 	if (!pending.length) return Promise.resolve();
 	return new Promise<void>((resolve) => {
-		const cancel = attempt.timeout(resolve, STYLESHEET_WAIT_MS);
+		const cancel = life.timeout(attempt, resolve, STYLESHEET_WAIT_MS);
 		// oxlint-disable-next-line ogygia/no-silent-failures -- every pending sheet resolves, on load or on error
 		void Promise.all(pending).then(() => {
 			cancel();
@@ -1072,7 +1078,7 @@ function preload_stylesheets(
 	});
 }
 
-function batch_regions(doc: Document, visit: Scope, dest: URL) {
+function batch_regions(doc: Document, visit: Life, dest: URL) {
 	const endpoints: string[] = [];
 	for (const el of Array.from(doc.querySelectorAll('ogygia-region[render="defer"][endpoint]'))) {
 		const when = el.getAttribute('when') || 'load';

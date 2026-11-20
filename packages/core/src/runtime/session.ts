@@ -1,4 +1,6 @@
-import { cache, machine, scope, type Cache, type Scope } from '@ogygia/machine';
+import { cache, machine, type Cache } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { FROZEN_SELECTOR } from './region-attrs.ts';
 import { note_visit } from './rules.ts';
 
@@ -53,7 +55,7 @@ function head_copy_key(el: Element): string {
  */
 export type PageVisit = {
 	/** Closed when the visit ends. */
-	readonly scope: Scope;
+	readonly scope: Life;
 	/** The page facts answers rendered with (server/render-page.ts), queued at the answer seam
 	 *  (`region_fragment`) for the next hydrate to merge into the page store (seeds.ts). This page's
 	 *  only: the next page's visit starts with none (#269). */
@@ -69,7 +71,7 @@ export type PageVisit = {
 };
 
 function page_visit(): PageVisit {
-	const owner = scope();
+	const owner = life.root();
 	const visit: PageVisit = {
 		scope: owner,
 		facts: [],
@@ -308,7 +310,7 @@ export class RuntimeSession {
 		const left = this.#visit;
 		this.#visit = next;
 		note_visit(next, true);
-		if (left !== next) left.scope.close();
+		if (left !== next) life.close(left.scope);
 	}
 }
 

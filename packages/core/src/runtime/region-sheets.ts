@@ -1,4 +1,5 @@
 import { machine, type Machine } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
 import { connected_regions } from './connected.ts';
 import { head_owners } from '../head-owners.ts';
 import { OG_FP, OG_OWNER, OGYGIA_REGION_CSS } from '../wire-markup.ts';
@@ -45,8 +46,9 @@ export function sheet_of(link: HTMLLinkElement): RegionSheet {
 	if (known !== undefined) return known;
 	const s = sheet_definition.create();
 	sheets.set(link, s);
-	s.scope.on(link, 'load', () => s.go('loaded'));
-	s.scope.on(link, 'error', () => s.go('failed'));
+	const visit = life.visit(s);
+	life.listen(visit, link, 'load', () => s.go('loaded'));
+	life.listen(visit, link, 'error', () => s.go('failed'));
 	if (link.sheet !== null) s.go('loaded');
 	return s;
 }

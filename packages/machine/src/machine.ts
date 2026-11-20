@@ -24,7 +24,18 @@ import { DEV } from 'esm-env';
 import { machine_error, report, warn_once } from './messages.ts';
 import { noop } from './noop.ts';
 import { registry } from './registry.ts';
-import { CLOSED, is_time, MAX_TIMEOUT_MS, scope, visit_scope, type Scope } from './scope.ts';
+import {
+	CLOSED,
+	close,
+	ENDED,
+	is_time,
+	later,
+	root,
+	Life,
+	MAX_TIMEOUT_MS,
+	view,
+	type Scope
+} from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
 export { STALE, type Stale };
@@ -206,9 +217,9 @@ export function observe(observer: Observer): () => void {
 	}
 	// (its owner is the watch itself: the caller holds no scope to hand in, and its stop is the
 	// watch's end)
-	const watch = scope();
+	const watch = root();
 	observers.add(observer, watch);
-	return () => watch.close();
+	return () => close(watch);
 }
 
 /** A move of something that is not a `machine()` but keeps its states the same way (a flights'
@@ -324,8 +335,10 @@ class Running implements AnyMachine {
 	_node: Node;
 	_now: State;
 	_stopped = false;
-	/** The visit's scope, once something asked for it: closed by the move that leaves the visit. */
-	_scope: Scope | null = null;
+	/** The visit's life, once something asked for it: closed by the move that leaves the visit. */
+	_life: Life | null = null;
+	/** The visit's public scope, a view of its life, once something asked for it. */
+	_view: Scope | null = null;
 	_waiters: Waiter[] | null = null;
 
 	constructor(def: Def, node: Node, now: State) {
@@ -340,9 +353,13 @@ class Running implements AnyMachine {
 	}
 
 	get scope(): Scope {
-		if (this._scope !== null) return this._scope;
+		if (this._view !== null) return this._view;
 		if (this._stopped) return CLOSED;
-		return (this._scope = visit_scope(this._def.name));
+		return (this._view = view(this._visit()));
+	}
+
+	_visit(): Life {
+		return (this._life ??= new Life(null, this._def.name));
 	}
 
 	go(to: string, data?: object): boolean {
@@ -388,12 +405,13 @@ class Running implements AnyMachine {
 	stop(): void {
 		if (this._stopped) return;
 		this._stopped = true;
-		const scope = this._scope;
+		const l = this._life;
 		const waiters = this._waiters;
-		this._scope = this._waiters = null;
+		this._life = this._waiters = null;
+		this._view = null;
 		if (waiters !== null) for (const w of waiters) w.resolve(STALE);
 		if (RULES && observers.size !== 0) notify(this._def.name, this._now, null, this);
-		scope?.close();
+		if (l !== null) close(l);
 	}
 
 	/** The one place a move happens: the new state first, then everything the old one owned. */
@@ -404,14 +422,15 @@ class Running implements AnyMachine {
 		this._node = target;
 		this._now = next;
 		// detached before anything runs, so a cleanup that moves the machine again starts clean
-		const scope = this._scope;
-		this._scope = null;
+		const l = this._life;
+		this._life = null;
+		this._view = null;
 		// (armed before anything else runs: a waiter or an observer that moves the machine again
 		// then leaves this visit, and closing it clears this timer)
 		if (target.timed !== null) this._arm(target.timed);
 		if (this._waiters !== null) this._settle(next);
 		if (RULES && observers.size !== 0) notify(def.name, prev, next, this);
-		scope?.close();
+		if (l !== null) close(l);
 	}
 
 	/**
@@ -439,18 +458,22 @@ class Running implements AnyMachine {
 		}
 		// (the visit's own timer: leaving closes its scope, which clears it, so it only ever fires in
 		// the visit that set it; and it never keeps a server process alive)
-		this.scope.timeout(() => {
-			const from = this._node.kind;
-			try {
-				this._enter(timed.to, timed.data === undefined ? undefined : timed.data(this._now));
-			} catch (error) {
-				report(
-					'machine_timed_step_failed',
-					{ name: this._def.name, from, to: timed.to.kind },
-					error
-				);
-			}
-		}, ms);
+		later(
+			this._visit(),
+			() => {
+				const from = this._node.kind;
+				try {
+					this._enter(timed.to, timed.data === undefined ? undefined : timed.data(this._now));
+				} catch (error) {
+					report(
+						'machine_timed_step_failed',
+						{ name: this._def.name, from, to: timed.to.kind },
+						error
+					);
+				}
+			},
+			ms
+		);
 	}
 
 	_settle(next: State): void {
@@ -612,4 +635,11 @@ function paths_of(def: Def): string[][] {
 	for (const [kind, path] of way)
 		for (const { kind: to } of (def.nodes.get(kind) as Node).next) out.push([...path, to]);
 	return out;
+}
+
+/** @internal The life of the visit `m` is in now (made on first need), as `m.scope` is its public
+ *  view: closed by the move that leaves the visit; closed for good on a stopped machine. */
+export function visit(m: AnyMachine): Life {
+	const r = m as Running;
+	return r._stopped ? ENDED : r._visit();
 }

@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { life_of } from '@ogygia/machine/internal';
 import { scope } from '@ogygia/machine';
 import { arm_interaction } from '../../src/runtime/interaction.ts';
 import { critical_settled } from '../../src/runtime/load-scheduler.ts';
@@ -14,7 +15,7 @@ const arm = (id: string) => {
 		document.getElementById(id)!,
 		() => {},
 		() => new Promise<void>(() => {}),
-		scope()
+		life_of(scope())
 	);
 };
 

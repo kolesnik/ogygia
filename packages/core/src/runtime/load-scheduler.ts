@@ -5,13 +5,13 @@ import {
 	flights,
 	machine,
 	queue,
-	scope,
 	type InFlight,
 	type Place,
 	type Queue,
-	type Scope,
 	type Stale
 } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { emit as dt_emit } from '../events/bus.ts';
 import { class_at, PRIORITY, type LoadClass } from './load-class.ts';
 import { on_screen, watch_viewport } from './viewport.ts';
@@ -77,7 +77,7 @@ function waits_for_critical(kind: LoadKind, cls: LoadClass): boolean {
 class LoadScheduler {
 	gate = gate_definition.create();
 	readonly critical = flights({ name: 'critical resources', run: () => this.#until_critical() });
-	#owner: Scope = scope();
+	#owner: Life = life.root();
 	line: Queue<LoadSlot> = this.#open_line();
 
 	#open_line(): Queue<LoadSlot> {
@@ -138,23 +138,23 @@ class LoadScheduler {
 				s.kind === 'touched' || document.visibilityState === 'hidden' ? [] : pending_critical();
 			if (!waiting.length) return this.settle_critical('none');
 			gate.go('waiting', { t0: now(), resources: waiting.length });
-			const wait = gate.scope;
-			wait.timeout(() => this.settle_critical('cap'), CRITICAL_CAP_MS);
+			const wait = life.visit(gate);
+			life.later(wait, () => this.settle_critical('cap'), CRITICAL_CAP_MS);
 			let left = waiting.length;
 			const one = () => {
 				if (--left === 0) this.settle_critical('arrived');
 			};
 			for (const el of waiting) {
-				wait.on(el, 'load', one, { once: true });
-				wait.on(el, 'error', one, { once: true });
+				life.listen(wait, el, 'load', one, { once: true });
+				life.listen(wait, el, 'error', one, { once: true });
 			}
 			$await(gate.wait('settled'));
 		});
 	}
 
 	reset(): void {
-		this.#owner.close();
-		this.#owner = scope();
+		life.close(this.#owner);
+		this.#owner = life.root();
 		this.line = this.#open_line();
 		this.critical.drop(() => true);
 		this.gate.stop();

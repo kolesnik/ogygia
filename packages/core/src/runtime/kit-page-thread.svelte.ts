@@ -1,5 +1,7 @@
 import { OgygiaError, warn } from '../messages/lazy.ts';
-import { flights, say, scope, STALE, tasks, type Scope } from '@ogygia/machine';
+import { flights, say, STALE, tasks } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { code_url, import_code, type CodeUrl } from './code-origins.ts';
 
 const KIT_PAGE_KEY = Symbol.for('ogygia.kit-page');
@@ -34,17 +36,17 @@ export function kit_page_thread(signal?: AbortSignal): Promise<unknown> | null {
 const pending = flights({
 	name: 'kit page thread',
 	run: (_: void, signal: AbortSignal) => {
-		const wait = scope();
-		wait.on(signal, 'abort', () => wait.close());
+		const wait = life.root();
+		life.listen(wait, signal, 'abort', () => life.close(wait));
 		return new Promise<void>((resolve, reject) => {
 			const fail = (url: string, error: unknown) => {
-				wait.close();
+				life.close(wait);
 				reject(kit_boot_failed(url, error));
 			};
 			const boot = kit_boot();
 			for (const url of boot.urls) {
-				void wait
-					.task(() => import_code<unknown>(url))
+				void life
+					.task(wait, () => import_code<unknown>(url))
 					.then(
 						(entry) => {
 							if (entry === STALE) return;
@@ -52,8 +54,8 @@ const pending = flights({
 							for (const id of boot.node_ids) {
 								const load = nodes?.[id];
 								if (typeof load !== 'function') continue;
-								void wait
-									.task(() => load())
+								void life
+									.task(wait, () => load())
 									.then(undefined, (error: unknown) => fail(`${url} nodes[${id}]`, error));
 							}
 						},
@@ -61,16 +63,20 @@ const pending = flights({
 					);
 			}
 			if (import.meta.env.DEV) {
-				wait.timeout(() => {
-					warn('kit_page_waiting', {
-						seconds: DEV_STILL_WAITING_MS / 1000,
-						booted: bridge_of() != null
-					});
-				}, DEV_STILL_WAITING_MS);
+				life.later(
+					wait,
+					() => {
+						warn('kit_page_waiting', {
+							seconds: DEV_STILL_WAITING_MS / 1000,
+							booted: bridge_of() != null
+						});
+					},
+					DEV_STILL_WAITING_MS
+				);
 			}
 			await_bridge(wait, (bridge) =>
 				await_applied(wait, bridge, () => {
-					wait.close();
+					life.close(wait);
 					resolve();
 				})
 			);
@@ -133,7 +139,7 @@ function kit_boot_failed(url: string, error: unknown): Error {
 	return failure;
 }
 
-function await_bridge(wait: Scope, cb: (bridge: Bridge) => void): void {
+function await_bridge(wait: Life, cb: (bridge: Bridge) => void): void {
 	const g = globalThis as unknown as Global;
 	if (g[KIT_PAGE_KEY] != null) return cb(g[KIT_PAGE_KEY] as Bridge);
 	let value: unknown;
@@ -155,15 +161,19 @@ function await_bridge(wait: Scope, cb: (bridge: Bridge) => void): void {
 			set: settle
 		});
 	} catch {
-		const stop = wait.every(() => {
-			if (g[KIT_PAGE_KEY] == null) return;
-			stop();
-			cb(g[KIT_PAGE_KEY] as Bridge);
-		}, 50);
+		const stop = life.every(
+			wait,
+			() => {
+				if (g[KIT_PAGE_KEY] == null) return;
+				stop();
+				cb(g[KIT_PAGE_KEY] as Bridge);
+			},
+			50
+		);
 	}
 }
 
-function await_applied(wait: Scope, bridge: Bridge, done: () => void): void {
+function await_applied(wait: Life, bridge: Bridge, done: () => void): void {
 	if (page_applied(bridge)) return done();
 	let ended = false;
 	const end = () => {
@@ -178,5 +188,5 @@ function await_applied(wait: Scope, bridge: Bridge, done: () => void): void {
 			done();
 		});
 	});
-	wait.defer(end);
+	life.defer(wait, end);
 }

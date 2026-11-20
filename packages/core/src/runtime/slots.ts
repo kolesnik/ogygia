@@ -1,4 +1,5 @@
-import type { Scope, Stale } from '@ogygia/machine';
+import type { Stale } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine/internal';
 import type { FrameOrder } from '../frame.ts';
 import type { FrameFetcher, StoredFrame } from './frame-store.ts';
 import type { VerifiedHtml } from './html-sink.ts';
@@ -52,7 +53,7 @@ export type FormOps = {
 export type ArmFn = (
 	el: HTMLElement,
 	fire: import('./interaction.ts').WakeFn,
-	owner: Scope
+	owner: Life
 ) => void | ((over?: boolean) => void);
 
 /** `target: 'walk'` = the hydration repair (the server sequence Svelte's walk binds); default = a live
@@ -122,11 +123,7 @@ export type FrameOps = {
 	 * Grouped as the page's first holes are (frame-nav.ts `send_batches`, #987), and naming `page`,
 	 * the page they are for, as their referrer (#995).
 	 */
-	stream(
-		endpoints: string[],
-		visit: import('@ogygia/machine').Scope,
-		page: string
-	): Promise<unknown>;
+	stream(endpoints: string[], visit: Life, page: string): Promise<unknown>;
 	/** Holes that start fetching in the same task go out as one batch (frame-nav.ts `join_batch`);
 	 *  await it, then `ensure` joins the batch's reservation. */
 	join?(endpoint: string): Promise<void>;

@@ -8,9 +8,10 @@ import {
 	tasks,
 	timers,
 	type MachineGraph,
-	type Scope,
 	type Stale
 } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 
 export type Turn = {
 	el: Element;
@@ -269,9 +270,9 @@ export function reset_document_painted(): void {
  * snapshot is `owner`'s (the region's lifetime in the page): it stops at the region's turn, or when
  * the owner ends.
  */
-export function register_region(el: Element, owner: Scope): void {
+export function register_region(el: Element, owner: Life): void {
 	if (!order_of.has(el)) order_of.set(el, next_order++);
-	if (snapshot_of.has(el) || owner.closed) return;
+	if (snapshot_of.has(el) || life.closed(owner)) return;
 	const stop = watch_viewport(el, '0px', (intersecting) => {
 		in_viewport.set(el, intersecting);
 		sync_loading(el);
@@ -279,9 +280,11 @@ export function register_region(el: Element, owner: Scope): void {
 		if (P.count) schedule_drain();
 	});
 	snapshot_of.set(el, stop);
-	owner.defer(() => {
-		if (snapshot_of.get(el) === stop) stop_snapshot(el);
-	});
+	life.on_close(owner, unsnap, el, stop);
+}
+
+function unsnap(el: Element, stop: () => void): void {
+	if (snapshot_of.get(el) === stop) stop_snapshot(el);
 }
 
 /**
@@ -360,7 +363,7 @@ function schedule_drain(): void {
 function drain_after(ms: number): void {
 	const at = now() + Math.max(1, ms);
 	drainer.go('waiting', { at });
-	drainer.scope.timeout(schedule_drain, Math.max(1, ms));
+	life.later(life.visit(drainer), schedule_drain, Math.max(1, ms));
 }
 
 function first_unsnapped(t: number): Turn | undefined {

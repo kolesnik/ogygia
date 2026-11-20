@@ -2,6 +2,8 @@
 // keeps and adds, the focus and announcer it leaves, the view transition, the sheets it waits for,
 // and every page it hands to the browser instead.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { commands } from 'vitest/browser';
 import { it_with_network_routes } from './_browsers.ts';
 import { history_room } from './_history-budget.ts';
@@ -606,11 +608,11 @@ it_with_network_routes(
 	'a navigation called off before its swap ends what it started for the next page',
 	async () => {
 		const answer = gate();
-		const visits: { closed: boolean }[] = [];
+		const visits: Life[] = [];
 		const frames = slots.frames;
 		slots.frames = {
 			...frames,
-			stream: (_endpoints: string[], visit: { closed: boolean }) => {
+			stream: (_endpoints: string[], visit: Life) => {
 				visits.push(visit);
 				return Promise.resolve();
 			}
@@ -626,10 +628,10 @@ it_with_network_routes(
 			void r.navigate(new URL('/rn-called-off', location.href));
 			await in_head(`link[href="${held}"]`);
 			expect(visits).toHaveLength(1);
-			expect(visits[0].closed).toBe(false);
+			expect(life.closed(visits[0])).toBe(false);
 			const newer = r.navigate(new URL('/rn-newer', location.href));
 			await expect.poll(() => fetched.includes('/rn-newer')).toBe(true);
-			expect(visits[0].closed).toBe(true);
+			expect(life.closed(visits[0])).toBe(true);
 			answer.open();
 			await newer;
 			await expect.poll(() => r.nav.now.kind).toBe('idle');

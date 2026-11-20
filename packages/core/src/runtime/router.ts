@@ -1,4 +1,6 @@
-import { flights, random, STALE, type Scope, type Stale } from '@ogygia/machine';
+import { flights, random, STALE, type Stale } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { fragment_is_top, fragment_target } from './fragment.ts';
 import { import_again } from './import-again.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
@@ -254,14 +256,14 @@ export class RouterHistory {
 	}
 }
 
-function on_idle(page: Scope, fn: () => void, cap = 1000) {
+function on_idle(page: Life, fn: () => void, cap = 1000) {
 	const run = () => {
 		idle();
 		capped();
 		fn();
 	};
-	const idle = page.timeout(run, 'idle');
-	const capped = page.timeout(run, cap);
+	const idle = life.timeout(page, run, 'idle');
+	const capped = life.timeout(page, run, cap);
 }
 
 type Nav = typeof import('./router-nav.ts');
@@ -433,7 +435,9 @@ export class SpaRouter {
 		const mine = this.nav.now;
 		let n: Nav | null;
 		try {
-			n = $await(this.nav.scope.task(() => nav().then((c) => (c === STALE ? null : c))));
+			n = $await(
+				life.task(life.visit(this.nav), () => nav().then((c) => (c === STALE ? null : c)))
+			);
 		} catch {
 			return this.hand_off(url, mine, move);
 		}
@@ -703,7 +707,10 @@ export class SpaRouter {
 				const rank = this.#preload_rank(anchor);
 				if (rank === PRELOAD_RANK.eager) this.#warm_anchor(anchor);
 				else if (rank === PRELOAD_RANK.viewport)
-					page.defer(once_on_screen(anchor, '0px', () => this.#warm_anchor(anchor)));
+					life.defer(
+						page,
+						once_on_screen(anchor, '0px', () => this.#warm_anchor(anchor))
+					);
 			}
 		});
 	}

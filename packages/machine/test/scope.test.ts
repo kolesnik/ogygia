@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { machine, scope, STALE } from '../src/index.ts';
+import { held, life_of } from '../src/internal.ts';
 import { macrotask } from './_tick.ts';
 import { ASYNC_DISPOSE, DISPOSE } from './_dispose.ts';
 
@@ -149,8 +150,7 @@ describe('children', () => {
 	it('a long-lived parent holds none of the children that closed on their own', () => {
 		const parent = scope();
 		for (let i = 0; i < 20; i++) parent.child().close();
-		const kept = (parent as unknown as { _children: Set<unknown> | null })._children;
-		expect(kept?.size ?? 0).toBe(0);
+		expect(held(life_of(parent))).toBe(0);
 		parent.close();
 	});
 
@@ -292,8 +292,7 @@ describe('on', () => {
 			target.dispatchEvent(new Event('ping'));
 		}
 		expect(heard).toHaveBeenCalledTimes(50);
-		const held = (s as unknown as { _held: Set<unknown> | null })._held;
-		expect(held?.size ?? 0).toBe(0);
+		expect(held(life_of(s))).toBe(0);
 		// (one that has not fired yet is still held, and goes with the scope)
 		const late = vi.fn();
 		s.on(target, 'ping', late, { once: true });
@@ -426,8 +425,7 @@ describe('timers', () => {
 		const s = scope();
 		for (let i = 0; i < 50; i++) s.timeout(() => {}, 0);
 		await wait(20);
-		const held = (s as unknown as { _held: Set<unknown> | null })._held;
-		expect(held?.size ?? 0).toBe(0);
+		expect(held(life_of(s))).toBe(0);
 		s.close();
 	});
 
@@ -765,6 +763,6 @@ describe('a machine visit is a scope', () => {
 		const m = door.create();
 		m.go('open');
 		m.go('shut');
-		expect((m as unknown as { _scope: unknown })._scope).toBeNull();
+		expect((m as unknown as { _life: unknown })._life).toBeNull();
 	});
 });

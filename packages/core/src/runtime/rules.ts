@@ -35,6 +35,8 @@
  * rules are on (`RULES`): every call site folds out of a build without them.
  */
 import { observe, STALE, timers, trace } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { Rules, type BrokenRule } from '../rules.ts';
 import { warn } from '../messages/core.ts';
 import type { PageGlobals } from '../page-globals.ts';
@@ -152,7 +154,7 @@ function markup_known(): string | null {
 
 // ── nothing of an old page still open ──
 
-type Visit = { readonly scope: { readonly closed: boolean } };
+type Visit = { readonly scope: Life };
 
 /** (Each visit made, in the order made, is in `R.visits`: one older than the page on screen's is over.) */
 let visit_n = 0;
@@ -171,7 +173,7 @@ function no_old_page_open(): string | null {
 	const now = R.visits.find((v) => v.visit === current);
 	if (now === undefined) return null;
 	for (let i = R.visits.length - 1; i >= 0; i--)
-		if (R.visits[i].visit.scope.closed) R.visits.splice(i, 1);
+		if (life.closed(R.visits[i].visit.scope)) R.visits.splice(i, 1);
 	const open = R.visits.filter((v) => v.n < now.n).length;
 	return open === 0 ? null : `${open} page visit(s) before the one on screen still open`;
 }

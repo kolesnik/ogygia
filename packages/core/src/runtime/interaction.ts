@@ -1,13 +1,5 @@
-import {
-	flights,
-	machine,
-	noop,
-	registry,
-	STALE,
-	type Machine,
-	type Scope,
-	type Stale
-} from '@ogygia/machine';
+import { flights, machine, noop, registry, STALE, type Machine, type Stale } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine/internal';
 import { LoadSlot } from './load-scheduler.ts';
 import { import_again } from './import-again.ts';
 import { slots } from './slots.ts';
@@ -120,7 +112,7 @@ type Armed = {
 	region: Element;
 	warm: () => void;
 	fire: WakeFn;
-	owner: Scope;
+	owner: Life;
 	arming: Arming;
 	warmed: boolean;
 	queued: QueuedClick[];
@@ -263,7 +255,7 @@ export function arm_interaction(
 	region: Element,
 	warm: () => void,
 	fire: WakeFn,
-	owner: Scope
+	owner: Life
 ): (over?: boolean) => void {
 	const a: Armed = {
 		region,

@@ -23,18 +23,9 @@
  * imports nothing of the boot (only `@ogygia/machine`, which the boot runs on); the boot hands it
  * its message (`on_reload_needed`).
  */
-import {
-	buggify,
-	cache,
-	flights,
-	machine,
-	noop,
-	registry,
-	say,
-	scope,
-	STALE,
-	type Scope
-} from '@ogygia/machine';
+import { buggify, cache, flights, machine, noop, registry, say, STALE } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { code_url_or_refuse, import_code, type CodeUrl } from './code-origins.ts';
 
 // dev and rules builds (a buggify point); folded out of any other
@@ -59,15 +50,16 @@ const responses = cache<string, number | null>({ name: 'heard downloads', max: R
  *  when it lands. */
 const landing = registry<{ url: string; done: (status: number | null) => void }>();
 /** The observer's owner, once it is up (the document's: a file's load outlives any page visit). */
-let timeline: Scope | null = null;
+let timeline: Life | null = null;
 
 function hear_responses(): void {
 	if (timeline !== null || typeof PerformanceObserver === 'undefined') return;
-	timeline = scope();
+	timeline = life.root();
 	try {
 		// (buffered: what the timeline already holds is heard at once, then every entry after it)
-		timeline
+		life
 			.watch(
+				timeline,
 				new PerformanceObserver((list) => {
 					for (const e of list.getEntries()) heard(e.name, status_of([e]));
 				})
@@ -98,14 +90,14 @@ function heard(url: string, status: number | null): void {
 function response_landed(url: string): Promise<number | null> {
 	const now = response_of(url);
 	if (now !== null || responses.has(url) || timeline === null) return Promise.resolve(now);
-	const wait = scope();
+	const wait = life.root();
 	return new Promise<number | null>((resolve) => {
 		const done = (status: number | null) => {
-			wait.close();
+			life.close(wait);
 			resolve(status);
 		};
 		landing.add({ url, done }, wait);
-		wait.timeout(() => done(null), ENTRY_WAIT_MS);
+		life.later(wait, done, ENTRY_WAIT_MS, null);
 	});
 }
 

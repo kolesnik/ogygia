@@ -6,6 +6,7 @@
 import { afterEach, expect, inject, test, vi } from 'vitest';
 import { from_b64 } from './b64.ts';
 import { STALE } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
 import { bootDev } from '../../src/runtime/full.ts';
 import {
 	note_handed,
@@ -159,11 +160,11 @@ test('nothing of an old page open: a visit before the one on screen still open',
 	expect(rules()).toEqual([
 		{ code: 'rule_old_page_open', detail: '1 page visit(s) before the one on screen still open' }
 	]);
-	stray.scope.close();
+	life.close(stray.scope);
 	// a visit made after the one on screen (a navigation's, still on its way) is not over
 	const on_its_way = runtime_session.next_visit();
 	expect(rules()).toEqual([]);
-	on_its_way.scope.close();
+	life.close(on_its_way.scope);
 });
 
 test('the address bar and the history model: checked once no navigation is out', () => {
