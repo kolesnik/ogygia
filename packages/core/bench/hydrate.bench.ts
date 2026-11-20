@@ -50,6 +50,11 @@ import {
 	install as install_interaction
 } from '../src/runtime/interaction.ts';
 import { once_on_screen } from '../src/runtime/viewport.ts';
+import {
+	preload_island_graph,
+	register_island_graph
+} from '../src/runtime/island-graph-preload.ts';
+import { slots } from '../src/runtime/slots.ts';
 import { flights } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import { LoadSlot, reset_load_scheduler } from '../src/runtime/load-scheduler.ts';
@@ -446,6 +451,7 @@ bench(
 	() => warm_page(ISLAND_ENTRIES),
 	{
 		setup: () => {
+			slots.graph = { preload: preload_island_graph, register: register_island_graph };
 			for (const entry of ISLAND_ENTRIES) note_entry_location(entry, src_of(entry));
 			return Promise.all(ISLAND_ENTRIES.map((entry) => import_entry(entry))).then(() => ({}));
 		}
