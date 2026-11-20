@@ -2793,16 +2793,8 @@
 			"reason": "hands a callback to one of four schedule arms (functions, not cloneable), one parse and one branch, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/lakes.ts > on_frozen_connect > on_schedule:2~6d0320",
-			"reason": "browser only: a stored page's swr lake revalidates on its schedule, one fetch call, constant work"
-		},
-		{
-			"id": "packages/core/src/runtime/lakes.ts > on_frozen_connect > on_schedule:2~6d0320#2",
-			"reason": "browser only: a cached lake revalidates on its schedule, one fetch call, constant work"
-		},
-		{
-			"id": "packages/core/src/runtime/lakes.ts > on_frozen_connect > on_schedule:2~6d0320#3",
-			"reason": "browser only: a cached lake revalidates on its schedule, one fetch call, constant work"
+			"id": "packages/core/src/runtime/lakes.ts > revalidate_on",
+			"reason": "browser only: a stored page's swr lake or a cached lake revalidates on its schedule (an arm the build left out said), one schedule call, constant work; proven in packages/core/test/browser/lake-connect.test.ts"
 		},
 		{
 			"id": "packages/core/src/server/request-stats.ts > set_request_stats_sink",
@@ -6973,20 +6965,20 @@
 			"reason": "the browser's stand-in: does nothing (the server's word gates what the server writes), constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > say_schedule_missing",
+			"id": "packages/core/src/runtime/schedule-said.ts > say_schedule_missing",
 			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw): never on a bench path, where every arm is in; proven in packages/core/test/browser/schedules-missing.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > region_label",
+			"id": "packages/core/src/runtime/schedule-said.ts > region_label",
 			"reason": "a message argument: two attribute reads, constant work, only when a region is said (unknown or missing schedule)"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #arm > on_trigger:2~e5c3eb > missing",
-			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw): never on a bench path, where every arm is in; proven in packages/core/test/browser/schedules-missing.test.ts"
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #arm > on_trigger:2~f418cb > media",
+			"reason": "browser only: a wake or a hole's fetch on a value no keyword holds goes to the media arm (one media query test, then one matchMedia), constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts and wake-unknown-trigger.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #lake_arm > missing",
-			"reason": "browser only, a lake revalidated on an arm its build left out; proven in packages/core/test/browser/lake-connect.test.ts"
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #lake_arm > media",
+			"reason": "browser only: a lake revalidated on a value no keyword holds goes to the media arm (one media query test, the hole's state, one matchMedia), constant work; proven in packages/core/test/browser/lake-swr-remount.test.ts"
 		},
 		{
 			"id": "packages/core/src/messages/core.ts > ERRORS > region_schedule_missing",

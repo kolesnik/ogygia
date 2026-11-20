@@ -1,4 +1,5 @@
-import { on_schedule } from '../contract/trigger.ts';
+import { on_schedule, TRIGGER_MISSING } from '../contract/trigger.ts';
+import { say_schedule_missing } from './schedule-said.ts';
 import { clock } from '@ogygia/machine';
 import * as fsm from '@ogygia/machine/internal';
 import { lru, type Lru } from '@ogygia/machine/internal';
@@ -245,12 +246,20 @@ function remember(
 	});
 }
 
+/** Revalidates `el`'s lake on its schedule `when`; a schedule whose arm the build left out runs at
+ *  once and says so. */
+function revalidate_on(el: HTMLElement, when: string, arm: LakeArm): void {
+	if (on_schedule(when, arm, arm.fetch_revalidate) === TRIGGER_MISSING) {
+		say_schedule_missing(el, when);
+	}
+}
+
 export function on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean {
 	if (!is_frozen(el)) return false;
 	const id = lake_key(el);
 	if (!lake_state.initialized_lakes.has(id)) {
 		if (region_remount(el) === 'swr' && el.getAttribute('endpoint') && document_is_stored()) {
-			on_schedule(el.getAttribute('when') || 'load', arm, () => arm.fetch_revalidate());
+			revalidate_on(el, el.getAttribute('when') || 'load', arm);
 		} else if (
 			import.meta.env.DEV &&
 			region_remount(el) === 'swr' &&
@@ -302,8 +311,7 @@ export function on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean {
 					return true;
 				}
 				el.setAttribute('endpoint', cached.endpoint);
-				const when = el.getAttribute('when') || cached.when || 'load';
-				on_schedule(when, arm, () => arm.fetch_revalidate());
+				revalidate_on(el, el.getAttribute('when') || cached.when || 'load', arm);
 				return true;
 			}
 
@@ -322,8 +330,7 @@ export function on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean {
 				return true;
 			}
 			el.setAttribute('endpoint', cached.endpoint);
-			const when = el.getAttribute('when') || cached.when || 'load';
-			on_schedule(when, arm, () => arm.fetch_revalidate());
+			revalidate_on(el, el.getAttribute('when') || cached.when || 'load', arm);
 			return true;
 		}
 		default: {

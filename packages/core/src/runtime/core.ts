@@ -13,7 +13,7 @@ import {
 import { plain_flights } from '@ogygia/machine/internal';
 import type { Life, Run } from '@ogygia/machine/internal';
 import { frameAddress, older_by, stands_at } from '../frame.ts';
-import { is_media_query, on_trigger, WAKE } from '../contract/trigger.ts';
+import { is_media_query, on_trigger, TRIGGER_MISSING, WAKE } from '../contract/trigger.ts';
 import { OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from '../wire-markup.ts';
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
@@ -114,6 +114,7 @@ import {
 import { on_idle } from './arm-idle.ts';
 import { on_visible } from './arm-visible.ts';
 import { on_media } from './arm-media.ts';
+import { region_label, say_schedule_missing } from './schedule-said.ts';
 import {
 	note_code_sheets,
 	sheet_of,
@@ -304,12 +305,6 @@ function say_island_failed(entry: string | null, err: unknown): void {
 /** A region needs a program its build's word left out (`HAS`): it keeps the server's HTML. */
 function say_program_missing(entry: string, program: 'hole' | 'live'): void {
 	console.error(new OgygiaError('region_program_missing', { entry, program }));
-}
-function region_label(el: Element): string {
-	return el.getAttribute('entry') || el.getAttribute(OG_HOLE) || 'ogygia-region';
-}
-function say_schedule_missing(el: Element, value: string): void {
-	console.error(new OgygiaError('region_schedule_missing', { region: region_label(el), value }));
 }
 const nothing = (): void => {};
 const kit_boot_failed = (err: unknown): boolean =>
@@ -780,17 +775,9 @@ class OgygiaRegion extends HTMLElement {
 					: null,
 			media:
 				HAS & F_MEDIA
-					? {
-							is: is_media_query,
-							arm: (when: string, fire: () => void) => {
-								if (this.#hole_armed()) on_media(when, fire, this.#hole);
-							}
-						}
+					? (when: string, fire: () => void) =>
+							is_media_query(when) && (!this.#hole_armed() || on_media(when, fire, this.#hole))
 					: null,
-			missing: (value: string, fire: () => void) => {
-				say_schedule_missing(this, value);
-				fire();
-			},
 			fetch_revalidate: () => this.#box.post((turn) => this.#fetch_html(turn, true)),
 			wake_children: () => this.#wake_waiting_regions()
 		};
@@ -823,21 +810,14 @@ class OgygiaRegion extends HTMLElement {
 		// starts nothing (#335).
 		const armed = owner.visit();
 		const start = () => background_start(() => void (armed.closed || fire()));
-		const held = on_trigger(
+		const said = on_trigger(
 			when,
 			WAKE,
 			{
 				idle: HAS & F_IDLE ? (f) => on_idle(f, owner) : null,
 				visible: HAS & F_VISIBLE ? () => on_visible(this, start, visible_margin, owner) : null,
 				load: start,
-				media:
-					HAS & F_MEDIA
-						? { is: is_media_query, arm: (query) => on_media(query, start, owner) }
-						: null,
-				missing: (value) => {
-					say_schedule_missing(this, value);
-					start();
-				},
+				media: HAS & F_MEDIA ? (value) => on_media(value, start, owner) : null,
 				interaction: (f) => {
 					if (HAS & F_FRAMES && owner === this.#hole) {
 						arm_on_demand(
@@ -853,7 +833,8 @@ class OgygiaRegion extends HTMLElement {
 			},
 			fire
 		);
-		if (!held) warn('region_wake_unknown', { region: region_label(this), value: when });
+		if (said === TRIGGER_MISSING) say_schedule_missing(this, when);
+		else if (said) warn('region_wake_unknown', { region: region_label(this), value: when });
 	}
 
 	/**
