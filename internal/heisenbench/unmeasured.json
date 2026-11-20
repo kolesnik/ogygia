@@ -181,11 +181,11 @@
 			"reason": "the cache's total kept weight: one field read, constant work; run by packages/machine/test/cache.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/entry-locations.ts > recover_location > task:0~d0bd46",
+			"id": "packages/core/src/runtime/entry-locations.ts > recover_location > task:0~58dd51",
 			"reason": "one rollover wait on the recovery's own scope timer (seconds, a deploy's rollover only), constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/entry-locations.ts > recover_location > task:0~d0bd46 > Promise:0~1ca359",
+			"id": "packages/core/src/runtime/entry-locations.ts > recover_location > task:0~58dd51 > Promise:0~d6094a",
 			"reason": "one rollover wait on the recovery's own scope timer (seconds, a deploy's rollover only), constant work"
 		},
 		{
@@ -545,16 +545,8 @@
 			"reason": "builds the TimeoutError tries past their deadline fail with, constant work; proven in packages/machine/test/flights.test.ts and packages/machine/test/outbox.test.ts"
 		},
 		{
-			"id": "packages/machine/src/policy.ts > under_policy > on:2~637346",
-			"reason": "the retry loop wiring (a timer, a caller signal, the try under a scope): timing work; proven in packages/machine/test/flights.test.ts and packages/machine/test/outbox.test.ts"
-		},
-		{
 			"id": "packages/machine/src/policy.ts > under_policy > alive:1~10b94e",
 			"reason": "the retry loop wiring (a timer that keeps the process alive, for the deadline): timing work; proven in packages/machine/test/outbox.test.ts and packages/machine/test/process.node.test.ts"
-		},
-		{
-			"id": "packages/machine/src/scope.ts > Scoped > on > fn",
-			"reason": "a once listener firing: lets go of itself and calls the listener with the event (a DOM Event, not replayable), constant work; proven in packages/machine/test/scope.test.ts"
 		},
 		{
 			"id": "packages/machine/src/world.ts > FinalizationRegistry:0~d08e61",
@@ -577,11 +569,11 @@
 			"reason": "browser only: the dynamic import of the hydrate core chunk; its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > flights:0 > run",
+			"id": "packages/core/src/runtime/core.ts > trusted_plain_flights:0~bd3c10 > run",
 			"reason": "browser only: loads the hydrate core chunk (yield, import, keep); proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > flights:0 > run > then:0",
+			"id": "packages/core/src/runtime/core.ts > trusted_plain_flights:0~bd3c10 > run > then:0~03979b",
 			"reason": "browser only: keeps the loaded hydrate core; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
@@ -593,7 +585,7 @@
 			"reason": "browser only: the dynamic import of devalue's chunk; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/devalue-lane.ts > flights:0 > run",
+			"id": "packages/core/src/runtime/devalue-lane.ts > trusted_plain_flights:0~8e9aa9 > run",
 			"reason": "browser only: loads devalue's chunk and keeps it; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
@@ -605,7 +597,7 @@
 			"reason": "browser only: hands the loaded devalue to a waiting read, constant work; proven in packages/core/test/browser/devalue-lane.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/devalue-lane.ts > flights:0 > run > then:0",
+			"id": "packages/core/src/runtime/devalue-lane.ts > trusted_plain_flights:0~8e9aa9 > run > then:0~ef71fb",
 			"reason": "browser only: keeps the loaded devalue module; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
@@ -617,7 +609,7 @@
 			"reason": "browser only: the default retry is a dynamic import() of a chunk URL; import_again itself runs in packages/core/bench/runtime.bench.ts with a stand-in"
 		},
 		{
-			"id": "packages/core/src/runtime/interaction.ts > flights:0 > import_again:0",
+			"id": "packages/core/src/runtime/interaction.ts > trusted_plain_flights:0~bfa715 > import_again:0~4bdf79",
 			"reason": "browser only: the dynamic import of the interaction replay chunk; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
@@ -697,11 +689,11 @@
 			"reason": "the fallback store getter when the store module failed to load: a constant undefined"
 		},
 		{
-			"id": "packages/core/src/runtime/wire-classes.ts > flights:0",
+			"id": "packages/core/src/runtime/wire-classes.ts > trusted_plain_flights:0",
 			"reason": "browser only: yields a task, then the dynamic import of a transportable class's chunk; its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/router.ts > flights:0 > import_again:0",
+			"id": "packages/core/src/runtime/router.ts > trusted_plain_flights:0~cdf0a1 > import_again:0~9dfac0",
 			"reason": "browser only: the dynamic import of the router's navigation chunk; its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
@@ -709,11 +701,11 @@
 			"reason": "browser only: the navigation chunk did not load, so a prefetch has no page (a constant null); proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > flights:0 > import_again:0",
+			"id": "packages/core/src/runtime/nav-handle.ts > trusted_plain_flights:0~d73139 > import_again:0~2b5d22",
 			"reason": "browser only: the dynamic import of the router-off soft refresh's chunk; its download, failure and retry are proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > flights:0 > import_again:0 > then:0",
+			"id": "packages/core/src/runtime/nav-handle.ts > trusted_plain_flights:0~d73139 > import_again:0~2b5d22 > then:0~5fb513",
 			"reason": "browser only: picks the refresh out of the loaded navigation chunk, constant work; proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
@@ -789,16 +781,12 @@
 			"reason": "browser only: an idle schedule fires once, at idle time or the 2 s cap, whichever is first (two cancels and the fire), constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #on_media > on:2~a3a7e5",
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #on_media > listen:2~d003ad",
 			"reason": "browser only: a media schedule's change listener on its visit (a match check, then off and fire), constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts"
 		},
 		{
 			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #bound",
 			"reason": "browser only: two field reads (the region's frame-store binding, still open), constant work; proven in packages/core/test/browser/region-move.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/core.ts > snippets_settled > timeout:0~4a8350",
-			"reason": "browser only: the 10 s cap on the wait for an island's live snippets closes the wait's scope, constant work"
 		},
 		{
 			"id": "packages/core/src/runtime/kit-page-thread.svelte.ts > await_applied > end",
@@ -833,7 +821,7 @@
 			"reason": "browser only: a live region put back goes on with its last tick (#337), constant work; proven in packages/core/test/browser/region-orderings.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #morph_live > post:0~d8f6fe",
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > static #live_link > renew > post:0~d8f6fe",
 			"reason": "browser only: hands a re-minted nested hole's renew to its own mailbox, constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts"
 		},
 		{
@@ -853,11 +841,11 @@
 			"reason": "a constant one-liner: gives back a download slot whose region left while it queued"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #live_hydrate > ours",
+			"id": "packages/core/src/runtime/live-program.ts > live_hydrate > ours",
 			"reason": "browser only: is this still the live region's hydrating visit, constant work; proven in packages/core/test/browser/live-region.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #live_hydrate > defer:0",
+			"id": "packages/core/src/runtime/live-program.ts > live_hydrate > defer:0~8c9c1a",
 			"reason": "browser only: disposes a live region's island when it leaves `live`, constant work besides Svelte's unmount; proven in packages/core/test/browser/live-region.test.ts"
 		},
 		{
@@ -885,15 +873,15 @@
 			"reason": "browser only: the frames feature takes the head's early requests over at boot, linear in the load holes; proven in packages/core/test/browser/early-holes.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/early-holes.ts > adopt_early_holes > start:1~1117e8",
+			"id": "packages/core/src/runtime/early-holes.ts > adopt_early_holes > start:1~8b40c5",
 			"reason": "browser only: an early flight's work (the parked response read through read_hole), linear in the answer; proven in packages/core/test/browser/early-holes.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/early-holes.ts > adopt_early_holes > start:1~1117e8 > on:2~6c2793",
+			"id": "packages/core/src/runtime/early-holes.ts > adopt_early_holes > start:1~8b40c5 > listen:2~6c2793",
 			"reason": "browser only: the flight's abort cancels the parked request (one abort call), constant work; proven in packages/core/test/browser/early-holes.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/early-holes.ts > adopt_early_holes > start:1~1117e8 > read_hole:2~58a925 > renewed",
+			"id": "packages/core/src/runtime/early-holes.ts > adopt_early_holes > start:1~8b40c5 > read_hole:2~58a925 > renewed",
 			"reason": "browser only: a renewed capability handed to the address (one store write), constant work; proven by the renewal path in packages/core/test/browser/hole-renewal.test.ts"
 		},
 		{
@@ -1073,7 +1061,7 @@
 			"reason": "hands the loaded Shiki module to createHighlighter: Shiki's WASM engine, which a measuring window refuses; proven in packages/content/test/markdown-start.test.ts"
 		},
 		{
-			"id": "packages/core/src/plugin/css.ts > flights:0 > run",
+			"id": "packages/core/src/plugin/css.ts > trusted_flights:0~1bae6c > run",
 			"reason": "the dynamic import of the generated virtual:ogygia/router-css, which resolves only under the app's Vite pipeline; its failed read and the read after it are proven against a real Vite dev server in packages/core/test/router-css-dev.test.ts"
 		},
 		{
@@ -1325,11 +1313,11 @@
 			"reason": "the same, as it gets its turn back, constant work; proven in packages/machine/test/mailbox.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/import-again.ts > flights:0",
+			"id": "packages/core/src/runtime/import-again.ts > trusted_plain_flights:0",
 			"reason": "browser only: an island file's one load at a time (the dynamic import() of its URL, and the immediate retry under a fresh URL after a dropped download); proven in packages/core/test/browser/import-file-one-retry.test.ts (#271) and apps/palaestra/e2e/lazy-chunk-retry.spec.ts (#261)"
 		},
 		{
-			"id": "packages/core/src/runtime/entry-locations.ts > flights:0",
+			"id": "packages/core/src/runtime/entry-locations.ts > trusted_plain_flights:0",
 			"reason": "browser only: the reads of this build's location map and the current build's ogygia.json (fetch), kept once read; proven in packages/core/test/browser/entry-location-map.test.ts and entry-location-rollover.test.ts"
 		},
 		{
@@ -1341,11 +1329,11 @@
 			"reason": "browser only: the wait for Kit to apply its page (a global accessor and a Svelte effect root), once per wait; proven in packages/core/test/browser/kit-page-thread.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~d52439 > one",
+			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~a7cf26 > one",
 			"reason": "browser only: a critical resource's load or error event, once per resource per document; proven in packages/core/test/browser/load-scheduler.test.ts and load-scheduler-critical-error.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~d52439 > timeout:0~301398",
+			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~a7cf26 > later:0~301398",
 			"reason": "browser only: the critical wait's cap (2.5 s), once per document; proven in packages/core/test/browser/load-scheduler.test.ts"
 		},
 		{
@@ -1361,16 +1349,12 @@
 			"reason": "a test seam: drops the critical wait, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #open_line > queue:0~e6e564 > stale",
+			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #open_line > trusted_pass_queue:0~e6e564 > stale",
 			"reason": "a test seam: a slot still queued when a test resets the document leaves unwatched, constant work per slot"
 		},
 		{
 			"id": "packages/core/src/runtime/load-scheduler.ts > LoadSlot > leave",
 			"reason": "a test seam: a slot still queued when a test resets the document stops watching its element, constant work"
-		},
-		{
-			"id": "packages/core/src/runtime/schedule.ts > register_region > defer:0~d7202d",
-			"reason": "browser only: a region's lifetime ends and stops its viewport snapshot if it is still the same one (an IntersectionObserver release), constant work; proven in packages/core/test/browser/region-orderings.test.ts and hole-lifecycle.test.ts"
 		},
 		{
 			"id": "packages/core/src/runtime/schedule.ts > until_painted",
@@ -1893,15 +1877,15 @@
 			"reason": "puts an undo on an owner (a scope, not cloneable), constant work; proven in packages/testing/test/testing-primitives.test.ts (#291)"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > region_fragment > task:0~4796da",
+			"id": "packages/core/src/runtime/core.ts > region_fragment > task:0~8e08a3",
 			"reason": "the wait for a region answer's sheets on the page visit (a scope and live link elements, not cloneable), constant work per answer; run in the browser suite (packages/core/test/browser)"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > region_fragment > task:0~4796da > Promise:0~c03b66",
+			"id": "packages/core/src/runtime/core.ts > region_fragment > task:0~8e08a3 > Promise:0~d38527",
 			"reason": "the wait for a region answer's sheets on the page visit (a scope and live link elements, not cloneable), constant work per answer; run in the browser suite (packages/core/test/browser)"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > region_fragment > task:0~4796da > Promise:0~c03b66 > then:0~54bc50",
+			"id": "packages/core/src/runtime/core.ts > region_fragment > task:0~8e08a3 > Promise:0~d38527 > then:0~26bbc7",
 			"reason": "the wait for a region answer's sheets on the page visit (a scope and live link elements, not cloneable), constant work per answer; run in the browser suite (packages/core/test/browser)"
 		},
 		{
@@ -1917,15 +1901,11 @@
 			"reason": "hands a navigation's batch to streamFrames with its page visit's scope (not cloneable), one call"
 		},
 		{
-			"id": "packages/core/src/runtime/router-nav.ts > preload_stylesheets > Promise:0~4881be > then:0~54bc50",
+			"id": "packages/core/src/runtime/router-nav.ts > preload_stylesheets > Promise:0~1d4b09 > listen:2~155ee3",
 			"reason": "the navigation's wait for the next page's sheets (a scope and live link elements, not cloneable), constant work; proven in packages/core/test/browser/nav-called-off-sheets.test.ts (#267)"
 		},
 		{
-			"id": "packages/core/src/runtime/router-nav.ts > preload_stylesheets > Promise:0~729314 > on:2~155ee3",
-			"reason": "the navigation's wait for the next page's sheets (a scope and live link elements, not cloneable), constant work; proven in packages/core/test/browser/nav-called-off-sheets.test.ts (#267)"
-		},
-		{
-			"id": "packages/core/src/runtime/router-nav.ts > preload_stylesheets > Promise:0~729314 > on:2~155ee3#2",
+			"id": "packages/core/src/runtime/router-nav.ts > preload_stylesheets > Promise:0~1d4b09 > listen:2~155ee3#2",
 			"reason": "the navigation's wait for the next page's sheets (a scope and live link elements, not cloneable), constant work; proven in packages/core/test/browser/nav-called-off-sheets.test.ts (#267)"
 		},
 		{
@@ -2141,11 +2121,11 @@
 			"reason": "browser only: makes a link's download machine and its load/error listeners (a live link element, not cloneable), constant work; proven in packages/core/test/browser/region-sheet-failed.test.ts (#274)"
 		},
 		{
-			"id": "packages/core/src/runtime/region-sheets.ts > sheet_of > on:2~3181a7",
+			"id": "packages/core/src/runtime/region-sheets.ts > sheet_of > listen:2~3181a7",
 			"reason": "browser only: a link's error moves its machine to failed, constant work; proven in packages/core/test/browser/region-sheet-failed.test.ts (#274)"
 		},
 		{
-			"id": "packages/core/src/runtime/region-sheets.ts > sheet_of > on:2~456322",
+			"id": "packages/core/src/runtime/region-sheets.ts > sheet_of > listen:2~456322",
 			"reason": "browser only: a link's load moves its machine to loaded, constant work; proven in packages/core/test/browser/region-sheet-failed.test.ts (#274)"
 		},
 		{
@@ -2269,12 +2249,8 @@
 			"reason": "browser only: one scrollTo when the position moved, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/router-nav.ts > hold_scroll > on:2~0f2971",
+			"id": "packages/core/src/runtime/router-nav.ts > hold_scroll > listen:2~0f2971",
 			"reason": "browser only: the visitor's input ends the hold (one scope close)"
-		},
-		{
-			"id": "packages/core/src/runtime/router-nav.ts > hold_scroll > timeout:0~0f2971",
-			"reason": "browser only: the hold's cap ends it (one scope close)"
 		},
 		{
 			"id": "packages/core/src/runtime/import-again.ts > heard",
@@ -3961,10 +3937,6 @@
 			"reason": "a message's one line for the dev warning: a template over the rule's detail, printed once when the rule breaks"
 		},
 		{
-			"id": "packages/machine/src/queue.ts > Line > #arm > timeout:0~5b3150",
-			"reason": "the deadlines' one timer firing: hands over to #expire, constant work"
-		},
-		{
 			"id": "packages/machine/src/queue.ts > Line > #expire",
 			"reason": "a timer's callback over the waiting jobs, linear in them; queue.test.ts runs it under fake timers (not replayable: it reads the clock)"
 		},
@@ -4017,7 +3989,7 @@
 			"reason": "test seam: the number of observers, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/region-endpoint-url.ts > make_warms > call:0~93991a > run > onRaise:0~1a69dd",
+			"id": "packages/core/src/runtime/region-endpoint-url.ts > make_warms > trusted_plain_flights:0~93991a > run > onRaise:0~1a69dd",
 			"reason": "browser only: a more urgent warm joins one whose import is already on the wire, and its graph links are raised (one preload_island_graph call, measured by its own bench)"
 		},
 		{
@@ -4037,7 +4009,7 @@
 			"reason": "browser only, an error path: an island whose code failed offline waits for the window's online event (a live element and window, not cloneable), constant work; proven in packages/core/test/browser/hole-offline.test.ts (#891)"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #wake_online > on:2~9cda26",
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #wake_online > listen:2~9cda26",
 			"reason": "browser only: the online listener, one machine step and one wake, constant work; proven in packages/core/test/browser/hole-offline.test.ts (#891)"
 		},
 		{
@@ -4105,11 +4077,15 @@
 			"reason": "once per boot per store runtime: the shared deploy check keyed on the runtime (a WeakMap of live runtimes, not cloneable), constant work; proven in packages/postrender/test/deploy.test.ts (#947)"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > flights:0~d73139 > import_again:1~da9da6",
+			"id": "packages/core/src/runtime/nav-handle.ts > trusted_plain_flights:0~d73139 > import_again:1~da9da6",
 			"reason": "browser only: a retry of the soft refresh's download imports its file by URL (a network load, not recorded), only after the first download failed; proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > flights:0~d73139 > import_again:1~da9da6 > then:0~5fb513",
+			"id": "packages/core/src/runtime/nav-handle.ts > trusted_plain_flights:0~d73139 > import_again:1~da9da6 > then:0~5fb513",
+			"reason": "browser only: reads invalidate_all off the retried module, one property read; proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/nav-handle.ts > trusted_plain_flights:0~d73139 > import_again:1~da9da6 > then:0~f113fa",
 			"reason": "browser only: reads invalidate_all off the retried module, one property read; proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
@@ -4117,7 +4093,7 @@
 			"reason": "dev only, browser only: builds the page's one stale-dep watch on first use (a flights definition, not cloneable), constant work; proven in packages/core/test/browser/stale-deps.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/stale-deps.ts > make_watch > call:0~5cbf83 > run",
+			"id": "packages/core/src/runtime/stale-deps.ts > make_watch > trusted_plain_flights:0~5cbf83 > run",
 			"reason": "dev only, browser only: the watch's run, one call into confirm_and_reload, constant work; proven in packages/core/test/browser/stale-deps.test.ts"
 		},
 		{
@@ -4589,7 +4565,7 @@
 			"reason": "a message table entry: wording only (#820)"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #live_hydrate > catch:0~66a292",
+			"id": "packages/core/src/runtime/live-program.ts > live_hydrate > catch:0~670aab",
 			"reason": "browser only, an error path: a live region's Kit wait failed because Kit cannot start (once per page at most), constant work; proven in apps/palaestra/e2e/kit-boot-failed.spec.ts (#820)"
 		},
 		{
@@ -5053,7 +5029,7 @@
 			"reason": "a message's wording, read once when the error is shown: constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/page-defer.ts > install_page_defer > live > with_devalue:1~0fffae",
+			"id": "packages/core/src/runtime/page-defer.ts > install_page_defer > live > call:1~0fffae",
 			"reason": "a streamed resolve whose devalue download failed every try: one settle, once per promise; devalue-lane-gone.test.ts runs the give-up"
 		},
 		{
@@ -5133,7 +5109,7 @@
 			"reason": "the region life machine as data for docs and tests (graph() of a constant definition), never on a request or a wake"
 		},
 		{
-			"id": "packages/core/src/runtime/session.ts > RuntimeSession > settle_lake_before_swap",
+			"id": "packages/core/src/runtime/lakes.ts > LakeState > settle_lake_before_swap",
 			"reason": "browser only: one lake machine move per region of a refresh (Elements, not cloneable), constant work"
 		},
 		{
@@ -6081,11 +6057,11 @@
 			"reason": "build only: makes the plugin's page_reads (measured in the data-shake bench) and hands it to the build, once per build"
 		},
 		{
-			"id": "packages/core/src/runtime/seeds.ts > absorb_page_facts > with_devalue:0~d7d878",
+			"id": "packages/core/src/runtime/seeds.ts > absorb_page_facts > call:0~d7d878",
 			"reason": "browser only: hands the queued facts to merge_page_facts once devalue is in, constant work; proven in packages/core/test/browser/page-facts-before-devalue.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/seeds.ts > absorb_page_facts > with_devalue:1~411c45",
+			"id": "packages/core/src/runtime/seeds.ts > absorb_page_facts > call:1~411c45",
 			"reason": "browser only: devalue's download failed for good, one warning, constant work"
 		},
 		{
@@ -6123,14 +6099,6 @@
 		{
 			"id": "packages/core/src/runtime/lakes.ts > release > map:0~45dbf6",
 			"reason": "browser only: one map entry per held lake, constant work per lake; lake-restore-count.test.ts runs it (#1675)"
-		},
-		{
-			"id": "packages/core/src/runtime/slots.ts > slots > lakes > hold",
-			"reason": "the empty default before the lakes feature installs: returns an empty list, constant work"
-		},
-		{
-			"id": "packages/core/src/runtime/slots.ts > slots > lakes > release",
-			"reason": "the empty default before the lakes feature installs: does nothing, constant work"
 		},
 		{
 			"id": "packages/rewrite/src/messages.ts > REWRITE_WARNINGS > restore_host_invalid > details",
@@ -6779,6 +6747,202 @@
 		{
 			"id": "packages/insights/src/page-insights.ts > analyze_page > map:0~e59b9a",
 			"reason": "a queued island's name and wait joined into a finding's message, inside analyze_page's pass, constant work per island"
+		},
+		{
+			"id": "packages/compiler/src/kit.ts > route_reader > routes > derived:2~eff2ef",
+			"reason": "build only: the route facts' derived csr per route node, once per route per build (a route tree, not replayable); proven in packages/compiler/test/route-csr.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/kit.ts > read_csr_unread",
+			"reason": "build only: reads whether a route option file declares csr in a form only Kit's run can read (a parsed file, not cloneable), once per option file per build; proven in packages/compiler/test/route-csr.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/kit.ts > kit_may_hydrate",
+			"reason": "build only: one walk of the route facts per build (the routes, not cloneable), the __OGYGIA_KIT_PAGES__ define; proven in packages/compiler/test/route-csr.test.ts and vite-hooks.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/kit.ts > kit_may_hydrate > some:0~79f3d7",
+			"reason": "build only: kit_may_hydrate's test of one route node, constant work; proven in packages/compiler/test/route-csr.test.ts"
+		},
+		{
+			"id": "packages/core/src/context.ts > kit_hydrates_document",
+			"reason": "browser only: island code's read of whether Kit hydrates the document (the booted runtime's answer, else the document's probe), once per page; proven in packages/core/test/browser/kit-pages-off.test.ts and kit-pages-refused.test.ts"
+		},
+		{
+			"id": "packages/core/src/contract/features.ts > feature_word",
+			"reason": "build only: the compiler's runtime entry writes HAS with it, once per build, constant work per feature; proven in packages/compiler/test/virtual-core.test.ts"
+		},
+		{
+			"id": "packages/core/src/messages/core.ts > ERRORS > kit_page_unbuilt",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/messages/core.ts > ERRORS > region_program_missing",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/messages/core.ts > WARNINGS > rule_region_program_shipped",
+			"reason": "a rule's message wording (dev and e2e only), constant text; said in packages/core/test/browser/rules.test.ts"
+		},
+		{
+			"id": "packages/core/src/messages/lazy.ts > published",
+			"reason": "browser only: a lazy chunk's read of the message functions the boot published (one global read), constant work"
+		},
+		{
+			"id": "packages/core/src/runtime/boot-link.ts > KIT_META > document_has",
+			"reason": "a build without Kit pages (__OGYGIA_KIT_PAGES__ false): answers no without probing, constant work; proven in packages/core/test/browser/kit-pages-off.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/boot-link.ts > no_kit",
+			"reason": "a build without Kit pages (__OGYGIA_KIT_PAGES__ false): answers no without probing, constant work; proven in packages/core/test/browser/kit-pages-off.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/kit-boot.ts > no_kit",
+			"reason": "a build without Kit pages (__OGYGIA_KIT_PAGES__ false): answers no without probing, constant work; proven in packages/core/test/browser/kit-pages-off.test.ts"
+		},
+		{
+			"id": "packages/core/src/wire-markup.ts > KitBoot > static document_has > is_kit_boot_script:1~e4af8d",
+			"reason": "browser only: one inline script's attribute test while the document is probed for Kit's boot script, constant work; proven in packages/core/test/browser/kit-pages-refused.test.ts"
+		},
+		{
+			"id": "packages/core/src/wire-markup.ts > kit_answer",
+			"reason": "browser only: island code reads the booted runtime's Kit answer (one global read and call), constant work; proven in packages/core/test/browser/kit-pages-off.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > say_program_missing",
+			"reason": "browser only, an error path: a region whose program its build left out says so once and keeps the server's HTML, constant work; proven in packages/core/test/browser/frames-off.test.ts and live-off.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > get #answer",
+			"reason": "browser only: makes the region element's answer machine on first need (one create), constant work; run by every hole in the browser suite (packages/core/test/browser/hole-lifecycle.test.ts)"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > get #live",
+			"reason": "browser only: makes the region element's live machine on first need (one create), constant work; proven in packages/core/test/browser/live-region.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > get #paint",
+			"reason": "browser only: makes the region element's paint machine on first need (one create), constant work; proven in packages/core/test/browser/live-region.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > static #live_link",
+			"reason": "browser only: the live feature's link of accessors into the region element (slots.live_link), made once per page; each accessor is one field read or call; proven in packages/core/test/browser/live-region.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/slots.ts > live_link",
+			"reason": "browser only: the live feature's link of accessors into the region element (slots.live_link), made once per page; each accessor is one field read or call; proven in packages/core/test/browser/live-region.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/hydrate-core.ts > nothing",
+			"reason": "browser only: the catch that lets a visitor promise's rejection go (the visitor reports its own), constant work"
+		},
+		{
+			"id": "packages/core/src/runtime/kit-page-makers.ts > kit_page_flights",
+			"reason": "browser only: makes the Kit page thread's one shared wait (a flights over a runes module's run, not cloneable), once per page; proven in packages/core/test/browser/kit-page-thread.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/lakes.ts > LakeState",
+			"reason": "browser only: the lakes feature, over a visit's lake elements (Elements, not cloneable), constant work per lake; proven in packages/core/test/browser (lakes) and apps/palaestra/e2e/lakes.spec.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/live-program.ts > state_of",
+			"reason": "browser only: the live feature (./live-program.ts, installed by live.ts), over a live region element and its tick, constant work per tick besides the morph and the island's own render; proven in packages/core/test/browser/live-region.test.ts and live-static-new-address.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/live-program.ts > hand_back",
+			"reason": "browser only: the live feature (./live-program.ts, installed by live.ts), over a live region element and its tick, constant work per tick besides the morph and the island's own render; proven in packages/core/test/browser/live-region.test.ts and live-static-new-address.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/live-program.ts > apply_live",
+			"reason": "browser only: the live feature (./live-program.ts, installed by live.ts), over a live region element and its tick, constant work per tick besides the morph and the island's own render; proven in packages/core/test/browser/live-region.test.ts and live-static-new-address.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/live-program.ts > morph_live",
+			"reason": "browser only: the live feature (./live-program.ts, installed by live.ts), over a live region element and its tick, constant work per tick besides the morph and the island's own render; proven in packages/core/test/browser/live-region.test.ts and live-static-new-address.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/live-program.ts > live_hydrate",
+			"reason": "browser only: the live feature (./live-program.ts, installed by live.ts), over a live region element and its tick, constant work per tick besides the morph and the island's own render; proven in packages/core/test/browser/live-region.test.ts and live-static-new-address.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/live-program.ts > live_hydrate > cls",
+			"reason": "browser only: the live feature (./live-program.ts, installed by live.ts), over a live region element and its tick, constant work per tick besides the morph and the island's own render; proven in packages/core/test/browser/live-region.test.ts and live-static-new-address.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/page-defer.ts > install_page_defer > live > call:0~c94394",
+			"reason": "browser only: parses a streamed resolve once devalue is in and settles it (a mangled chunk settles null), linear in the chunk; proven in packages/core/test/page-defer.test.ts and packages/core/test/browser/seed-defer-order.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/rules.ts > watch_programs",
+			"reason": "browser only, dev and e2e builds: the runtime rules over the live page; proven in packages/core/test/browser/rules.test.ts and read at the end of every palaestra e2e spec"
+		},
+		{
+			"id": "packages/core/src/runtime/rules.ts > programs_shipped",
+			"reason": "browser only, dev and e2e builds: the runtime rules over the live page; proven in packages/core/test/browser/rules.test.ts and read at the end of every palaestra e2e spec"
+		},
+		{
+			"id": "packages/core/src/runtime/schedule.ts > unsnap",
+			"reason": "browser only: a region's lifetime ends and stops its viewport snapshot if it is still the same one (an Element and an IntersectionObserver release, not cloneable), constant work; proven in packages/core/test/browser/region-orderings.test.ts and hole-lifecycle.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/wire-on-use.ts > trusted_plain_flights:0~0390da > run",
+			"reason": "browser only: the wire feature's chunk, loaded on first use (a dynamic import, not recorded); its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
+		},
+		{
+			"id": "packages/core/src/server/region-request.ts > create_region_request",
+			"reason": "one machine made per hole request (fsm.create of the region request definition), constant work; the region_request case of packages/core/bench/region-capability.bench.ts counts that create"
+		},
+		{
+			"id": "packages/machine/src/cache.ts > check_cache",
+			"reason": "build only: the options pass (internal/macros) runs it on a cache's literal options, once per call site per build; proven in internal/macros/test/options.test.ts and packages/machine/test/cache.test.ts"
+		},
+		{
+			"id": "packages/machine/src/flights.ts > makers",
+			"reason": "module setup: builds one flights maker (checked or trusted), four per process, constant work"
+		},
+		{
+			"id": "packages/machine/src/machine.ts > graph",
+			"reason": "dev and rules builds only: a definition's graph for the devtools and the docs, linear in its states; proven in packages/machine/test/graph.test.ts"
+		},
+		{
+			"id": "packages/machine/src/machine.ts > paths",
+			"reason": "dev and rules builds only: a definition's paths for tests, linear in its steps; proven in packages/machine/test/graph.test.ts"
+		},
+		{
+			"id": "packages/machine/src/machine.ts > next_of",
+			"reason": "dev and rules builds only: one state's steps for graph()/paths(), linear in its steps; proven in packages/machine/test/graph.test.ts"
+		},
+		{
+			"id": "packages/machine/src/run.ts > notify",
+			"reason": "dev and rules builds only (RULES): tells each move to the observers (devtools, the simulator, rules), constant work per observer; proven in packages/machine/test/machine.test.ts"
+		},
+		{
+			"id": "packages/machine/src/run.ts > enter_told",
+			"reason": "dev and rules builds only (RULES): a move while observers watch, as enter does plus the notice; proven in packages/machine/test/machine.test.ts"
+		},
+		{
+			"id": "packages/machine/src/run.ts > watch_moves",
+			"reason": "dev and rules builds only (RULES): adds one observer of every move, once per watcher; proven in packages/machine/test/machine.test.ts"
+		},
+		{
+			"id": "packages/machine/src/run.ts > checked_data",
+			"reason": "dev builds only (DEV): refuses a state's data that carries its own kind, one own-property test per move"
+		},
+		{
+			"id": "packages/machine/src/run.ts > check",
+			"reason": "dev builds and tests only: a definition's checks before its first machine, linear in its steps; proven in packages/machine/test/machine.test.ts"
+		},
+		{
+			"id": "packages/machine/src/run.ts > definition",
+			"reason": "module setup: hands the runtime's define, once per definition at load, constant work"
+		},
+		{
+			"id": "packages/machine/src/scope.ts > ended",
+			"reason": "module setup: makes the one life closed for good (ENDED), once per process"
+		},
+		{
+			"id": "packages/machine/src/scope.ts > closed_scope",
+			"reason": "module setup: makes the one closed scope (CLOSED), once per process"
 		}
 	]
 }
