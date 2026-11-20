@@ -31,12 +31,11 @@ import {
 	text_of
 } from '../wire-markup.ts';
 import { KNOWN_HEADER_CAP } from '../contract/known-copies.ts';
+import { add_head_owners, adopt_owner_record, head_owners } from '../head-owners.ts';
+import { release_head_nodes } from './head-release.ts';
 import {
-	L_ADD_HEAD_OWNERS,
-	L_ADOPT_OWNER_RECORD,
 	L_ADOPT_RESPONSE,
 	L_FETCH_PRIORITY_OF,
-	L_HEAD_OWNERS,
 	L_INIT_SHADOW_REGISTRIES,
 	L_IS_WARMED_MODULE,
 	L_KIT_BOOT,
@@ -48,9 +47,9 @@ import {
 	L_PRIORITY,
 	L_REGIONS_IN_SHADOW,
 	L_REGISTER_ISLAND_GRAPH,
-	L_RELEASE_HEAD_NODES,
 	L_RUNS_ENTRY,
 	L_RUNTIME_SESSION,
+	L_SHEETS_IN_USE,
 	L_SOFT,
 	L_STALE,
 	L_VOUCH_PAGE_ANSWER,
@@ -62,13 +61,7 @@ import {
 
 const KitBoot = { document_has: (doc: ParentNode) => boot_link()[L_KIT_BOOT].document_has(doc) };
 const regions_in_shadow = () => boot_link()[L_REGIONS_IN_SHADOW]();
-const release_head_nodes = (unlisted: readonly Element[]) =>
-	boot_link()[L_RELEASE_HEAD_NODES](unlisted);
-const head_owners = (node: Element) => boot_link()[L_HEAD_OWNERS](node);
-const add_head_owners = (node: Element, more: Iterable<string>) =>
-	boot_link()[L_ADD_HEAD_OWNERS](node, more);
-const adopt_owner_record = (doc: ParentNode, head: ParentNode) =>
-	boot_link()[L_ADOPT_OWNER_RECORD](doc, head);
+const sheets_in_use = () => boot_link()[L_SHEETS_IN_USE]();
 const session = () => boot_link()[L_RUNTIME_SESSION];
 const adopt_response = (next: Document) => boot_link()[L_ADOPT_RESPONSE](next);
 type Life = import('@ogygia/machine/internal').Life;
@@ -723,7 +716,7 @@ export async function navigate(
 		boot_link()[L_INIT_SHADOW_REGISTRIES](document.body);
 		(globalThis as PageGlobals).__og_restore_adopt?.();
 		retire_page_head_copies(session());
-		release_head_nodes(unlisted);
+		release_head_nodes(unlisted, sheets_in_use);
 		apply_late_templates(document.body);
 		finish_spa_document();
 		slots.forms?.restore(url.pathname);
@@ -937,7 +930,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 		},
 		commit: (doc) => {
 			if (doc === null) return;
-			release_head_nodes(merge_head(doc.head));
+			release_head_nodes(merge_head(doc.head), sheets_in_use);
 			apply_soft_invalidate_doc(doc);
 		}
 	});

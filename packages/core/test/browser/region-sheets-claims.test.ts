@@ -4,7 +4,8 @@
 import { scope } from '@ogygia/machine';
 import { afterEach, expect, it } from 'vitest';
 import { connected_regions } from '../../src/runtime/connected.ts';
-import { release_head_nodes, sheet_of, use_sheets } from '../../src/runtime/region-sheets.ts';
+import { sheet_of, sheets_in_use, use_sheets } from '../../src/runtime/region-sheets.ts';
+import { release_head_nodes } from '../../src/runtime/head-release.ts';
 
 const SHEET = '/test/browser/fixtures/region-sheet.css';
 const added: Element[] = [];
@@ -69,7 +70,7 @@ it('a navigation keeps an unlisted region sheet a connected region uses, and tak
 	document.head.append(kept, gone);
 	const region = on_page_region();
 	use_sheets(region, [kept]);
-	release_head_nodes([kept, gone]);
+	release_head_nodes([kept, gone], sheets_in_use);
 	expect(kept.isConnected).toBe(true);
 	expect(gone.isConnected).toBe(false);
 });
@@ -80,6 +81,6 @@ it('a region whose new answer stops using a sheet lets it go', () => {
 	const region = on_page_region();
 	use_sheets(region, [l]);
 	use_sheets(region, []);
-	release_head_nodes([l]);
+	release_head_nodes([l], sheets_in_use);
 	expect(l.isConnected).toBe(false);
 });

@@ -4621,12 +4621,16 @@
 			"reason": "browser only: reads a loaded Kit entry's node loaders once per Kit wait, constant work; proven in packages/core/test/browser/kit-page-thread.test.ts (#2002)"
 		},
 		{
-			"id": "packages/core/src/runtime/region-sheets.ts > release_head_nodes",
-			"reason": "browser only: after a navigation's swap, walks the connected regions (a module set of live elements, not cloneable) against the head nodes the next page does not list; linear in both; proven in packages/core/test/browser/head-owner-release.test.ts (#806)"
+			"id": "packages/core/src/runtime/region-sheets.ts > sheets_in_use",
+			"reason": "browser only: walks the connected regions (a module set of live elements, not cloneable) for the sheets and owners in use; linear in them; proven in packages/core/test/browser/head-owner-release.test.ts (#806)"
 		},
 		{
-			"id": "packages/core/src/runtime/router-nav.ts > release_head_nodes",
-			"reason": "browser only: the navigation's call into region-sheets.ts release_head_nodes (the live head, not cloneable), constant work around it (#806)"
+			"id": "packages/core/src/runtime/head-release.ts > release_head_nodes",
+			"reason": "browser only: after a navigation's swap, the head nodes the next page does not list against the sheets in use (the live head, not cloneable); linear in both; proven in packages/core/test/browser/head-owner-release.test.ts (#806)"
+		},
+		{
+			"id": "packages/core/src/runtime/router-nav.ts > sheets_in_use",
+			"reason": "browser only: the navigation's read of the boot's sheets in use (region-sheets.ts sheets_in_use, through the boot link), constant work around it (#806)"
 		},
 		{
 			"id": "packages/compiler/src/messages.ts > BUILD_ERRORS > macro_outside_app > text",
@@ -4653,11 +4657,11 @@
 			"reason": "browser only: the string check over one sheet's listed owners (a few), constant work each; proven in packages/core/test/browser/shared-sheet-owners.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/region-sheets.ts > release_head_nodes > some:0~db55d7",
+			"id": "packages/core/src/runtime/head-release.ts > release_head_nodes > some:0~db55d7",
 			"reason": "browser only: one owner looked up in the page's owner set, constant work; proven in packages/core/test/browser/property-head-owner.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/region-sheets.ts > release_head_nodes > filter:0~db55d7",
+			"id": "packages/core/src/runtime/head-release.ts > release_head_nodes > filter:0~db55d7",
 			"reason": "browser only: one owner looked up in the page's owner set, constant work; proven in packages/core/test/browser/head-owner-release.test.ts"
 		},
 		{

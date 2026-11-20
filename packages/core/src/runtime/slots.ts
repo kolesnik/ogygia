@@ -172,13 +172,9 @@ export type BootLink = [
 	vouch_page_html: typeof import('./html-sink.ts').vouch_page_html,
 	runtime_session: typeof import('./session.ts').runtime_session,
 	regions_in_shadow: typeof import('./connected.ts').regions_in_shadow,
-	/** the region head nodes a navigation's head merge left, taken out but for those a region on
-	 *  the page uses or owns */
-	release_head_nodes: typeof import('./region-sheets.ts').release_head_nodes,
-	/** the islands a region head tag names as its owners, and adding to them (../head-owners.ts) */
-	head_owners: typeof import('../head-owners.ts').head_owners,
-	add_head_owners: typeof import('../head-owners.ts').add_head_owners,
-	adopt_owner_record: typeof import('../head-owners.ts').adopt_owner_record,
+	/** the head nodes the regions on the page use, and the islands they are: what a navigation's
+	 *  release of the head nodes its merge left keeps (./head-release.ts) */
+	sheets_in_use: typeof import('./region-sheets.ts').sheets_in_use,
 	yield_task: typeof import('./schedule.ts').yield_task,
 	/** the `regionHydrate` subscribers around Svelte's hydrate over server markup (./client-plugins.ts) */
 	region_hydrate: typeof import('./client-plugins.ts').client_region_hydrate,
