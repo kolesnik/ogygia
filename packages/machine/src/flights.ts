@@ -591,13 +591,14 @@ export function makers<O, KO>(
 	make: (options: object) => unknown,
 	check: ((options: AnyFlightsOptions, keyed: boolean) => void) | null
 ): Makers<O, KO> {
+	if (check === null) return Object.assign(make, { keyed: () => make }) as never;
 	const keyed = (options: object): unknown => {
-		if (check !== null) check(options as AnyFlightsOptions, true);
+		check(options as AnyFlightsOptions, true);
 		return make(options);
 	};
 	return Object.assign(
 		(options: object) => {
-			if (check !== null) check(options as AnyFlightsOptions, false);
+			check(options as AnyFlightsOptions, false);
 			return make(options);
 		},
 		{ keyed: () => keyed }
