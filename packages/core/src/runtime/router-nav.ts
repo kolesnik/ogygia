@@ -1,5 +1,5 @@
 import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
-import { buggify, clock, net, stage } from '@ogygia/machine';
+import { buggify, clock, net, stage, world } from '@ogygia/machine';
 import type { PageGlobals } from '../page-globals.ts';
 import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
 import {
@@ -55,7 +55,6 @@ import {
 	L_STALE,
 	L_VOUCH_PAGE_ANSWER,
 	L_WARM_ISLAND_MODULE,
-	L_WORLD,
 	L_YIELD_TASK
 } from './boot-link-index.ts';
 
@@ -423,7 +422,7 @@ const pages = (): Pages =>
 		key: ['href', 'known'],
 		ignore: { purpose: 'a navigation joins the prefetch out for its address: how, not what' },
 		run: (ask, signal, flight): Promise<Fetched> => run_page_fetch(ask, signal, flight),
-		world: (page_world = boot_link()[L_WORLD]()),
+		world: (page_world = world()),
 		keep: (answer) => (answer.page !== null && answer.cacheable ? PREFETCH_TTL_MS : 0),
 		max: PAGE_CACHE_MAX_BYTES,
 		weigh: (answer) =>

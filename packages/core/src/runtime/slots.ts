@@ -213,9 +213,6 @@ export type BootLink = [
 	/** a bounded, owned store of values that weigh one each and never age (`@ogygia/machine`'s
 	 *  `lru`): the router's per-address memos */
 	cache: typeof import('@ogygia/machine/internal').lru,
-	/** a stamp that only moves forward (`@ogygia/machine`): the world the router's page cache is
-	 *  made in */
-	world: typeof import('@ogygia/machine').world,
 	/** the page's soft refresh (./soft-refresh.ts): `invalidateAll`, with the router or without it */
 	soft: import('./soft-refresh.ts').SoftRefresh,
 	/** a region's attributes as the hydrate core reads them (./region-attrs.ts); the truncation

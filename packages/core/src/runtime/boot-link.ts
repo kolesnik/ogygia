@@ -6,7 +6,7 @@
  * test that imports a lazy module without booting calls it too. Idempotent. The link is a list,
  * read by number (./boot-link-index.ts).
  */
-import { flights, STALE, world } from '@ogygia/machine';
+import { flights, STALE } from '@ogygia/machine';
 import { lru } from '@ogygia/machine/internal';
 import { slots } from './slots.ts';
 import { create_soft_refresh } from './soft-refresh.ts';
@@ -104,7 +104,6 @@ export function link_boot(): void {
 		STALE,
 		flights,
 		lru,
-		world,
 		create_soft_refresh(),
 		is_deferred,
 		KIT_PAGES ? ours_on_kit_document : no_kit,
