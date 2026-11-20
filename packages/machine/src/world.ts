@@ -71,6 +71,29 @@ class Stamped<K> implements World<K> {
 			else watcher.hear(owner, keys);
 		}
 	}
+
+	/** `watch_world` on this world: a method, so a primitive that takes a world watches it with no
+	 *  import of this module (a page whose flights have no world carries none of it). */
+	_watch<O extends object>(owner: O, hear: Hear<K, O>): () => void {
+		const watchers = this._watchers;
+		const watcher: Watcher<K> = { owner: new WeakRef(owner), hear: hear as Hear<K, object> };
+		watchers.add(watcher);
+		const token = {};
+		forget.register(
+			owner,
+			{ watchers: watchers as Set<Watcher<never>>, watcher: watcher as Watcher<never> },
+			token
+		);
+		return () => {
+			watchers.delete(watcher);
+			forget.unregister(token);
+		};
+	}
+}
+
+/** A world as a primitive that takes one watches it (`world()`'s worlds have `_watch`). */
+export interface Watched<K> {
+	_watch?: <O extends object>(owner: O, hear: Hear<K, O>) => () => void;
 }
 
 /** Hears each move of `w` for `owner` until the returned function is called, or until `owner` is
@@ -82,20 +105,7 @@ export function watch_world<K, O extends object>(
 	owner: O,
 	hear: Hear<K, O>
 ): (() => void) | null {
-	if (!(w instanceof Stamped)) return null;
-	const watchers = (w as Stamped<K>)._watchers;
-	const watcher: Watcher<K> = { owner: new WeakRef(owner), hear: hear as Hear<K, object> };
-	watchers.add(watcher);
-	const token = {};
-	forget.register(
-		owner,
-		{ watchers: watchers as Set<Watcher<never>>, watcher: watcher as Watcher<never> },
-		token
-	);
-	return () => {
-		watchers.delete(watcher);
-		forget.unregister(token);
-	};
+	return w instanceof Stamped ? (w as Stamped<K>)._watch(owner, hear) : null;
 }
 
 /**
