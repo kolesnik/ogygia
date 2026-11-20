@@ -30,7 +30,7 @@ export function vocabulary(
 	const marker = new RegExp(`\\$(?:${names.map((n) => n.replace(/^\$/, '')).join('|')})\\b`);
 	return {
 		names,
-		mayUse: (code) => marker.test(code),
+		mayUse: (code) => names.length !== 0 && marker.test(code),
 		usedIn(program) {
 			const used = new Set<string>();
 			walk(program, null, {
