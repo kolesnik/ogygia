@@ -38,12 +38,12 @@ export const DRIFTS: ReadonlyArray<Drift> = [
 	{
 		macro: '$dev',
 		by_hand: /\bif\s*\(\s*import\.meta\.env\??\.DEV\s*\)\s*[a-z_$][\w$]*\(/,
-		says: 'a dev-only call is a `$dev` function called plainly: the build puts it behind the dev gate'
+		says: 'a dev-only function is marked where it is defined (`const f: F = $dev(function f(…) {…})`) and called plainly: the build puts each call behind the dev gate'
 	},
 	{
 		macro: '$rules',
 		by_hand: /\bif\s*\(\s*RULES\s*\)\s*[a-z_$][\w$]*\(/,
-		says: 'a rules-tier call is a `$rules` function called plainly: the build puts it behind the rules gate'
+		says: 'a rules-tier function is marked where it is defined (`const f: F = $rules(function f(…) {…})`) and called plainly: the build puts each call behind the rules gate'
 	}
 ];
 

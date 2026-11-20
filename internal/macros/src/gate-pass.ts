@@ -1,37 +1,39 @@
 /**
- * `$dev()` and `$rules()`: a function whose first statement is one runs behind that gate. Its
- * calls, in its own module or any module that imports it, compile to `<gate> && name(…)`, so a
- * build where the gate is false folds them, and with nothing left calling the function its body
- * goes too. The mark itself compiles away.
+ * `$dev(…)` and `$rules(…)`, at a function's definition (`const check: (n: number) => void =
+ * $dev(function check(n: number): void { … })`): the function runs behind that gate. The definition
+ * compiles to the plain function; its calls, in its own module or any module that imports it,
+ * compile to `<gate> && check(…)`, so a build where the gate is false folds them, and with nothing
+ * left calling the function its body goes too.
  *
- * Refused at build: a mark anywhere but the first statement of a top-level function declaration
- * (or with arguments, or in an async or generator function); a marked function handed on as a
- * value, or called where its result is read (a build without the gate has no result); a marked
- * function re-exported, or its module imported whole (`import * as`, `export *`), since the calls
- * through either could not be found.
+ * Refused at build: a mark anywhere but a function's definition at the top of its module (a const
+ * of the function's own name, the mark's only argument); an async or generator function; a type on
+ * the const whose parameters are not the function's; a marked function handed on as a value, or
+ * called where its result is read (a build without the gate has no result); a marked function
+ * re-exported, or its module imported whole (`import * as`, `export *`), since the calls through
+ * either could not be found.
  *
  * @packageDocumentation
  */
 import { gated, type N, type Pass, type Visit } from 'ogygia-internal-compilerkit';
 import { walk } from 'zimmerframe';
-import { marked_in, imported_marks, mark_statement, marks_of, top_function } from './marks.ts';
+import { code } from 'ogygia-internal-compilerkit';
+import { marked_in, imported_marks, marked_definition, marks_of } from './marks.ts';
 import { resolveSpecifier } from 'ogygia-internal-compilerkit';
 import type { Scope } from 'periscopic';
 import type { Compiler } from './compiler.ts';
 import { GATES } from './gates.ts';
 import { GATE_MARKS } from './marks.ts';
 
-const SHAPE =
-	'marks the function it is the first statement of: `function name(…): void { $MARK(); … }` at the top of its module.';
-const say_shape = (mark: string) => `${mark}() ${SHAPE.replace('$MARK', mark)}`;
+const say_shape = (mark: string) =>
+	`${mark} marks a function where it is defined: \`const name: (…) => void = ${mark}(function name(…): void { … })\` at the top of its module.`;
 
 /** The gating marks' pass. */
 export class GatePass implements Pass<Scope> {
 	readonly #c: Compiler;
 	/** The marked functions this module may call: its own and those it imports, name → mark. */
 	readonly #marked = new Map<string, string>();
-	/** The mark statements that are well placed (each compiles away). */
-	readonly #placed = new Set<N>();
+	/** The marked definitions, by their declaration (each compiles to its function). */
+	readonly #placed = new Map<N, N>();
 
 	constructor(c: Compiler) {
 		this.#c = c;
@@ -41,18 +43,24 @@ export class GatePass implements Pass<Scope> {
 		const { program, report, options } = this.#c;
 		for (const [name, mark] of marks_of(program)) this.#marked.set(name, mark);
 		for (const statement of program.body as Array<N>) {
-			const fn = top_function(statement);
-			const first = fn?.body?.body?.[0];
-			if (fn === null || mark_statement(first) === null) continue;
-			const mark = mark_statement(first)!;
-			if (first.expression.arguments.length !== 0)
-				report.fail(first, `${mark}() takes nothing: ${say_shape(mark)}`);
-			if (fn.async || fn.generator)
+			const d = marked_definition(statement);
+			if (d === null) continue;
+			if (!d.named || !d.alone) report.fail(d.declarator, say_shape(d.mark));
+			if (d.fn.async || d.fn.generator)
 				report.fail(
-					fn,
-					`${mark}() marks a plain function: an async or generator one returns a value, which a build without the gate has not.`
+					d.fn,
+					`${d.mark} marks a plain function: an async or generator one returns a value, which a build without the gate has not.`
 				);
-			this.#placed.add(first);
+			const typed = d.declarator.id.typeAnnotation?.typeAnnotation;
+			if (typed?.type === 'TSFunctionType' && typed.params.length !== d.fn.params.length)
+				report.fail(
+					typed,
+					`${d.declarator.id.name} is typed with ${typed.params.length} parameter${typed.params.length === 1 ? '' : 's'}, its function takes ${d.fn.params.length}: write the same parameters on both.`
+				);
+			this.#placed.set(
+				statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement,
+				d.fn
+			);
 		}
 		if (options.path !== undefined) {
 			for (const [local, mark] of imported_marks(options.path, program))
@@ -87,7 +95,7 @@ export class GatePass implements Pass<Scope> {
 				if (n.type === 'Identifier' && marked.has(n.name)) {
 					const up = path.at(-1);
 					const named =
-						(up?.type === 'FunctionDeclaration' && up.id === n) ||
+						(up?.type === 'VariableDeclarator' && up.id === n) ||
 						up?.type === 'ImportSpecifier' ||
 						up?.type === 'ExportSpecifier' ||
 						(up?.type === 'MemberExpression' && up.property === n && !up.computed) ||
@@ -136,20 +144,20 @@ export class GatePass implements Pass<Scope> {
 					);
 	}
 
-	statement(node: N): boolean {
-		if (!this.#placed.has(node)) return false;
-		this.#c.emitter.replace(node, '');
+	statement(node: N, v: Visit<Scope>): boolean {
+		const fn = this.#placed.get(node);
+		if (fn === undefined) return false;
+		const e = this.#c.emitter;
+		e.rewrite(node, code`${fn}`);
+		e.added += 1;
+		this.#c.walk_node(fn.body, v.scope);
 		return true;
 	}
 
 	call(node: N, v: Visit<Scope>): boolean {
 		const callee = node.callee;
 		if (callee?.type !== 'Identifier') return false;
-		if (Object.hasOwn(GATE_MARKS, callee.name)) {
-			if (v.parent?.type !== 'ExpressionStatement' || !this.#placed.has(v.parent))
-				this.#c.report.fail(node, say_shape(callee.name));
-			return true;
-		}
+		if (Object.hasOwn(GATE_MARKS, callee.name)) this.#c.report.fail(node, say_shape(callee.name));
 		const mark = this.#marked.get(callee.name);
 		if (mark === undefined || v.scope.find_owner(callee.name) !== this.#c.tracker.root)
 			return false;

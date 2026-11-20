@@ -32,19 +32,19 @@ function compiled(files: Record<string, string>, name: string): string | null {
 }
 
 const CHECKS = `${dedent`
-	export function check(n: number): void {
-		$dev();
+	export const check: (n: number) => void = $dev(function check(n: number): void {
 		log(n);
-	}
-	export function note(n: number): void {
-		$rules();
+	});
+	export const note: (n: number) => void = $rules(function note(n: number): void {
 		log(n);
-	}
+	});
 `}\n`;
 
 describe('the calls', () => {
-	test('in the defining module: behind the gate, and the mark compiles away', () => {
+	test('in the defining module: behind the gate, and the mark compiles to the plain function', () => {
 		const out = compiled({ 'a.ts': `${CHECKS}${lines('check(1);', 'note(2);')}` }, 'a.ts')!;
+		expect(out).toContain('export function check(n: number): void {');
+		expect(out).toContain('export function note(n: number): void {');
 		expect(out).toContain("import { DEV } from 'esm-env'");
 		expect(out).toContain('const RULES = import.meta.env?.DEV ||');
 		expect(out).toContain('DEV && check(1);');
@@ -92,26 +92,38 @@ describe('refused', () => {
 
 	test('a marked function handed on as a value, or its result read', () => {
 		refused({ 'a.ts': `${CHECKS}run(check);\n` }, 'a.ts').fails(
-			'a.ts:9:5  check runs behind the dev gate ($dev): call it, never hand it on as a value.'
+			'a.ts:7:5  check runs behind the dev gate ($dev): call it, never hand it on as a value.'
 		);
 		refused({ 'a.ts': `${CHECKS}const r = note(1);\n` }, 'a.ts').fails(
 			'note(…) runs behind the rules gate ($rules): its call is a statement'
 		);
 	});
 
-	test('a mark anywhere but the first statement of a top-level function', () => {
-		refused({ 'a.ts': lines('function f(): void {', '\tg();', '\t$dev();', '}') }, 'a.ts').fails(
-			'a.ts:3:2  $dev() marks the function it is the first statement of'
+	test("a mark anywhere but its function's definition at the top of the module", () => {
+		refused(
+			{ 'a.ts': lines('function f() {', '\tconst g = $dev(function g(): void {});', '}') },
+			'a.ts'
+		).fails('a.ts:2:12  $dev marks a function where it is defined');
+		refused({ 'a.ts': lines('run($rules(function g(): void {}));') }, 'a.ts').fails(
+			'$rules marks a function where it is defined'
 		);
-		refused({ 'a.ts': lines('export const f = () => {', '\t$rules();', '};') }, 'a.ts').fails(
-			'$rules() marks the function it is the first statement of'
+		refused({ 'a.ts': lines('const g = $dev(function other(): void {});') }, 'a.ts').fails(
+			'$dev marks a function where it is defined'
 		);
-		refused({ 'a.ts': lines('function f(): void {', '\t$dev(1);', '}') }, 'a.ts').fails(
-			'$dev() takes nothing'
+		refused({ 'a.ts': lines('const g = $dev(async function g() {});') }, 'a.ts').fails(
+			'$dev marks a plain function'
 		);
-		refused({ 'a.ts': lines('async function f() {', '\t$dev();', '}') }, 'a.ts').fails(
-			'$dev() marks a plain function'
-		);
+	});
+
+	test("an annotated type whose parameters are not the function's", () => {
+		refused(
+			{
+				'a.ts': lines(
+					'export const g: (a: number) => void = $dev(function g(a: number, b: number): void {});'
+				)
+			},
+			'a.ts'
+		).fails('g is typed with 1 parameter, its function takes 2');
 	});
 
 	test('a re-export, or a whole-module import, of a module with marked functions', () => {
