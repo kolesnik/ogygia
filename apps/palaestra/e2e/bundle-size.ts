@@ -98,54 +98,54 @@ const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks; budget
 		name: 'Static content',
 		blurb: 'load-hydrated islands',
 		marks: { complete: true, hydrate: ['load'], forms: false },
-		budget: 25_850
+		budget: 25_600
 	},
 	{
 		name: 'Interactive',
 		blurb: 'interaction-hydrated widgets',
 		marks: { complete: true, hydrate: ['interaction'], forms: false },
-		budget: 25_850
+		budget: 25_600
 	},
 	{
 		name: 'Forms',
 		blurb: 'progressively-enhanced actions',
 		marks: { complete: true, hydrate: ['load'], forms: true },
-		budget: 26_350
+		budget: 26_200
 	},
 	{
 		name: 'SPA router',
 		blurb: 'client-side navigation',
 		marks: { complete: true, hydrate: ['load'], router: true, forms: true },
-		budget: 31_600
+		budget: 31_400
 	},
 	{
 		name: 'Deferred regions',
 		blurb: 'server-rendered holes',
 		marks: { complete: true, hydrate: ['load'], defer: ['load'], forms: false },
-		budget: 33_950
+		budget: 33_700
 	},
 	{
 		name: 'Frozen regions',
 		blurb: 'lakes',
 		marks: { complete: true, hydrate: ['none'], lakes: true, forms: false },
-		budget: 31_500
+		budget: 31_600
 	},
 	{
 		name: 'Live regions',
 		blurb: 'streaming held regions',
 		marks: { complete: true, hydrate: ['load'], live: true, morph: true },
-		budget: 34_800
+		budget: 34_550
 	},
 	{
 		name: 'Context',
 		blurb: 'cross-island Provide / setContext',
 		marks: { complete: true, hydrate: ['load'], context: true, forms: false },
-		budget: 25_800
+		budget: 25_550
 	},
 	{
 		name: 'Everything',
 		blurb: 'kitchen sink, with the profiler beacon and a client plugin',
-		budget: 40_050,
+		budget: 40_000,
 		marks: {
 			complete: true,
 			hydrate: ['load', 'interaction', 'none'],

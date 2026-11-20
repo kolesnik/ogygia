@@ -684,12 +684,12 @@ export async function navigate(
 			reconcile_body(document.body, doc.body, slots.morph!);
 			built.reconciled = true;
 			adopt_title(doc);
-			session().settle_lakes_in(document.body);
+			slots.lakes.settle_in(document.body);
 		} else {
 			if (DEVTOOLS) dt_emit({ domain: 'nav', name: 'nav.fallback', reason: swap });
 			swap_body(document.body, doc.body);
 			adopt_title(doc);
-			session().settle_lakes_in(document.body);
+			slots.lakes.settle_in(document.body);
 		}
 		boot_link().init_shadow_registries(document.body);
 		(globalThis as PageGlobals).__og_restore_adopt?.();
