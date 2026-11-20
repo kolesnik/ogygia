@@ -75,8 +75,9 @@ export async function apply_live(el: HTMLElement, desc: LiveTick, turn: Turn): P
 			}
 		}
 		const address = desc.url ? link.frameAddress(desc.url) : null;
-		const held = address && frames ? frames.peek(address) : null;
+		const stored = address && frames ? frames.peek(address) : null;
 		const mine = address && frames ? (desc.written ??= { v: frames.ticket(address) }) : null;
+		const held = stored === null || (stored.v === mine?.v && stored.d === mine.d) ? null : stored;
 		const html = link.vouch_remote_answer(desc.html);
 		if (mine === null) await morph_live(el, html, turn);
 		else if (link.older_by(mine, held) === null && link.older_by(mine, st.painted) === null) {
