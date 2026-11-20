@@ -148,7 +148,7 @@ class LoadScheduler {
 				wait.on(el, 'load', one, { once: true });
 				wait.on(el, 'error', one, { once: true });
 			}
-			await gate.wait('settled');
+			$await(gate.wait('settled'));
 		});
 	}
 

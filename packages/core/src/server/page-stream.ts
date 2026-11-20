@@ -1,5 +1,5 @@
 import { stringify } from 'devalue';
-import { noop, STALE, type Scope } from '@ogygia/machine';
+import { noop, type Scope } from '@ogygia/machine';
 import { PAGE_DEFER_GLOBAL, PAGE_DEFER_KEY, PAGE_SETTLED_KEY } from '../page-defer.ts';
 import { escape_script_text } from '../escape.ts';
 import { warn } from '../messages/server.ts';
@@ -349,8 +349,7 @@ export function stream_page_deferred(
 					(value) => ({ ok: true as const, value }),
 					(error: unknown) => ({ ok: false as const, error })
 				);
-				const out = await owner.task(() => settled);
-				if (out === STALE) return; // the request ended: the stream closed with it
+				const out = $await(owner.task(() => settled));
 				if (!out.ok) return push(id, false, out.error);
 				let staged: ReturnType<typeof stage_deferred>;
 				try {

@@ -23,6 +23,7 @@
 		"zimmerframe": "catalog:"
 	},
 	"devDependencies": {
+		"@ogygia/machine": "workspace:*",
 		"@types/node": "catalog:",
 		"rolldown": "catalog:",
 		"typescript": "catalog:tsgo",

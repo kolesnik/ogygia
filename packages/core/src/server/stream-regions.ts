@@ -64,14 +64,16 @@ export function batch_stream(
 	return new ReadableStream<Uint8Array>({
 		async start(controller) {
 			const streaming = batch.now;
-			await batch.scope.task((signal) =>
-				Promise.all(
-					calls.map(async (endpoint) => {
-						// oxlint-disable-next-line ogygia/no-silent-failures -- the render says its own failure; the hole keeps its fallback and fetches itself
-						const out = await render(endpoint, signal).catch(() => null);
-						if (out && batch.now === streaming)
-							controller.enqueue(encoder.encode(build_parcel(out.slot, out.html)));
-					})
+			$await(
+				batch.scope.task((signal) =>
+					Promise.all(
+						calls.map(async (endpoint) => {
+							// oxlint-disable-next-line ogygia/no-silent-failures -- the render says its own failure; the hole keeps its fallback and fetches itself
+							const out = await render(endpoint, signal).catch(() => null);
+							if (out && batch.now === streaming)
+								controller.enqueue(encoder.encode(build_parcel(out.slot, out.html)));
+						})
+					)
 				)
 			);
 			if (!batch.move('streaming', 'ended')) return;

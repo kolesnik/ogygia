@@ -431,13 +431,12 @@ export class SpaRouter {
 
 		this.nav.go('claimed', { href: url.href });
 		const mine = this.nav.now;
-		let n: Nav | null | Stale;
+		let n: Nav | null;
 		try {
-			n = await this.nav.scope.task(() => nav().then((c) => (c === STALE ? null : c)));
+			n = $await(this.nav.scope.task(() => nav().then((c) => (c === STALE ? null : c))));
 		} catch {
 			return this.hand_off(url, mine, move);
 		}
-		if (n === STALE) return;
 		if (n === null) return this.hand_off(url, mine, move);
 		return n.navigate(this, url, from, opts, mine);
 	}
