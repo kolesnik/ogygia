@@ -153,6 +153,30 @@ describe('failure sites', () => {
 		expect(got).toEqual(['packages/x/src/a.ts > h > stale:0', 'packages/x/src/a.ts > h > stale:1']);
 	});
 
+	it("an $await that ends its function is no site: the build writes no check there (macros' tail.ts)", () => {
+		const got = ids(dedent`
+			async function h(turn) {
+				go();
+				$await(turn.wait(ready));
+			}
+			const g = async (turn) => {
+				$await(turn.ask(fn));
+			};
+			class A {
+				async m(s) {
+					$await(s.task(work));
+				}
+			}
+			async function k(s, v) {
+				if (v) {
+					$await(s.task(work));
+				}
+				$await(s.wait(1), v);
+			}
+		`);
+		expect(got).toEqual(['packages/x/src/a.ts > k > stale:0', 'packages/x/src/a.ts > k > stale:1']);
+	});
+
 	it('a move is a machine move only from a named state: a text edit or a dependency mark is no refusal', () => {
 		expect(
 			ids("function f(s, v, m, part) { s.move(0, 4, 9); v.move('regions'); v.move(part); }")

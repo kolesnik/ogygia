@@ -38,6 +38,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { parseSync } from 'rolldown/utils';
+import { ends_its_function } from 'ogygia-internal-macros/tail';
 import { read_ledger_file } from './ledger-json.ts';
 
 export type Node = Record<string, unknown> & { type: string; start: number; end: number };
@@ -146,7 +147,7 @@ function is_body(n: Node): boolean {
 }
 
 /** The kind of failure site `node` is, or null. `parent` is the node around it. */
-function kind_of(node: Node, parent: Node | null): SiteKind | null {
+function kind_of(node: Node, parent: Node | null, above: readonly Node[]): SiteKind | null {
 	switch (node.type) {
 		case 'CatchClause':
 			return 'catch';
@@ -212,7 +213,12 @@ function kind_of(node: Node, parent: Node | null): SiteKind | null {
 			const member = callee.type === 'MemberExpression';
 			if (name === 'catch' && member) return '.catch';
 			if (name === 'then' && args.length >= 2) return 'reject';
-			if (name === '$await' && !member) return 'stale';
+			if (name === '$await' && !member)
+				return args.length === 1 &&
+					parent?.type === 'ExpressionStatement' &&
+					ends_its_function(parent, above)
+					? null
+					: 'stale';
 			if (name === 'fetch') return 'fetch';
 			if (name === 'parse' && object === 'JSON') return 'parse';
 			if (name === 'policy' && object === null) return 'policy';
@@ -287,6 +293,7 @@ export function site_nodes(file: string, source: string): SiteNode[] {
 	};
 	const out: SiteNode[] = [];
 	const counts = new Map<string, number>();
+	const above: Node[] = [];
 	const walk = (node: Node, parent: Node | null, path: readonly string[]): void => {
 		let here = path;
 		if (FUNCTIONS.has(node.type)) {
@@ -296,7 +303,7 @@ export function site_nodes(file: string, source: string): SiteNode[] {
 			const name = fn_name(node, parent);
 			if (name !== null) here = [...path, name];
 		}
-		const kind = kind_of(node, parent);
+		const kind = kind_of(node, parent, above);
 		if (kind !== null) {
 			const where = here.length ? here.join(' > ') : '(module)';
 			const at = `${file} > ${where} > ${kind}`;
@@ -304,6 +311,7 @@ export function site_nodes(file: string, source: string): SiteNode[] {
 			counts.set(at, n + 1);
 			out.push({ id: `${at}:${n}`, file, line: line_of(node.start), kind, node, parent });
 		}
+		above.push(node);
 		for (const key in node) {
 			if (key === 'type' || key === 'start' || key === 'end') continue;
 			const v = node[key];
@@ -312,6 +320,7 @@ export function site_nodes(file: string, source: string): SiteNode[] {
 					if (c && typeof c === 'object' && 'type' in c) walk(c as Node, node, here);
 			} else if (v && typeof v === 'object' && 'type' in v) walk(v as Node, node, here);
 		}
+		above.pop();
 	};
 	walk(program as unknown as Node, null, []);
 	return out;

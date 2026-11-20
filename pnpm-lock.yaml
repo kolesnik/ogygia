@@ -1181,6 +1181,9 @@ importers:
       fast-check:
         specifier: 'catalog:'
         version: 4.10.2
+      ogygia-internal-macros:
+        specifier: workspace:*
+        version: link:../macros
       parse5:
         specifier: catalog:sim
         version: 7.3.0

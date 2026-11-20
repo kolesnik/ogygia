@@ -5521,6 +5521,78 @@
 			"reason": "a world, weigh, touches or two-field key given to plain_flights() is refused in dev and rules builds; proved: the throw made a no-op turns the test red",
 			"test": "packages/machine/test/plain-flights.test.ts",
 			"name": "refuses, in dev and rules builds, what only flights() takes"
+		},
+		{
+			"site": "packages/machine/src/flights-full.ts > id_of > catch:0",
+			"reason": "an engine without symbols as WeakMap keys (before ES2023) keeps a key's symbol in a Map instead; proved by hand: the catch emptied (the symbol gets a new id each time: two flights) and made to rethrow each turn the test red",
+			"test": "packages/machine/test/flights.test.ts",
+			"name": "on an engine that cannot hold a symbol weakly, a symbol is still one key by itself"
+		},
+		{
+			"site": "packages/machine/src/scope.ts > Life > signal > abort:0",
+			"reason": "a signal first asked of a life that has closed is made aborted, so work handed it never starts; proved by hand: the check made never true turns the test red",
+			"test": "packages/machine/test/scope.test.ts",
+			"name": "is one signal for the scope’s life; a closed scope’s is already aborted"
+		},
+		{
+			"site": "packages/machine/src/flights.ts > Flown > _move > throw:0",
+			"reason": "the rules build's refusal of a step ENTRY_STEPS does not list (an internal bug, never an input): proved by hand: the throw removed turns the test red",
+			"test": "packages/machine/test/flights.test.ts",
+			"name": "an entry that went is never moved again: a rules build refuses the step with its code, and tells no one"
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > stale:2",
+			"reason": "the slot's wait is STALE when the region left while it queued: the slot, when it comes, goes straight back; proved by hand: the check made never true, and the give-up without its hand-back, each turn the test red (the background window stays a place short)",
+			"test": "packages/core/test/browser/load-slot-left.test.ts",
+			"name": "a live region taken off the page while its island code queues hands its load slot back when it comes"
+		},
+		{
+			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:1",
+			"reason": "the slot's wait is STALE when the region left while it queued: the slot, when it comes, goes straight back (this was listed equivalent with the loads' wait's reason, stale:2's: a mislabel); proved by hand: the check made never true, and the give-up without its hand-back, each turn the test red",
+			"test": "packages/core/test/browser/load-slot-left.test.ts",
+			"name": "an island taken off the page while its code queues hands its load slot back when it comes"
+		},
+		{
+			"site": "packages/core/src/runtime/hydrate-core.ts > wake_island > .catch:0",
+			"reason": "a replay that failed says so itself and the wake goes on: the island comes alive without it; proved by the autopilot's mutant by hand: the handler made to rethrow turns the test red (the island never wakes)",
+			"test": "packages/core/test/browser/interaction-replay-failed.test.ts",
+			"name": "an island a visitor woke still comes alive when its replay code cannot load"
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > stale:3",
+			"reason": "Kit's failed start is the wait's STALE (the handler beside it): the region keeps its swapped HTML; proved by hand: the check made never true turns the test red (the island hydrates on a page Kit never started)",
+			"test": "packages/core/test/browser/live-region-kit-failed.test.ts",
+			"name": "a live region on a page whose Kit cannot start keeps its HTML, hydrates nothing and goes back to rest"
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > .catch:0",
+			"reason": "Kit's failed start ends the hydrate quietly (Kit's wait said it); proved by hand: the handler made to rethrow turns the test red (the live region fails)",
+			"test": "packages/core/test/browser/live-region-kit-failed.test.ts",
+			"name": "a live region on a page whose Kit cannot start keeps its HTML, hydrates nothing and goes back to rest"
+		},
+		{
+			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > catch:0",
+			"reason": "a live tick's hydrate core that cannot load is said, coded, and the tick ends; proved by hand: the catch emptied (nothing said) and made to rethrow (the tick throws at its caller) each turn the test red",
+			"test": "packages/core/test/browser/live-region-core-failed.test.ts",
+			"name": "a live tick whose hydrate core cannot download says so and ends quietly"
+		},
+		{
+			"site": "packages/core/src/runtime/drift-watch.ts > SleepWatch > watch > observer:0",
+			"reason": "the one observer over the sleeping regions: each sleeping region's subtree is what it hears; proved by hand: the observer made to observe nothing turns this test and seven more drift-watch tests red",
+			"test": "packages/core/test/browser/drift-watch-scope.test.ts",
+			"name": "a sleeping island is watched on its own subtree, not the whole document"
+		},
+		{
+			"site": "packages/core/src/runtime/head-copies.ts > mark_head > observer:0",
+			"reason": "the hydrate step's watch of the head: what an island's hydrate adds there is its head copies; proved by hand: the observer made to observe nothing turns this test and seven more head tests red",
+			"test": "packages/core/test/browser/head-ownership.test.ts",
+			"name": "the mark finds what a scan of the head finds, in head order"
+		},
+		{
+			"site": "packages/core/src/runtime/hydrate-core.ts > snippets_settled > timer:0",
+			"reason": "the cap on a snippet boot that never settles: the region's hydrated signal comes anyway; proved by hand: the cap removed turns the test red",
+			"test": "packages/core/test/browser/snippet-boots.test.ts",
+			"name": "a snippet that never boots holds its region’s hydrated signal 10 s at most"
 		}
 	],
 	"impossible": [
@@ -5547,6 +5619,18 @@
 			"why": "the import of svelte/compiler runs only inside the ogygia Vite plugin's own generateBundle hook, and svelte is a required peer of @ogygia/compiler: a process running the plugin has svelte to import (it compiled the app's components with it already).",
 			"by": "packages/compiler/package.json",
 			"name": "\"svelte\": \"catalog:peers\""
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > throw:0",
+			"why": "the Kit page wait rejects only with kit_boot_failed's error (its one reject; a waiter's abort settles the flights' get STALE, never a rejection), and the handler turns that one into STALE: no other error reaches this throw. It stays so that one the wait learns later fails the hydrate, not passes it.",
+			"by": "packages/core/src/runtime/kit-page-thread.svelte.ts",
+			"name": "kit_boot_failed"
+		},
+		{
+			"site": "packages/core/src/runtime/entry-locations.ts > recover_location > stale:0",
+			"why": "the wait between reads is a task of `waits`, this call's own root life: nothing else holds it, and it closes only in the call's finally, after the loop. So while the loop awaits it, the task cannot settle STALE; it is a task so the timer has an owner that ends with the call.",
+			"by": "packages/core/src/runtime/entry-locations.ts",
+			"name": "recover_location"
 		}
 	],
 	"equivalent": [
@@ -5565,10 +5649,6 @@
 		{
 			"site": "packages/cli/src/perf/cli.ts > sleep > abort:0",
 			"why": "the same sleep: a rejection only comes with an aborted signal, so the check never sees a live signal. Taking it away rethrows inside serve's task after its scope closed, which the task turns into the STALE it already gave."
-		},
-		{
-			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:1",
-			"why": "the loads' wait is STALE only when the region's mailbox closed: none of its parts can be STALE (the island file and the hydrate core, codec and devalue flights have no world, drop or dispose), and the mailbox closes only in #teardown, which first moves the wake off this waking visit. Without the check, destructuring STALE throws, the finally still releases the slot, and the catch returns quietly because the wake is no longer `mine`: no failure is said, no state moves."
 		},
 		{
 			"site": "packages/core/src/server/page-stream.ts > stream_page_deferred > start > stream_one > stale:0",
@@ -5601,6 +5681,26 @@
 		{
 			"site": "packages/machine/src/scope.ts > Life > task > abort:2",
 			"why": "the late `sig.aborted` when the work fails: as abort:1, on_abort settled STALE first, so a reject after it is a no-op (no unhandled rejection: a settled promise ignores it); the never mutant leaves every test green"
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > apply_live > stale:0",
+			"why": "the sheets' wait is STALE only when the region's mailbox closed (`ready` itself never settles STALE), and the mailbox closes only in the region's teardown, which first moves the live region off this hydrating visit (to idle: a new epoch). Without the check, the `live.epoch !== mine` test right after it returns at the same point: nothing is painted, nothing moves (test: live-region-leaves.test.ts › a live region taken off the page while its island loads goes back to rest, and nothing hydrates)."
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > stale:0",
+			"why": "the parse wait is STALE only when the region's mailbox closed (dom_ready never settles STALE), and the mailbox closes only in the region's teardown, which first moves the live region off this visit (a new epoch) as the region leaves the page. Without the check, `ours()` right after it is false on both counts and returns at the same point."
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > stale:1",
+			"why": "the loads' wait is STALE only when the region's mailbox closed: none of its parts can be STALE (the island file and the hydrate core and devalue flights have no world, drop or dispose), and the mailbox closes only in the region's teardown, which first moves the live region off this visit. Without the check, destructuring STALE throws, the finally still releases the slot, and the catch returns quietly because the epoch is no longer `mine`, and the outer finally skips on the same test: no failure said, no state moves (as core.ts hydrate stale:2)."
+		},
+		{
+			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > fetch_html > stale:0",
+			"why": "the answer's wait is STALE only when the hole's fetching visit ended (any move: a new epoch) or the region's mailbox closed, which happens only in the teardown, after it moves the hole to idle (a new epoch too). Without the check, the code after the try goes idle only `if (this.#hole.epoch === mine)`, which is then false: nothing moves, the same as the return (test: hole-lifecycle.test.ts › a refresh that re-mints a hole while its first fetch is out shows the new address’s answer, not the old one)."
+		},
+		{
+			"site": "packages/core/src/server/stream-regions.ts > batch_stream > start > stale:0",
+			"why": "the renders' task is STALE only when the batch's streaming visit ended, and the batch leaves streaming only for cancelled (the request's owner ended, or the stream was cancelled). Without the check, `batch.move('streaming', 'ended')` right after it is refused (the batch is cancelled) and returns at the same point: no done parcel, no close of a cancelled stream (test: batch-stream-cancel.test.ts › cancelled after its first hole: the holes not started never start, and no late write throws)."
 		}
 	],
 	"baseline": [
@@ -5823,7 +5923,6 @@
 		"packages/core/src/runtime/concurrency.ts > within > timer:0",
 		"packages/core/src/runtime/core.ts > (module) > import:0",
 		"packages/core/src/runtime/core.ts > absorb_page_facts_now > reject:0",
-		"packages/core/src/runtime/hydrate-core.ts > snippets_settled > timer:0",
 		"packages/core/src/runtime/core.ts > region_fragment > reject:0",
 		"packages/core/src/runtime/core.ts > region_fragment > timer:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > fire_hydrate > reject:0",
@@ -5836,17 +5935,9 @@
 		"packages/core/src/runtime/core.ts > OgygiaRegion > on_idle > timer:1",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > on_idle > timer:2",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:0",
-		"packages/core/src/runtime/hydrate-core.ts > wake_island > .catch:0",
-		"packages/core/src/runtime/live-program.ts > apply_live > stale:0",
-		"packages/core/src/runtime/live-program.ts > live_hydrate > stale:0",
-		"packages/core/src/runtime/live-program.ts > live_hydrate > stale:1",
-		"packages/core/src/runtime/live-program.ts > live_hydrate > stale:2",
-		"packages/core/src/runtime/live-program.ts > live_hydrate > .catch:0",
-		"packages/core/src/runtime/live-program.ts > live_hydrate > throw:0",
 		"packages/core/src/runtime/core.ts > apply_dev_head_region_css > .catch:0",
 		"packages/core/src/runtime/devalue-lane.ts > (module) > import:0",
 		"packages/core/src/runtime/devalue-lane.ts > with_devalue > stale:0",
-		"packages/core/src/runtime/drift-watch.ts > SleepWatch > watch > observer:0",
 		"packages/core/src/runtime/form-continuity.ts > url_of > catch:0",
 		"packages/core/src/runtime/frame-nav.ts > streamFrames > body:0",
 		"packages/core/src/runtime/frame-nav.ts > streamFrames > .catch:0",
@@ -5914,7 +6005,6 @@
 		"packages/core/src/runtime/schedule.ts > drain_after > timer:0",
 		"packages/core/src/runtime/seeds.ts > parse_page_seed > catch:0",
 		"packages/core/src/runtime/seeds.ts > apply_page_seed > catch:0",
-		"packages/core/src/runtime/head-copies.ts > mark_head > observer:0",
 		"packages/core/src/runtime/speculate-hint.ts > speculate_url > catch:0",
 		"packages/core/src/runtime/stale-deps.ts > confirm_and_reload > fetch:0",
 		"packages/core/src/runtime/stale-deps.ts > confirm_and_reload > catch:0",
@@ -6393,14 +6483,12 @@
 		"packages/insights/src/session-insights.ts > path_of > catch:0",
 		"packages/insights/src/session-insights.ts > same_origin_get > catch:0",
 		"packages/insights/src/third-party.ts > host_of > catch:0",
-		"packages/machine/src/flights-full.ts > id_of > catch:0",
 		"packages/machine/src/mailbox.ts > Box > _start > reject:0",
 		"packages/machine/src/policy.ts > under_policy > throw:3",
 		"packages/machine/src/ports/net.ts > fetch > fetch:0",
 		"packages/machine/src/ports/timers.ts > after > timer:0",
 		"packages/machine/src/ports/timers.ts > keep > timer:0",
 		"packages/machine/src/ports/timers.ts > timeout > abort:0",
-		"packages/machine/src/scope.ts > Life > signal > abort:0",
 		"packages/machine/src/stage.ts > Staged > constructor > refused:0",
 		"packages/ogygia/src/cli.ts > installed > catch:0",
 		"packages/postrender/src/adapters/akamai.ts > AkamaiEdge > signed_post > fetch:0",
@@ -6516,15 +6604,7 @@
 		"packages/tsdown-plugin-svelte/src/index.ts > default_preprocess > catch:0",
 		"packages/tsdown-plugin-svelte/src/index.ts > default_preprocess > throw:0",
 		"packages/tsdown-plugin-svelte/src/index.ts > svelte > writeBundle > import:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > fetch_html > stale:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > applyLive > stale:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > stale:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > catch:0",
-		"packages/core/src/runtime/entry-locations.ts > recover_location > stale:0",
-		"packages/core/src/runtime/live-program.ts > live_hydrate > stale:3",
-		"packages/core/src/runtime/load-scheduler.ts > LoadScheduler > until_critical > stale:0",
-		"packages/core/src/server/stream-regions.ts > batch_stream > start > stale:0",
-		"packages/machine/src/flights.ts > Flown > _move > throw:0"
+		"packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > stale:0"
 	],
 	"step_points": [
 		{

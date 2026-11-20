@@ -275,6 +275,37 @@ describe('keyed', () => {
 		expect(run).toHaveBeenCalledTimes(4);
 	});
 
+	it('on an engine that cannot hold a symbol weakly, a symbol is still one key by itself', async () => {
+		const own = Object.getOwnPropertyDescriptor(WeakMap.prototype, 'set')!.value as (
+			this: WeakMap<WeakKey, unknown>,
+			k: WeakKey,
+			v: unknown
+		) => WeakMap<WeakKey, unknown>;
+		const set = (map: WeakMap<WeakKey, unknown>, k: WeakKey, v: unknown) => own.call(map, k, v);
+		const refuse = vi.spyOn(WeakMap.prototype, 'set').mockImplementation(function (
+			this: WeakMap<WeakKey, unknown>,
+			k: WeakKey,
+			v: unknown
+		) {
+			if (typeof k === 'symbol') throw new TypeError('Invalid value used as weak map key');
+			return set(this, k, v);
+		});
+		try {
+			type In = { v: symbol; n: number };
+			const run = vi.fn(async (i: In) => String(i.v));
+			const vs = flights.keyed<In>()({ key: ['v', 'n'], run });
+			const mine = Symbol('mine');
+			await vs.get({ v: mine, n: 1 });
+			await vs.get({ v: mine, n: 1 });
+			expect(run).toHaveBeenCalledOnce();
+			await vs.get({ v: Symbol('mine'), n: 1 });
+			expect(run).toHaveBeenCalledTimes(2);
+			expect(vs.peek({ v: mine, n: 1 })?.kind).toBe('kept');
+		} finally {
+			refuse.mockRestore();
+		}
+	});
+
 	it('drop by key fields, or by a predicate over them (never over the rest of the input)', async () => {
 		type Ask = { href: string; purpose: string };
 		const pages = flights.keyed<Ask>()({
@@ -913,6 +944,41 @@ describe('owned', () => {
 		const out = pages.get('/a');
 		page.close();
 		await expect(out).resolves.toBe(STALE);
+	});
+});
+
+describe('steps', () => {
+	it('an entry that went is never moved again: a rules build refuses the step with its code, and tells no one', async () => {
+		const name = 'flights whose gone entry is moved';
+		const heard: string[] = [];
+		const stop = observe((n, from, to) => {
+			if (n === name) heard.push(`${from.kind} → ${to?.kind}`);
+		});
+		try {
+			const pages = flights<string, Promise<string>>({ name, run: async (k) => k });
+			await pages.get('/a');
+			type Inside = {
+				_entries: Map<unknown, { now: { kind: string } }>;
+				_move(e: unknown, to: { kind: string }): void;
+			};
+			const inside = pages as unknown as Inside;
+			const entry = inside._entries.get('/a')!;
+			pages.drop('/a');
+			expect(entry.now.kind).toBe('gone');
+			heard.length = 0;
+			let refused: unknown = null;
+			try {
+				inside._move(entry, { kind: 'kept' });
+			} catch (e) {
+				refused = e;
+			}
+			expect(refused).toBeInstanceOf(MachineError);
+			expect((refused as MachineError).code).toBe('machine_illegal_move');
+			expect(entry.now.kind).toBe('gone');
+			expect(heard).toEqual([]);
+		} finally {
+			stop();
+		}
 	});
 });
 

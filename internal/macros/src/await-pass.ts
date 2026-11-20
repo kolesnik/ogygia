@@ -7,6 +7,8 @@
  *                                             if (v === STALE) return;
  *   v = $await(scope.task(f));              → v = await scope.task(f); if (v === STALE) return;
  *   $await(scope.task(f), fallback);        → … return fallback;   (evaluated only then)
+ *   $await(turn.wait(ready));  (the last statement of its function)
+ *                                           → await turn.wait(ready);   (ending is giving up)
  *
  * Refused at build: `$await` anywhere but those three places, or outside an async function; and a
  * plain `await` of a `.task(…)`, `.wait(…)` or `.ask(…)` call (or a `.catch`/`.then` of one) in any
@@ -18,6 +20,7 @@ import { code, type N, type Pass, type Visit } from 'ogygia-internal-compilerkit
 import { rawAwaits } from 'ogygia-internal-compilerkit/sentinel';
 import type { Scope } from 'periscopic';
 import type { Compiler } from './compiler.ts';
+import { ends_its_function } from './tail.ts';
 
 /** Where `STALE` comes from. */
 export const SENTINEL = { from: '@ogygia/machine', name: 'STALE' } as const;
@@ -86,6 +89,15 @@ export class AwaitPass implements Pass<Scope> {
 		if (fn === undefined || !fn.async)
 			report.fail(node, '$await(…) is an await: it sits in an async function.');
 		const holder = v.parent;
+		if (
+			holder?.type === 'ExpressionStatement' &&
+			give_up === undefined &&
+			ends_its_function(holder, v.path)
+		) {
+			e.rewrite(node, code`await ${wait}`);
+			this.#c.walk_node(wait, v.scope);
+			return true;
+		}
 		const stale = this.#sentinel();
 		if (holder?.type === 'ExpressionStatement') {
 			const [head, tail] = e.ifStatement(v.path.slice(0, -1).concat(holder), '');

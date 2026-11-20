@@ -93,9 +93,9 @@
 		"id": "head-page-copy-kept",
 		"file": "packages/core/src/runtime/hydrate-core.ts",
 		"in": "hydrate_island",
-		"code": "KIT_PAGES && kit_hydrates_page() ? null : boot_link()[L_RUNTIME_SESSION].mark_head();",
+		"code": "head_mark = KIT_PAGES && kit_hydrates_page() ? null : mark_head();",
 		"operator": "statement",
-		"from": "boot_link()[L_RUNTIME_SESSION].mark_head()",
+		"from": "mark_head()",
 		"to": "null"
 	},
 	{
