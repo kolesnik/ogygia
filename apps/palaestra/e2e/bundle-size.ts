@@ -197,7 +197,9 @@ const PROGRAMS: ReadonlyArray<{
 	// the region element's hole program: fetch, apply, revalidate, retry (its revalidated mark)
 	{ name: 'hole program', feature: 'frames', modules: [], strings: ['data-revalidated'] },
 	// the region element's live program: a held region's ticks (its tick's event)
-	{ name: 'live program', feature: ['frames', 'live'], modules: [], strings: ['ogygia:live'] }
+	{ name: 'live program', feature: ['frames', 'live'], modules: [], strings: ['ogygia:live'] },
+	// a page's lakes: each one's settle machine and the visit's cache of their server DOM
+	{ name: 'lake state', feature: 'lakes', modules: [], strings: ['lake cache'] }
 ];
 
 type Size = { raw: number; brotli: number };
