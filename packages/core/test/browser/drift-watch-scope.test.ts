@@ -8,6 +8,7 @@ import { region_changed, watch_region } from '../../src/runtime/drift-watch.ts';
 
 const targets: Node[] = [];
 let calls = 0;
+let observes = 0;
 const Native = MutationObserver;
 globalThis.MutationObserver = class extends Native {
 	constructor(cb: MutationCallback) {
@@ -18,6 +19,7 @@ globalThis.MutationObserver = class extends Native {
 	}
 	observe(target: Node, options?: MutationObserverInit) {
 		targets.push(target);
+		observes++;
 		super.observe(target, options);
 	}
 };
@@ -77,4 +79,33 @@ it('an island that woke is no longer watched while another still sleeps', async 
 	asleep.append(document.createElement('span'));
 	expect(region_changed(asleep)).toBe(true);
 	second.close();
+});
+
+it('regions waking one by one cost a bounded number of observe calls each, not one per sleeper per wake', () => {
+	const n = 100;
+	const regions = Array.from({ length: n }, (_, i) => region(`<p>${i}</p>`));
+	const sleeps = regions.map(() => scope());
+	observes = 0;
+	regions.forEach((r, i) => watch_region(sleeps[i]!, r));
+	for (const sleep of sleeps) sleep.close();
+	expect(observes).toBeLessThanOrEqual(3 * n);
+});
+
+it('while many still sleep, a change in an island that woke does not mark it, and the sleepers stay watched', () => {
+	const regions = Array.from({ length: 10 }, (_, i) => region(`<p>${i}</p>`));
+	const sleeps = regions.map(() => scope());
+	regions.forEach((r, i) => watch_region(sleeps[i]!, r));
+	regions[0]!.append(document.createElement('span'));
+	sleeps[0]!.close();
+	expect(region_changed(regions[0]!)).toBe(true);
+	sleeps[1]!.close();
+	regions[1]!.append(document.createElement('i'));
+	const again = scope();
+	watch_region(again, regions[1]!);
+	expect(region_changed(regions[1]!)).toBe(false);
+	regions[9]!.firstChild!.firstChild!.nodeValue = 'touched';
+	expect(region_changed(regions[9]!)).toBe(true);
+	expect(region_changed(regions[8]!)).toBe(false);
+	again.close();
+	for (const sleep of sleeps) sleep.close();
 });
