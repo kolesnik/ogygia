@@ -6,7 +6,6 @@ import type { PushableProps } from './pushable-props.svelte.ts';
 import { foreign_region_prop_revivers } from './foreign-props.ts';
 import { SEED_REF_KEY, seed_ref_reviver } from '../seed-ref-reviver.ts';
 import { parse_sidecar_text } from './wire-format.ts';
-import { is_deferred, ours_on_kit_document, region_ssr_truncated } from './region-attrs.ts';
 import { boot_link, slots, wake_link, type HeldLake } from './slots.ts';
 import { report_thrown } from '../report-thrown.ts';
 import type { HeadMark } from './session.ts';
@@ -21,11 +20,14 @@ import { unmark_html_ranges } from './html-ranges.ts';
 import {
 	L_ABSOLUTE_URL_SCHEME,
 	L_INIT_SHADOW_REGISTRIES,
+	L_IS_DEFERRED,
 	L_IS_SELF_OWNED,
 	L_KIT_HYDRATES_PAGE,
+	L_OURS_ON_KIT_DOCUMENT,
 	L_PARSE_REGION_HTML,
 	L_PROPS_SIDECAR_OF,
 	L_REGION_HYDRATE,
+	L_REGION_SSR_TRUNCATED,
 	L_RUNTIME_SESSION,
 	L_SET_INNER_HTML,
 	L_VOUCH_PAGE_HTML,
@@ -581,7 +583,7 @@ export function hydrate_island(
 
 	const props = capture_region_ids(region, () => read_region_props(region, foreign));
 
-	if (kit_hydrates_page() && !ours_on_kit_document(region)) {
+	if (kit_hydrates_page() && !boot_link()[L_OURS_ON_KIT_DOCUMENT](region)) {
 		region.setAttribute('data-kit-hydrated', '');
 		if (import.meta.env.DEV) {
 			warn('island_on_kit_page', { entry });
@@ -594,7 +596,11 @@ export function hydrate_island(
 		neutralize_head_hydration_markers();
 	}
 
-	if (import.meta.env.DEV && !is_deferred(region) && region_ssr_truncated(region)) {
+	if (
+		import.meta.env.DEV &&
+		!boot_link()[L_IS_DEFERRED](region) &&
+		boot_link()[L_REGION_SSR_TRUNCATED]?.(region)
+	) {
 		warn('island_block_in_inline', { entry });
 	}
 
@@ -620,7 +626,7 @@ export function hydrate_island(
 		}
 
 		const attempt = (recover: boolean): IslandHandle => {
-			if (!is_deferred(region) && !foreign_delegate) ensure_envelope(region);
+			if (!boot_link()[L_IS_DEFERRED](region) && !foreign_delegate) ensure_envelope(region);
 			set_current_region(region);
 			try {
 				const provided_ctx = capture_region_ids(region, () => slots.context?.(region));
@@ -783,7 +789,7 @@ const nothing = (): void => {};
 
 /** The Kit page's thread an island on a Kit-hydrated document waits for, or null. */
 export function kit_page_wait(el: Element, visit: Life): Promise<unknown> | null {
-	if (!kit_hydrates_page() || !ours_on_kit_document(el)) return null;
+	if (!kit_hydrates_page() || !boot_link()[L_OURS_ON_KIT_DOCUMENT](el)) return null;
 	return kit_page_thread(visit.signal);
 }
 

@@ -17,7 +17,12 @@ import {
 	warm_island_module
 } from './region-endpoint-url.ts';
 import { note_entry_location } from './entry-locations.ts';
-import { runs_entry } from './region-attrs.ts';
+import {
+	is_deferred,
+	ours_on_kit_document,
+	region_ssr_truncated,
+	runs_entry
+} from './region-attrs.ts';
 import { register_island_graph } from './island-graph-preload.ts';
 import { props_sidecar_of } from './sidecar.ts';
 import {
@@ -95,6 +100,9 @@ export function link_boot(): void {
 		flights,
 		cache,
 		world,
-		create_soft_refresh()
+		create_soft_refresh(),
+		is_deferred,
+		ours_on_kit_document,
+		import.meta.env.DEV ? region_ssr_truncated : null
 	];
 }
