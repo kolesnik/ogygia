@@ -29,6 +29,7 @@ import { rolldown, type OutputChunk, type Plugin } from 'rolldown';
 import { dedent } from 'ogygia/plugin/utils';
 import type { RuntimeMarks } from '../../../packages/compiler/dist/link/runtime-entry.js';
 import { PROGRAMS } from './_programs.ts';
+import { mapped_text } from './_sourcemap.ts';
 
 /** The value after `flag` on the command line, if any. */
 const arg = (flag: string): string | undefined => {
@@ -328,34 +329,12 @@ async function measure(
 	return { boot, total, lazy, modules, lazy_modules, boot_code };
 }
 
-const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-/** The minified bytes of `chunk` each source module wrote, by its sourcemap: each mapped segment
- *  runs to the next one on its line. */
+/** The minified bytes of `chunk` each source module wrote, by its sourcemap. */
 function minified_lengths(chunk: OutputChunk): Map<string, number> {
 	const map = chunk.map;
 	if (!map) throw new Error(`bundle-size: no sourcemap for ${chunk.fileName}`);
-	const lines = chunk.code.split('\n');
 	const out = new Map<string, number>();
-	let source = 0;
-	map.mappings.split(';').forEach((line, at) => {
-		const segments: Array<[column: number, source: number]> = [];
-		let column = 0;
-		for (const segment of line.split(',')) {
-			if (!segment) continue;
-			const fields = vlq(segment);
-			column += fields[0];
-			if (fields.length >= 4) source += fields[1];
-			segments.push([column, fields.length >= 4 ? source : -1]);
-		}
-		const text = lines[at] ?? '';
-		segments.forEach(([from, of], i) => {
-			if (of === -1) return;
-			const id = map.sources[of];
-			const to = i + 1 < segments.length ? segments[i + 1][0] : text.length;
-			out.set(id, (out.get(id) ?? 0) + Buffer.byteLength(text.slice(from, to)));
-		});
-	});
+	for (const [id, text] of mapped_text(chunk.code, map)) out.set(id, Buffer.byteLength(text));
 	// (sources are written relative to the chunk; the module ids rolldown names are absolute)
 	const by_id = new Map<string, number>();
 	for (const id of Object.keys(chunk.modules)) {
@@ -363,24 +342,6 @@ function minified_lengths(chunk: OutputChunk): Map<string, number> {
 		if (bytes) by_id.set(id, bytes);
 	}
 	return by_id;
-}
-
-/** One sourcemap segment's fields (base64 VLQ). */
-function vlq(segment: string): number[] {
-	const fields: number[] = [];
-	let shift = 0;
-	let value = 0;
-	for (const ch of segment) {
-		const digit = BASE64.indexOf(ch);
-		value += (digit & 31) << shift;
-		if (digit & 32) shift += 5;
-		else {
-			fields.push(value & 1 ? -(value >> 1) : value >> 1);
-			value = 0;
-			shift = 0;
-		}
-	}
-	return fields;
 }
 
 /** A module's id, short: its path from the repo's packages (or its package in node_modules). */
