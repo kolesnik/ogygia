@@ -55,14 +55,14 @@ export const SERVER_ERRORS = {
 			that shows it.
 		`
 	},
-	entry_load_server_only: {
-		text: (a: { entry: string }): string =>
-			`the server was asked to load island entry ${a.entry}, which only a browser loads.`,
+	browser_only_on_server: {
+		text: (a: { what: string }): string =>
+			`the server was asked to ${a.what}, which only a browser does.`,
 		details: (): string => prose`
-			A region snippet boots its island in the browser, from the entry the page names. The
-			server renders the snippet's HTML and loads no entry. Something called the browser's entry
-			load during a server render; it is an ogygia bug: please report it with the page that
-			shows it.
+			A region snippet does some of its work in the browser alone: it loads its island's entry,
+			and takes the server's html range marks out before it hydrates. The server renders the
+			snippet's HTML and does neither. Something ran that browser work during a server render;
+			it is an ogygia bug: please report it with the page that shows it.
 		`
 	},
 	region_endpoint_unbuilt: {

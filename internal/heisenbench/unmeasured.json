@@ -7017,11 +7017,15 @@
 			"reason": "the server's refusal of a browser-only entry load (behind BROWSER at its one caller): never runs in a correct build; proven in packages/core/test/browser-half.test.ts"
 		},
 		{
-			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > entry_load_server_only > details",
+			"id": "packages/core/src/browser-half.ts > unmark_html_ranges",
+			"reason": "the server's refusal of the browser's html range unmarking (a snippet's setup, which only a browser runs): never runs in a correct build; proven in packages/core/test/browser-half.test.ts"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > browser_only_on_server > details",
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > entry_load_server_only > text",
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > browser_only_on_server > text",
 			"reason": "a message table entry: wording only"
 		},
 		{
