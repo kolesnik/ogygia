@@ -708,19 +708,19 @@ export async function navigate(
 		for (const sheet of built.sheets) session().claim_page_head(sheet.link);
 		const unlisted = merge_head(doc.head);
 		for (const sheet of built.sheets) apply_sheet(sheet);
-		if (slots.forms.enabled) slots.forms.snapshot(document.body, left.pathname);
+		slots.forms?.snapshot(document.body, left.pathname);
 		prepare_spa_document(next);
 		apply_soft_invalidate_doc(doc);
 		if (swap === null) {
 			reconcile_body(document.body, doc.body, slots.morph!);
 			built.reconciled = true;
 			adopt_title(doc);
-			slots.lakes.settle_in(document.body);
+			slots.lakes?.settle_in(document.body);
 		} else {
 			if (DEVTOOLS) dt_emit({ domain: 'nav', name: 'nav.fallback', reason: swap });
 			swap_body(document.body, doc.body);
 			adopt_title(doc);
-			slots.lakes.settle_in(document.body);
+			slots.lakes?.settle_in(document.body);
 		}
 		boot_link()[L_INIT_SHADOW_REGISTRIES](document.body);
 		(globalThis as PageGlobals).__og_restore_adopt?.();
@@ -728,7 +728,7 @@ export async function navigate(
 		release_head_nodes(unlisted);
 		apply_late_templates(document.body);
 		finish_spa_document();
-		if (slots.forms.enabled) slots.forms.restore(url.pathname);
+		slots.forms?.restore(url.pathname);
 		document.dispatchEvent(new Event('og:after-swap'));
 	};
 

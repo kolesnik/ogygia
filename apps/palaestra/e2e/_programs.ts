@@ -37,5 +37,7 @@ export const PROGRAMS: readonly Program[] = [
 	// the region element's live program: a held region's ticks (its tick's event)
 	{ name: 'live program', feature: ['frames', 'live'], modules: [], strings: ['ogygia:live'] },
 	// a page's lakes: each one's settle machine and the visit's cache of their server DOM
-	{ name: 'lake state', feature: 'lakes', modules: [], strings: ['lake cache'] }
+	{ name: 'lake state', feature: 'lakes', modules: [], strings: ['lake cache'] },
+	// the region element's calls into the lakes feature (the arm it hands a frozen region)
+	{ name: 'lake calls', feature: 'lakes', modules: [], strings: ['fetch_revalidate'] }
 ];

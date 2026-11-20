@@ -18,7 +18,7 @@ import { OG_BAKED, OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from 
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
 import { HAS } from 'ogygia:boot';
-import { F_FRAMES, F_LIVE } from '../contract/features.ts';
+import { F_FRAMES, F_LAKES, F_LIVE } from '../contract/features.ts';
 import { wire_for_wake } from './wire-on-use.ts';
 import { report_thrown } from '../report-thrown.ts';
 import { kit_hydrates_page, publish_kit_hydrates } from './kit-boot.ts';
@@ -589,7 +589,11 @@ class OgygiaRegion extends HTMLElement {
 				}
 			}
 		}
-		if (is_frozen(this) && slots.lakes.on_frozen_connect(this, this.#lake_arm())) return;
+		if (
+			is_frozen(this) &&
+			(!(HAS & F_LAKES) || (slots.lakes?.on_frozen_connect(this, this.#lake_arm()) ?? true))
+		)
+			return;
 		if (this.#region.kind === 'scheduled') return;
 		const boundary = this.parentElement && this.parentElement.closest('ogygia-region');
 		const slot =
@@ -642,7 +646,7 @@ class OgygiaRegion extends HTMLElement {
 			if (pristine != null) mark_region_changed(this);
 		}
 		if (this.#ssr_html !== null) this.#watch();
-		if (!deferred && slots.lakes.wait_for_boundary(this, boundary)) return;
+		if (!deferred && HAS & F_LAKES && slots.lakes?.wait_for_boundary(this, boundary)) return;
 		this.#region.move('connected', 'scheduled', this.#region.data);
 		// A hole that had its answer, put back on the page: its schedule is spent (#336)
 		if (HAS & F_FRAMES && deferred && this.#answer.kind !== 'none') {
@@ -1040,8 +1044,10 @@ class OgygiaRegion extends HTMLElement {
 		if (v !== undefined) note_shown(this, v);
 		use_sheets(this, sheets);
 		this.#shown = html;
-		slots.lakes.settle_in(frag);
-		slots.lakes.mark_frozen_settled(this);
+		if (HAS & F_LAKES) {
+			slots.lakes?.settle_in(frag);
+			slots.lakes?.mark_frozen_settled(this);
+		}
 		const morph = slots.morph;
 		if (!this.#app && region_hydrate_schedule(this)) {
 			this.#ssr_html = fragment_markup(frag);
@@ -1056,7 +1062,8 @@ class OgygiaRegion extends HTMLElement {
 		this.removeAttribute(OG_KEPT);
 		if (revalidate) this.setAttribute('data-revalidated', '');
 		else if (!is_awake(this)) this.setAttribute('data-hydrated', '');
-		slots.lakes.after_html_swap(this, { revalidate }, () => this.#wake_waiting_regions());
+		if (HAS & F_LAKES)
+			slots.lakes?.after_html_swap(this, { revalidate }, () => this.#wake_waiting_regions());
 		if (HOOK_HOLE_ANSWERED && slots.hooks?.holeAnswered && !revalidate && this.#fetch_started) {
 			const ep = this.getAttribute('endpoint');
 			const batch = ep ? slots.frames?.batch_times?.(ep) : undefined;
@@ -1100,7 +1107,7 @@ class OgygiaRegion extends HTMLElement {
 		if (this.#paint.epoch !== painting) return;
 		this.#painted(painting);
 		use_sheets(this, sheets);
-		slots.lakes.settle_in(frag);
+		if (HAS & F_LAKES) slots.lakes?.settle_in(frag);
 		if (!this.#live_ready) {
 			this.replaceChildren(frag);
 			this.#live_ready = true;
@@ -1292,7 +1299,8 @@ class OgygiaRegion extends HTMLElement {
 			return this.#connect(turn);
 		}
 		this.#hole.go('failed');
-		slots.lakes.after_fetch_exhausted(this, { revalidate }, () => this.#wake_waiting_regions());
+		if (HAS & F_LAKES)
+			slots.lakes?.after_fetch_exhausted(this, { revalidate }, () => this.#wake_waiting_regions());
 	}
 
 	#wake_waiting_regions() {
@@ -1592,7 +1600,7 @@ class OgygiaRegion extends HTMLElement {
 		if (this.#live.epoch !== mine) return;
 		this.#painted(painting);
 		use_sheets(this, sheets);
-		slots.lakes.settle_in(frag);
+		if (HAS & F_LAKES) slots.lakes?.settle_in(frag);
 		this.replaceChildren(frag);
 		if (HOOK_ANSWER_PLACED) slots.hooks?.answerPlaced?.({ el: this });
 		init_shadow_registries(this);
@@ -1777,7 +1785,7 @@ export function boot(
 		if (slots.morph) features.push('morph');
 		if (slots.frames) features.push('frames');
 		if (slots.nav) features.push('router');
-		if (slots.forms.enabled) features.push('forms');
+		if (slots.forms) features.push('forms');
 		dt_emit({ domain: 'runtime', name: 'runtime.boot', features });
 	}
 
