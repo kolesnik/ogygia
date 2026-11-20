@@ -18,13 +18,15 @@
 //   pnpm bundle-size                   # measure + gate against the snapshot
 //   pnpm bundle-size --update          # rewrite the baseline snapshot
 //   pnpm bundle-size --json            # machine-readable output (for the docs page)
+//   pnpm bundle-size --out <dir>       # also write each profile's chunks and sourcemaps
 // ─────────────────────────────────────────────────────────────────────────────
 import { brotliCompressSync } from 'node:zlib';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { rolldown, type OutputChunk } from 'rolldown';
+import { rolldown, type OutputChunk, type Plugin } from 'rolldown';
+import { dedent } from 'ogygia/plugin/utils';
 import type { RuntimeMarks } from '../../../packages/compiler/dist/link/runtime-entry.js';
 
 /** The value after `flag` on the command line, if any. */
@@ -42,7 +44,12 @@ const COMPILER_ENTRY = [
 	join(CORE, '../compiler/dist/link/runtime-entry.js'),
 	join(CORE, '../compiler/dist/compiler/link/runtime-entry.js')
 ].find((p) => existsSync(p));
-const { generateRuntimeEntrySource, resolveFeatures } = (await import(
+const {
+	generateRuntimeEntrySource,
+	generateRuntimeFlagsSource,
+	generateHydrateFeaturesSource,
+	resolveFeatures
+} = (await import(
 	pathToFileURL(COMPILER_ENTRY ?? join(CORE, 'dist/compiler/link/runtime-entry.js')).href
 )) as typeof import('../../../packages/compiler/dist/link/runtime-entry.js');
 
@@ -64,9 +71,14 @@ const BUILD_CONSTANT_RE = /\b__OGYGIA_[A-Z0-9_]+__\b/g;
 /** The boot realm's virtual module (`ogygia:boot`, `ogygia:boot/…`), as an import a chunk kept.
  *  (`ogygia:region` is the app's transport, the app's own code: external, like svelte.) */
 const VIRTUAL_ID_RE = /^ogygia:boot(\/|$)/;
+/** A generated module's `export const <name>`. */
+const EXPORTED_CONST_RE = /^export const (\w+)/gm;
 const SNAPSHOT = fileURLToPath(new URL('./bundle-size.snapshot.json', import.meta.url));
 // `--compare <json>`: gate against another build's `--json` (the PR's base) instead of the snapshot
 const COMPARE = arg('--compare');
+// `--out <dir>`: write each profile's chunks with their sourcemaps (<dir>/<profile>/), to attribute
+// the bytes to the modules they came from
+const OUT = arg('--out');
 /** A profile may grow this much over its baseline before the gate fails: over the snapshot, the
  *  build's own noise; over the base branch's build (same tool, same machine), almost nothing. */
 const TOLERANCE = COMPARE ? 0.005 : 0.02;
@@ -169,9 +181,34 @@ const size = (code: string): Size => {
 	return { raw: buf.length, brotli: brotliCompressSync(buf).length };
 };
 
+/** The boot realm's virtual module, `ogygia:boot`, served from the profile's marks as the plugin
+ *  serves an app build's (the runtime flags, the hydrate-phase features; no region names). An older
+ *  checkout's compiler without the generators leaves it external, as that build's own tool did. */
+function boot_realm(marks: RuntimeMarks): Plugin {
+	// (one named re-export per name, as the plugin's realm module is: virtual/resolver.ts)
+	const flags = () => generateRuntimeFlagsSource(marks, RUNTIME_DIR);
+	const flag_names = () => [...flags().matchAll(EXPORTED_CONST_RE)].map((m) => m[1]).join(', ');
+	const ids: Record<string, () => string> = {
+		'ogygia:boot': () => dedent`
+			export { ${flag_names()} } from 'ogygia:boot/runtime-flags';
+			export { install as install_hydrate_features } from 'ogygia:boot/hydrate-features';
+			export const region_names = {};
+		`,
+		'ogygia:boot/runtime-flags': flags,
+		'ogygia:boot/hydrate-features': () => generateHydrateFeaturesSource(marks, RUNTIME_DIR).code
+	};
+	const served = typeof generateRuntimeFlagsSource === 'function';
+	return {
+		name: 'ogygia-size:boot-realm',
+		resolveId: (id) => (served && id in ids ? `\0${id}` : null),
+		load: (id) => (id.startsWith('\0') ? (ids[id.slice(1)]?.() ?? null) : null)
+	};
+}
+
 async function measure(
 	marks: RuntimeMarks,
-	extras: boolean
+	extras: boolean,
+	profile: string
 ): Promise<Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'>> {
 	const { code } = generateRuntimeEntrySource(marks, RUNTIME_DIR);
 	const dir = mkdtempSync(join(tmpdir(), 'ogygia-size-'));
@@ -184,8 +221,9 @@ async function measure(
 	// bundle (they print the code's link alone) are not shipped, and not counted.
 	const bundle = await rolldown({
 		input: entry,
-		external: [/^svelte(\/|$)/, /^\$app\//, /\.svelte$/],
+		external: [/^svelte(\/|$)/, /^\$app\//, /\.svelte$/, /^ogygia:region(\/|$)/],
 		resolve: { conditionNames: ['browser', 'production', 'import', 'default'] },
+		plugins: [boot_realm(marks)],
 		// Strip DEV like a real Vite prod build (import.meta.env.DEV → false), so the numbers reflect
 		// what actually ships — not the dev-only warnings and the PropMutationGuard, which prod DCEs.
 		// Mirror the plugin's `define` (vite/index.ts) at their prod defaults: the runtime's build-time
@@ -212,9 +250,17 @@ async function measure(
 		},
 		logLevel: 'silent'
 	});
-	const { output } = await bundle.generate({ format: 'es', minify: true });
+	const { output } = await bundle.generate({ format: 'es', minify: true, sourcemap: !!OUT });
 	await bundle.close();
 	const chunks = output.filter((o): o is OutputChunk => o.type === 'chunk');
+	if (OUT) {
+		const at = join(OUT, profile.replaceAll(' ', '_'));
+		mkdirSync(at, { recursive: true });
+		for (const c of chunks) {
+			writeFileSync(join(at, c.fileName), c.code);
+			if (c.map) writeFileSync(join(at, `${c.fileName}.map`), c.map.toString());
+		}
+	}
 	// every build constant is defined, as the plugin's build defines it: one left undefined keeps its
 	// default branch (on) and the bytes behind it, a size no real build ships
 	const undefined_constants = new Set(
@@ -229,7 +275,7 @@ async function measure(
 	const unresolved_virtuals = new Set(
 		chunks.flatMap((c) => c.imports.filter((id) => VIRTUAL_ID_RE.test(id)))
 	);
-	if (unresolved_virtuals.size)
+	if (unresolved_virtuals.size && typeof generateRuntimeFlagsSource === 'function')
 		throw new Error(
 			`bundle-size: virtual modules left unresolved (serve them as the plugin does): ${[...unresolved_virtuals].join(', ')}`
 		);
@@ -274,7 +320,7 @@ function module_name(id: string): string {
 
 const rows: Row[] = [];
 for (const p of PROFILES) {
-	const m = await measure(p.marks, p.name === 'Everything');
+	const m = await measure(p.marks, p.name === 'Everything', p.name);
 	rows.push({ name: p.name, blurb: p.blurb, features: resolveFeatures(p.marks), ...m });
 }
 
