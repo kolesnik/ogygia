@@ -10,6 +10,7 @@ import type { Compiler } from './compiler.ts';
 import { AwaitPass } from './await-pass.ts';
 import { GatePass } from './gate-pass.ts';
 import { HotPass } from './hot-pass.ts';
+import { MachinePass } from './machine-pass.ts';
 
 /** `$dev(…)` and `$rules(…)` (./gate-pass.ts). */
 const GATED = defineMacro<Compiler, Scope>({
@@ -61,5 +62,23 @@ const HOT = defineMacro<Compiler, Scope>({
 	pass: (c: Compiler) => new HotPass(c)
 });
 
+/** `$machine<S>()({ … })` (./machine-pass.ts). */
+const MACHINE = defineMacro<Compiler, Scope>({
+	names: ['$machine'],
+	helpers: dedent`
+		import type { Config, Kind, Shape, Steps } from '@ogygia/machine';
+		import type { Def } from '@ogygia/machine/internal';
+	`,
+	types: dedent`
+		/** A machine definition, read and checked at build: as \`machine<S>()({ … })\` takes it,
+		 *  for the runtime of \`@ogygia/machine/internal\` (\`create(def)\`). A production build
+		 *  carries it as data; dev and rules builds run \`define\` on it, with its checks. */
+		function $machine<S extends Shape<S>>(): <const T extends Steps<S>, const I extends Kind<S>>(
+			config: Config<S, T, I>
+		) => Def<S, T, I>;
+	`,
+	pass: (c: Compiler) => new MachinePass(c)
+});
+
 /** Every macro, in walk order. */
-export const MACROS: ReadonlyArray<Macro<Compiler, Scope>> = [GATED, AWAIT, HOT];
+export const MACROS: ReadonlyArray<Macro<Compiler, Scope>> = [GATED, AWAIT, HOT, MACHINE];

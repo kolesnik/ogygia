@@ -38,6 +38,7 @@
  * rules are on (`RULES`): every call site folds out of a build without them.
  */
 import { observe, STALE, timers, trace } from '@ogygia/machine';
+import type { Life, Run } from '@ogygia/machine/internal';
 import { Rules, type BrokenRule } from '../rules.ts';
 import { warn } from '../messages/core.ts';
 import type { PageGlobals } from '../page-globals.ts';
@@ -157,7 +158,7 @@ function markup_known(): string | null {
 
 // ── nothing of an old page still open ──
 
-type Visit = { readonly scope: { readonly closed: boolean } };
+type Visit = { readonly scope: Life };
 
 /** (Each visit made, in the order made, is in `R.visits`: one older than the page on screen's is over.) */
 let visit_n = 0;
@@ -185,7 +186,7 @@ function no_old_page_open(): string | null {
 
 /** What the rule reads of the router: its navigation, and its history model's page on screen. */
 interface RouterView {
-	readonly nav: { readonly now: { readonly kind: string } };
+	readonly nav: Run;
 	readonly history: { readonly current: { readonly id: string } };
 }
 
@@ -194,7 +195,7 @@ export const watch_router: (router: RouterView) => void = $rules(function watch_
 	router: RouterView
 ): void {
 	runtime_rules.add('rule_address_bar_drift', () => {
-		if (router.nav.now.kind !== 'idle') return null;
+		if (router.nav.kind !== 'idle') return null;
 		const id = (history.state as { ogygia?: unknown } | null)?.ogygia;
 		// (an entry the router has not met yet: the browser's own fragment jump, the app's pushState)
 		if (typeof id !== 'string') return null;

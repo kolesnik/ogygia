@@ -1,14 +1,6 @@
-import {
-	buggify,
-	cache,
-	clock,
-	machine,
-	net,
-	STALE,
-	tasks,
-	type MachineGraph,
-	type Scope
-} from '@ogygia/machine';
+import { buggify, cache, clock, net, STALE, tasks, type MachineGraph } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import { frameAddress } from '../frame.ts';
 import { stream } from '../policies.ts';
 import { is_idle, reserve, release, stamp, write } from './frame-store.ts';
@@ -86,7 +78,7 @@ export function read_parcel(buf: string, from: number): Parcel | null {
 
 const STALL_MS = stream.deadline;
 
-const batch_stream = machine<{ sending: {}; reading: {}; stalled: {} }>()({
+const batch_stream = $machine<{ sending: {}; reading: {}; stalled: {} }>()({
 	name: 'batch-stream',
 	initial: 'sending',
 	steps: {
@@ -103,7 +95,7 @@ const batch_stream = machine<{ sending: {}; reading: {}; stalled: {} }>()({
 /** The batch stream's machine as data (test/machine-steps.test.ts holds each step to where it is
  *  taken). */
 export function batch_stream_graph(): MachineGraph {
-	return batch_stream.graph();
+	return fsm.graph(batch_stream);
 }
 
 function sigOf(endpoint: string): string | null {
@@ -129,7 +121,7 @@ function sigOf(endpoint: string): string | null {
 export async function streamFrames(
 	endpoints: string[],
 	kind: 'page' | 'nav' = 'nav',
-	visit: Scope = runtime_session.visit.scope,
+	visit: Life = runtime_session.visit.scope,
 	page?: string
 ): Promise<void> {
 	if (!endpoints.length) return;
@@ -165,7 +157,7 @@ export async function streamFrames(
 	let status = 0;
 	let refused: 'redirected' | 'document' | undefined;
 	let final_url: string | undefined;
-	const stream = batch_stream.create();
+	const stream = fsm.create(batch_stream);
 	const batch_scope = visit.child();
 	batch_scope.defer(() => stream.stop());
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a machine's wait never rejects
@@ -176,7 +168,7 @@ export async function streamFrames(
 		try {
 			if (RULES && buggify.fires('batch.fetch-fails')) throw new TypeError('Failed to fetch');
 			res = $await(
-				stream.scope.task(() =>
+				stream.visit().task(() =>
 					net.fetch(path, {
 						method: 'POST',
 						credentials: 'same-origin',
@@ -214,7 +206,7 @@ export async function streamFrames(
 			let read: ReadableStreamReadResult<Uint8Array>;
 			try {
 				if (RULES && buggify.fires('batch.body-breaks')) throw new TypeError('network error');
-				read = $await(stream.scope.task(() => reader.read()));
+				read = $await(stream.visit().task(() => reader.read()));
 				// oxlint-disable-next-line ogygia/no-silent-failures -- the body broke off, as a request can fail: the holes it still owes fetch on their own
 			} catch {
 				return;
@@ -332,7 +324,7 @@ function gather(list: string[]): void {
 export function send_batches(
 	list: readonly string[],
 	kind: 'page' | 'nav',
-	visit: Scope = runtime_session.visit.scope,
+	visit: Life = runtime_session.visit.scope,
 	page?: string
 ): Promise<unknown> {
 	const by_path = new Map<string, string[]>();

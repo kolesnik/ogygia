@@ -1,6 +1,7 @@
 import { import_file } from './import-again.ts';
 import { code_url_or_refuse, is_location_of } from './code-origins.ts';
-import { backoffAfter, cache, flights, net, scope, STALE } from '@ogygia/machine';
+import { backoffAfter, cache, flights, net, STALE } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
 import { rollover } from '../policies.ts';
 import { OG_LOCATIONS } from '../wire-markup.ts';
 import { browser_offline } from './network.ts';
@@ -174,13 +175,13 @@ function is_gone(url: string): Promise<boolean> {
 
 async function recover_location(entry: string, failed: string): Promise<string | null> {
 	let current: string | null | undefined;
-	const waits = scope();
+	const waits = life.root();
 	try {
 		for (let n = 1; n <= rollover.attempts; n++) {
 			if (n > 1) {
 				const wait = backoffAfter(rollover, n - 1);
 				$await(
-					waits.task(() => new Promise<void>((resolve) => waits.timeout(resolve, wait))),
+					waits.task(() => new Promise<void>((resolve) => waits.later(resolve, wait))),
 					current ?? null
 				);
 			}

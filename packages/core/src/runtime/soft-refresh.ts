@@ -10,17 +10,18 @@
  * The boot holds it (./boot-link.ts) and the navigation chunk (./router-nav.ts) reaches it through
  * `boot_link()`, as a `router: false` page refreshes too and never loads the router.
  */
-import { machine, type Machine } from '@ogygia/machine';
+import type { Run } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 
 type States = { idle: {}; refreshing: { href: string } };
 const steps = { idle: ['refreshing'], refreshing: ['refreshing', 'idle'] } as const;
 
-const definition = machine<States>()({ name: 'soft refresh', initial: 'idle', steps });
+const definition = $machine<States>()({ name: 'soft refresh', initial: 'idle', steps });
 
 /** The page's soft refresh machine. */
-export type SoftRefresh = Machine<States, typeof steps>;
+export type SoftRefresh = Run<States, typeof steps>;
 
 /** A soft refresh machine, idle. */
 export function create_soft_refresh(): SoftRefresh {
-	return definition.create();
+	return fsm.create(definition);
 }

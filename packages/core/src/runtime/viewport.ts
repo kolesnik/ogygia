@@ -1,4 +1,6 @@
-import { scope, seen, tasks, type Scope } from '@ogygia/machine';
+import { seen, tasks } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 
 type Heard = (on: boolean) => void;
 type Seen = { crosses: boolean; w: number; h: number };
@@ -42,11 +44,11 @@ class Tracker {
 	readonly heard = new Map<Element, Set<Heard>>();
 	readonly decided = new WeakMap<Element, boolean>();
 	readonly read = (el: Element): Seen | undefined => this.seen.get(el);
-	readonly owner: Scope;
+	readonly owner: Life;
 	#swaps: MutationObserver | null = null;
 	readonly #swap_targets = new Map<Element, Set<Element>>();
 
-	constructor(root_margin: string, owner: Scope) {
+	constructor(root_margin: string, owner: Life) {
 		this.owner = owner;
 		const io = seen.observer((entries) => this.#report(entries), { rootMargin: root_margin });
 		if (!io) throw new ReferenceError('IntersectionObserver is not defined');
@@ -172,7 +174,7 @@ class Tracker {
 
 class Trackers {
 	readonly by_margin = new Map<string, Tracker>();
-	readonly owner: Scope = scope();
+	readonly owner: Life = life.root();
 }
 let T: Trackers | null = null;
 
@@ -221,6 +223,6 @@ export function tracker_count(): number {
 
 /** Test seam: a fresh document (every observer disconnected, every watch forgotten). */
 export function reset_viewport(): void {
-	T?.owner.close();
+	if (T !== null) T.owner.close();
 	T = null;
 }

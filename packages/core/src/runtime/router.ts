@@ -1,4 +1,5 @@
-import { flights, random, STALE, type Scope, type Stale } from '@ogygia/machine';
+import { flights, random, STALE, type Stale } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine/internal';
 import { fragment_is_top, fragment_target } from './fragment.ts';
 import { import_again } from './import-again.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
@@ -254,14 +255,14 @@ export class RouterHistory {
 	}
 }
 
-function on_idle(page: Scope, fn: () => void, cap = 1000) {
+function on_idle(page: Life, fn: () => void, cap = 1000) {
+	const once = page.child();
 	const run = () => {
-		idle();
-		capped();
+		once.close();
 		fn();
 	};
-	const idle = page.timeout(run, 'idle');
-	const capped = page.timeout(run, cap);
+	once.later(run, 'idle');
+	once.later(run, cap);
 }
 
 type Nav = typeof import('./router-nav.ts');
@@ -350,7 +351,7 @@ export class SpaRouter {
 	 * swapping left the URL on the old page and `/plain` in the DOM).
 	 */
 	supersede(): void {
-		if (this.nav.now.kind !== 'idle') this.nav.go('idle');
+		if (this.nav.kind !== 'idle') this.nav.go('idle');
 	}
 
 	/**
@@ -375,8 +376,8 @@ export class SpaRouter {
 	 * is said (the page's error handler, as an uncaught throw would be), and the browser loads the
 	 * page whole.
 	 */
-	hand_off(url: URL, visit: Navigation['now'], move: HistoryMove, error?: unknown): void {
-		if (this.nav.now !== visit) return;
+	hand_off(url: URL, visit: number, move: HistoryMove, error?: unknown): void {
+		if (this.nav.epoch !== visit) return;
 		this.nav.go('idle');
 		if (error !== undefined) report_thrown(error);
 		if (move === 'push' && location.href !== url.href) location.assign(url.href);
@@ -430,10 +431,10 @@ export class SpaRouter {
 		if (!this.run_before(from, url, type)) return;
 
 		this.nav.go('claimed', { href: url.href });
-		const mine = this.nav.now;
+		const mine = this.nav.epoch;
 		let n: Nav | null;
 		try {
-			n = $await(this.nav.scope.task(() => nav().then((c) => (c === STALE ? null : c))));
+			n = $await(this.nav.visit().task(() => nav().then((c) => (c === STALE ? null : c))));
 		} catch {
 			return this.hand_off(url, mine, move);
 		}

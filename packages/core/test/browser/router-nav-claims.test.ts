@@ -2,6 +2,7 @@
 // keeps and adds, the focus and announcer it leaves, the view transition, the sheets it waits for,
 // and every page it hands to the browser instead.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import type { Life } from '@ogygia/machine/internal';
 import { commands } from 'vitest/browser';
 import { it_with_network_routes } from './_browsers.ts';
 import { history_room } from './_history-budget.ts';
@@ -554,7 +555,7 @@ test('a navigation whose claim a newer one took fetches nothing', async () => {
 	const nav = await import('../../src/runtime/router-nav.ts');
 	pages['/rn-claimed'] = { body: '<p>next</p>' };
 	r.nav.go('claimed', { href: 'about:first' });
-	const first = r.nav.now;
+	const first = r.nav.epoch;
 	r.nav.go('claimed', { href: 'about:second' });
 	await nav.navigate(r, new URL('/rn-claimed', location.href), r.current_url, {}, first);
 	expect(fetched).toEqual([]);
@@ -607,11 +608,11 @@ it_with_network_routes(
 	'a navigation called off before its swap ends what it started for the next page',
 	async () => {
 		const answer = gate();
-		const visits: { closed: boolean }[] = [];
+		const visits: Life[] = [];
 		const frames = slots.frames;
 		slots.frames = {
 			...frames,
-			stream: (_endpoints: string[], visit: { closed: boolean }) => {
+			stream: (_endpoints: string[], visit: Life) => {
 				visits.push(visit);
 				return Promise.resolve();
 			}

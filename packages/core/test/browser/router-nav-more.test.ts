@@ -1,6 +1,7 @@
 // A CLIENT NAVIGATION'S EDGES (runtime/router-nav.ts): scroll and its hold on a back step, the
 // head's order and policy tags, the sheets it waits for, its hole batch, and the soft refresh.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { life_of } from '@ogygia/machine/internal';
 import { commands } from 'vitest/browser';
 import { scope } from '@ogygia/machine';
 import { it_with_network_routes } from './_browsers.ts';
@@ -361,7 +362,7 @@ test('the hold gives the page its scroll anchoring back when it ends', async () 
 	document.body.innerHTML = TALL;
 	document.documentElement.style.overflowAnchor = 'auto';
 	const visit = scope();
-	hold_scroll({ x: 0, y: 900 }, visit);
+	hold_scroll({ x: 0, y: 900 }, life_of(visit));
 	expect(holding()).toBe(true);
 	visit.close();
 	expect(document.documentElement.style.overflowAnchor).toBe('auto');
@@ -371,7 +372,7 @@ test('a visit already over holds nothing', () => {
 	document.body.innerHTML = TALL;
 	const visit = scope();
 	visit.close();
-	hold_scroll({ x: 0, y: 900 }, visit);
+	hold_scroll({ x: 0, y: 900 }, life_of(visit));
 	expect(scrollY).toBeCloseTo(900, 0);
 	expect(holding()).toBe(false);
 });
@@ -379,7 +380,7 @@ test('a visit already over holds nothing', () => {
 test('the visitor’s wheel ends the hold', async () => {
 	document.body.innerHTML = `<ogygia-region entry="/never.js" wake="load"></ogygia-region>${TALL}`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 900 }, visit);
+	hold_scroll({ x: 0, y: 900 }, life_of(visit));
 	expect(holding()).toBe(true);
 	window.dispatchEvent(new WheelEvent('wheel'));
 	expect(holding()).toBe(false);
@@ -389,7 +390,7 @@ test('the visitor’s wheel ends the hold', async () => {
 test('the app’s own scroll ends the hold', async () => {
 	document.body.innerHTML = `<ogygia-region entry="/never.js" wake="load"></ogygia-region>${TALL}`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 900 }, visit);
+	hold_scroll({ x: 0, y: 900 }, life_of(visit));
 	scrollTo(0, 100);
 	await frame();
 	expect(holding()).toBe(false);
@@ -399,7 +400,7 @@ test('the app’s own scroll ends the hold', async () => {
 test('a page too short for the saved place is held at its bottom, and taken there once it grows', async () => {
 	document.body.innerHTML = `<ogygia-region entry="/never.js" wake="load"></ogygia-region><div id="grow" style="height: 1500px"></div>`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 3000 }, visit);
+	hold_scroll({ x: 0, y: 3000 }, life_of(visit));
 	await frame();
 	await frame();
 	expect(holding()).toBe(true);
@@ -439,7 +440,7 @@ test.each([
 ])('%s: the hold waits for it: %s', async (_, html, waits) => {
 	document.body.innerHTML = `${html}${TALL}`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 1200 }, visit);
+	hold_scroll({ x: 0, y: 1200 }, life_of(visit));
 	await frame();
 	await frame();
 	await frame();
@@ -450,7 +451,7 @@ test.each([
 test('a region inside another region above wakes with it: the hold ends when the outer one has', async () => {
 	document.body.innerHTML = `<ogygia-region id="outer" entry="/never.js" wake="load" style="display:block;height:20px"><ogygia-region entry="/never-inner.js" wake="load"></ogygia-region></ogygia-region>${TALL}`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 1200 }, visit);
+	hold_scroll({ x: 0, y: 1200 }, life_of(visit));
 	const outer = document.getElementById('outer')!;
 	outer.setAttribute('data-hydrated', '');
 	outer.dispatchEvent(new CustomEvent('ogygia:hydrated', { bubbles: true }));

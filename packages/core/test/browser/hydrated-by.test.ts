@@ -1,6 +1,7 @@
 // `hydratedBy()` says `'interaction'` whenever a visitor's input woke the island — an `interaction`
 // island, and a scheduled one pressed before its schedule made it live (its first click is a replay).
 import { expect, test } from 'vitest';
+import { life_of } from '@ogygia/machine/internal';
 import { hydratedBy } from '../../src/hydration-info.ts';
 import { scope } from '@ogygia/machine';
 import { arm_interaction } from '../../src/runtime/interaction.ts';
@@ -25,7 +26,7 @@ test('a scheduled island a visitor pressed first reports interaction', () => {
 		el,
 		() => {},
 		() => new Promise<void>(() => {}),
-		scope()
+		life_of(scope())
 	);
 	el.querySelector('button')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 	as_current(el);

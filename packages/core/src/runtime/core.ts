@@ -8,10 +8,10 @@ import {
 	tasks,
 	type Fresh,
 	type Mailbox,
-	type Scope,
 	type Stale,
 	type Turn
 } from '@ogygia/machine';
+import type { Life, Run } from '@ogygia/machine/internal';
 import { frameAddress, older_by, stands_at, type FrameOrder } from '../frame.ts';
 import { on_trigger, WAKE } from '../contract/trigger.ts';
 import { OG_BAKED, OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from '../wire-markup.ts';
@@ -69,8 +69,8 @@ import {
 	create_region_life,
 	create_wake,
 	detached,
-	lifetime_of,
 	new_lifetime,
+	REGION_REST,
 	type Answer,
 	type Hole,
 	type Live,
@@ -243,7 +243,7 @@ function on_demand_event(e: Event): void {
 	if (!region) return;
 	on_demand_armed.get(region)!();
 }
-function arm_on_demand(region: Element, fire: () => void, owner: Scope): void {
+function arm_on_demand(region: Element, fire: () => void, owner: Life): void {
 	const forget = on_demand_armed.set(
 		region,
 		() => {
@@ -273,7 +273,7 @@ function dom_ready() {
 	);
 }
 
-type Leaves = { readonly scope: Scope };
+type Leaves = Run;
 
 type LiveTick = {
 	id: string;
@@ -313,11 +313,11 @@ const kit_boot_failed = (err: unknown): boolean =>
 const SNIPPET_BOOTS = Symbol.for('ogygia.snippet-boots');
 const SNIPPET_BOOT_CAP_MS = 10_000;
 
-async function snippets_settled(region: Element, visit: Scope): Promise<void> {
+async function snippets_settled(region: Element, visit: Life): Promise<void> {
 	const host = region as Element & { [SNIPPET_BOOTS]?: Promise<unknown>[] };
 	const wait = visit.child();
 	const cap = new Promise<void>((r) => wait.defer(r));
-	wait.timeout(() => wait.close(), SNIPPET_BOOT_CAP_MS);
+	wait.close_after(SNIPPET_BOOT_CAP_MS);
 	try {
 		for (
 			let batch = host[SNIPPET_BOOTS];
@@ -389,8 +389,8 @@ export function region_fragment(html: VerifiedHtml): {
 			const present = existing.get(href);
 			if (present) {
 				const sheet = sheet_of(present);
-				if (sheet.now.kind === 'loading') pending.push(until_settled(sheet));
-				if (sheet.now.kind !== 'failed') {
+				if (sheet.kind === 'loading') pending.push(until_settled(sheet));
+				if (sheet.kind !== 'failed') {
 					sheets.push(present);
 					continue;
 				}
@@ -439,10 +439,11 @@ export function region_fragment(html: VerifiedHtml): {
 				.task(
 					() =>
 						new Promise<void>((resolve) => {
-							const cancel = page.timeout(resolve, 5000);
+							const wait = page.child();
+							wait.later(resolve, 5000);
 							// oxlint-disable-next-line ogygia/no-silent-failures -- every pending wait above resolves, failed or not
 							void Promise.all(pending).then(() => {
-								cancel();
+								wait.close();
 								resolve();
 							});
 						})
@@ -468,15 +469,15 @@ class OgygiaRegion extends HTMLElement {
 	#region: RegionLife = create_region_life();
 	#minted_endpoint: string | null = null;
 	#ssr_html: string | null = null;
-	get #life(): Scope {
-		return this.#region.now.life;
+	get #life(): Life {
+		return this.#region.data.life;
 	}
 	get #box(): Mailbox {
-		return this.#region.now.box;
+		return this.#region.data.box;
 	}
 	#shown: VerifiedHtml | null = null;
 	#live_last: LiveTick | null = null;
-	#asleep: Scope | null = null;
+	#asleep: Life | null = null;
 	get #watching(): boolean {
 		return this.#asleep !== null && !this.#asleep.closed;
 	}
@@ -485,34 +486,45 @@ class OgygiaRegion extends HTMLElement {
 		watch_region((this.#asleep = this.#life.child()), this);
 	}
 	#unwatch(): void {
-		this.#asleep?.close();
+		if (this.#asleep !== null) this.#asleep.close();
 		this.#asleep = null;
 	}
-	#hole: Hole = create_hole();
-	#answer: Answer = create_answer();
+	#hole_run: Hole | null = null;
+	get #hole(): Hole {
+		return (this.#hole_run ??= create_hole());
+	}
+	#answer_run: Answer | null = null;
+	get #answer(): Answer {
+		return (this.#answer_run ??= create_answer());
+	}
 	#wake: Wake = create_wake();
 	#fetch_started = 0;
 	#frame_address: string | null = null;
-	#binding: Scope | null = null;
+	#binding: Life | null = null;
 	#visitor: Promise<unknown> | null = null;
 	#app: IslandHandle | null = null;
 	#live_ready = false;
-	#live: Live = create_live();
-	#paint: Paint = create_paint();
+	#live_run: Live | null = null;
+	get #live(): Live {
+		return (this.#live_run ??= create_live());
+	}
+	#paint_run: Paint | null = null;
+	get #paint(): Paint {
+		return (this.#paint_run ??= create_paint());
+	}
 	#live_painted: FrameOrder | null = null;
-	#hydrate_run: { visit: unknown; run: Promise<void> } | null = null;
+	#hydrate_run: { visit: number; run: Promise<void> } | null = null;
 	#fire_hydrate = (): Promise<void> => {
 		const held = this.#hydrate_run;
-		if (held && (held.visit === this.#wake.now || this.#wake.now.kind === 'waking'))
-			return held.run;
+		if (held && (held.visit === this.#wake.epoch || this.#wake.kind === 'waking')) return held.run;
 		const run = this.#box.ask((turn) => this.#hydrate(turn)).then(nothing);
-		const entry = { visit: this.#wake.now, run };
+		const entry = { visit: this.#wake.epoch, run };
 		this.#hydrate_run = entry;
 		const ran = () => this.#hydrate_ran(entry);
 		run.then(ran, ran);
 		return run;
 	};
-	#hydrate_ran(entry: { visit: unknown; run: Promise<void> }): void {
+	#hydrate_ran(entry: { visit: number; run: Promise<void> }): void {
 		if (this.#hydrate_run === entry) this.#hydrate_run = null;
 	}
 	#fire_server = () => this.#box.post((turn) => this.#server(turn));
@@ -522,7 +534,7 @@ class OgygiaRegion extends HTMLElement {
 		if (!this.#app?.set_props || !loaded_core) return;
 		const sidecar = props_sidecar_of(next);
 		const codec = wire_for_wake(next);
-		this.#absorbing?.close();
+		if (this.#absorbing !== null) this.#absorbing.close();
 		this.#absorbing = null;
 		if (codec === undefined) return this.#absorb(sidecar);
 		const waiting = (this.#absorbing = this.#life.child());
@@ -532,7 +544,7 @@ class OgygiaRegion extends HTMLElement {
 				if (loaded !== STALE) this.#absorb(sidecar);
 			}, report_thrown);
 	}
-	#absorbing: Scope | null = null;
+	#absorbing: Life | null = null;
 	#absorb(sidecar: HTMLScriptElement | null): void {
 		if (!this.#app?.set_props || !loaded_core) return;
 		try {
@@ -544,7 +556,7 @@ class OgygiaRegion extends HTMLElement {
 	connectedCallback() {
 		// its lifetime in the page starts, and its mailbox with it (a move, or a connect called again,
 		// keeps the ones it has; a connect called on an element out of the page starts none)
-		if (this.isConnected && this.#region.now.kind === 'detached') {
+		if (this.isConnected && this.#region.kind === 'detached') {
 			this.#region.go('connected', new_lifetime());
 			// the navigation's shadow-root check counts these (connected.ts): once per lifetime, held by it
 			connected_regions.add(this, this.#life);
@@ -582,7 +594,7 @@ class OgygiaRegion extends HTMLElement {
 			(!(HAS & F_LAKES) || (slots.lakes?.on_frozen_connect(this, this.#lake_arm()) ?? true))
 		)
 			return;
-		if (this.#region.now.kind === 'scheduled') return;
+		if (this.#region.kind === 'scheduled') return;
 		const boundary = this.parentElement && this.parentElement.closest('ogygia-region');
 		const slot =
 			this.parentElement && this.parentElement.closest(`ogygia-slot,ogygia-snippet[${OG_STATIC}]`);
@@ -635,9 +647,9 @@ class OgygiaRegion extends HTMLElement {
 		}
 		if (this.#ssr_html !== null) this.#watch();
 		if (!deferred && HAS & F_LAKES && slots.lakes?.wait_for_boundary(this, boundary)) return;
-		this.#region.move('connected', 'scheduled', lifetime_of(this.#region.now));
+		this.#region.move('connected', 'scheduled', this.#region.data);
 		// A hole that had its answer, put back on the page: its schedule is spent (#336)
-		if (HAS & F_FRAMES && deferred && this.#answer.now.kind !== 'none') {
+		if (HAS & F_FRAMES && deferred && this.#answer.kind !== 'none') {
 			this.#put_back();
 			return;
 		}
@@ -655,7 +667,7 @@ class OgygiaRegion extends HTMLElement {
 		}
 		if (!deferred) register_region(this, this.#life);
 		if (!deferred) {
-			if (this.#wake.now.kind === 'cold') this.#wake.go('armed');
+			if (this.#wake.kind === 'cold') this.#wake.go('armed');
 			this.#arm(when, this.#fire_hydrate);
 			return;
 		}
@@ -692,7 +704,7 @@ class OgygiaRegion extends HTMLElement {
 		if (!endpoint || this.#bound()) return;
 		const replayed = this.#bind(endpoint);
 		const shown = this.#shown;
-		if (!replayed && shown !== null && this.#answer.now.kind === 'answered')
+		if (!replayed && shown !== null && this.#answer.kind === 'answered')
 			this.#box.post((turn) => this.#apply(shown, turn));
 	}
 
@@ -705,8 +717,7 @@ class OgygiaRegion extends HTMLElement {
 	 */
 	#prefetch_html() {
 		if (!(HAS & F_FRAMES)) return;
-		if (this.#answer.now.kind !== 'none' || this.#hole.now.kind === 'fetching' || !this.isConnected)
-			return;
+		if (this.#answer.kind !== 'none' || this.#hole.kind === 'fetching' || !this.isConnected) return;
 		const endpoint = this.#endpoint();
 		if (!endpoint || !is_allowed_region_endpoint(endpoint)) return;
 		const address = frameAddress(endpoint);
@@ -815,7 +826,7 @@ class OgygiaRegion extends HTMLElement {
 		// The background task is the armed state's too, like every listener here: one that runs after
 		// it was left (the region left the page, an answer came another way, a visitor woke it first)
 		// starts nothing (#335).
-		const armed = owner.scope;
+		const armed = owner.visit();
 		const start = () => background_start(() => void (armed.closed || fire()));
 		const trigger = on_trigger(
 			when,
@@ -833,7 +844,7 @@ class OgygiaRegion extends HTMLElement {
 								this.#visitor = NO_REPLAY; // (a hole's answer: nothing of the visitor's to replay)
 								return f();
 							},
-							owner.scope
+							owner.visit()
 						);
 					} else this.#on_interaction(f);
 				}
@@ -895,10 +906,10 @@ class OgygiaRegion extends HTMLElement {
 		if (typeof disarm !== 'function') return;
 		const wake = this.#wake;
 		const hold = () => {
-			if (wake.now.kind === 'waking') wake.scope.defer(hold);
+			if (wake.kind === 'waking') wake.visit().defer(hold);
 			else disarm(!this.isConnected);
 		};
-		wake.scope.defer(hold);
+		wake.visit().defer(hold);
 	}
 
 	/**
@@ -923,8 +934,8 @@ class OgygiaRegion extends HTMLElement {
 		if (!(HAS & F_FRAMES)) return false;
 		const address = frameAddress(endpoint);
 		if (this.#bound() && this.#frame_address === address) return false;
-		if (this.#hole.now.kind === 'fetching') this.#hole.go('idle');
-		this.#binding?.close();
+		if (this.#hole.kind === 'fetching') this.#hole.go('idle');
+		if (this.#binding !== null) this.#binding.close();
 		const binding = (this.#binding = this.#life.child());
 		this.#frame_address = address;
 		binding.defer(() => {
@@ -935,7 +946,7 @@ class OgygiaRegion extends HTMLElement {
 		let replayed = false;
 		const off = slots.frames?.subscribe(address, (f) => {
 			replayed = true;
-			note_handed(this, address, f.v, () => this.#paint.now.kind === 'painting');
+			note_handed(this, address, f.v, () => this.#paint.kind === 'painting');
 			box.post((turn) => {
 				note_turn(this);
 				return this.#apply(f.html, turn, f.v);
@@ -962,7 +973,7 @@ class OgygiaRegion extends HTMLElement {
 		const endpoint = this.#endpoint();
 		const replayed = endpoint ? this.#bind(endpoint) : false;
 		const run = replayed ? undefined : this.#fetch_html(turn);
-		if (this.#hole.now.kind === 'armed') this.#hole.go('idle');
+		if (this.#hole.kind === 'armed') this.#hole.go('idle');
 		return run;
 	}
 
@@ -972,7 +983,7 @@ class OgygiaRegion extends HTMLElement {
 	 * or failed is not armed again (a refresh morphs a live island in place).
 	 */
 	#arm_phase2(): void {
-		if (this.#wake.now.kind !== 'cold' || this.#app || !this.isConnected) return;
+		if (this.#wake.kind !== 'cold' || this.#app || !this.isConnected) return;
 		const hydrate = region_hydrate_schedule(this);
 		if (!hydrate) return;
 		const defer_when = this.getAttribute('when') || 'load';
@@ -988,26 +999,26 @@ class OgygiaRegion extends HTMLElement {
 
 	#answered(kind: 'answered' | 'kept'): void {
 		this.#answer.go(kind);
-		const hole = this.#hole.now.kind;
+		const hole = this.#hole.kind;
 		if (hole === 'armed' || hole === 'retrying' || hole === 'offline' || hole === 'failed')
 			this.#hole.go('idle');
 	}
 
-	#paint_next(): Paint['now'] {
+	#paint_next(): number {
 		this.#paint.go('painting');
-		return this.#paint.now;
+		return this.#paint.epoch;
 	}
 
-	#painted(painting: Paint['now']): void {
-		if (this.#paint.now === painting) this.#paint.go('idle');
+	#painted(painting: number): void {
+		if (this.#paint.epoch === painting) this.#paint.go('idle');
 	}
 
 	#machines(): RegionMachinesNow {
 		return {
-			hole: this.#hole.now.kind,
-			wake: this.#wake.now.kind,
-			'live-region': this.#live.now.kind,
-			'region-paint': this.#paint.now.kind
+			hole: this.#hole_run?.kind ?? REGION_REST.hole,
+			wake: this.#wake.kind,
+			'live-region': this.#live_run?.kind ?? REGION_REST['live-region'],
+			'region-paint': this.#paint_run?.kind ?? REGION_REST['region-paint']
 		};
 	}
 
@@ -1025,10 +1036,10 @@ class OgygiaRegion extends HTMLElement {
 			this.dispatchEvent(new CustomEvent('ogygia:server', { bubbles: true }));
 			return;
 		}
-		const revalidate = is_frozen(this) || this.#answer.now.kind === 'answered';
+		const revalidate = is_frozen(this) || this.#answer.kind === 'answered';
 		const { frag, ready, sheets } = region_fragment(html);
 		$await(turn.wait(ready));
-		if (this.#paint.now !== painting) return;
+		if (this.#paint.epoch !== painting) return;
 		this.#painted(painting);
 		if (v !== undefined) note_shown(this, v);
 		use_sheets(this, sheets);
@@ -1093,7 +1104,7 @@ class OgygiaRegion extends HTMLElement {
 		const painting = this.#paint_next();
 		const { frag, ready, sheets } = region_fragment(html);
 		$await(turn.wait(ready));
-		if (this.#paint.now !== painting) return;
+		if (this.#paint.epoch !== painting) return;
 		this.#painted(painting);
 		use_sheets(this, sheets);
 		if (HAS & F_LAKES) slots.lakes?.settle_in(frag);
@@ -1124,11 +1135,10 @@ class OgygiaRegion extends HTMLElement {
 
 	async #fetch_html(turn: Turn, revalidate = false): Promise<void> {
 		if (!(HAS & F_FRAMES)) return;
-		if (!revalidate && this.#answer.now.kind !== 'none') return;
+		if (!revalidate && this.#answer.kind !== 'none') return;
 		const endpoint = this.#endpoint();
 		if (!endpoint) return;
-		if (this.#hole.now.kind === 'fetching' && frameAddress(endpoint) === this.#frame_address)
-			return;
+		if (this.#hole.kind === 'fetching' && frameAddress(endpoint) === this.#frame_address) return;
 		if (!is_allowed_region_endpoint(endpoint)) {
 			if (import.meta.env.DEV) {
 				warn('region_endpoint_foreign', { endpoint });
@@ -1144,21 +1154,21 @@ class OgygiaRegion extends HTMLElement {
 		const before = s.kind === 'armed' || s.kind === 'retrying' ? s : { attempts: 0, denied: 0 };
 		const { attempts, denied } = before;
 		this.#hole.go('fetching', { attempts, denied, revalidate });
-		const mine = this.#hole.now;
+		const mine = this.#hole.epoch;
 		try {
 			if (RULES && buggify.fires('hole.fetch-lost')) throw new TypeError('Failed to fetch');
 			$await(
 				turn.wait(
-					this.#hole.scope.task((signal) =>
-						this.#ensure_frame(frames, endpoint, address, revalidate, signal)
-					)
+					this.#hole
+						.visit()
+						.task((signal) => this.#ensure_frame(frames, endpoint, address, revalidate, signal))
 				)
 			);
 		} catch (err) {
-			if (this.#hole.now !== mine) return;
+			if (this.#hole.epoch !== mine) return;
 			return this.#fetch_failed(turn, err, endpoint, revalidate, attempts + 1, denied);
 		}
-		if (this.#hole.now === mine) this.#hole.go('idle');
+		if (this.#hole.epoch === mine) this.#hole.go('idle');
 	}
 
 	async #ensure_frame(
@@ -1253,19 +1263,20 @@ class OgygiaRegion extends HTMLElement {
 				attempt: attempts,
 				final
 			});
-		this.#region.move('scheduled', 'connected', lifetime_of(this.#region.now));
+		this.#region.move('scheduled', 'connected', this.#region.data);
 		if (!final) {
-			if (this.#answer.now.kind !== 'none') {
+			if (this.#answer.kind !== 'none') {
 				this.#hole.go('idle');
 				return;
 			}
 			if (offline) {
 				this.#hole.go('offline', { revalidate });
-				const waiting = this.#hole.scope;
+				const waiting = this.#hole.visit();
 				$await(
 					turn.wait(
 						waiting.task(
-							() => new Promise<void>((resolve) => waiting.on(window, 'online', () => resolve()))
+							() =>
+								new Promise<void>((resolve) => waiting.listen(window, 'online', () => resolve()))
 						)
 					)
 				);
@@ -1273,7 +1284,7 @@ class OgygiaRegion extends HTMLElement {
 				return this.#connect(turn);
 			}
 			this.#hole.go('retrying', { attempts, denied, revalidate });
-			const retrying = this.#hole.scope;
+			const retrying = this.#hole.visit();
 			const later = err instanceof RegionAnswerLater ? err.wait_ms : null;
 			let wait: number;
 			if (later !== null) wait = Math.min(later, backoffAfter(region_rate_limited, attempts));
@@ -1281,7 +1292,7 @@ class OgygiaRegion extends HTMLElement {
 			else wait = backoffAfter(region_fetch, attempts);
 			$await(
 				turn.wait(
-					retrying.task(() => new Promise<void>((resolve) => retrying.timeout(resolve, wait)))
+					retrying.task(() => new Promise<void>((resolve) => retrying.later(resolve, wait)))
 				)
 			);
 			if (revalidate) return this.#fetch_html(turn, true);
@@ -1299,44 +1310,46 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#on_idle(fire: () => unknown, owner: Leaves) {
-		const s = owner.scope;
+		const s = owner.visit();
 		// @why WebKit has no requestIdleCallback (test: test/browser/hole-when.test.ts › an idle hole in a browser with no idle callback fetches after a short pause, not at once)
 		if (!('requestIdleCallback' in window)) {
-			s.timeout(() => fire(), 200);
+			s.later(() => fire(), 200);
 			return;
 		}
+		const once = s.child();
 		const first = () => {
-			off_idle();
-			off_cap();
+			once.close();
 			fire();
 		};
-		const off_idle = s.timeout(first, 'idle');
-		const off_cap = s.timeout(first, 2000);
+		once.later(first, 'idle');
+		once.later(first, 2000);
 	}
 
 	#on_visible(fire: () => unknown, root_margin: string | undefined, owner: Leaves) {
 		const rootMargin = root_margin || this.getAttribute('margin') || '0px';
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a wake; its hydrate says its own failure
-		owner.scope.defer(once_on_screen(this, rootMargin, () => void fire()));
+		const seen = () => void fire();
+		owner.visit().defer(once_on_screen(this, rootMargin, seen));
 	}
 
 	#on_media(q: string, fire: () => unknown, owner: Leaves) {
 		const mql = matchMedia(q);
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a wake; its hydrate says its own failure
 		if (mql.matches) return void fire();
-		const off = owner.scope.on(mql, 'change', (e) => {
+		const once = owner.visit().child();
+		once.listen(mql, 'change', (e) => {
 			if (!e.matches) return;
-			off();
+			once.close();
 			fire();
 		});
 	}
 
 	async #hydrate(held: Turn) {
-		const from = this.#wake.now.kind;
+		const from = this.#wake.kind;
 		if (this.#app || (from !== 'cold' && from !== 'armed')) return;
 		this.#wake.go('waking');
-		const mine = this.#wake.now;
-		const visit = this.#wake.scope;
+		const mine = this.#wake.epoch;
+		const visit = this.#wake.visit();
 		const turn = {
 			wait: <T>(work: PromiseLike<T> | T): Promise<Fresh<T> | Stale> =>
 				held
@@ -1444,7 +1457,7 @@ class OgygiaRegion extends HTMLElement {
 		} catch (err) {
 			// A run whose visit is over fails quietly: the region left while it loaded, and what stands
 			// now (the region put back) is a new visit, which loads, fails or wakes on its own.
-			if (this.#wake.now !== mine) return;
+			if (this.#wake.epoch !== mine) return;
 			if (is_failed_import(err) && browser_offline()) {
 				offline = { error: err };
 				return;
@@ -1474,7 +1487,7 @@ class OgygiaRegion extends HTMLElement {
 			// from here (a click it already queued is still replayed by the wake that queued it). Not
 			// when the visit is over already: the region left the page, and its teardown moved it and
 			// took it out of the scheduler (the scheduler's mark, if any, is the new visit's).
-			if (this.#wake.now === mine) {
+			if (this.#wake.epoch === mine) {
 				hydrate_settled(this);
 				if (failure) this.#wake.go('failed', failure);
 				else if (offline) this.#wake_online(offline.error);
@@ -1485,7 +1498,7 @@ class OgygiaRegion extends HTMLElement {
 
 	#wake_online(error: unknown): void {
 		this.#wake.go('offline', { error });
-		this.#wake.scope.on(window, 'online', () => {
+		this.#wake.visit().listen(window, 'online', () => {
 			this.#wake.go('armed');
 			// oxlint-disable-next-line ogygia/no-silent-failures -- a wake; its hydrate says its own failure
 			void this.#fire_hydrate();
@@ -1511,7 +1524,7 @@ class OgygiaRegion extends HTMLElement {
 
 	#live_put_back(turn: Turn): Promise<void> | undefined {
 		const last = this.#live_last;
-		if (last === null || this.#live.now.kind !== 'idle') return;
+		if (last === null || this.#live.kind !== 'idle') return;
 		return this.#apply_live(last, turn);
 	}
 
@@ -1542,7 +1555,7 @@ class OgygiaRegion extends HTMLElement {
 				});
 				if (off) {
 					bound.address = address;
-					this.#live.scope.defer(off);
+					this.#live.visit().defer(off);
 				}
 			}
 			const address = desc.url ? frameAddress(desc.url) : null;
@@ -1577,14 +1590,14 @@ class OgygiaRegion extends HTMLElement {
 
 		const pending: { props: Record<string, unknown> | null } = { props: null };
 		this.#live.go('hydrating', { module: desc.module, pending });
-		const mine = this.#live.now;
+		const mine = this.#live.epoch;
 		const painting = this.#paint_next();
 		this.#live_ready = true;
 		const { frag, ready, sheets } = region_fragment(vouch_remote_answer(desc.html));
 		// stylesheet before paint — an interactive held region has CSS too (no FOUC). (STALE: the
 		// region left the page meanwhile; another tick took over: it paints)
 		$await(turn.wait(ready));
-		if (this.#live.now !== mine) return;
+		if (this.#live.epoch !== mine) return;
 		this.#painted(painting);
 		use_sheets(this, sheets);
 		if (HAS & F_LAKES) slots.lakes?.settle_in(frag);
@@ -1594,19 +1607,19 @@ class OgygiaRegion extends HTMLElement {
 		await this.#live_hydrate(desc.props, mine, desc.module, pending, turn);
 	}
 
-	#kit_page_ready(core: HydrateCore, visit: Scope): Promise<unknown> | null {
+	#kit_page_ready(core: HydrateCore, visit: Life): Promise<unknown> | null {
 		if (!kit_hydrates_page() || !ours_on_kit_document(this)) return null;
 		return core.kit_page_thread(visit.signal);
 	}
 
 	async #live_hydrate(
 		props: Record<string, unknown>,
-		mine: Live['now'],
+		mine: number,
 		module: string,
 		pending: { props: Record<string, unknown> | null },
 		turn: Turn
 	) {
-		const ours = () => this.isConnected && this.#live.now === mine;
+		const ours = () => this.isConnected && this.#live.epoch === mine;
 		try {
 			$await(turn.wait(dom_ready()));
 			if (!ours()) return;
@@ -1633,7 +1646,7 @@ class OgygiaRegion extends HTMLElement {
 			use_code_sheets(this, mod);
 			// (Kit cannot start: the region keeps its swapped HTML, and the wait said why)
 			$await(
-				turn.wait(this.#kit_page_ready(core, this.#live.scope)).catch((err) => {
+				turn.wait(this.#kit_page_ready(core, this.#live.visit())).catch((err) => {
 					if (kit_boot_failed(err)) return STALE;
 					throw err;
 				})
@@ -1643,7 +1656,7 @@ class OgygiaRegion extends HTMLElement {
 			const app = core.hydrate_live(this, entry, mod, props);
 			if (!app) return;
 			this.#live.go('live', { module, app });
-			this.#live.scope.defer(() => {
+			this.#live.visit().defer(() => {
 				if (HOOK_REGION_UNMOUNT)
 					slots.hooks?.regionUnmount?.({ el: this, entry: this.getAttribute('entry') ?? '' });
 				app.dispose();
@@ -1654,17 +1667,17 @@ class OgygiaRegion extends HTMLElement {
 			this.dispatchEvent(new CustomEvent('ogygia:live', { bubbles: true }));
 		} catch (error) {
 			// (a tick that took over, or the region gone: the failure is no longer this visit's)
-			if (this.#live.now !== mine) return;
+			if (this.#live.epoch !== mine) return;
 			say_island_failed(this.getAttribute('entry'), error);
 			this.#live.go('failed', { module, error });
 		} finally {
-			if (this.#live.now === mine) this.#live.go('idle');
+			if (this.#live.epoch === mine) this.#live.go('idle');
 		}
 	}
 
 	disconnectedCallback() {
 		tasks.micro(() => {
-			if (!this.isConnected && this.#region.now.kind !== 'detached') this.#teardown();
+			if (!this.isConnected && this.#region.kind !== 'detached') this.#teardown();
 		});
 	}
 
@@ -1675,10 +1688,13 @@ class OgygiaRegion extends HTMLElement {
 		if (this.#watching) mark_region_changed(this);
 		if (HOOK_REGION_UNMOUNT && this.#app)
 			slots.hooks?.regionUnmount?.({ el: this, entry: this.getAttribute('entry') ?? '' });
-		if (this.#live.now.kind !== 'idle') this.#live.go('idle');
-		if (this.#hole.now.kind !== 'idle') this.#hole.go('idle');
-		if (this.#wake.now.kind !== 'cold') this.#wake.go('cold');
-		if (this.#paint.now.kind !== 'idle') this.#paint.go('idle');
+		const live = this.#live_run;
+		if (live !== null && live.kind !== 'idle') live.go('idle');
+		const hole = this.#hole_run;
+		if (hole !== null && hole.kind !== 'idle') hole.go('idle');
+		if (this.#wake.kind !== 'cold') this.#wake.go('cold');
+		const paint = this.#paint_run;
+		if (paint !== null && paint.kind !== 'idle') paint.go('idle');
 		note_left(this, () => busy_machines(this.#machines()));
 		this.#life.close();
 		this.#region.go('detached', detached());

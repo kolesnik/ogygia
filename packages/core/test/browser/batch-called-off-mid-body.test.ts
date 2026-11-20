@@ -4,6 +4,7 @@
 // left to reject with nobody listening (found by the simulator: palaestra seed 24 with crowds, two
 // links clicked 60 ms apart).
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { life_of } from '@ogygia/machine/internal';
 import { scope } from '@ogygia/machine';
 import { streamFrames } from '../../src/runtime/frame-nav.ts';
 import { _reset } from '../_frames.ts';
@@ -43,7 +44,7 @@ describe('a batch called off while its body comes', () => {
 		window.addEventListener('unhandledrejection', hear);
 		try {
 			const visit = scope();
-			const batch = streamFrames([ep('s1'), ep('s2')], 'nav', visit).then(
+			const batch = streamFrames([ep('s1'), ep('s2')], 'nav', life_of(visit)).then(
 				() => 'settled',
 				(err: { name?: string }) => `rejected ${err?.name}`
 			);
@@ -72,7 +73,7 @@ describe('a batch called off while its body comes', () => {
 				)
 		);
 		const visit = scope();
-		const batch = streamFrames([ep('s1'), ep('s2')], 'nav', visit).then(
+		const batch = streamFrames([ep('s1'), ep('s2')], 'nav', life_of(visit)).then(
 			() => 'settled',
 			(err: { name?: string }) => `rejected ${err?.name}`
 		);

@@ -3,14 +3,14 @@ import { watch_turns } from './rules.ts';
 import {
 	clock,
 	flights,
-	machine,
 	queue,
 	tasks,
 	timers,
 	type MachineGraph,
-	type Scope,
 	type Stale
 } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 
 export type Turn = {
 	el: Element;
@@ -60,7 +60,7 @@ export function turns_counted(p: PendingTurns = P): string | null {
 }
 watch_turns(turns_counted);
 
-const drain_definition = machine<{ idle: {}; queued: {}; waiting: { at: number } }>()({
+const drain_definition = $machine<{ idle: {}; queued: {}; waiting: { at: number } }>()({
 	name: 'hydrate-drain',
 	initial: 'idle',
 	steps: {
@@ -69,11 +69,11 @@ const drain_definition = machine<{ idle: {}; queued: {}; waiting: { at: number }
 		waiting: ['queued']
 	}
 });
-const drainer = drain_definition.create();
+const drainer = fsm.create(drain_definition);
 
 /** The drain's machine as data (test/machine-steps.test.ts holds each step to where it is taken). */
 export function drain_graph(): MachineGraph {
-	return drain_definition.graph();
+	return fsm.graph(drain_definition);
 }
 const order_of = new WeakMap<Element, number>();
 let next_order = 0;
@@ -277,7 +277,7 @@ export function reset_document_painted(): void {
  * snapshot is `owner`'s (the region's lifetime in the page): it stops at the region's turn, or when
  * the owner ends.
  */
-export function register_region(el: Element, owner: Scope): void {
+export function register_region(el: Element, owner: Life): void {
 	if (!order_of.has(el)) order_of.set(el, next_order++);
 	if (snapshot_of.has(el) || owner.closed) return;
 	const stop = watch_viewport(el, '0px', (intersecting) => {
@@ -287,9 +287,11 @@ export function register_region(el: Element, owner: Scope): void {
 		if (P.count) schedule_drain();
 	});
 	snapshot_of.set(el, stop);
-	owner.defer(() => {
-		if (snapshot_of.get(el) === stop) stop_snapshot(el);
-	});
+	owner.on_close(unsnap, el, stop);
+}
+
+function unsnap(el: Element, stop: () => void): void {
+	if (snapshot_of.get(el) === stop) stop_snapshot(el);
 }
 
 /**
@@ -359,7 +361,7 @@ export function hydrate_turn(el: Element): Promise<void> {
 const now = clock.mono;
 
 function schedule_drain(): void {
-	if (drainer.now.kind === 'queued') return;
+	if (drainer.kind === 'queued') return;
 	drainer.go('queued');
 	// oxlint-disable-next-line typescript/no-floating-promises -- a task hop never rejects, and the drain it starts is the drainer machine's own (queued until it runs)
 	yield_task().then(drain);
@@ -368,7 +370,7 @@ function schedule_drain(): void {
 function drain_after(ms: number): void {
 	const at = now() + Math.max(1, ms);
 	drainer.go('waiting', { at });
-	drainer.scope.timeout(schedule_drain, Math.max(1, ms));
+	drainer.visit().later(schedule_drain, Math.max(1, ms));
 }
 
 function first_unsnapped(t: number): Turn | undefined {
@@ -405,5 +407,5 @@ function drain(): void {
 
 /** Test seam: is a hydration turn queued or being drained right now? */
 export function schedule_idle(): boolean {
-	return P.count === 0 && drainer.now.kind !== 'queued';
+	return P.count === 0 && drainer.kind !== 'queued';
 }

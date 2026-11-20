@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { machine, scope, stage, STALE, trace, type Staging } from '../src/index.ts';
+import { held, life_of } from '../src/internal.ts';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -290,7 +291,6 @@ describe('after the commit', () => {
 
 	it('a stage that committed or was discarded leaves nothing on its owner (#345)', async () => {
 		const owner = scope();
-		const held = owner as unknown as { _defers: unknown[] | null; _children: Set<unknown> | null };
 		for (let i = 0; i < 50; i++) {
 			const next = stage(owner, { build: () => i, commit: () => {} });
 			await next.ready;
@@ -305,7 +305,7 @@ describe('after the commit', () => {
 			});
 			await failed.ready.catch(() => {});
 		}
-		expect((held._defers?.length ?? 0) + (held._children?.size ?? 0)).toBe(0);
+		expect(held(life_of(owner))).toBe(0);
 		owner.close();
 	});
 

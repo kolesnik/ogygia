@@ -7,6 +7,7 @@
  * order on pages large enough that the queue's bookkeeping matters.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { life_of } from '@ogygia/machine/internal';
 import { scope } from '@ogygia/machine';
 
 /** The regions' lifetime in the page: their snapshots are its. */
@@ -70,7 +71,7 @@ async function turns(els: Array<Element & { id: number }>, ask = els): Promise<n
 describe('hydration turns', () => {
 	it('viewport regions first, then connect order, whatever order the turns were asked in', async () => {
 		const els = regions(8);
-		for (const el of els) s.register_region(el, page);
+		for (const el of els) s.register_region(el, life_of(page));
 		els.forEach((el, i) => report(el, i === 6 || i === 2 || i === 5));
 		const shuffled = [3, 6, 0, 7, 2, 5, 1, 4].map((i) => els[i]);
 		expect(await turns(els, shuffled)).toEqual([2, 5, 6, 0, 1, 3, 4, 7]);
@@ -78,7 +79,7 @@ describe('hydration turns', () => {
 
 	it('a page of 300 load wakes: every turn handed out once, in that order', async () => {
 		const els = regions(300);
-		for (const el of els) s.register_region(el, page);
+		for (const el of els) s.register_region(el, life_of(page));
 		const visible = new Set([150, 3, 299, 42]);
 		els.forEach((el, i) => report(el, visible.has(i)));
 		const order = await turns(els, [...els].reverse());
@@ -90,7 +91,7 @@ describe('hydration turns', () => {
 
 	it('a region that leaves the viewport before its turn goes with the rest', async () => {
 		const els = regions(4);
-		for (const el of els) s.register_region(el, page);
+		for (const el of els) s.register_region(el, life_of(page));
 		els.forEach((el, i) => report(el, i >= 2));
 		const order: number[] = [];
 		const all = Promise.all(
@@ -105,7 +106,7 @@ describe('hydration turns', () => {
 
 	it('the first pick waits for a snapshot still to come, up to its wait', async () => {
 		const els = regions(3);
-		for (const el of els) s.register_region(el, page);
+		for (const el of els) s.register_region(el, life_of(page));
 		report(els[0], false);
 		report(els[1], false);
 		const order: number[] = [];
@@ -122,7 +123,7 @@ describe('hydration turns', () => {
 
 	it('a ready region below the fold holds while a viewport region loads its module', async () => {
 		const els = regions(2);
-		for (const el of els) s.register_region(el, page);
+		for (const el of els) s.register_region(el, life_of(page));
 		report(els[0], false);
 		report(els[1], true);
 		s.hydrate_started(els[0]);
@@ -139,7 +140,7 @@ describe('hydration turns', () => {
 
 	it('the hold is bounded: a viewport module that never comes holds the page 1 s at most', async () => {
 		const els = regions(2);
-		for (const el of els) s.register_region(el, page);
+		for (const el of els) s.register_region(el, life_of(page));
 		report(els[0], false);
 		report(els[1], true);
 		s.hydrate_started(els[1]);
@@ -155,7 +156,7 @@ describe('hydration turns', () => {
 
 	it('two turns of one region: request order; a region that disconnects gets its turns at once', async () => {
 		const els = regions(3);
-		for (const el of els) s.register_region(el, page);
+		for (const el of els) s.register_region(el, life_of(page));
 		els.forEach((el) => report(el, false));
 		const order: string[] = [];
 		const all = Promise.all([

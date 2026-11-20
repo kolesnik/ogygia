@@ -1,5 +1,7 @@
 import { OgygiaError, warn } from '../messages/lazy.ts';
-import { flights, say, scope, STALE, tasks, type Scope } from '@ogygia/machine';
+import { flights, say, STALE, tasks } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { code_url, import_code, type CodeUrl } from './code-origins.ts';
 
 const KIT_PAGE_KEY = Symbol.for('ogygia.kit-page');
@@ -34,8 +36,8 @@ export function kit_page_thread(signal?: AbortSignal): Promise<unknown> | null {
 const pending = flights({
 	name: 'kit page thread',
 	run: (_: void, signal: AbortSignal) => {
-		const wait = scope();
-		wait.on(signal, 'abort', () => wait.close());
+		const wait = life.root();
+		wait.listen(signal, 'abort', () => wait.close());
 		return new Promise<void>((resolve, reject) => {
 			const fail = (url: string, error: unknown) => {
 				wait.close();
@@ -61,7 +63,7 @@ const pending = flights({
 					);
 			}
 			if (import.meta.env.DEV) {
-				wait.timeout(() => {
+				wait.later(() => {
 					warn('kit_page_waiting', {
 						seconds: DEV_STILL_WAITING_MS / 1000,
 						booted: bridge_of() != null
@@ -133,7 +135,7 @@ function kit_boot_failed(url: string, error: unknown): Error {
 	return failure;
 }
 
-function await_bridge(wait: Scope, cb: (bridge: Bridge) => void): void {
+function await_bridge(wait: Life, cb: (bridge: Bridge) => void): void {
 	const g = globalThis as unknown as Global;
 	if (g[KIT_PAGE_KEY] != null) return cb(g[KIT_PAGE_KEY] as Bridge);
 	let value: unknown;
@@ -163,7 +165,7 @@ function await_bridge(wait: Scope, cb: (bridge: Bridge) => void): void {
 	}
 }
 
-function await_applied(wait: Scope, bridge: Bridge, done: () => void): void {
+function await_applied(wait: Life, bridge: Bridge, done: () => void): void {
 	if (page_applied(bridge)) return done();
 	let ended = false;
 	const end = () => {

@@ -4,6 +4,7 @@
 // `waiting -> waiting`, wake `cold -> waking`). A machine made by `flights()` is not here: its steps
 // are the primitive's own, taken by other flights.
 import { describe, expect, it } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import type { MachineGraph } from '@ogygia/machine';
 import { batch_stream_graph } from '../src/runtime/frame-nav.ts';
 import { hole_graph, wake_graph } from '../src/runtime/region-machines.ts';
@@ -77,7 +78,7 @@ const MACHINES: { graph: () => MachineGraph; taken: Record<string, string> }[] =
 		// server/region-request.ts, walked by hooks.ts `#region_answer` (a GET, a renewal) and
 		// `#capability_parcel` (each hole of a batch). Each move is taken before its work, so a
 		// refusal leaves the state whose work refused it: none from `prechecked` or `verified` (#1082)
-		graph: () => region_request.graph(),
+		graph: () => fsm.graph(region_request),
 		taken: {
 			'received -> prechecked': 'the precheck (shape, expiry, key) passed',
 			'received -> refused': 'the precheck refused',

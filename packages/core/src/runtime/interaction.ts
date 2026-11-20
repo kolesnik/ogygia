@@ -1,13 +1,6 @@
-import {
-	flights,
-	machine,
-	noop,
-	registry,
-	STALE,
-	type Machine,
-	type Scope,
-	type Stale
-} from '@ogygia/machine';
+import { flights, noop, registry, STALE, type Stale } from '@ogygia/machine';
+import type { Life, Run } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import { LoadSlot } from './load-scheduler.ts';
 import { import_again } from './import-again.ts';
 import { slots } from './slots.ts';
@@ -108,19 +101,19 @@ const arming_steps = {
 	over: []
 } as const;
 
-const arming_definition = machine<{ armed: {}; woken: {}; over: {} }>()({
+const arming_definition = $machine<{ armed: {}; woken: {}; over: {} }>()({
 	name: 'interaction-arming',
 	initial: 'armed',
 	steps: arming_steps
 });
 
-type Arming = Machine<{ armed: {}; woken: {}; over: {} }, typeof arming_steps>;
+type Arming = Run<{ armed: {}; woken: {}; over: {} }, typeof arming_steps>;
 
 type Armed = {
 	region: Element;
 	warm: () => void;
 	fire: WakeFn;
-	owner: Scope;
+	owner: Life;
 	arming: Arming;
 	warmed: boolean;
 	queued: QueuedClick[];
@@ -232,12 +225,12 @@ function wake(a: Armed, e: Event): void {
 	const replayed = replay();
 	Promise.all([replayed, Promise.resolve(a.fire(replayed))]).then(
 		([r]) => {
-			if (a.arming.now.kind === 'over') return;
+			if (a.arming.kind === 'over') return;
 			disarm(a, false);
 			if (r !== STALE) r.after_wake(region, fields, focused, queued, a.owner);
 		},
 		(err) => {
-			if (a.arming.now.kind === 'over') return;
+			if (a.arming.kind === 'over') return;
 			disarm(a, false);
 			replay().then(
 				(r) => r !== STALE && r.replay_clicks(region, queued, a.owner),
@@ -263,14 +256,14 @@ export function arm_interaction(
 	region: Element,
 	warm: () => void,
 	fire: WakeFn,
-	owner: Scope
+	owner: Life
 ): (over?: boolean) => void {
 	const a: Armed = {
 		region,
 		warm,
 		fire,
 		owner,
-		arming: arming_definition.create(),
+		arming: fsm.create(arming_definition),
 		warmed: false,
 		queued: [],
 		forget: noop

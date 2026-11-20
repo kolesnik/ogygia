@@ -87,7 +87,7 @@ import {
 } from './server/hmac.ts';
 import { expiry_refusal, note_cache_control } from './server/shared-cache.ts';
 import { app_lifetime, server_delta_on } from './server/region-endpoint.ts';
-import { region_request, type RegionRequest } from './server/region-request.ts';
+import { create_region_request, type RegionRequest } from './server/region-request.ts';
 import { render_cache_key, cached_render, type RenderKey } from './server/render-cache.ts';
 import { render as render_policy } from './policies.ts';
 import { install_server_rules, note_region_answer } from './server/rules.ts';
@@ -1817,7 +1817,7 @@ class OgygiaHandle {
 		 *  postrender stitch (its own stored page, no visitor) is charged nothing. */
 		ip?: string
 	): Promise<{ slot: string; html: string } | null> {
-		const r = region_request.create();
+		const r = create_region_request();
 		const parcel = await this.#capability_parcel(r, endpoint, event, batch, signal, ip);
 		r.go(parcel === null ? 'refused' : 'sent');
 		return parcel;
@@ -1912,7 +1912,7 @@ class OgygiaHandle {
 	 * anonymous-only re-verify of the original tuple + re-sign; then the same render rate + render.
 	 */
 	async render_region(event: RequestEvent): Promise<Response> {
-		const r = region_request.create();
+		const r = create_region_request();
 		const res = await this.#region_answer(r, event);
 		// (a success with no render before it is an illegal move: `sent` is only reached rendering)
 		r.go(res.status < 300 ? 'sent' : 'refused');

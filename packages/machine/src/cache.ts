@@ -33,7 +33,7 @@
 import { DEV } from 'esm-env';
 import { clock } from './ports.ts';
 import { bad_option, machine_error, report } from './messages.ts';
-import { DISPOSE, MAX_TIMEOUT_MS, scope, type Scope } from './scope.ts';
+import { DISPOSE, Life, MAX_TIMEOUT_MS, type Scope } from './scope.ts';
 import type { World } from './world.ts';
 
 /** Why a value left a cache. */
@@ -52,7 +52,7 @@ export interface CacheOptions<K, V> {
 	/** Hears each value that leaves, after it left (see the module's comment). */
 	onEvict?: (key: K, value: V, why: EvictWhy) => void;
 	/** The scope it lives in: when it ends, the cache ends, and every value is noticed 'end'. */
-	owner?: Scope;
+	owner?: Scope | Life;
 	/** The world its values are made in: a value made before the one a key holds never replaces it. */
 	world?: World<never> | World<unknown>;
 	/** A value in use now: it counts against `max`, but is never let go for size (the next least
@@ -123,6 +123,10 @@ export function cache_store<K, V>(o: CacheOptions<K, V>): CacheStore<K, V> {
  * The cache itself. A class: its methods are made once, so a cache costs a few fields to make
  * (flights and collections each make one), and a read is a method call on a known shape.
  */
+function fire(store: Store<unknown, unknown>): void {
+	store._fire();
+}
+
 class Store<K, V> implements CacheStore<K, V> {
 	_max: number;
 	_keep: number | ((value: V, key: K) => number);
@@ -139,7 +143,7 @@ class Store<K, V> implements CacheStore<K, V> {
 	_newest_h: Held<V> | undefined = undefined;
 	_weight = 0;
 	/** The age timer's stop (`null`: none set), and when it fires (`Infinity`: none set). */
-	_stop_timer: (() => void) | null = null;
+	_stop_timer: Life | null = null;
 	_timer_at = Infinity;
 	/** When the timer last swept (`-Infinity`: never). */
 	_swept_at = -Infinity;
@@ -148,7 +152,7 @@ class Store<K, V> implements CacheStore<K, V> {
 	/** Notices due, and whether they are being told (a notice's own set or delete queues behind). */
 	_due: Array<[K, V, EvictWhy]> = [];
 	_telling = false;
-	_life: Scope;
+	_life: Life;
 
 	constructor(o: CacheOptions<K, V>) {
 		// a bound is a finite number more than 0: Infinity is no bound. In dev it throws; in production
@@ -172,9 +176,9 @@ class Store<K, V> implements CacheStore<K, V> {
 		this._on_evict = o.onEvict;
 		this._pinned = o.pinned;
 		this._world = o.world as World<unknown> | undefined;
-		const life = (this._life = o.owner === undefined ? scope() : o.owner.child());
-		life.defer(() => this._let_all_go('end'));
-		if (refused) life.close();
+		const l = (this._life = o.owner === undefined ? new Life() : (o.owner as Life).child());
+		l.defer(() => this._let_all_go('end'));
+		if (refused) l.close();
 	}
 
 	get size(): number {
@@ -237,19 +241,23 @@ class Store<K, V> implements CacheStore<K, V> {
 
 	/** The age timer, set to fire at `at`. */
 	_set_timer(at: number, now: number): void {
-		this._stop_timer?.();
-		this._stop_timer = null;
-		const life = this._life;
-		if (life.closed) return;
+		this._stop();
+		const l = this._life;
+		if (l.closed) return;
 		this._timer_at = at;
-		this._stop_timer = life.timeout(
-			() => this._fire(),
-			Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS)
-		);
+		const t = (this._stop_timer = l.child());
+		t.later(fire, Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS), this as Store<unknown, unknown>);
+	}
+
+	/** Clears the age timer (its own life). */
+	_stop(): void {
+		const t = this._stop_timer;
+		this._stop_timer = null;
+		if (t !== null) t.close();
 	}
 
 	_fire(): void {
-		this._stop_timer = null;
+		this._stop();
 		this._timer_at = Infinity;
 		const fired = clock.mono();
 		this._swept_at = fired;
@@ -271,8 +279,7 @@ class Store<K, V> implements CacheStore<K, V> {
 		held.clear();
 		this._newest = NO_KEY;
 		this._weight = 0;
-		this._stop_timer?.();
-		this._stop_timer = null;
+		this._stop();
 		this._timer_at = Infinity;
 		this._tell();
 	}

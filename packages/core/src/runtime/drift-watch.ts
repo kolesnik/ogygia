@@ -1,4 +1,4 @@
-import type { Scope } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine/internal';
 import { walk_enters } from './ownership.ts';
 
 const REGION = 'ogygia-region';
@@ -20,7 +20,7 @@ class SleepWatch {
 	#woken = 0;
 	#observer: MutationObserver | null = null;
 
-	watch(sleep: Scope, region: Element): void {
+	watch(sleep: Life, region: Element): void {
 		if (this.#woken) this.take();
 		this.#asleep.set(region, (this.#asleep.get(region) ?? 0) + 1);
 		sleep.defer(() => this.#woke(region));
@@ -80,7 +80,7 @@ const watcher = new SleepWatch();
  * component reworking its own light DOM there is not the island drifting). The wake compares, and
  * repairs, only a changed region (`region_changed`).
  */
-export function watch_region(sleep: Scope, region: Element): void {
+export function watch_region(sleep: Life, region: Element): void {
 	if (!supported || sleep.closed) return;
 	watcher.watch(sleep, region);
 }

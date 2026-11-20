@@ -72,7 +72,7 @@ const adopt_owner_record = (doc: ParentNode, head: ParentNode) =>
 	boot_link()[L_ADOPT_OWNER_RECORD](doc, head);
 const session = () => boot_link()[L_RUNTIME_SESSION];
 const adopt_response = (next: Document) => boot_link()[L_ADOPT_RESPONSE](next);
-type Scope = import('@ogygia/machine').Scope;
+type Life = import('@ogygia/machine/internal').Life;
 type Stale = import('@ogygia/machine').Stale;
 type Staging = import('@ogygia/machine').Staging;
 const devalue_for = (doc: Document) =>
@@ -600,9 +600,9 @@ export async function navigate(
 		type?: string;
 		replace?: boolean;
 	} = {},
-	claim: SpaRouter['nav']['now'] = r.nav.now
+	claim: number = r.nav.epoch
 ): Promise<void> {
-	if (r.nav.now !== claim) return;
+	if (r.nav.epoch !== claim) return;
 
 	const dt_t0 = DEVTOOLS ? dt_now() : 0;
 	const nav_t0 = clock.mono();
@@ -622,9 +622,9 @@ export async function navigate(
 		});
 
 	r.nav.go('loading', { href: url.href });
-	const mine = r.nav.now;
+	const mine = r.nav.epoch;
 	own_live_head(r.current_url);
-	const attempt = r.nav.scope;
+	const attempt = r.nav.visit();
 	const next = session().next_visit();
 	attempt.defer(() => {
 		if (session().visit !== next) next.scope.close();
@@ -697,7 +697,7 @@ export async function navigate(
 		if (built === null) return;
 		const { doc, dest } = built;
 		const soft = boot_link()[L_SOFT];
-		if (soft.now.kind === 'refreshing') soft.go('idle');
+		if (soft.kind === 'refreshing') soft.go('idle');
 		const left = r.current_url;
 		own_live_head(left);
 		r.history.commit(dest, move, pop);
@@ -739,7 +739,7 @@ export async function navigate(
 	} catch (error) {
 		return hand_off(error);
 	}
-	if (is_stale(built) || r.nav.now !== mine) return;
+	if (is_stale(built) || r.nav.epoch !== mine) return;
 	if (built === null) return hand_off();
 	const { dest } = built;
 
@@ -770,10 +770,10 @@ export async function navigate(
 		swap();
 	}
 	if (out.failed) return hand_off(out.failed.error, built.written);
-	if (r.nav.now !== mine) return;
+	if (r.nav.epoch !== mine) return;
 
 	r.nav.move('loading', 'settling', { href: url.href });
-	const settled = r.nav.now;
+	const settled = r.nav.epoch;
 	if (HOOK_NAVIGATED)
 		slots.hooks?.navigated?.({
 			from: `${from.pathname}${from.search}`,
@@ -809,7 +809,7 @@ export async function navigate(
 
 	r.run_after(from, dest, type);
 	document.dispatchEvent(new Event('og:page-load'));
-	if (r.nav.now === settled) r.nav.go('idle');
+	if (r.nav.epoch === settled) r.nav.go('idle');
 	r.scan_preload_links();
 }
 
@@ -830,7 +830,7 @@ export const SCROLL_HOLD_MS = 10_000;
  * wakes). Instant, never smooth: CSS `scroll-behavior: smooth` must not animate a programmatic
  * restore.
  */
-export function hold_scroll(to: { x: number; y: number }, visit: Scope): void {
+export function hold_scroll(to: { x: number; y: number }, visit: Life): void {
 	let at = { x: scrollX, y: scrollY };
 	const put = () => {
 		if (scrollX === to.x && scrollY === to.y) return;
@@ -851,18 +851,22 @@ export function hold_scroll(to: { x: number; y: number }, visit: Scope): void {
 	const anchoring = html.style.overflowAnchor;
 	html.style.overflowAnchor = 'none';
 	hold.defer(() => (html.style.overflowAnchor = anchoring));
-	hold.timeout(() => hold.close(), SCROLL_HOLD_MS);
+	hold.close_after(SCROLL_HOLD_MS);
 	const above = new Set(islands_above(to.y));
 	const settled = () => {
-		if (above.size === 0) hold.timeout(() => hold.timeout(() => hold.close(), 0), 'frame');
+		if (above.size === 0) hold.later(() => hold.close_after(0), 'frame');
 	};
-	hold.on(document, 'ogygia:hydrated', (event: Event) => {
+	hold.listen(document, 'ogygia:hydrated', (event: Event) => {
 		if (above.delete(event.target as Element)) settled();
 	});
 	settled();
 	for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const)
-		hold.on(window, type, () => hold.close(), { capture: true, passive: true, once: true });
-	hold.on(
+		hold.listen(window, type, () => hold.close(), {
+			capture: true,
+			passive: true,
+			once: true
+		});
+	hold.listen(
 		window,
 		'scroll',
 		() => {
@@ -916,9 +920,9 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 
 	const soft = boot_link()[L_SOFT];
 	soft.go('refreshing', { href: url.href });
-	const mine = soft.now;
+	const mine = soft.epoch;
 
-	const staged = stage<Document | null>(soft.scope, {
+	const staged = stage<Document | null>(soft.visit(), {
 		name: 'soft refresh',
 		build: async ({ signal }) => {
 			const fetched = await fetch_page(url.href, signal);
@@ -943,7 +947,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 		if (is_stale(await staged.ready)) return;
 		staged.commit();
 	} finally {
-		if (soft.now === mine) soft.go('idle');
+		if (soft.epoch === mine) soft.go('idle');
 	}
 }
 
@@ -1053,7 +1057,7 @@ function head_slot(node: Element, live: ReadonlyMap<string, Element>): Node | nu
 
 function preload_stylesheets(
 	new_head: HTMLHeadElement,
-	attempt: Scope,
+	attempt: Life,
 	sheets: InertSheet[],
 	discard: Staging['discard']
 ): Promise<unknown> {
@@ -1083,8 +1087,8 @@ function preload_stylesheets(
 		if (sheet.priority === null) link.setAttribute('fetchpriority', 'high');
 		pending.push(
 			new Promise<void>((resolve) => {
-				attempt.on(link, 'load', () => resolve(), { once: true });
-				attempt.on(link, 'error', () => resolve(), { once: true });
+				attempt.listen(link, 'load', () => resolve(), { once: true });
+				attempt.listen(link, 'error', () => resolve(), { once: true });
 			})
 		);
 		document.head.insertBefore(link, head_slot(node, live));
@@ -1094,16 +1098,17 @@ function preload_stylesheets(
 	}
 	if (!pending.length) return Promise.resolve();
 	return new Promise<void>((resolve) => {
-		const cancel = attempt.timeout(resolve, STYLESHEET_WAIT_MS);
+		const wait = attempt.child();
+		wait.later(resolve, STYLESHEET_WAIT_MS);
 		// oxlint-disable-next-line ogygia/no-silent-failures -- every pending sheet resolves, on load or on error
 		void Promise.all(pending).then(() => {
-			cancel();
+			wait.close();
 			resolve();
 		});
 	});
 }
 
-function batch_regions(doc: Document, visit: Scope, dest: URL) {
+function batch_regions(doc: Document, visit: Life, dest: URL) {
 	const endpoints: string[] = [];
 	for (const el of Array.from(doc.querySelectorAll('ogygia-region[render="defer"][endpoint]'))) {
 		const when = el.getAttribute('when') || 'load';

@@ -31,7 +31,6 @@ import {
 	create_region_life,
 	create_wake,
 	detached,
-	lifetime_of,
 	new_lifetime
 } from '../src/runtime/region-machines.ts';
 import * as frames from '../src/runtime/frame-store.ts';
@@ -185,16 +184,16 @@ bench(
 		for (let i = 0; i < n; i++) {
 			// a soft refresh out when the visitor clicks: the navigation ends it
 			soft.go('refreshing', { href: '/a' });
-			const refresh = soft.scope.task(async () => 'the page refreshed');
+			const refresh = soft.visit().task(async () => 'the page refreshed');
 			nav.go('claimed', { href: `/p${i}` });
-			const mine = nav.now;
-			if (soft.now.kind === 'refreshing') soft.go('idle');
+			const mine = nav.epoch;
+			if (soft.kind === 'refreshing') soft.go('idle');
 			nav.go('loading', { href: `/p${i}` });
-			const page = nav.scope.task(async () => `<h1>p${i}</h1>`);
+			const page = nav.visit().task(async () => `<h1>p${i}</h1>`);
 			// every third click is taken over by a newer one while its page is out
 			if (i % 3 === 0) nav.go('claimed', { href: `/p${i}b` });
 			const [html] = await Promise.all([page, refresh]);
-			if (typeof html !== 'string' || nav.now !== mine) {
+			if (typeof html !== 'string' || nav.epoch !== mine) {
 				nav.go('idle');
 				continue;
 			}
@@ -299,7 +298,7 @@ bench(
 			const answer = create_answer();
 			const wake = create_wake();
 			hole.go('armed', { attempts: 0, denied: 0 });
-			hole.scope.defer(leave); // (a schedule's listener)
+			hole.visit().defer(leave); // (a schedule's listener)
 			hole.go('fetching', { attempts: 0, denied: 0, revalidate: false });
 			if (i % 3 === 0) {
 				// its fetch failed: it waits, re-arms, and tries again
@@ -313,9 +312,9 @@ bench(
 			}
 			hole.go('idle');
 			answer.go(i % 5 === 0 ? 'kept' : 'answered');
-			if (answer.now.kind === 'kept') continue;
+			if (answer.kind === 'kept') continue;
 			wake.go('armed');
-			wake.scope.defer(leave); // (the capture, handed on to `waking`)
+			wake.visit().defer(leave); // (the capture, handed on to `waking`)
 			wake.go('waking');
 			if (i % 11 === 0) wake.go('failed', { error: i });
 			else wake.go('awake');
@@ -324,10 +323,10 @@ bench(
 		for (let i = 0; i < n / 4; i++) {
 			const live = create_live();
 			live.go('static', { bound: { address: 'a' } });
-			live.scope.defer(leave); // (its subscription)
+			live.visit().defer(leave); // (its subscription)
 			live.go('hydrating', { module: 'a', pending: { props: null } });
 			live.go('live', { module: 'a', app });
-			live.scope.defer(() => app.dispose());
+			live.visit().defer(() => app.dispose());
 			live.go('hydrating', { module: 'b', pending: { props: null } });
 			live.go('idle');
 		}
@@ -336,9 +335,9 @@ bench(
 		for (let i = 0; i < n / 4; i++) {
 			const paint = create_paint();
 			paint.go('painting');
-			const older = paint.now;
+			const older = paint.epoch;
 			paint.go('painting');
-			if (paint.now !== older) painted++;
+			if (paint.epoch !== older) painted++;
 			paint.go('idle');
 		}
 		return left + painted;
@@ -354,11 +353,11 @@ bench(
 		for (let i = 0; i < n; i++) {
 			const region = create_region_life();
 			region.go('connected', new_lifetime());
-			region.now.life.defer(leave);
-			region.move('connected', 'scheduled', lifetime_of(region.now));
-			region.move('scheduled', 'connected', lifetime_of(region.now));
-			region.move('connected', 'scheduled', lifetime_of(region.now));
-			region.now.life.close();
+			region.data.life.defer(leave);
+			region.move('connected', 'scheduled', region.data);
+			region.move('scheduled', 'connected', region.data);
+			region.move('connected', 'scheduled', region.data);
+			region.data.life.close();
 			region.go('detached', detached());
 		}
 		return left;

@@ -1,6 +1,6 @@
-import { machine, type Machine } from './machine.ts';
+import * as rt from './run.ts';
 import { machine_error, report } from './messages.ts';
-import type { Scope } from './scope.ts';
+import type { Life, Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
 /** What a build is handed: the owner's signal, and a way to give back a change it made. */
@@ -38,27 +38,40 @@ type StageStates = {
 	committed: {};
 	discarded: {};
 };
-const stage_machine = machine<StageStates>()({
-	name: 'stage',
-	initial: 'building',
-	steps: {
-		building: ['built', 'discarded'],
-		built: ['committing', 'discarded'],
-		committing: ['committed', 'discarded'],
-		committed: [],
-		discarded: []
-	}
-});
+const stage_steps = {
+	building: ['built', 'discarded'],
+	built: ['committing', 'discarded'],
+	committing: ['committed', 'discarded'],
+	committed: [],
+	discarded: []
+} as const;
+
+/** @internal The stage machine as a production build carries it (what `$machine` would write for
+ *  it: test/stage-definition.test.ts holds it to `define`'s reading of the steps). */
+export const STAGE_COMPILED: Parameters<typeof rt.compiled> = [
+	'stage',
+	['building', 'built', 'committing', 'committed', 'discarded'],
+	0,
+	[18, 20, 24, 0, 0]
+];
+
+// @why a bundler folds a gate written in its own module before it splits chunks, never one imported from another, so an imported gate keeps define in every production boot (test: test/stage-definition.test.ts › a production bundle of stage carries no define, though stage loads in a chunk of its own)
+const RULES: boolean =
+	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
+
+const stage_machine: rt.Def<StageStates, typeof stage_steps, 'building'> = RULES
+	? rt.definition<StageStates>()({ name: 'stage', initial: 'building', steps: stage_steps })
+	: (rt.compiled(...STAGE_COMPILED) as rt.Def<StageStates, typeof stage_steps, 'building'>);
 
 class Staged<B> implements Stage<B> {
 	readonly ready: Promise<B | Stale>;
 	_name: string;
 	_commit: (built: B, undo: (step: () => void) => void) => void;
-	_m: Machine<StageStates, typeof stage_machine.steps> = stage_machine.create();
-	_life: Scope;
+	_m = rt.create(stage_machine);
+	_life: Life;
 	_steps: (() => void)[] = [];
 
-	constructor(owner: Scope, o: StageOptions<B>) {
+	constructor(owner: Scope | Life, o: StageOptions<B>) {
 		for (const option of ['build', 'commit'] as const)
 			if (typeof o[option] !== 'function')
 				throw machine_error('machine_bad_option', {
@@ -68,15 +81,15 @@ class Staged<B> implements Stage<B> {
 				});
 		this._name = o.name ?? 'stage';
 		this._commit = o.commit;
-		const life = (this._life = owner.child());
+		const life = (this._life = (owner as Life).child());
 		life.defer(() => {
-			const kind = this._m.now.kind;
+			const kind = this._m.kind;
 			if (kind === 'building' || kind === 'built') this._discard();
 		});
 		const staging: Staging = {
 			signal: life.signal,
 			discard: (step) => {
-				const kind = this._m.now.kind;
+				const kind = this._m.kind;
 				if (kind === 'discarded') run([step], this._name);
 				else if (kind !== 'committed') this._steps.push(step);
 			}
@@ -96,7 +109,7 @@ class Staged<B> implements Stage<B> {
 	}
 
 	_discard(): void {
-		const kind = this._m.now.kind;
+		const kind = this._m.kind;
 		if (kind === 'committed' || kind === 'discarded') return;
 		this._m.go('discarded');
 		const steps = this._steps;
@@ -172,6 +185,6 @@ function run(steps: (() => void)[], name: string): void {
  * - A stage that committed or was discarded leaves nothing on its owner: its life there is a child
  *   scope of the owner, closed once it ends.
  */
-export function stage<B>(owner: Scope, options: StageOptions<B>): Stage<B> {
+export function stage<B>(owner: Scope | Life, options: StageOptions<B>): Stage<B> {
 	return new Staged<B>(owner, options);
 }

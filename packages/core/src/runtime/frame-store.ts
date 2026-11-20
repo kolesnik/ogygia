@@ -1,17 +1,17 @@
 import {
 	cache,
 	flights,
-	machine,
-	scope,
 	STALE,
 	world,
 	type Cache,
 	type Flights,
 	type InFlight,
-	type Scope,
 	type Stale,
 	type World
 } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { older_by, stands_at, type DropWhy, type Frame } from '../frame.ts';
 import type { VerifiedHtml } from './html-sink.ts';
 import { watch, notify, watcher_count } from '../ref-watch.ts';
@@ -48,13 +48,13 @@ type AnswerStates = {
 };
 
 const answer_definition = () =>
-	machine<AnswerStates>()({
+	$machine<AnswerStates>()({
 		name: 'stored-answer',
 		initial: 'empty',
 		steps: { empty: ['shown'], shown: ['shown', 'kept'], kept: ['shown', 'kept'] }
 	});
 
-type StoredAnswer = ReturnType<ReturnType<typeof answer_definition>['create']>;
+type StoredAnswer = fsm.RunOf<ReturnType<typeof answer_definition>>;
 
 type PartStates = {
 	promised: {};
@@ -63,13 +63,13 @@ type PartStates = {
 };
 
 const part_definition = () =>
-	machine<PartStates>()({
+	$machine<PartStates>()({
 		name: 'frame-part',
 		initial: 'promised',
 		steps: { promised: ['landed', 'missed'], landed: [], missed: [] }
 	});
 
-type Part = ReturnType<ReturnType<typeof part_definition>['create']>;
+type Part = fsm.RunOf<ReturnType<typeof part_definition>>;
 
 type Entry = {
 	answer: StoredAnswer;
@@ -88,7 +88,7 @@ const LINGER = { keep: EVICT_TTL };
 type FrameFlights = Flights<FrameAsk, VerifiedHtml, Pick<FrameAsk, 'a'>>;
 
 type Store = {
-	life: Scope;
+	life: Life;
 	world: World;
 	entries: Cache<string, Entry>;
 	flights: FrameFlights;
@@ -110,35 +110,29 @@ function store(): Store {
 }
 
 function make_store(): Store {
-	const life = scope();
+	const own = life.root();
 	const entries = cache<string, Entry>({
 		name: 'frames',
 		max: MAX_ADDRESSES,
 		keep: (_e, a) => (live(a) ? Infinity : EVICT_TTL),
 		pinned: (_e, a) => live(a),
-		owner: life,
+		owner: own,
 		onEvict: (a, e, why) => {
 			if (why === 'age' && live(a) && entries.set(a, e, HELD)) return;
-			e.part?.stop();
+			if (e.part !== null) e.part.stop();
 			e.answer.stop();
 		}
 	});
-	const s: Store = {
-		life,
-		world: world(),
-		entries,
-		flights: life.adopt(
-			flights.keyed<FrameAsk>()({
-				name: 'frames',
-				key: ['a'],
-				ignore: { work: 'one flight per address: a fetch or a batch part out there is joined' },
-				keep: 0,
-				run: ({ a, work }, signal, flight): Promise<VerifiedHtml | Stale> =>
-					typeof work === 'function' ? fetch_frame(a, work, signal, flight) : work
-			})
-		)
-	};
-	return s;
+	const frames = flights.keyed<FrameAsk>()({
+		name: 'frames',
+		key: ['a'],
+		ignore: { work: 'one flight per address: a fetch or a batch part out there is joined' },
+		keep: 0,
+		run: ({ a, work }, signal, flight): Promise<VerifiedHtml | Stale> =>
+			typeof work === 'function' ? fetch_frame(a, work, signal, flight) : work
+	});
+	own.defer(() => frames[life.DISPOSE]());
+	return { life: own, world: world(), entries, flights: frames };
 }
 
 function shown_of(e: Entry): Shown | null {
@@ -189,7 +183,7 @@ function entry(a: string): Entry {
 	const entries = store().entries;
 	let e = entries.peek(a);
 	if (!e) {
-		e = { answer: answers.create(), part: null, renewed: null, refused: null };
+		e = { answer: fsm.create(answers), part: null, renewed: null, refused: null };
 		entries.set(a, e);
 	}
 	return e;
@@ -249,7 +243,7 @@ export function write(f: StoredFrame): boolean {
 	}
 	e.answer.go('shown', { ...stands_at(s, f), html: f.html });
 	e.refused = null;
-	e.part?.move('promised', 'landed', { html: f.html });
+	if (e.part !== null) e.part.move('promised', 'landed', { html: f.html });
 	notify(frame_id(f.a), f);
 	schedule_evict(f.a, e);
 	return true;
@@ -266,7 +260,7 @@ export function write(f: StoredFrame): boolean {
 export function reserve(a: string): void {
 	const e = entry(a);
 	if (shown_of(e) !== null || flying(a)) return;
-	const part = (e.part = parts.create());
+	const part = (e.part = fsm.create(parts));
 	const landed = part.wait('landed').then((s) => (s === STALE ? STALE : s.html));
 	const settled = () => schedule_evict(a, e);
 	store().flights.get({ a, work: landed }).then(settled, settled);
@@ -291,7 +285,8 @@ export function start(a: string, fetcher: FrameFetcher, signal: AbortSignal): vo
  * batch just did not carry it). No-op once a frame has landed.
  */
 export function release(a: string): void {
-	store().entries.peek(a)?.part?.move('promised', 'missed');
+	const part = store().entries.peek(a)?.part;
+	if (part != null) part.move('promised', 'missed');
 }
 
 /**
@@ -368,5 +363,5 @@ export async function ensure(
 export function _reset(): void {
 	const old = store_host[STORE_KEY];
 	store_host[STORE_KEY] = undefined;
-	old?.life.close();
+	if (old !== undefined) old.life.close();
 }

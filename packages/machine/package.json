@@ -30,6 +30,10 @@
 		"./testing": {
 			"types": "./dist/testing.d.ts",
 			"default": "./src/testing.ts"
+		},
+		"./internal": {
+			"types": "./dist/internal.d.ts",
+			"default": "./src/internal.ts"
 		}
 	},
 	"publishConfig": {
@@ -41,6 +45,10 @@
 			"./testing": {
 				"types": "./dist/testing.d.ts",
 				"default": "./dist/testing.js"
+			},
+			"./internal": {
+				"types": "./dist/internal.d.ts",
+				"default": "./dist/internal.js"
 			}
 		},
 		"access": "public"
@@ -62,6 +70,7 @@
 		"@vitest/browser-playwright": "catalog:",
 		"fast-check": "catalog:",
 		"playwright": "catalog:",
+		"rolldown": "catalog:",
 		"tsdown": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"

@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  */
-import { scope, type Scope } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { EARLY_HOLES_KEY, type EarlyHole } from '../early-holes.ts';
 import { frameAddress } from '../frame.ts';
 import { renew, start } from './frame-store.ts';
@@ -19,7 +20,7 @@ type Host = { [PARKED]?: readonly EarlyHole[] };
  * read once. A request nobody joined is cancelled with the visit; a refused answer no hole heard
  * waits at its address for the hole that asks.
  */
-export function adopt_early_holes(visit: Scope): void {
+export function adopt_early_holes(visit: Life): void {
 	const host = globalThis as Host;
 	const parked = host[PARKED];
 	if (!parked) return;
@@ -30,8 +31,8 @@ export function adopt_early_holes(visit: Scope): void {
 			address,
 			async (signal) => {
 				// @why its last caller leaving cancels the request in the network (test: test/browser/early-holes.test.ts › that nobody joins, left before its answer lands: cancelled in the network, nothing written, nothing unhandled)
-				const tie = scope();
-				tie.on(signal, 'abort', () => controller.abort(signal.reason));
+				const tie = life.root();
+				tie.listen(signal, 'abort', () => controller.abort(signal.reason));
 				try {
 					return await read_hole(url, response, {
 						signal,

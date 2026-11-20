@@ -3,15 +3,15 @@ import { kit_hydrates_page } from './kit-boot.ts';
 import {
 	clock,
 	flights,
-	machine,
 	queue,
-	scope,
 	type InFlight,
 	type Place,
 	type Queue,
-	type Scope,
 	type Stale
 } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import { emit as dt_emit } from '../events/bus.ts';
 import { class_at, PRIORITY, type LoadClass } from './load-class.ts';
 import { on_screen, watch_viewport } from './viewport.ts';
@@ -50,7 +50,7 @@ export function viewport_class(el: Element): 'visible' | 'ahead' {
 export type { CriticalOutcome };
 type CriticalReport = { outcome: CriticalOutcome; resources: number; waited_ms: number };
 
-const gate_definition = machine<{
+const gate_definition = $machine<{
 	fresh: {};
 	touched: {};
 	waiting: { t0: number; resources: number };
@@ -75,9 +75,9 @@ function waits_for_critical(kind: LoadKind, cls: LoadClass): boolean {
 }
 
 class LoadScheduler {
-	gate = gate_definition.create();
+	gate = fsm.create(gate_definition);
 	readonly critical = flights({ name: 'critical resources', run: () => this.#until_critical() });
-	#owner: Scope = scope();
+	#owner: Life = life.root();
 	line: Queue<LoadSlot> = this.#open_line();
 
 	#open_line(): Queue<LoadSlot> {
@@ -102,11 +102,11 @@ class LoadScheduler {
 	}
 
 	critical_done(): boolean {
-		return this.gate.now.kind === 'settled';
+		return this.gate.kind === 'settled';
 	}
 
 	on_first_input(): void {
-		const kind = this.gate.now.kind;
+		const kind = this.gate.kind;
 		if (kind === 'fresh') this.gate.go('touched');
 		else if (kind === 'waiting') this.settle_critical('input');
 	}
@@ -138,15 +138,15 @@ class LoadScheduler {
 				s.kind === 'touched' || document.visibilityState === 'hidden' ? [] : pending_critical();
 			if (!waiting.length) return this.settle_critical('none');
 			gate.go('waiting', { t0: now(), resources: waiting.length });
-			const wait = gate.scope;
-			wait.timeout(() => this.settle_critical('cap'), CRITICAL_CAP_MS);
+			const wait = gate.visit();
+			wait.later(() => this.settle_critical('cap'), CRITICAL_CAP_MS);
 			let left = waiting.length;
 			const one = () => {
 				if (--left === 0) this.settle_critical('arrived');
 			};
 			for (const el of waiting) {
-				wait.on(el, 'load', one, { once: true });
-				wait.on(el, 'error', one, { once: true });
+				wait.listen(el, 'load', one, { once: true });
+				wait.listen(el, 'error', one, { once: true });
 			}
 			$await(gate.wait('settled'));
 		});
@@ -154,11 +154,11 @@ class LoadScheduler {
 
 	reset(): void {
 		this.#owner.close();
-		this.#owner = scope();
+		this.#owner = life.root();
 		this.line = this.#open_line();
 		this.critical.drop(() => true);
 		this.gate.stop();
-		this.gate = gate_definition.create();
+		this.gate = fsm.create(gate_definition);
 	}
 }
 

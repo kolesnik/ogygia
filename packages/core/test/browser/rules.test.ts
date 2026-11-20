@@ -6,6 +6,7 @@
 import { afterEach, expect, inject, test, vi } from 'vitest';
 import { from_b64 } from './b64.ts';
 import { STALE } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
 import { bootDev } from '../../src/runtime/full.ts';
 import {
 	note_handed,
@@ -167,16 +168,22 @@ test('nothing of an old page open: a visit before the one on screen still open',
 });
 
 test('the address bar and the history model: checked once no navigation is out', () => {
-	const nav = { now: { kind: 'idle' } };
+	const nav = life.create(
+		life.definition<{ idle: {}; loading: {} }>()({
+			name: 'nav',
+			initial: 'idle',
+			steps: { idle: ['loading'], loading: ['idle'] }
+		})
+	);
 	const entry = { id: 'doc.1' };
 	watch_router({ nav, history: { current: entry } });
 	history.replaceState({ ogygia: 'doc.1' }, '');
 	expect(rules()).toEqual([]);
 	history.replaceState({ ogygia: 'doc.2' }, '');
 	expect(codes()).toEqual(['rule_address_bar_drift']);
-	nav.now = { kind: 'loading' }; // a navigation out: the bar moves at its commit
+	nav.go('loading'); // a navigation out: the bar moves at its commit
 	expect(rules()).toEqual([]);
-	nav.now = { kind: 'idle' };
+	nav.go('idle');
 	expect(rules()[0]?.detail).toBe('the address bar is on entry doc.2, the history model on doc.1');
 	history.replaceState(null, ''); // an entry the router has not met: not its yet
 	expect(rules()).toEqual([]);

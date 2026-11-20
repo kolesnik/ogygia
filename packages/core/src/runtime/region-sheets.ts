@@ -1,4 +1,5 @@
-import { machine, type Machine } from '@ogygia/machine';
+import type { Run } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import { connected_regions } from './connected.ts';
 import { head_owners } from '../head-owners.ts';
 import { OG_FP, OG_OWNER, OGYGIA_REGION_CSS } from '../wire-markup.ts';
@@ -16,7 +17,7 @@ const sheet_steps = {
 	failed: []
 } as const;
 
-const sheet_definition = machine<SheetStates>()({
+const sheet_definition = $machine<SheetStates>()({
 	name: 'region-sheet',
 	initial: 'loading',
 	steps: sheet_steps
@@ -29,7 +30,7 @@ const sheet_definition = machine<SheetStates>()({
  * an answer that finds the sheet waits only on a loading one, and puts a failed one back with a fresh
  * link, which asks for it again (#274).
  */
-export type RegionSheet = Machine<SheetStates, typeof sheet_steps>;
+export type RegionSheet = Run<SheetStates, typeof sheet_steps>;
 
 const sheets = new WeakMap<HTMLLinkElement, RegionSheet>();
 
@@ -43,10 +44,11 @@ const sheets = new WeakMap<HTMLLinkElement, RegionSheet>();
 export function sheet_of(link: HTMLLinkElement): RegionSheet {
 	const known = sheets.get(link);
 	if (known !== undefined) return known;
-	const s = sheet_definition.create();
+	const s = fsm.create(sheet_definition);
 	sheets.set(link, s);
-	s.scope.on(link, 'load', () => s.go('loaded'));
-	s.scope.on(link, 'error', () => s.go('failed'));
+	const visit = s.visit();
+	visit.listen(link, 'load', () => s.go('loaded'));
+	visit.listen(link, 'error', () => s.go('failed'));
 	if (link.sheet !== null) s.go('loaded');
 	return s;
 }

@@ -5,6 +5,7 @@
 // takes on a slow runner, not for a fixed time. (The anchoring is the browser's own: WebKit has none,
 // and there the page never moves.)
 import { afterEach, expect, it, vi } from 'vitest';
+import { life_of } from '@ogygia/machine/internal';
 import { scope } from '@ogygia/machine';
 import { hold_scroll, SCROLL_HOLD_MS } from '../../src/runtime/router-nav.ts';
 
@@ -36,7 +37,7 @@ function wake(region: HTMLElement): void {
 it('a region above that wakes after the old 1.5 s window is still held for', async () => {
 	const region = page();
 	const visit = scope();
-	hold_scroll({ x: 0, y: 1200 }, visit);
+	hold_scroll({ x: 0, y: 1200 }, life_of(visit));
 	expect(scrollY).toBeCloseTo(1200, 0);
 	await wait(1700); // a slow runner: the region wakes late
 	wake(region);
@@ -49,7 +50,7 @@ it('a region above that wakes after the old 1.5 s window is still held for', asy
 it('once the regions above have settled, the page is the visitor’s and the app’s again', async () => {
 	const region = page();
 	const visit = scope();
-	hold_scroll({ x: 0, y: 1200 }, visit);
+	hold_scroll({ x: 0, y: 1200 }, life_of(visit));
 	wake(region);
 	await frame();
 	await frame();
@@ -66,7 +67,7 @@ it('with no region above to wait for, the hold ends a frame after the put-back a
 	root.innerHTML = `<div style="height: 6000px"></div>`;
 	document.body.prepend(root);
 	const visit = scope();
-	hold_scroll({ x: 0, y: 1200 }, visit);
+	hold_scroll({ x: 0, y: 1200 }, life_of(visit));
 	expect(document.documentElement.style.overflowAnchor).toBe('none');
 	await frame();
 	await frame();
@@ -79,7 +80,7 @@ it('a region above that never wakes (its code failed) holds the page for SCROLL_
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
 	const visit = scope();
 	try {
-		hold_scroll({ x: 0, y: 1200 }, visit);
+		hold_scroll({ x: 0, y: 1200 }, life_of(visit));
 		vi.advanceTimersByTime(SCROLL_HOLD_MS - 1);
 		expect(document.documentElement.style.overflowAnchor).toBe('none');
 		vi.advanceTimersByTime(1);
@@ -95,7 +96,7 @@ it('a page still too short to reach the saved position is put there once it grow
 	const filler = root!.lastElementChild as HTMLElement;
 	filler.style.height = '100px';
 	const visit = scope();
-	hold_scroll({ x: 0, y: 1200 }, visit);
+	hold_scroll({ x: 0, y: 1200 }, life_of(visit));
 	expect(scrollY).toBeLessThan(1200);
 	filler.style.height = '6000px'; // the rest of the page lays out
 	await frame();

@@ -1,4 +1,5 @@
-import { scope, type Scope } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine/internal';
 import { note_visit } from './rules.ts';
 
 const STYLESHEET_REL_RE = /(?:^|\s)stylesheet(?:\s|$)/i;
@@ -25,7 +26,7 @@ function head_copy_key(el: Element): string {
  */
 export type PageVisit = {
 	/** Closed when the visit ends. */
-	readonly scope: Scope;
+	readonly scope: Life;
 	/** The page facts answers rendered with (server/render-page.ts), queued at the answer seam
 	 *  (`region_fragment`) for the next hydrate to merge into the page store (seeds.ts). This page's
 	 *  only: the next page's visit starts with none (#269). */
@@ -38,7 +39,7 @@ export type PageVisit = {
 
 function page_visit(): PageVisit {
 	const visit: PageVisit = {
-		scope: scope(),
+		scope: life.root(),
 		facts: [],
 		seeded: { page: false, remote: false },
 		kit_page: undefined
