@@ -25,11 +25,11 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"magic-string": "1.4.3",
-		"periscopic": "4.0.3",
+		"magic-string": "catalog:",
+		"periscopic": "catalog:",
 		"rolldown": "catalog:",
-		"typescript": "6.0.3",
-		"zimmerframe": "1.1.5"
+		"typescript": "catalog:",
+		"zimmerframe": "catalog:"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
