@@ -588,18 +588,22 @@ export type Makers<O, KO> = {
  *  `trusted_plain_flights`. `check`: the checks the public maker runs (null: trusted, its
  *  options checked at build). */
 export function makers<O, KO>(
-	make: (options: object) => unknown,
+	made: new (options: FlightsOptions<unknown, unknown, unknown>) => unknown,
 	check: ((options: AnyFlightsOptions, keyed: boolean) => void) | null
 ): Makers<O, KO> {
-	if (check === null) return Object.assign(make, { keyed: () => make }) as never;
+	type Options = FlightsOptions<unknown, unknown, unknown>;
+	if (check === null) {
+		const make = (options: object): unknown => new made(options as Options);
+		return Object.assign(make, { keyed: () => make }) as never;
+	}
 	const keyed = (options: object): unknown => {
 		check(options as AnyFlightsOptions, true);
-		return make(options);
+		return new made(options as Options);
 	};
 	return Object.assign(
 		(options: object) => {
 			check(options as AnyFlightsOptions, false);
-			return make(options);
+			return new made(options as Options);
 		},
 		{ keyed: () => keyed }
 	) as never;
@@ -624,14 +628,14 @@ export type PlainKeyedFlights<I> = <
  * makes it {@link trusted_plain_flights} (internal/macros options pass).
  */
 export const plain_flights: Makers<Plain, 'one'> = /* @__PURE__ */ makers<Plain, 'one'>(
-	(options) => new Flown(options as FlightsOptions<unknown, unknown, unknown>),
+	Flown,
 	check_plain_flights
 );
 
 /** @internal {@link plain_flights} for options its caller's build checked
  *  ({@link check_plain_flights}, run on a literal). */
 export const trusted_plain_flights: Makers<Plain, 'one'> = /* @__PURE__ */ makers<Plain, 'one'>(
-	(options) => new Flown(options as FlightsOptions<unknown, unknown, unknown>),
+	Flown,
 	null
 );
 

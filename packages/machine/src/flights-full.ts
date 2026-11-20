@@ -118,14 +118,8 @@ function heard_move(
 /** Keyed shared async work (see ./flights.ts's comment). `flights.keyed<I>()` is its keyed form:
  *  a maker of a flights over object input `I` keyed by some of its fields,
  *  `flights.keyed<Ask>()({ key: ['href'], run })`. */
-export const flights: Makers<{}, 'any'> = /* @__PURE__ */ makers<{}, 'any'>(
-	(options) => new Full(options as FlightsOptions<unknown, unknown, unknown>),
-	check_flights
-);
+export const flights: Makers<{}, 'any'> = /* @__PURE__ */ makers<{}, 'any'>(Full, check_flights);
 
 /** @internal {@link flights} (or `flights.keyed<I>()`) for options its caller's build checked
  *  ({@link check_flights}, run on a literal). */
-export const trusted_flights: Makers<{}, 'any'> = /* @__PURE__ */ makers<{}, 'any'>(
-	(options) => new Full(options as FlightsOptions<unknown, unknown, unknown>),
-	null
-);
+export const trusted_flights: Makers<{}, 'any'> = /* @__PURE__ */ makers<{}, 'any'>(Full, null);
