@@ -30,6 +30,8 @@ const RUNTIME = path.join(SRC, 'runtime');
 // they live in core and must stay Svelte-free like the rest of it.
 const DEVTOOLS = `${path.join(SRC, 'devtools')}${path.sep}`;
 const RUNES = new Set(['$state', '$derived', '$effect', '$props', '$inspect']);
+/** A component's `<script>` block (instance or module), its code in group 1. */
+const SVELTE_SCRIPT_RE = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
 // Virtual modules that resolve to the APP's own code (the transport codecs from its `src/hooks.ts`):
 // arbitrary app code can import anything — in practice `ogygia` itself, and so Svelte. The boot must
 // never reach one; it is how the app's transport graph once put Svelte's runtime into `<head>`.
@@ -50,7 +52,12 @@ function resolve(from: string, spec: string): string | null {
 
 /** The module's STATIC import edges (specifiers), and whether it calls a rune. */
 function scan(file: string): { specs: string[]; runes: boolean } {
-	const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+	const text = fs.readFileSync(file, 'utf8');
+	// (a component's edges are its scripts' imports)
+	const code = file.endsWith('.svelte')
+		? [...text.matchAll(SVELTE_SCRIPT_RE)].map((m) => m[1]).join('\n')
+		: text;
+	const sf = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true);
 	const specs: string[] = [];
 	let runes = false;
 	for (const stmt of sf.statements) {
@@ -87,8 +94,10 @@ function scan(file: string): { specs: string[]; runes: boolean } {
 	return { specs, runes };
 }
 
-/** Every source file in `entry`'s static graph (devtools excluded, like the walker below). */
-function static_files(entry: string): Map<string, string[]> {
+/** Every source file in `entry`'s static graph (devtools excluded, like the walker below).
+ *  `components`: follow `.svelte` imports into their scripts (island code: a region's component
+ *  and its parts are what every island chunk imports). */
+function static_files(entry: string, components = false): Map<string, string[]> {
 	const seen = new Map<string, string[]>();
 	const walk = (file: string, chain: string[]): void => {
 		if (seen.has(file)) return;
@@ -99,7 +108,7 @@ function static_files(entry: string): Map<string, string[]> {
 				walk(bundled, [...chain, spec]);
 				continue;
 			}
-			if (!spec.startsWith('.') || spec.endsWith('.svelte')) continue;
+			if (!spec.startsWith('.') || (spec.endsWith('.svelte') && !components)) continue;
 			const next = resolve(file, spec);
 			if (next && !next.startsWith(DEVTOOLS)) walk(next, [...chain, path.relative(SRC, next)]);
 		}
@@ -228,6 +237,21 @@ describe('island-side modules reach the runtime only through its handles', () =>
 			expect(into_boot).toEqual([]);
 		});
 	}
+
+	// Every island chunk imports `ogygia/internal` and, through it, the region component and its parts.
+	// One boot module they reach is shared with the runtime: a file of its own, ahead of the page, on
+	// every page (apps/palaestra/e2e/lazy-chunks.spec.ts, the boot-file budget).
+	it('island code (ogygia/internal, its components followed) imports no boot module beyond what Kit’s transport shares', () => {
+		const into_boot = [...static_files(path.join(SRC, 'internal.ts'), true)]
+			.filter(([f]) => boot.has(f) && !kit_transport_shared.has(f))
+			.map(([, chain]) => chain.join(' > '));
+		expect(into_boot).toEqual([]);
+	});
+
+	it('the island walk is not vacuous: it reaches the region component’s parts', () => {
+		const reached = static_files(path.join(SRC, 'internal.ts'), true);
+		expect(reached.has(path.join(SRC, 'region-parts/head.svelte.ts'))).toBe(true);
+	});
 
 	it('the check is not vacuous: the boot set holds the router and the slots registry', () => {
 		expect(boot.has(path.join(RUNTIME, 'router.ts'))).toBe(true);
