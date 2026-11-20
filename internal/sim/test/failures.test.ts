@@ -131,6 +131,8 @@ describe('failure sites', () => {
 				life.listen(el, 'error', on_error);
 				life.listen(el, 'load', on_load);
 				later(done, 5);
+				sim.later('a task boundary');
+				sim.later(\`chunk \${n}\`, done);
 			}
 		`);
 		expect(got.map((id) => id.split(' > ').at(-1))).toEqual([

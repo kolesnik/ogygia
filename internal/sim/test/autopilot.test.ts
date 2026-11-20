@@ -98,6 +98,37 @@ describe('probes', () => {
 	});
 });
 
+describe('probes of an $await', () => {
+	it('record a wait that settled STALE, and only that', async () => {
+		const source = dedent`
+			export async function f(w) {
+				const v = $await(w);
+				return v;
+			}
+		`;
+		const ids = new Set(site_nodes(FILE, source).map((s) => s.id));
+		expect([...ids]).toEqual([`${FILE} > f > stale:0`]);
+		const out = probed(FILE, source, ids);
+		const hits: string[] = [];
+		const g = globalThis as { __ogygia_autopilot?: (id: string) => void };
+		g.__ogygia_autopilot = (id) => void hits.push(id);
+		try {
+			const js = stripTypeScriptTypes(out.replace('export async function', 'async function'));
+			// oxlint-disable-next-line typescript/no-implied-eval -- runs the code the autopilot transform wrote
+			const f = new Function('$await', `${js}; return f;`)((p: Promise<unknown>) => p) as (
+				w: Promise<unknown>
+			) => Promise<unknown>;
+			expect(await f(Promise.resolve(1))).toBe(1);
+			expect(hits).toEqual([]);
+			const stale = Symbol.for('ogygia.machine.stale');
+			expect(await f(Promise.resolve(stale))).toBe(stale);
+			expect(hits).toEqual([...ids]);
+		} finally {
+			delete g.__ogygia_autopilot;
+		}
+	});
+});
+
 describe('mutants', () => {
 	const cases: [string, string, string, RegExp][] = [
 		['catch', 'try { g(); } catch { h(); }', 'f > catch:0', /catch \{\}/],
@@ -117,6 +148,13 @@ describe('mutants', () => {
 		['not-ok', 'if (!res.ok) return 1;', 'f > not-ok:0', /if \(false\) return 1;/],
 		['stale', 'if (x === STALE) return 2;', 'f > stale:0', /if \(false\) return 2;/],
 		['stale, negated', 'if (x !== STALE) k();', 'f > stale:0', /if \(true\) k\(\);/],
+		['$await', '$await(p.wait(x), 2);', 'f > stale:0', /^\t\(await \(0, p\.wait\(x\)\)\);$/m],
+		[
+			'$await into a const',
+			'const v = $await(p.task(x));',
+			'f > stale:0',
+			/const v = \(await \(0, p\.task\(x\)\)\);/
+		],
 		['body', 'if (!res.body) return 3;', 'f > body:0', /if \(false\) return 3;/],
 		['throw', 'if (x) throw new Error("x");', 'f > throw:0', /if \(x\) \{\}/],
 		['result', 'return { ok: false };', 'f > result:0', /return \{ ok: true \};/],
@@ -161,7 +199,7 @@ describe('mutants', () => {
 	for (const [what, line, site, want] of cases)
 		it(`break the recovery of a ${what} site`, () => {
 			const source = dedent`
-				export function f(res: any, p: any, x: any) {
+				export async function f(res: any, p: any, x: any) {
 					${line}
 				}
 			`;
