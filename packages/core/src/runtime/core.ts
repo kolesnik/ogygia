@@ -69,8 +69,8 @@ import {
 	create_region_life,
 	create_wake,
 	detached,
-	lifetime_of,
 	new_lifetime,
+	REGION_REST,
 	type Answer,
 	type Hole,
 	type Live,
@@ -488,8 +488,14 @@ class OgygiaRegion extends HTMLElement {
 		if (this.#asleep !== null) this.#asleep.close();
 		this.#asleep = null;
 	}
-	#hole: Hole = create_hole();
-	#answer: Answer = create_answer();
+	#hole_run: Hole | null = null;
+	get #hole(): Hole {
+		return (this.#hole_run ??= create_hole());
+	}
+	#answer_run: Answer | null = null;
+	get #answer(): Answer {
+		return (this.#answer_run ??= create_answer());
+	}
 	#wake: Wake = create_wake();
 	#fetch_started = 0;
 	#frame_address: string | null = null;
@@ -497,8 +503,14 @@ class OgygiaRegion extends HTMLElement {
 	#visitor: Promise<unknown> | null = null;
 	#app: IslandHandle | null = null;
 	#live_ready = false;
-	#live: Live = create_live();
-	#paint: Paint = create_paint();
+	#live_run: Live | null = null;
+	get #live(): Live {
+		return (this.#live_run ??= create_live());
+	}
+	#paint_run: Paint | null = null;
+	get #paint(): Paint {
+		return (this.#paint_run ??= create_paint());
+	}
 	#live_painted: FrameOrder | null = null;
 	#hydrate_run: { visit: number; run: Promise<void> } | null = null;
 	#fire_hydrate = (): Promise<void> => {
@@ -630,7 +642,7 @@ class OgygiaRegion extends HTMLElement {
 		}
 		if (this.#ssr_html !== null) this.#watch();
 		if (!deferred && slots.lakes.wait_for_boundary(this, boundary)) return;
-		this.#region.move('connected', 'scheduled', lifetime_of(this.#region.data));
+		this.#region.move('connected', 'scheduled', this.#region.data);
 		// A hole that had its answer, put back on the page: its schedule is spent (#336)
 		if (HAS & F_FRAMES && deferred && this.#answer.kind !== 'none') {
 			this.#put_back();
@@ -998,10 +1010,10 @@ class OgygiaRegion extends HTMLElement {
 
 	#machines(): RegionMachinesNow {
 		return {
-			hole: this.#hole.kind,
+			hole: this.#hole_run?.kind ?? REGION_REST.hole,
 			wake: this.#wake.kind,
-			'live-region': this.#live.kind,
-			'region-paint': this.#paint.kind
+			'live-region': this.#live_run?.kind ?? REGION_REST['live-region'],
+			'region-paint': this.#paint_run?.kind ?? REGION_REST['region-paint']
 		};
 	}
 
@@ -1243,7 +1255,7 @@ class OgygiaRegion extends HTMLElement {
 				attempt: attempts,
 				final
 			});
-		this.#region.move('scheduled', 'connected', lifetime_of(this.#region.data));
+		this.#region.move('scheduled', 'connected', this.#region.data);
 		if (!final) {
 			if (this.#answer.kind !== 'none') {
 				this.#hole.go('idle');
@@ -1667,10 +1679,13 @@ class OgygiaRegion extends HTMLElement {
 		if (this.#watching) mark_region_changed(this);
 		if (HOOK_REGION_UNMOUNT && this.#app)
 			slots.hooks?.regionUnmount?.({ el: this, entry: this.getAttribute('entry') ?? '' });
-		if (this.#live.kind !== 'idle') this.#live.go('idle');
-		if (this.#hole.kind !== 'idle') this.#hole.go('idle');
+		const live = this.#live_run;
+		if (live !== null && live.kind !== 'idle') live.go('idle');
+		const hole = this.#hole_run;
+		if (hole !== null && hole.kind !== 'idle') hole.go('idle');
 		if (this.#wake.kind !== 'cold') this.#wake.go('cold');
-		if (this.#paint.kind !== 'idle') this.#paint.go('idle');
+		const paint = this.#paint_run;
+		if (paint !== null && paint.kind !== 'idle') paint.go('idle');
 		note_left(this, () => busy_machines(this.#machines()));
 		this.#life.close();
 		this.#region.go('detached', detached());

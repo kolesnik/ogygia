@@ -56,11 +56,6 @@ export function detached(): Lifetime {
 	return DETACHED;
 }
 
-/** The lifetime a state holds, as data for the next one (a state's value carries its `kind`). */
-export function lifetime_of(now: Lifetime): Lifetime {
-	return { life: now.life, box: now.box };
-}
-
 type HoleStates = {
 	idle: {};
 	armed: { attempts: number; denied: number };

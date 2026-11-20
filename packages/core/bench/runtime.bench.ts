@@ -31,7 +31,6 @@ import {
 	create_region_life,
 	create_wake,
 	detached,
-	lifetime_of,
 	new_lifetime
 } from '../src/runtime/region-machines.ts';
 import * as frames from '../src/runtime/frame-store.ts';
@@ -355,9 +354,9 @@ bench(
 			const region = create_region_life();
 			region.go('connected', new_lifetime());
 			region.data.life.defer(leave);
-			region.move('connected', 'scheduled', lifetime_of(region.data));
-			region.move('scheduled', 'connected', lifetime_of(region.data));
-			region.move('connected', 'scheduled', lifetime_of(region.data));
+			region.move('connected', 'scheduled', region.data);
+			region.move('scheduled', 'connected', region.data);
+			region.move('connected', 'scheduled', region.data);
 			region.data.life.close();
 			region.go('detached', detached());
 		}
