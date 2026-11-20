@@ -1,16 +1,9 @@
 import { watch_viewport } from './viewport.ts';
 import { watch_turns } from './rules.ts';
-import {
-	clock,
-	flights,
-	queue,
-	tasks,
-	timers,
-	type MachineGraph,
-	type Stale
-} from '@ogygia/machine';
+import { clock, flights, tasks, timers, type MachineGraph, type Stale } from '@ogygia/machine';
 import type { Life } from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
+import { pass_queue } from '@ogygia/machine/internal';
 
 export type Turn = {
 	el: Element;
@@ -188,7 +181,7 @@ export function background_start(fn: () => void): void {
 const BACKGROUND_BUDGET_MS = 30;
 
 class BackgroundStarts {
-	readonly starts = queue<() => void>({
+	readonly starts = pass_queue<() => void>({
 		name: 'background starts',
 		budget: { ms: BACKGROUND_BUDGET_MS, yield: post_background, defer: true },
 		start: (fn) => fn()
