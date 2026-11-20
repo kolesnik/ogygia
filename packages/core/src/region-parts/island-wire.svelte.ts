@@ -27,33 +27,41 @@ export class IslandWire {
 	readonly #props: () => Props;
 	readonly #children: () => Snippet | undefined;
 
-	as_dual: DualRegion | undefined = $derived.by(() => {
+	get as_dual(): DualRegion | undefined {
 		const value = this.#rp.resolved;
 		return value?.kind === 'dual' ? value : undefined;
-	});
-	entry: string = $derived.by(() => {
-		if (this.as_dual) return this.as_dual.module;
+	}
+	get entry(): string {
+		const dual = this.as_dual;
+		if (dual) return dual.module;
 		const s = this.#rp.settings;
 		return s.mode === 'island' ? (s.entry ?? '') : '';
-	});
-	component: Component | undefined = $derived.by(() =>
-		this.as_dual ? (this.as_dual.component as Component) : this.#rp.settings.component
-	);
-	props: Props = $derived.by(() => (this.as_dual ? (this.as_dual.props as Props) : this.#props()));
+	}
+	get component(): Component | undefined {
+		const dual = this.as_dual;
+		return dual ? (dual.component as Component) : this.#rp.settings.component;
+	}
+	get props(): Props {
+		const dual = this.as_dual;
+		return dual ? (dual.props as Props) : this.#props();
+	}
 	props_ready: Props = $derived.by(() =>
 		this.#rp.plan.inline ? this.props : prepare_region_props(this.props!)
 	);
-	has_slot_children: boolean = $derived.by(() => this.#children() != null);
+	get has_slot_children(): boolean {
+		return this.#children() != null;
+	}
 	props_body: Props = $derived.by(() =>
 		this.has_slot_children && !BROWSER
 			? { ...this.props_ready, children: this.#slot_children }
 			: this.props_ready
 	);
-	wake: { on: string; margin: string | undefined } = $derived.by(() =>
-		this.as_dual
-			? { on: this.as_dual.hydrate!, margin: this.as_dual.hydrateMargin || undefined }
-			: { on: this.#rp.settings.wake || 'load', margin: this.#rp.settings.wakeMargin }
-	);
+	wake: { on: string; margin: string | undefined } = $derived.by(() => {
+		const dual = this.as_dual;
+		return dual
+			? { on: dual.hydrate!, margin: dual.hydrateMargin || undefined }
+			: { on: this.#rp.settings.wake || 'load', margin: this.#rp.settings.wakeMargin };
+	});
 	module_url: string = $derived.by(() =>
 		this.#rp.plan.nested || !this.entry ? '' : kit_asset(this.entry)
 	);
@@ -81,7 +89,9 @@ export class IslandWire {
 			? this.fp
 			: null
 	);
-	in_tail: boolean = $derived.by(() => !!this.#rp.tail && !!this.wire && !!this.fp);
+	get in_tail(): boolean {
+		return !!this.#rp.tail && !!this.wire && !!this.fp;
+	}
 	props_inline: string = $derived.by(() =>
 		this.in_tail || !this.wire
 			? ''
