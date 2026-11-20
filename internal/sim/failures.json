@@ -1149,6 +1149,24 @@
 			"name": "in production: the server says it with a code and the error; the visitor gets an opaque 403 (#1506)"
 		},
 		{
+			"site": "packages/core/src/server/document-seeds.ts > ship_page_seed > stale:0",
+			"reason": "a router fetch whose visitor leaves while its streamed load settles: proved: the STALE not read (it destructured as the settled values) turns the test red",
+			"test": "packages/core/test/page-seed-visitor-left.test.ts",
+			"name": "a router fetch whose visitor leaves while its load settles gets the document as Kit wrote it"
+		},
+		{
+			"site": "packages/core/src/hooks.ts > OgygiaHandle > inject_client_seeds > stale:0",
+			"reason": "the same leaving, read by the handle: proved: the STALE seed read as a shipped one turns the test red",
+			"test": "packages/core/test/page-seed-visitor-left.test.ts",
+			"name": "a router fetch whose visitor leaves while its load settles gets the document as Kit wrote it"
+		},
+		{
+			"site": "packages/core/src/browser-half.ts > unmark_html_ranges > throw:0",
+			"reason": "the server half of a browser-only work: proved: the refusal not thrown turns the test red",
+			"test": "packages/core/test/browser-half.test.ts",
+			"name": "anywhere else, taking the range marks out refuses with browser_only_on_server"
+		},
+		{
 			"site": "packages/core/src/server/programs.ts > need_program > throw:0",
 			"reason": "a region whose program the server's word left out: proved: the refusal not thrown turns the test red",
 			"test": "packages/core/test/server-programs.test.ts",
@@ -5915,7 +5933,6 @@
 		"packages/core/src/events/sinks.ts > ingest_server_events > catch:0",
 		"packages/core/src/head-owners.ts > adopt_owner_record > parse:0",
 		"packages/core/src/head-owners.ts > adopt_owner_record > catch:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > inject_client_seeds > stale:0",
 		"packages/core/src/island-graph.ts > decode_island_locations > parse:0",
 		"packages/core/src/island-graph.ts > decode_island_graph > parse:0",
 		"packages/core/src/keep-fallback.ts > keepFallback > catch:0",
