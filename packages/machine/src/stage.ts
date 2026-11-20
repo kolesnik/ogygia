@@ -55,7 +55,11 @@ export const STAGE_COMPILED: Parameters<typeof rt.compiled> = [
 	[18, 20, 24, 0, 0]
 ];
 
-const stage_machine: rt.Def<StageStates, typeof stage_steps, 'building'> = rt.RULES
+// @why a bundler folds a gate written in its own module before it splits chunks, never one imported from another, so an imported gate keeps define in every production boot (test: test/stage-definition.test.ts › a production bundle of stage carries no define, though stage loads in a chunk of its own)
+const RULES: boolean =
+	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
+
+const stage_machine: rt.Def<StageStates, typeof stage_steps, 'building'> = RULES
 	? rt.definition<StageStates>()({ name: 'stage', initial: 'building', steps: stage_steps })
 	: (rt.compiled(...STAGE_COMPILED) as rt.Def<StageStates, typeof stage_steps, 'building'>);
 
