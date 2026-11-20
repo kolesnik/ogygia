@@ -156,9 +156,15 @@ type FeatureId = ReturnType<typeof resolveFeatures>[number];
  * `null`: a program no boot holds (it lives in a lazy chunk, loaded on use), whatever the marks.
  * THE LEAK GATE: a program in a boot whose marks do not select it is a feature that page pays for
  * and never runs; one missing from a boot that selects it would leave the server's markup with
- * nothing to revive it. Both fail the run, in every mode.
+ * nothing to revive it. Both fail the run, in every mode. `strings`: for a program that lives
+ * inside a shared module (the region element's), text only its code writes, read in the boot's code.
  */
-const PROGRAMS: ReadonlyArray<{ name: string; feature: FeatureId | null; modules: string[] }> = [
+const PROGRAMS: ReadonlyArray<{
+	name: string;
+	feature: FeatureId | null;
+	modules: string[];
+	strings?: string[];
+}> = [
 	// the router's navigation and the soft refresh (lazy router-nav chunk): `stage`
 	{ name: 'navigation', feature: null, modules: ['packages/machine/src/stage.ts'] },
 	// a deferred region's fetch, and the server's record of the page's holes
@@ -169,7 +175,11 @@ const PROGRAMS: ReadonlyArray<{ name: string; feature: FeatureId | null; modules
 			'packages/core/dist/runtime/hole-fetch.js',
 			'packages/core/dist/runtime/hole-facts.js'
 		]
-	}
+	},
+	// the region element's hole program: fetch, apply, revalidate, retry (its answer's event)
+	{ name: 'hole program', feature: 'frames', modules: [], strings: ['ogygia:server'] },
+	// the region element's live program: a held region's ticks (its tick's event)
+	{ name: 'live program', feature: 'frames', modules: [], strings: ['ogygia:live'] }
 ];
 
 type Size = { raw: number; brotli: number };
@@ -220,7 +230,9 @@ async function measure(
 	marks: RuntimeMarks,
 	extras: boolean,
 	profile: string
-): Promise<Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'>> {
+): Promise<
+	Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'> & { boot_code: string }
+> {
 	const { code } = generateRuntimeEntrySource(marks, RUNTIME_DIR);
 	const dir = mkdtempSync(join(tmpdir(), 'ogygia-size-'));
 	const entry = join(dir, 'entry.mjs');
@@ -300,12 +312,11 @@ async function measure(
 		for (const dep of by_name.get(name)?.imports ?? []) walk(dep);
 	};
 	for (const c of chunks) if (c.isEntry) walk(c.fileName);
-	const boot = size(
-		chunks
-			.filter((c) => boot_set.has(c.fileName))
-			.map((c) => c.code)
-			.join('\n')
-	);
+	const boot_code = chunks
+		.filter((c) => boot_set.has(c.fileName))
+		.map((c) => c.code)
+		.join('\n');
+	const boot = size(boot_code);
 	const total = size(chunks.map((c) => c.code).join('\n'));
 	const lazy = chunks
 		.filter((c) => !boot_set.has(c.fileName))
@@ -319,7 +330,7 @@ async function measure(
 		for (const [id, bytes] of minified_lengths(c))
 			if (boot_set.has(c.fileName)) modules[module_name(id)] = bytes;
 			else lazy_modules.push(module_name(id));
-	return { boot, total, lazy, modules, lazy_modules };
+	return { boot, total, lazy, modules, lazy_modules, boot_code };
 }
 
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -386,8 +397,11 @@ function module_name(id: string): string {
 }
 
 const rows: Row[] = [];
+/** Each profile's boot code, by its name (for the leak gate's strings). */
+const boot_codes = new Map<string, string>();
 for (const p of PROFILES) {
-	const m = await measure(p.marks, p.name === 'Everything', p.name);
+	const { boot_code, ...m } = await measure(p.marks, p.name === 'Everything', p.name);
+	boot_codes.set(p.name, boot_code);
 	rows.push({ name: p.name, blurb: p.blurb, features: resolveFeatures(p.marks), ...m });
 }
 
@@ -405,6 +419,13 @@ if (!arg('--core')) {
 					leaks.push(`${r.name}: its boot holds ${mod} (${p.name}), which its marks never run`);
 				else if (p.feature === null && !r.lazy_modules.includes(mod))
 					leaks.push(`${r.name}: no lazy chunk holds ${mod} (${p.name})`);
+			}
+			const code = boot_codes.get(r.name) ?? '';
+			for (const text of p.strings ?? []) {
+				if (held && !code.includes(text))
+					leaks.push(`${r.name}: selects ${p.feature}, but its boot lacks ${p.name}`);
+				else if (!held && code.includes(text))
+					leaks.push(`${r.name}: its boot holds ${p.name} ('${text}'), which its marks never run`);
 			}
 		}
 	if (leaks.length) {
