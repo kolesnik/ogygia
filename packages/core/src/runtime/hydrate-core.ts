@@ -46,8 +46,6 @@ const set_own_inner_html = (el: Element, html: string) =>
 	boot_link()[L_SET_INNER_HTML](el, boot_link()[L_VOUCH_PAGE_HTML](html));
 const walk_enters = (el: Element) => boot_link()[L_WALK_ENTERS](el);
 const is_self_owned = (el: Element) => boot_link()[L_IS_SELF_OWNED](el);
-const session = () => boot_link()[L_RUNTIME_SESSION];
-const region_hydrate = (region: Element) => boot_link()[L_REGION_HYDRATE](region);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const HOOK_REGION_MISMATCHED =
@@ -605,7 +603,7 @@ export function hydrate_island(
 			: { repaired: false, reason: null, conflict: null };
 	const repaired = drift.repaired;
 	try {
-		head_mark = kit_hydrates_page() ? null : session().mark_head();
+		head_mark = kit_hydrates_page() ? null : boot_link()[L_RUNTIME_SESSION].mark_head();
 		if (!region.isConnected) return null;
 		unmark_html_ranges(region);
 		const ssr_children = Array.from(region.children);
@@ -646,7 +644,7 @@ export function hydrate_island(
 		let out: IslandHandle;
 		let healed = false;
 		let strict_error: unknown = null;
-		const after_hydrate = region_hydrate(region);
+		const after_hydrate = boot_link()[L_REGION_HYDRATE](region);
 		try {
 			out = quietly(() => attempt(false));
 			healed = repaired;
@@ -717,7 +715,7 @@ export function hydrate_island(
 			warn('hydration_discarded', { entry, drift: drift.reason, strict });
 		}
 
-		if (head_mark) session().record_island_head(head_mark);
+		if (head_mark) boot_link()[L_RUNTIME_SESSION].record_island_head(head_mark);
 		return out;
 	} finally {
 		head_mark?.stop();
@@ -745,7 +743,7 @@ export function hydrate_live(
 		return null;
 	}
 	const provided_ctx = capture_region_ids(region, () => slots.context?.(region));
-	const after_hydrate = region_hydrate(region);
+	const after_hydrate = boot_link()[L_REGION_HYDRATE](region);
 	set_current_region(region);
 	let out: IslandHandle;
 	try {
