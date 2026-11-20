@@ -1,0 +1,39 @@
+{
+	"name": "ogygia-internal-compilerkit",
+	"version": "0.0.0",
+	"private": true,
+	"description": "A small kit for build-time macro compilers, vendored from the DnD project's compilerkit: macros as passes over one parse, an emitter that keeps every edit, typed pass pipelines, generated modules, and the checks that fail a build with file and line. ogygia's own build uses it; nothing published depends on it.",
+	"license": "MIT",
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.ts",
+		"./alloc": "./src/alloc.ts",
+		"./comptime": "./src/comptime.ts",
+		"./decisions": "./src/decisions.ts",
+		"./machine": "./src/machine.ts",
+		"./marks": "./src/marks.ts",
+		"./messages": "./src/messages.ts",
+		"./modules": "./src/modules.ts",
+		"./reach": "./src/reach.ts",
+		"./sentinel": "./src/sentinel.ts",
+		"./testing": "./src/testing.ts",
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"check": "tsc -p . && vitest run",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"esbuild": "0.28.2",
+		"magic-string": "1.4.3",
+		"oxc-parser": "0.154.0",
+		"periscopic": "4.0.3",
+		"typescript": "6.0.3",
+		"zimmerframe": "1.1.5"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"vitest": "catalog:"
+	}
+}
