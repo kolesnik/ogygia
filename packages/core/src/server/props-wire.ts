@@ -38,7 +38,8 @@ import { register_snippet_kind } from '../region-snippet.ts';
 import { register_fn_kind } from '../fn-transport.ts';
 import { OgygiaError } from '../messages/server.ts';
 import { fingerprint_of } from '../contract/hash.ts';
-import { analyze, json_culprit, SEED_REF_KEY, type SeedIndex } from '../seed-refs.ts';
+import { analyze, json_culprit, SEED_REF_KEY } from '../seed-refs.ts';
+import type { SeedIndex } from '../seed-index.ts';
 import { OG_FORMAT, OG_WIRE, OGYGIA_PROPS } from '../wire-markup.ts';
 
 /** The one non-devalue format (`OG_FORMAT`; absent = devalue): plain JSON, read with `JSON.parse`. */

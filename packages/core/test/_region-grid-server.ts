@@ -21,7 +21,7 @@ import {
 } from '../src/server/kit-context.ts';
 import { hole_slot_sequence, HOLE_SLOT_SEQUENCE } from '../src/region-snippet.ts';
 import { DocumentTail, set_tail_reader } from '../src/server/document-tail.ts';
-import { SeedIndex } from '../src/seed-refs.ts';
+import { SeedIndex } from '../src/seed-index.ts';
 import * as deps from './_stubs/server.region-deps.ts';
 import { set_region_endpoints } from './_stubs/server.region-endpoint.ts';
 import {
