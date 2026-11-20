@@ -29,37 +29,66 @@ import {
 	text_of
 } from '../wire-markup.ts';
 import { KNOWN_HEADER_CAP } from '../contract/known-copies.ts';
+import {
+	L_ADD_HEAD_OWNERS,
+	L_ADOPT_OWNER_RECORD,
+	L_ADOPT_RESPONSE,
+	L_CACHE,
+	L_FETCH_PRIORITY_OF,
+	L_FLIGHTS,
+	L_HEAD_OWNERS,
+	L_INIT_SHADOW_REGISTRIES,
+	L_IS_WARMED_MODULE,
+	L_KIT_BOOT,
+	L_LOAD_DEVALUE,
+	L_LOAD_SLOT,
+	L_NEEDS_DEVALUE,
+	L_NOTE_ENTRY_LOCATION,
+	L_PARSE_PAGE_DOCUMENT,
+	L_PRIORITY,
+	L_REGIONS_IN_SHADOW,
+	L_REGISTER_ISLAND_GRAPH,
+	L_RELEASE_HEAD_NODES,
+	L_RUNS_ENTRY,
+	L_RUNTIME_SESSION,
+	L_SOFT,
+	L_STALE,
+	L_VOUCH_PAGE_ANSWER,
+	L_WARM_ISLAND_MODULE,
+	L_WORLD,
+	L_YIELD_TASK
+} from './boot-link-index.ts';
 
 (globalThis as PageGlobals).__og_head_deny?.(is_dangerous_head_node);
 
-const KitBoot = { document_has: (doc: ParentNode) => boot_link().KitBoot.document_has(doc) };
-const regions_in_shadow = () => boot_link().regions_in_shadow();
+const KitBoot = { document_has: (doc: ParentNode) => boot_link()[L_KIT_BOOT].document_has(doc) };
+const regions_in_shadow = () => boot_link()[L_REGIONS_IN_SHADOW]();
 const release_head_nodes = (unlisted: readonly Element[]) =>
-	boot_link().release_head_nodes(unlisted);
-const head_owners = (node: Element) => boot_link().head_owners(node);
+	boot_link()[L_RELEASE_HEAD_NODES](unlisted);
+const head_owners = (node: Element) => boot_link()[L_HEAD_OWNERS](node);
 const add_head_owners = (node: Element, more: Iterable<string>) =>
-	boot_link().add_head_owners(node, more);
+	boot_link()[L_ADD_HEAD_OWNERS](node, more);
 const adopt_owner_record = (doc: ParentNode, head: ParentNode) =>
-	boot_link().adopt_owner_record(doc, head);
-const session = () => boot_link().runtime_session;
-const adopt_response = (next: Document) => boot_link().adopt_response(next);
+	boot_link()[L_ADOPT_OWNER_RECORD](doc, head);
+const session = () => boot_link()[L_RUNTIME_SESSION];
+const adopt_response = (next: Document) => boot_link()[L_ADOPT_RESPONSE](next);
 type Scope = import('@ogygia/machine').Scope;
 type Stale = import('@ogygia/machine').Stale;
 type Staging = import('@ogygia/machine').Staging;
 const devalue_for = (doc: Document) =>
-	boot_link().needs_devalue(doc) ? boot_link().load_devalue() : undefined;
+	boot_link()[L_NEEDS_DEVALUE](doc) ? boot_link()[L_LOAD_DEVALUE]() : undefined;
 const is_warmed_module = (entry: string, base?: string) =>
-	boot_link().is_warmed_module(entry, base);
+	boot_link()[L_IS_WARMED_MODULE](entry, base);
 const warm_island_module = (entry: string, base?: string) =>
-	boot_link().warm_island_module(entry, base);
+	boot_link()[L_WARM_ISLAND_MODULE](entry, base);
 const runs_entry = (attrs: import('./region-attrs.ts').RegionAttrs) =>
-	boot_link().runs_entry(attrs);
+	boot_link()[L_RUNS_ENTRY](attrs);
 const note_entry_location = (entry: string, src: string | null, base?: string) =>
-	boot_link().note_entry_location(entry, src, base);
+	boot_link()[L_NOTE_ENTRY_LOCATION](entry, src, base);
 const register_island_graph = (text: string, base: string) =>
-	boot_link().register_island_graph(text, base);
-const yield_task = () => boot_link().yield_task();
-const is_stale = (v: unknown): v is Stale => v === boot_link().STALE;
+	boot_link()[L_REGISTER_ISLAND_GRAPH](text, base);
+const yield_task = () => boot_link()[L_YIELD_TASK]();
+const is_stale = (v: unknown): v is Stale => v === boot_link()[L_STALE];
 const jump_to_hash = (hash: string) => router_link().jump_to_hash(hash);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
@@ -389,12 +418,12 @@ type Pages = import('@ogygia/machine').Flights<PageAsk, Fetched, Pick<PageAsk, '
 let page_flights: Pages | undefined;
 let page_world: import('@ogygia/machine').World | undefined;
 const pages = (): Pages =>
-	(page_flights ??= boot_link().flights.keyed<PageAsk>()({
+	(page_flights ??= boot_link()[L_FLIGHTS].keyed<PageAsk>()({
 		name: 'router pages',
 		key: ['href', 'known'],
 		ignore: { purpose: 'a navigation joins the prefetch out for its address: how, not what' },
 		run: (ask, signal, flight): Promise<Fetched> => run_page_fetch(ask, signal, flight),
-		world: (page_world = boot_link().world()),
+		world: (page_world = boot_link()[L_WORLD]()),
 		keep: (answer) => (answer.page !== null && answer.cacheable ? PREFETCH_TTL_MS : 0),
 		max: PAGE_CACHE_MAX_BYTES,
 		weigh: (answer) =>
@@ -403,7 +432,7 @@ const pages = (): Pages =>
 type Memo<K, V> = import('@ogygia/machine').Cache<K, V>;
 let warmed_pages_memo: Memo<string, true> | undefined;
 const warmed_pages = () =>
-	(warmed_pages_memo ??= boot_link().cache({ name: 'warmed pages', max: 512 }));
+	(warmed_pages_memo ??= boot_link()[L_CACHE]({ name: 'warmed pages', max: 512 }));
 let announcer: HTMLElement | null = null;
 
 /** Moves the world the cached pages are made in: what is kept goes, and a fetch that started before
@@ -448,11 +477,11 @@ export async function fetch_page(
 	purpose: NavPurpose = 'nav'
 ): Promise<FetchedPage | null> {
 	const ask: PageAsk = { href, known: known_header(), purpose };
-	const { PRIORITY } = boot_link();
+	const PRIORITY = boot_link()[L_PRIORITY];
 	const priority = purpose === 'prefetch' ? PRIORITY.speculative : PRIORITY.user;
 	for (;;) {
 		const answer = await pages().get(ask, { signal, priority });
-		if (answer !== boot_link().STALE) {
+		if (!is_stale(answer)) {
 			if (purpose === 'prefetch' && answer.page !== null) warm_modules(href, answer.page.html);
 			return answer.page;
 		}
@@ -474,7 +503,9 @@ async function run_page_fetch(
 	let res: Response;
 	try {
 		if (purpose === 'prefetch') {
-			const { LoadSlot, fetch_priority_of } = boot_link();
+			const link = boot_link();
+			const LoadSlot = link[L_LOAD_SLOT];
+			const fetch_priority_of = link[L_FETCH_PRIORITY_OF];
 			const slot = new LoadSlot({ kind: 'content', cls: 'speculative', label: href, flight });
 			const release = await slot.ready;
 			try {
@@ -628,9 +659,9 @@ export async function navigate(
 
 		if (dest.origin !== location.origin) return null;
 
-		const own = boot_link().vouch_page_answer(dest, html);
+		const own = boot_link()[L_VOUCH_PAGE_ANSWER](dest, html);
 		if (own === null) return null;
-		const doc = boot_link().parse_page_document(own);
+		const doc = boot_link()[L_PARSE_PAGE_DOCUMENT](own);
 		resolve_head_urls(doc.head, dest);
 
 		if (KitBoot.document_has(doc)) return null;
@@ -665,7 +696,7 @@ export async function navigate(
 	const commit = (built: Built | null) => {
 		if (built === null) return;
 		const { doc, dest } = built;
-		const { soft } = boot_link();
+		const soft = boot_link()[L_SOFT];
 		if (soft.now.kind === 'refreshing') soft.go('idle');
 		const left = r.current_url;
 		own_live_head(left);
@@ -691,7 +722,7 @@ export async function navigate(
 			adopt_title(doc);
 			slots.lakes.settle_in(document.body);
 		}
-		boot_link().init_shadow_registries(document.body);
+		boot_link()[L_INIT_SHADOW_REGISTRIES](document.body);
 		(globalThis as PageGlobals).__og_restore_adopt?.();
 		session().retire_page_head_copies();
 		release_head_nodes(unlisted);
@@ -883,7 +914,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 	bust_page_cache();
 	const url = on_screen ?? new URL(location.href);
 
-	const { soft } = boot_link();
+	const soft = boot_link()[L_SOFT];
 	soft.go('refreshing', { href: url.href });
 	const mine = soft.now;
 
@@ -893,9 +924,9 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 			const fetched = await fetch_page(url.href, signal);
 			if (fetched === null || signal.aborted) return null;
 			const landed = new URL(fetched.url, url);
-			const own = boot_link().vouch_page_answer(landed, fetched.html);
+			const own = boot_link()[L_VOUCH_PAGE_ANSWER](landed, fetched.html);
 			if (own === null) return null;
-			const doc = boot_link().parse_page_document(own);
+			const doc = boot_link()[L_PARSE_PAGE_DOCUMENT](own);
 			resolve_head_urls(doc.head, landed);
 			if (KitBoot.document_has(doc) || !doc.querySelector('meta[name="ogygia-router"]'))
 				return null;

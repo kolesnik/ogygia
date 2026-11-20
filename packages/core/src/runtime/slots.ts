@@ -155,71 +155,73 @@ export type NavOps = {
  * (the router's `nav()`, interaction's `replay()`), `sync_attributes` by morph's install. Types only
  * below (erased), so this registry imports none of them.
  * `test/runtime-boot-svelte-free.test.ts` pins that no lazy chunk imports a boot module.
+ * The boot link is read by number (`boot_link()[L_PROPS_SIDECAR_OF]`, ./boot-link-index.ts), so no
+ * helper's name ships: its places are this tuple's, in order.
  */
-export type BootLink = {
-	kit_hydrates_page: typeof import('./kit-boot.ts').kit_hydrates_page;
-	KitBoot: typeof import('../wire-markup.ts').KitBoot;
-	ABSOLUTE_URL_SCHEME: RegExp;
-	register_island_graph: typeof import('./island-graph-preload.ts').register_island_graph;
-	is_warmed_module: typeof import('./region-endpoint-url.ts').is_warmed_module;
-	warm_island_module: typeof import('./region-endpoint-url.ts').warm_island_module;
-	runs_entry: typeof import('./region-attrs.ts').runs_entry;
-	note_entry_location: typeof import('./entry-locations.ts').note_entry_location;
-	props_sidecar_of: typeof import('./sidecar.ts').props_sidecar_of;
-	parse_region_html: typeof import('./html-sink.ts').parse_region_html;
-	parse_page_document: typeof import('./html-sink.ts').parse_page_document;
-	init_shadow_registries: typeof import('./html-sink.ts').init_shadow_registries;
-	set_inner_html: typeof import('./html-sink.ts').set_inner_html;
-	vouch_page_answer: typeof import('./html-sink.ts').vouch_page_answer;
-	vouch_page_html: typeof import('./html-sink.ts').vouch_page_html;
-	runtime_session: typeof import('./session.ts').runtime_session;
-	regions_in_shadow: typeof import('./connected.ts').regions_in_shadow;
+export type BootLink = [
+	kit_hydrates_page: typeof import('./kit-boot.ts').kit_hydrates_page,
+	KitBoot: typeof import('../wire-markup.ts').KitBoot,
+	ABSOLUTE_URL_SCHEME: RegExp,
+	register_island_graph: typeof import('./island-graph-preload.ts').register_island_graph,
+	is_warmed_module: typeof import('./region-endpoint-url.ts').is_warmed_module,
+	warm_island_module: typeof import('./region-endpoint-url.ts').warm_island_module,
+	runs_entry: typeof import('./region-attrs.ts').runs_entry,
+	note_entry_location: typeof import('./entry-locations.ts').note_entry_location,
+	props_sidecar_of: typeof import('./sidecar.ts').props_sidecar_of,
+	parse_region_html: typeof import('./html-sink.ts').parse_region_html,
+	parse_page_document: typeof import('./html-sink.ts').parse_page_document,
+	init_shadow_registries: typeof import('./html-sink.ts').init_shadow_registries,
+	set_inner_html: typeof import('./html-sink.ts').set_inner_html,
+	vouch_page_answer: typeof import('./html-sink.ts').vouch_page_answer,
+	vouch_page_html: typeof import('./html-sink.ts').vouch_page_html,
+	runtime_session: typeof import('./session.ts').runtime_session,
+	regions_in_shadow: typeof import('./connected.ts').regions_in_shadow,
 	/** the region head nodes a navigation's head merge left, taken out but for those a region on
 	 *  the page uses or owns */
-	release_head_nodes: typeof import('./region-sheets.ts').release_head_nodes;
+	release_head_nodes: typeof import('./region-sheets.ts').release_head_nodes,
 	/** the islands a region head tag names as its owners, and adding to them (../head-owners.ts) */
-	head_owners: typeof import('../head-owners.ts').head_owners;
-	add_head_owners: typeof import('../head-owners.ts').add_head_owners;
-	adopt_owner_record: typeof import('../head-owners.ts').adopt_owner_record;
-	yield_task: typeof import('./schedule.ts').yield_task;
+	head_owners: typeof import('../head-owners.ts').head_owners,
+	add_head_owners: typeof import('../head-owners.ts').add_head_owners,
+	adopt_owner_record: typeof import('../head-owners.ts').adopt_owner_record,
+	yield_task: typeof import('./schedule.ts').yield_task,
 	/** the `regionHydrate` subscribers around Svelte's hydrate over server markup (./client-plugins.ts) */
-	region_hydrate: typeof import('./client-plugins.ts').client_region_hydrate;
+	region_hydrate: typeof import('./client-plugins.ts').client_region_hydrate,
+	/** DOM ownership (./ownership.ts): which children Svelte's walk enters, and self-owned elements */
+	walk_enters: typeof import('./ownership.ts').walk_enters,
+	is_self_owned: typeof import('./ownership.ts').is_self_owned,
+	/** `<body>`'s two owners (./ownership.ts): the router's record of what the server sent it */
+	record_server_body: typeof import('./ownership.ts').record_server_body,
+	server_body_attributes: typeof import('./ownership.ts').server_body_attributes,
+	server_body_child: typeof import('./ownership.ts').server_body_child,
+	/** a document's side channels, the server's own only (./response-mark.ts, RESPONSE-MARK) */
+	server_channel: typeof import('./response-mark.ts').server_channel,
+	/** the kept runtime script takes the next response's mark and code origins (./response-mark.ts) */
+	adopt_response: typeof import('./response-mark.ts').adopt_response,
 	/** the load scheduler's queue (./load-scheduler.ts), and a load class as a flight priority and
 	 *  as a fetch priority (./load-class.ts) */
-	LoadSlot: typeof import('./load-scheduler.ts').LoadSlot;
-	PRIORITY: typeof import('./load-class.ts').PRIORITY;
-	fetch_priority_of: typeof import('./load-class.ts').fetch_priority_of;
-	/** DOM ownership (./ownership.ts): which children Svelte's walk enters, and self-owned elements */
-	walk_enters: typeof import('./ownership.ts').walk_enters;
-	is_self_owned: typeof import('./ownership.ts').is_self_owned;
-	/** `<body>`'s two owners (./ownership.ts): the router's record of what the server sent it */
-	record_server_body: typeof import('./ownership.ts').record_server_body;
-	server_body_attributes: typeof import('./ownership.ts').server_body_attributes;
-	server_body_child: typeof import('./ownership.ts').server_body_child;
-	/** a document's side channels, the server's own only (./response-mark.ts, RESPONSE-MARK) */
-	server_channel: typeof import('./response-mark.ts').server_channel;
-	/** the kept runtime script takes the next response's mark and code origins (./response-mark.ts) */
-	adopt_response: typeof import('./response-mark.ts').adopt_response;
+	LoadSlot: typeof import('./load-scheduler.ts').LoadSlot,
+	PRIORITY: typeof import('./load-class.ts').PRIORITY,
+	fetch_priority_of: typeof import('./load-class.ts').fetch_priority_of,
 	/** devalue, loaded when a page needs it (./devalue-lane.ts) */
-	load_devalue: typeof import('./devalue-lane.ts').load_devalue;
-	devalue: typeof import('./devalue-lane.ts').devalue;
-	with_devalue: typeof import('./devalue-lane.ts').with_devalue;
-	needs_devalue: typeof import('./devalue-lane.ts').needs_devalue;
+	load_devalue: typeof import('./devalue-lane.ts').load_devalue,
+	devalue: typeof import('./devalue-lane.ts').devalue,
+	with_devalue: typeof import('./devalue-lane.ts').with_devalue,
+	needs_devalue: typeof import('./devalue-lane.ts').needs_devalue,
 	/** the runtime's messages (../messages/core.ts), as a lazy chunk throws and logs them (../messages/lazy.ts) */
-	OgygiaError: typeof import('../messages/core.ts').OgygiaError;
-	warn: typeof import('../messages/core.ts').warn;
+	OgygiaError: typeof import('../messages/core.ts').OgygiaError,
+	warn: typeof import('../messages/core.ts').warn,
 	/** what a machine's task answers once its visit is left (`@ogygia/machine`, which the boot runs on) */
-	STALE: typeof import('@ogygia/machine').STALE;
+	STALE: typeof import('@ogygia/machine').STALE,
 	/** keyed shared async work (`@ogygia/machine`): the router's page fetches */
-	flights: typeof import('@ogygia/machine').flights;
+	flights: typeof import('@ogygia/machine').flights,
 	/** a bounded, owned store (`@ogygia/machine`): the router's per-address memos */
-	cache: typeof import('@ogygia/machine').cache;
+	cache: typeof import('@ogygia/machine').cache,
 	/** a stamp that only moves forward (`@ogygia/machine`): the world the router's page cache is
 	 *  made in */
-	world: typeof import('@ogygia/machine').world;
+	world: typeof import('@ogygia/machine').world,
 	/** the page's soft refresh (./soft-refresh.ts): `invalidateAll`, with the router or without it */
-	soft: import('./soft-refresh.ts').SoftRefresh;
-};
+	soft: import('./soft-refresh.ts').SoftRefresh
+];
 export type RouterLink = {
 	jump_to_hash: typeof import('./router.ts').jump_to_hash;
 	fragment_target: typeof import('./fragment.ts').fragment_target;

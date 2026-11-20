@@ -11,6 +11,11 @@ import {
 import { swap_body } from '../src/runtime/reconcile.ts';
 import { slots } from '../src/runtime/slots.ts';
 import {
+	L_RECORD_SERVER_BODY,
+	L_SERVER_BODY_ATTRIBUTES,
+	L_SERVER_BODY_CHILD
+} from '../src/runtime/boot-link-index.ts';
+import {
 	record_server_body,
 	server_body_attributes,
 	server_body_child
@@ -590,11 +595,11 @@ describe('preserved / hydrated island subtrees', () => {
 describe('swap_body (outerSync fallback)', () => {
 	// the body record reaches the swap through the boot registry, as the runtime's boot links it
 	beforeEach(() => {
-		slots.boot = {
-			record_server_body,
-			server_body_attributes,
-			server_body_child
-		} as unknown as typeof slots.boot;
+		const link: unknown[] = [];
+		link[L_RECORD_SERVER_BODY] = record_server_body;
+		link[L_SERVER_BODY_ATTRIBUTES] = server_body_attributes;
+		link[L_SERVER_BODY_CHILD] = server_body_child;
+		slots.boot = link as unknown as typeof slots.boot;
 	});
 	afterEach(() => {
 		slots.boot = null;

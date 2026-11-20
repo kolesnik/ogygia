@@ -3,7 +3,8 @@
  * core, the router's navigation) use. They read them from the registry and never import these
  * modules, so each stays in the runtime chunk alone instead of being split into a shared file
  * (./slots.ts `BootLink` explains why). Core calls this at boot, before any lazy chunk can load; a
- * test that imports a lazy module without booting calls it too. Idempotent.
+ * test that imports a lazy module without booting calls it too. Idempotent. The link is a list,
+ * read by number (./boot-link-index.ts).
  */
 import { cache, flights, STALE, world } from '@ogygia/machine';
 import { slots } from './slots.ts';
@@ -49,7 +50,8 @@ import { OgygiaError, warn } from '../messages/core.ts';
 const no_region_hydrate: typeof client_region_hydrate = () => null;
 
 export function link_boot(): void {
-	slots.boot ??= {
+	// (in ./boot-link-index.ts's order: the lazy chunks read each by its number)
+	slots.boot ??= [
 		kit_hydrates_page,
 		KitBoot,
 		ABSOLUTE_URL_SCHEME,
@@ -72,7 +74,7 @@ export function link_boot(): void {
 		add_head_owners,
 		adopt_owner_record,
 		yield_task,
-		region_hydrate: HOOK_REGION_HYDRATE ? client_region_hydrate : no_region_hydrate,
+		HOOK_REGION_HYDRATE ? client_region_hydrate : no_region_hydrate,
 		walk_enters,
 		is_self_owned,
 		record_server_body,
@@ -93,6 +95,6 @@ export function link_boot(): void {
 		flights,
 		cache,
 		world,
-		soft: create_soft_refresh()
-	};
+		create_soft_refresh()
+	];
 }

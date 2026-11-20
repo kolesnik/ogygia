@@ -10,6 +10,7 @@ import { from_b64 } from './b64.ts';
 import type { Component } from 'svelte';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { boot_link } from '../../src/runtime/slots.ts';
+import { L_RUNTIME_SESSION } from '../../src/runtime/boot-link-index.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
 import {
 	hydrate_island,
@@ -28,7 +29,7 @@ beforeAll(async () => {
 
 test("islands' head tags keep the server order when the islands wake in the other order", () => {
 	document.head.innerHTML = `<meta charset="utf-8"><title>page</title>${decode('head_style_head_b64')}<meta name="after" content="x">`;
-	boot_link().runtime_session.adopt_document_head();
+	boot_link()[L_RUNTIME_SESSION].adopt_document_head();
 	document.body.innerHTML = decode('head_style_body_b64');
 	const order = () =>
 		[...document.head.querySelectorAll('meta[name="head-style"]')].map((s) =>
@@ -50,7 +51,7 @@ test("a style written over several lines in an island's head is one copy once th
 	document.head.innerHTML = `<meta charset="utf-8"><title>page</title>${decode('head_style_head_b64')}<meta name="after" content="x">`;
 	// (the first hydrate in this file already ran it, once per document; this head is a fresh page's)
 	neutralize_head_hydration_markers();
-	boot_link().runtime_session.adopt_document_head();
+	boot_link()[L_RUNTIME_SESSION].adopt_document_head();
 	document.body.innerHTML = decode('head_style_body_b64');
 	const styles = () =>
 		[...document.head.querySelectorAll('style[data-head-style]')].map((s) =>

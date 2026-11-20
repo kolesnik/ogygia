@@ -2,6 +2,11 @@
 // rules, what each fetch asks the server, which pages it keeps, and what a prefetch warms.
 import { afterAll, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import {
+	L_NOTE_ENTRY_LOCATION,
+	L_REGISTER_ISLAND_GRAPH,
+	L_WARM_ISLAND_MODULE
+} from '../../src/runtime/boot-link-index.ts';
 import { KNOWN_HEADER_CAP } from '../../src/contract/known-copies.ts';
 import { is_dangerous_head_node } from '../../src/runtime/head-deny.ts';
 import type { PageGlobals } from '../../src/page-globals.ts';
@@ -142,10 +147,10 @@ test('a prefetched page warms its island graph and the regions the browser runs,
 	const warmed: string[] = [];
 	const located: string[] = [];
 	const { slots } = await import('../../src/runtime/slots.ts');
-	const real = { ...slots.boot! };
-	slots.boot!.register_island_graph = (text) => void graphs.push(text);
-	slots.boot!.warm_island_module = (entry) => void warmed.push(entry);
-	slots.boot!.note_entry_location = (entry, src) => void located.push(`${entry} ${src}`);
+	const real = [...slots.boot!] as typeof slots.boot;
+	slots.boot![L_REGISTER_ISLAND_GRAPH] = (text) => void graphs.push(text);
+	slots.boot![L_WARM_ISLAND_MODULE] = (entry) => void warmed.push(entry);
+	slots.boot![L_NOTE_ENTRY_LOCATION] = (entry, src) => void located.push(`${entry} ${src}`);
 	const plain = answer;
 	answer = () =>
 		new Response(

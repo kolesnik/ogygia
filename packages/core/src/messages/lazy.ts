@@ -7,23 +7,23 @@
  * `throw new OgygiaError(code, args)`, `warn(code, args, ...rest)`.
  */
 import { slots } from '../runtime/slots.ts';
+import { L_OGYGIA_ERROR, L_WARN } from '../runtime/boot-link-index.ts';
 import type { OgygiaError as CoreError, warn as core_warn } from './core.ts';
 
 type Own = { OgygiaError: typeof CoreError; warn: typeof core_warn };
-const own = (): Own | undefined =>
-	slots.boot ??
+const published = (): Own | undefined =>
 	(globalThis as unknown as Record<symbol, Own | undefined>)[Symbol.for('ogygia.messages')];
 const link = (code: string) => `[ogygia] https://ogygiajs.dev/e/${code}`;
 
 export const OgygiaError: typeof CoreError = function (code: string, a?: unknown) {
-	const m = own();
-	return m
-		? new (m.OgygiaError as unknown as new (code: string, a?: unknown) => Error)(code, a)
+	const E = slots.boot?.[L_OGYGIA_ERROR] ?? published()?.OgygiaError;
+	return E
+		? new (E as unknown as new (code: string, a?: unknown) => Error)(code, a)
 		: Object.assign(new Error(link(code)), { code });
 } as unknown as typeof CoreError;
 
 export const warn: typeof core_warn = ((code: string, ...rest: unknown[]) => {
-	const m = own();
-	if (m) (m.warn as (code: string, ...rest: unknown[]) => void)(code, ...rest);
+	const w = slots.boot?.[L_WARN] ?? published()?.warn;
+	if (w) (w as (code: string, ...rest: unknown[]) => void)(code, ...rest);
 	else console.warn(link(code));
 }) as typeof core_warn;

@@ -12,6 +12,7 @@ import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { slots } from '../../src/runtime/slots.ts';
+import { L_IS_WARMED_MODULE, L_SOFT, L_YIELD_TASK } from '../../src/runtime/boot-link-index.ts';
 import { scope } from '@ogygia/machine';
 import { patch } from '../_patch.ts';
 
@@ -512,8 +513,8 @@ test('an error page the server renders as HTML goes in without a full load', asy
 
 test('a modulepreload for a module the page already warmed is not put in the head again', async () => {
 	const boot = slots.boot!;
-	const real = boot.is_warmed_module;
-	boot.is_warmed_module = (entry) => entry.endsWith('/warm.js');
+	const real = boot[L_IS_WARMED_MODULE];
+	boot[L_IS_WARMED_MODULE] = (entry) => entry.endsWith('/warm.js');
 	pages['/rn-modulepreload'] = {
 		head: '<link rel="modulepreload" href="/_app/warm.js"><link rel="modulepreload" href="/_app/cold.js">',
 		body: '<p>next</p>'
@@ -521,7 +522,7 @@ test('a modulepreload for a module the page already warmed is not put in the hea
 	try {
 		await go('/rn-modulepreload');
 	} finally {
-		boot.is_warmed_module = real;
+		boot[L_IS_WARMED_MODULE] = real;
 	}
 	const hrefs = [...document.head.querySelectorAll('link[rel="modulepreload"]')].map((l) =>
 		l.getAttribute('href')
@@ -703,8 +704,8 @@ test('a region of the next page names its files against that page’s address', 
 test('the transition starts after the build yields its task', async () => {
 	const order: string[] = [];
 	const boot = slots.boot!;
-	const real_yield = boot.yield_task;
-	boot.yield_task = () => {
+	const real_yield = boot[L_YIELD_TASK];
+	boot[L_YIELD_TASK] = () => {
 		order.push('yield');
 		return real_yield();
 	};
@@ -722,7 +723,7 @@ test('the transition starts after the build yields its task', async () => {
 	try {
 		await go('/rn-yield');
 	} finally {
-		boot.yield_task = real_yield;
+		boot[L_YIELD_TASK] = real_yield;
 	}
 	expect(order).toEqual(['yield', 'transition']);
 });
@@ -743,7 +744,7 @@ test('a soft refresh of the page being left never lands on the next page', async
 	answer.open();
 	await soft;
 	expect(document.head.querySelector('meta[name="rn-soft"]')?.getAttribute('content')).toBe('b');
-	expect(slots.boot!.soft.now.kind).toBe('idle');
+	expect(slots.boot![L_SOFT].now.kind).toBe('idle');
 });
 
 test('a commit that fails after it wrote the history entry hands that entry to the browser', async () => {

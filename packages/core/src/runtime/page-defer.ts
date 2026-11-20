@@ -1,4 +1,5 @@
 import { boot_link } from './slots.ts';
+import { L_WITH_DEVALUE } from './boot-link-index.ts';
 import { OgygiaError } from '../messages/lazy.ts';
 import {
 	PAGE_DEFER_KEY,
@@ -101,7 +102,7 @@ export function install_page_defer(
 	r.revivers = page_defer_revivers(extra_revivers);
 	r.live = (id, ok, encoded) => {
 		(r.arriving ??= new Set()).add(id);
-		boot_link().with_devalue(
+		boot_link()[L_WITH_DEVALUE](
 			({ parse }) => {
 				let value: unknown = null;
 				try {
