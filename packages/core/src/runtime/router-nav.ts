@@ -1,5 +1,5 @@
 import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
-import { buggify, clock, net } from '@ogygia/machine';
+import { buggify, clock, net, stage } from '@ogygia/machine';
 import type { PageGlobals } from '../page-globals.ts';
 import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
 import {
@@ -701,7 +701,7 @@ export async function navigate(
 		document.dispatchEvent(new Event('og:after-swap'));
 	};
 
-	const staged = boot_link().stage<Built | null>(attempt, { name: 'navigation', build, commit });
+	const staged = stage<Built | null>(attempt, { name: 'navigation', build, commit });
 	let built: Built | null | Stale;
 	try {
 		built = await staged.ready;
@@ -883,7 +883,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 	bust_page_cache();
 	const url = on_screen ?? new URL(location.href);
 
-	const { soft, stage } = boot_link();
+	const { soft } = boot_link();
 	soft.go('refreshing', { href: url.href });
 	const mine = soft.now;
 

@@ -214,9 +214,6 @@ export type BootLink = {
 	flights: typeof import('@ogygia/machine').flights;
 	/** a bounded, owned store (`@ogygia/machine`): the router's per-address memos */
 	cache: typeof import('@ogygia/machine').cache;
-	/** a change built off to the side and switched in at once (`@ogygia/machine`): the router's
-	 *  swap and the soft refresh */
-	stage: typeof import('@ogygia/machine').stage;
 	/** a stamp that only moves forward (`@ogygia/machine`): the world the router's page cache is
 	 *  made in */
 	world: typeof import('@ogygia/machine').world;
