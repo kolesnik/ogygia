@@ -30,7 +30,8 @@ import { page_seed_reducers } from './server/page-stream.ts';
 import { analyze } from './seed-refs.ts';
 import { WIRE_FORMAT_JSON } from './server/props-wire.ts';
 import { OG_FORMAT, OGYGIA_DEV_HMR, OGYGIA_PAGE } from './wire-markup.ts';
-import { runtime_url, router_enabled, view_transitions } from 'ogygia:server';
+import { HAS, runtime_url, router_enabled, view_transitions } from 'ogygia:server';
+import { F_PAGE } from './contract/features.ts';
 import { dev_hmr_url } from './dev-hmr-url.ts';
 import { runtime_bootstrap } from './server/entry-location.ts';
 import { current_facts } from './plugin/facts.ts';
@@ -179,8 +180,9 @@ export async function document(
 	// RESPONSE-MARK: the request's mark, so a handle writing into this response agrees (outside a
 	// request, the document's own)
 	const mark_key: object = live_event()?.request ?? {};
-	const ask = options.pageState ? read_seed_ask() : undefined;
-	if (options.pageState && (!ask || ask.wanted)) {
+	// (only where the build's runtime reads a page seed: the `page` feature, as the handle's)
+	const ask = HAS & F_PAGE && options.pageState ? read_seed_ask() : undefined;
+	if (HAS & F_PAGE && options.pageState && (!ask || ask.wanted)) {
 		const s = options.pageState;
 		const data = ask ? shape_page_data(s.data, ask.keys) : s.data;
 		// Same lanes as the handle's seed: native JSON when the slice is JSON-exact, devalue otherwise.
