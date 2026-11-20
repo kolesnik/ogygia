@@ -143,6 +143,8 @@ class Store<K, V> implements CacheStore<K, V> {
 	_timer_at = Infinity;
 	/** When the timer last swept (`-Infinity`: never). */
 	_swept_at = -Infinity;
+	/** A value with an age was ever kept: until then a sweep would find nothing past its age. */
+	_ages = false;
 	/** Notices due, and whether they are being told (a notice's own set or delete queues behind). */
 	_due: Array<[K, V, EvictWhy]> = [];
 	_telling = false;
@@ -185,6 +187,7 @@ class Store<K, V> implements CacheStore<K, V> {
 
 	/** Lets every value past its age go (but `except`'s, which a set is replacing). */
 	_sweep(now: number, except?: K): void {
+		if (!this._ages) return;
 		const held = this._held;
 		const noticed = this._on_evict !== undefined;
 		// (each entry read by index, not taken apart: the walk is over every value)
@@ -365,7 +368,11 @@ class Store<K, V> implements CacheStore<K, V> {
 			this._tell();
 			return false;
 		}
-		const until = ms === Infinity ? Infinity : now + ms;
+		let until = Infinity;
+		if (ms !== Infinity) {
+			until = now + ms;
+			this._ages = true;
+		}
 		if (old !== undefined) {
 			this._weight -= old.weight;
 			// (a replace, whatever the old value's age: the key goes on holding a value. The value it

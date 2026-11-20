@@ -117,7 +117,7 @@ function files(dir: string): string[] {
 
 /**
  * Every machine the packages define, by name, read from their source: `machine<S>()({ ... })` with
- * a literal name, and each `flights({ name })` (its entries' steps, from flights' own definition).
+ * a literal name, and each `flights({ name })` (its entries' steps, from flights' own `ENTRY_STEPS`).
  */
 export function universe(root: string): Map<string, MachineDef> {
 	const out = new Map<string, MachineDef>();
@@ -142,6 +142,9 @@ export function universe(root: string): Map<string, MachineDef> {
 					for (const d of s.declarations as Node[])
 						if (is(d.id, 'Identifier')) consts.set(d.id.name as string, d.init);
 			const rel = file.slice(root.length + 1);
+			// (flights' own entry steps: a table of data, `ENTRY_STEPS`, every flights' targets)
+			if (pkg === 'machine' && rel.endsWith('flights.ts') && consts.has('ENTRY_STEPS'))
+				flights_steps = steps_of(consts.get('ENTRY_STEPS'), consts);
 			// (a forced run, `get(input, { fresh })`, anywhere in the file: the only way an entry goes
 			// flying -> flying or kept -> flying; one asked only under `!seen.flying`, a peek showing no
 			// flight out, runs a kept answer again and never replaces a flight)
@@ -183,11 +186,7 @@ export function universe(root: string): Map<string, MachineDef> {
 					const initial = literal(prop(config, 'initial'));
 					if (steps === null || initial === null) return;
 					const name = literal(prop(config, 'name'));
-					// (flights' own entry machine: named by each flights)
-					if (name === null) {
-						if (pkg === 'machine' && rel.endsWith('flights.ts')) flights_steps = steps;
-						return;
-					}
+					if (name === null) return;
 					out.set(name, { name, pkg, file: rel, initial, steps });
 					return;
 				}

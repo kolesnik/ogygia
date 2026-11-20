@@ -22,6 +22,7 @@
  */
 import { DEV } from 'esm-env';
 import { machine_error, report, warn_once } from './messages.ts';
+import { noop } from './noop.ts';
 import { registry } from './registry.ts';
 import { CLOSED, is_time, MAX_TIMEOUT_MS, scope, visit_scope, type Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
@@ -110,12 +111,13 @@ export interface Definition<S extends Shape<S>, T extends Steps<S>, I extends Ki
 	readonly steps: T;
 	/** A new machine, in `initial` (with its data, if that state has data). */
 	create(...data: DataArgs<S[I]>): Machine<S, T>;
-	/** Its states and steps as data. */
+	/** Its states and steps as data. In dev and rules builds only: a production build throws
+	 *  `machine_graph_off`. */
 	graph(): MachineGraph<Kind<S>>;
 	/**
 	 * Paths from `initial` that between them take every step at least once: for each step, the
 	 * shortest path that reaches its state and takes it. Drive a machine down each in a test and
-	 * every move the definition allows has run.
+	 * every move the definition allows has run. In dev and rules builds only, as `graph()`.
 	 */
 	paths(): Kind<S>[][];
 }
@@ -184,19 +186,35 @@ export type Observer = (
 	machine: AnyMachine
 ) => void;
 
+/** Dev and rules builds (tests, the rules, the simulator): moves are told to observers, and a
+ *  definition draws its graph and paths. Folded out of any other (../rules-env.d.ts). */
+const RULES: boolean =
+	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
+
 /** Who watches every move, in the order they started: each held until its stop (never evicted). */
 const observers = registry<Observer>();
 
 /**
- * Watches every machine's moves (devtools, tests). Returns the function that stops watching. An
- * observer that throws is reported and does not break the move.
+ * Watches every machine's moves (tests, the rules, the simulator), in dev and rules builds. Returns
+ * the function that stops watching. An observer that throws is reported and does not break the
+ * move. In any other build it hears nothing, and says so once (`machine_observe_off`).
  */
 export function observe(observer: Observer): () => void {
+	if (!RULES) {
+		warn_once('machine_observe_off', {});
+		return noop;
+	}
 	// (its owner is the watch itself: the caller holds no scope to hand in, and its stop is the
 	// watch's end)
 	const watch = scope();
 	observers.add(observer, watch);
 	return () => watch.close();
+}
+
+/** A move of something that is not a `machine()` but keeps its states the same way (a flights'
+ *  entries), told to the observers when there are any. */
+export function heard(name: string, from: State, to: State | null, machine: AnyMachine): void {
+	if (RULES && observers.size !== 0) notify(name, from, to, machine);
 }
 
 function notify(name: string, from: State, to: State | null, machine: AnyMachine): void {
@@ -374,7 +392,7 @@ class Running implements AnyMachine {
 		const waiters = this._waiters;
 		this._scope = this._waiters = null;
 		if (waiters !== null) for (const w of waiters) w.resolve(STALE);
-		if (observers.size !== 0) notify(this._def.name, this._now, null, this);
+		if (RULES && observers.size !== 0) notify(this._def.name, this._now, null, this);
 		scope?.close();
 	}
 
@@ -392,7 +410,7 @@ class Running implements AnyMachine {
 		// then leaves this visit, and closing it clears this timer)
 		if (target.timed !== null) this._arm(target.timed);
 		if (this._waiters !== null) this._settle(next);
-		if (observers.size !== 0) notify(def.name, prev, next, this);
+		if (RULES && observers.size !== 0) notify(def.name, prev, next, this);
 		scope?.close();
 	}
 
@@ -548,9 +566,14 @@ function define(config: {
 		initial: initial.kind,
 		steps: def.steps,
 		create: (data?: object) => new Running(def, initial, state_of(def, initial, data)),
-		graph: () => graph_of(def),
-		paths: () => paths_of(def)
+		graph: RULES ? () => graph_of(def) : drawn_off,
+		paths: RULES ? () => paths_of(def) : drawn_off
 	});
+}
+
+/** A definition's graph or paths asked for in a build that draws none. */
+function drawn_off(): never {
+	throw machine_error('machine_graph_off', {});
 }
 
 function graph_of(def: Def): MachineGraph {

@@ -768,18 +768,6 @@ bench(
 );
 
 bench(
-	'machine: a definition of n states as data (graph and the paths that take every step)',
-	({ steps }) => {
-		const def = machine<Record<string, {}>>()({ name: 'chain', initial: 's0', steps } as never);
-		return def.graph().states.length + def.paths().length;
-	},
-	{
-		setup: () => ({ steps: chain_steps(40) }),
-		scale: (_ctx, k) => ({ steps: chain_steps(40 * k) })
-	}
-);
-
-bench(
 	'outbox: sends put, joined by id, tried again once, some in order, a few given up',
 	async ({ n }) => {
 		const quick = policy({ attempts: 2, backoff: 0, jitter: 0, deadline: 1000 });
