@@ -147,6 +147,7 @@ import { disclose_version } from './disclose-version.ts';
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const RULES =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 
 const SSR_SNAPSHOT_MAX = 1 << 19;
 
@@ -829,7 +830,7 @@ class OgygiaRegion extends HTMLElement {
 	 * (Kit adopts it as opaque DOM) or inside a hole's fetched answer (Kit never sees it).
 	 */
 	#on_interaction(fire: () => unknown) {
-		if (kit_hydrates_page() && !ours_on_kit_document(this)) {
+		if (KIT_PAGES && kit_hydrates_page() && !ours_on_kit_document(this)) {
 			this.setAttribute('data-kit-hydrated', '');
 			return;
 		}
@@ -849,7 +850,8 @@ class OgygiaRegion extends HTMLElement {
 	 */
 	#catch_early_input(fire: () => unknown) {
 		const arm = slots.interaction;
-		if (!arm || this.#app || (kit_hydrates_page() && !ours_on_kit_document(this))) return;
+		if (!arm || this.#app) return;
+		if (KIT_PAGES && kit_hydrates_page() && !ours_on_kit_document(this)) return;
 		this.#hold_capture(arm(this, this.#by_visitor(fire), this.#life));
 	}
 
@@ -1523,6 +1525,7 @@ export function boot(
 	client_plugins: readonly ClientRealm[] = []
 ): void {
 	disclose_version();
+	if (!publish_kit_hydrates()) return;
 	install_rules(import.meta.env.DEV);
 	watch_programs(HAS);
 	runtime_session.adopt_document_head();
@@ -1533,7 +1536,6 @@ export function boot(
 		line
 	};
 	link_boot();
-	publish_kit_hydrates();
 	for (const install of installers) install();
 	// The build's location map, pinned to this page's address before any navigation moves it
 	pin_build_map();

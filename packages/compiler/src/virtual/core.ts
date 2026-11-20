@@ -526,6 +526,9 @@ export interface ConstantInput {
 	/** the runtime hooks some plugin's browser half subscribes to */
 	hooks: readonly RuntimeHookName[];
 	kit_major: number | null;
+	/** Kit may hydrate a document the app serves (kit.ts `kit_may_hydrate`; dev and a federated
+	 *  app: always) */
+	kit_pages: boolean;
 	version: string;
 	dev_server: boolean;
 }
@@ -614,6 +617,13 @@ export const kit_major: Constant<VirtualConstants['__OGYGIA_KIT_MAJOR__']> = vir
 	id: '__OGYGIA_KIT_MAJOR__',
 	from: (o: ConstantInput) => o.kit_major
 });
+/** Kit may hydrate a document the app serves (a csr=true page, error render or routeless response,
+ *  or a `csr` the build cannot read); off, the runtime's and island code's mixed-mode paths fold out
+ *  and a document that says Kit hydrates it is refused at boot (`kit_page_unbuilt`) */
+export const kit_pages: Constant = virtual.constant({
+	id: '__OGYGIA_KIT_PAGES__',
+	from: (o: ConstantInput) => o.kit_pages
+});
 /** the installed ogygia's version, which the runtime discloses (`window.__ogygia.v`) */
 export const version: Constant<VirtualConstants['__OGYGIA_VERSION__']> = virtual.constant({
 	id: '__OGYGIA_VERSION__',
@@ -653,6 +663,7 @@ export const CORE_CONSTANTS: readonly Constant<boolean | number | string | null>
 	hook_load_started,
 	hook_warning,
 	kit_major,
+	kit_pages,
 	version,
 	dev_hmr_url
 ];

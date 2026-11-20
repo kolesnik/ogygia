@@ -51,6 +51,7 @@ const walk_enters = (el: Element) => boot_link()[L_WALK_ENTERS](el);
 const is_self_owned = (el: Element) => boot_link()[L_IS_SELF_OWNED](el);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 const HOOK_REGION_HYDRATED: boolean =
 	typeof __OGYGIA_HOOK_REGION_HYDRATED__ !== 'undefined' ? __OGYGIA_HOOK_REGION_HYDRATED__ : true;
 const HOOK_REGION_MISMATCHED =
@@ -583,7 +584,7 @@ export function hydrate_island(
 
 	const props = capture_region_ids(region, () => read_region_props(region, foreign));
 
-	if (kit_hydrates_page() && !boot_link()[L_OURS_ON_KIT_DOCUMENT](region)) {
+	if (KIT_PAGES && kit_hydrates_page() && !boot_link()[L_OURS_ON_KIT_DOCUMENT](region)) {
 		region.setAttribute('data-kit-hydrated', '');
 		if (import.meta.env.DEV) {
 			warn('island_on_kit_page', { entry });
@@ -591,7 +592,7 @@ export function hydrate_island(
 		return null;
 	}
 
-	if (!kit_hydrates_page() && !head_markers_neutralized) {
+	if (!(KIT_PAGES && kit_hydrates_page()) && !head_markers_neutralized) {
 		head_markers_neutralized = true;
 		neutralize_head_hydration_markers();
 	}
@@ -612,7 +613,8 @@ export function hydrate_island(
 			: { repaired: false, reason: null, conflict: null };
 	const repaired = drift.repaired;
 	try {
-		head_mark = kit_hydrates_page() ? null : boot_link()[L_RUNTIME_SESSION].mark_head();
+		head_mark =
+			KIT_PAGES && kit_hydrates_page() ? null : boot_link()[L_RUNTIME_SESSION].mark_head();
 		if (!region.isConnected) return null;
 		unmark_html_ranges(region);
 		const ssr_children = Array.from(region.children);
@@ -789,7 +791,7 @@ const nothing = (): void => {};
 
 /** The Kit page's thread an island on a Kit-hydrated document waits for, or null. */
 export function kit_page_wait(el: Element, visit: Life): Promise<unknown> | null {
-	if (!kit_hydrates_page() || !boot_link()[L_OURS_ON_KIT_DOCUMENT](el)) return null;
+	if (!KIT_PAGES || !kit_hydrates_page() || !boot_link()[L_OURS_ON_KIT_DOCUMENT](el)) return null;
 	return kit_page_thread(visit.signal);
 }
 

@@ -6,7 +6,9 @@ import {
 	error_csr_true_routes,
 	root_layout_csr_true
 } from '#region-server';
-import { KIT_HYDRATES_KEY, KitBoot } from './wire-markup.ts';
+import { kit_answer, kit_meta_of, KitBoot } from './wire-markup.ts';
+
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 
 // The nested-island mark (same `Symbol.for` rule as the keys below) is a leaf: nested.ts says why.
 export { setNested, isNested, nested_wake } from './nested.ts';
@@ -79,10 +81,10 @@ function normalize_route_id(id: string): string {
 }
 
 /** In the browser: the booted runtime's answer, cached once per page (runtime/kit-boot.ts), else the
- *  document's own (a page no runtime booted on, or one an older runtime runs). */
+ *  document's own (a page no runtime booted on, or one an older runtime runs): its probe, or, in a
+ *  build whose routes Kit hydrates none of, its server's csr meta alone. */
 function kit_hydrates_document(): boolean {
-	const ask = (globalThis as unknown as Record<symbol, unknown>)[KIT_HYDRATES_KEY];
-	return typeof ask === 'function' ? (ask as () => boolean)() : KitBoot.document_has(document);
+	return kit_answer() ?? (KIT_PAGES ? KitBoot.document_has(document) : !!kit_meta_of(document));
 }
 
 /**

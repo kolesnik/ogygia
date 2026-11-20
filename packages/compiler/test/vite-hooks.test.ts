@@ -267,6 +267,38 @@ describe('the config hook', () => {
 		expect((await setup('serve')).given.define.__OGYGIA_CLIENT_PLUGINS__).toBe('false');
 	});
 
+	// KIT PAGES (kit.ts `kit_may_hydrate`): the runtime's and island code's mixed-mode paths compile
+	// in unless the build PROVES Kit hydrates no document of the app.
+	const kit_pages = async (command: Command, plugins: unknown[] = []) =>
+		(await setup(command, { plugins })).given.define.__OGYGIA_KIT_PAGES__;
+
+	it('EXCLUDE: a build whose every route is csr = false compiles the mixed-mode code out', async () => {
+		app();
+		expect(await kit_pages('build')).toBe('false');
+	});
+
+	it('INCLUDE: a csr = true page compiles it in', async () => {
+		app();
+		write('src/routes/admin/+page.ts', 'export const csr = true;\n');
+		write('src/routes/admin/+page.svelte', '<h1>admin</h1>\n');
+		expect(await kit_pages('build')).toBe('true');
+	});
+
+	it('UNPROVABLE: a csr only Kit can read compiles it in', async () => {
+		app();
+		write('src/routes/admin/+page.ts', 'export const csr = !import.meta.env.SSR;\n');
+		write('src/routes/admin/+page.svelte', '<h1>admin</h1>\n');
+		expect(await kit_pages('build')).toBe('true');
+	});
+
+	it('the dev server and a federated build keep it, whatever the routes say', async () => {
+		app();
+		expect(await kit_pages('serve')).toBe('true');
+		write('node_modules/x-host/package.json', JSON.stringify({ name: 'x-host' }));
+		const host = definePlugin({ name: 'x-host', build: (b) => b.foreignHydrate() });
+		expect(await kit_pages('build', [host])).toBe('true');
+	});
+
 	it('a standalone build runs none of the ogygia plugins listed beside it', async () => {
 		app();
 		write('node_modules/x-tool/package.json', JSON.stringify({ name: 'x-tool' }));

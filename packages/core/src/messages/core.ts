@@ -111,6 +111,19 @@ export const ERRORS = {
 			fail, and keep their server HTML. Reloading the page loads Kit again. Said once per file.
 		`
 	},
+	kit_page_unbuilt: {
+		text: (): string => prose`
+			SvelteKit hydrates this page (csr=true), but this app's build proved it had no such page and
+			left the runtime's csr=true code out. The runtime does not start here: Kit runs the page.
+		`,
+		details: (): string => prose`
+			The build reads every \`csr\` option in the app's routes. When each one is a literal
+			\`false\` (pages, layouts and error pages alike), it ships a runtime without the code that
+			shares a page with SvelteKit. This page says Kit hydrates it all the same, so its regions
+			keep their server HTML and Kit hydrates the page as it would without ogygia. A page from
+			another build, or a route file the build did not read, does this; else ${BUG}
+		`
+	},
 	chunk_reload_needed: {
 		text: (a: { url: string }): string =>
 			`a file this page needs cannot load until the page reloads: ${a.url}`,
