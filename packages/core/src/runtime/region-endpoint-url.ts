@@ -1,6 +1,5 @@
 import { clock } from '@ogygia/machine';
 import type { HoleRefusal } from '../contract/runtime-hooks.ts';
-import { preload_island_graph } from './island-graph-preload.ts';
 import { LoadSlot } from './load-scheduler.ts';
 import { class_at, fetch_priority_of, PRIORITY, type LoadClass } from './load-class.ts';
 import { STALE, type Flights } from '@ogygia/machine';
@@ -9,6 +8,7 @@ import { entry_location } from './entry-locations.ts';
 import { import_file } from './import-again.ts';
 import { code_url, type CodeUrl } from './code-origins.ts';
 import { lru } from '@ogygia/machine/internal';
+import { slots } from './slots.ts';
 
 /** Hoisted (hot paths — connectedCallback/hydrate run per region); shared with core's
  *  foreign-origin checks. */
@@ -175,8 +175,11 @@ const make_warms = () =>
 			});
 			const release = await slot.ready;
 			try {
-				preload_island_graph(entry, base, fetch_priority_of(slot.cls()));
-				flight.onRaise((p) => preload_island_graph(entry, base, fetch_priority_of(class_at(p))));
+				const graph = slots.graph;
+				if (graph) {
+					graph.preload(entry, base, fetch_priority_of(slot.cls()));
+					flight.onRaise((p) => graph.preload(entry, base, fetch_priority_of(class_at(p))));
+				}
 				return await import_file(url);
 				// oxlint-disable-next-line ogygia/no-silent-failures -- a warm that failed is not kept (STALE); the island's own load asks again and says its failure
 			} catch {

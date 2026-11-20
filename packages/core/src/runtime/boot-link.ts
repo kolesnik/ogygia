@@ -23,7 +23,6 @@ import {
 	region_ssr_truncated,
 	runs_entry
 } from './region-attrs.ts';
-import { register_island_graph } from './island-graph-preload.ts';
 import { props_sidecar_of } from './sidecar.ts';
 import {
 	init_shadow_registries,
@@ -56,6 +55,9 @@ const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAG
 /** Without Kit pages no document of the app is Kit's: one that says so is refused. */
 const KIT_META = { document_has: (doc: ParentNode): boolean => kit_meta_of(doc) === true };
 const no_kit = (): boolean => false;
+/** A router read of a fetched page's graph: the boot's graph reader's, none without one. */
+export const register_graph = (text: string, base?: string): void =>
+	slots.graph?.register(text, base);
 
 export function link_boot(): void {
 	// (in ./boot-link-index.ts's order: the lazy chunks read each by its number)
@@ -63,7 +65,7 @@ export function link_boot(): void {
 		KIT_PAGES ? kit_hydrates_page : no_kit,
 		KIT_PAGES ? KitBoot : KIT_META,
 		ABSOLUTE_URL_SCHEME,
-		register_island_graph,
+		register_graph,
 		is_warmed_module,
 		warm_island_module,
 		runs_entry,
