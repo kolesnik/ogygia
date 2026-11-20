@@ -37,21 +37,25 @@ class SleepWatch {
 	}
 
 	note(records: MutationRecord[]): void {
+		const judged = this.#woken !== 0;
 		for (const r of records) {
-			if (this.#woken && !this.#covers(r.target)) continue;
-			let hidden = false;
+			// the outermost region around the change (no element above it can hide one), and whether a
+			// region still asleep holds the change (one that woke since the last rebuild is observed still)
+			let top: Element | null = null;
+			let held = !judged;
+			for (let n: Node | null = r.target; n; n = n.parentNode) {
+				if (n.nodeType !== 1) continue;
+				if ((n as Element).localName === REGION) top = n as Element;
+				if (!held && this.#asleep.has(n as Element)) held = true;
+			}
+			if (top === null || !held) continue;
 			for (let n: Node | null = r.target; n; n = n.parentNode) {
 				if (n.nodeType !== 1) continue;
 				const el = n as Element;
-				if (el.localName === REGION && !hidden) this.changed.add(el);
-				if (!hidden && !walk_enters(el)) hidden = true;
+				if (el.localName === REGION) this.changed.add(el);
+				if (el === top || !walk_enters(el)) break;
 			}
 		}
-	}
-
-	#covers(n: Node | null): boolean {
-		for (; n; n = n.parentNode) if (this.#asleep.has(n as Element)) return true;
-		return false;
 	}
 
 	#woke(region: Element): void {
