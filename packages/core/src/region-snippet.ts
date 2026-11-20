@@ -228,7 +228,7 @@ function make(desc: RegionSnippetDescriptor, live_entry: Component | null = null
 					});
 				};
 				if (live_entry) boot(live_entry);
-				else
+				else if (BROWSER)
 					hold_host(
 						el,
 						// its location (the page's island graph named it), not the stable name
