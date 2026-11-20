@@ -2277,7 +2277,7 @@
 			"reason": "a rule's message wording (dev and e2e only), constant text; said in packages/core/test/server-rules.test.ts"
 		},
 		{
-			"id": "packages/core/src/hooks.ts > OgygiaHandle > #hole_cache",
+			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #hole_cache",
 			"reason": "a hole's cache key and the start of its read observation (a RequestEvent, not cloneable), constant work; run by packages/flags/test/hole-cache.test.ts through cached_render and the e2e hole suites"
 		},
 		{
@@ -4509,7 +4509,7 @@
 			"reason": "one hole answer's render context: Kit's context Map (live request objects, not cloneable), copied once with the nested mark when the hole wakes, constant work; proven in packages/core/test/woken-hole-capability.test.ts"
 		},
 		{
-			"id": "packages/core/src/hooks.ts > over_budget",
+			"id": "packages/core/src/server/region-response.ts > over_budget",
 			"reason": "an error path: one 429 Response per refused request (a Response, not cloneable), constant work; proven in packages/core/test/batch-render-budget.test.ts (#959)"
 		},
 		{
@@ -4797,15 +4797,15 @@
 			"reason": "browser only: gives inserted shadow roots the page's registry (moved from parse-html.ts); proven in packages/core/test/browser/inert-parse.test.ts"
 		},
 		{
-			"id": "packages/core/src/hooks.ts > claim_of",
+			"id": "packages/core/src/server/islands-endpoint.ts > claim_of",
 			"reason": "copies five fields of a parsed capability into the claim it signs, constant work; the handle runs only inside a Kit server build, and the signing it feeds is benched (packages/core/bench/region-capability.bench.ts)"
 		},
 		{
-			"id": "packages/core/src/hooks.ts > OgygiaHandle > #capability_parcel",
+			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #capability_parcel",
 			"reason": "one batched hole's steps (precheck, verify, charge, render) on a Kit request event nothing can clone; the handle runs only inside a Kit server build, its moves are benched (packages/core/bench/region-capability.bench.ts `region_request`) and its order is proven in packages/core/test/region-request-order.test.ts and the e2e hole suites"
 		},
 		{
-			"id": "packages/core/src/hooks.ts > OgygiaHandle > #region_answer",
+			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #region_answer",
 			"reason": "one region GET's steps (precheck, verify, charge, render) on a Kit request event nothing can clone; the handle runs only inside a Kit server build, its moves are benched (packages/core/bench/region-capability.bench.ts `region_request`) and its order is proven in packages/core/test/region-request-order.test.ts and the e2e hole suites"
 		},
 		{
@@ -6951,6 +6951,46 @@
 		{
 			"id": "packages/machine/src/scope.ts > closed_scope",
 			"reason": "module setup: makes the one closed scope (CLOSED), once per process"
+		},
+		{
+			"id": "packages/core/src/hooks.ts > OgygiaHandle > #unbuilt",
+			"reason": "an error path: a request for the islands endpoint on a build without one, one 404 and one said line, constant work; proven in packages/core/test/endpoint-unbuilt.test.ts"
+		},
+		{
+			"id": "packages/core/src/hooks.ts > OgygiaHandle > #unbuilt > once:1~6cf78c",
+			"reason": "an error path: prints the coded line once per handle; proven in packages/core/test/endpoint-unbuilt.test.ts"
+		},
+		{
+			"id": "packages/core/src/hooks.ts > OgygiaHandle > constructor > IslandsEndpoint:0~e289a8 > pass",
+			"reason": "one call forwarded to html_pass on a Kit request event nothing can clone, constant work; the endpoint runs only inside a Kit server build (packages/core/test/endpoint-unbuilt.test.ts and the e2e hole suites)"
+		},
+		{
+			"id": "packages/core/src/hooks.ts > OgygiaHandle > constructor > IslandsEndpoint:0~e289a8 > render_over",
+			"reason": "one call forwarded to the handle's render budget, constant work; the budget is proven in packages/core/test/batch-render-budget.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/runtime-entry.ts > generateServerFlagsSource",
+			"reason": "build-only: one module source per build, constant work; proven in packages/compiler/test/runtime-flags.test.ts"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > region_endpoint_unbuilt > details",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > region_endpoint_unbuilt > text",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > region_program_unbuilt > details",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > region_program_unbuilt > text",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/core/src/region-server.browser.ts > need_program",
+			"reason": "the browser's stand-in: does nothing (the server's word gates what the server writes), constant work"
 		}
 	]
 }
