@@ -14,7 +14,7 @@
  */
 import { dirname, relative, sep } from 'node:path';
 import { resolveSpecifier } from './specifier.ts';
-import { parseSync } from 'oxc-parser';
+import { parseSync } from './oxc.ts';
 import ts from 'typescript';
 import type { N } from './ast.ts';
 import { declarations } from './types.ts';

@@ -9,7 +9,7 @@
  * @packageDocumentation
  */
 import { transformSync } from 'esbuild';
-import { parseSync } from 'oxc-parser';
+import { parseSync } from './oxc.ts';
 import { analyze } from 'periscopic';
 import type { N } from './ast.ts';
 import { markOf, type Marks } from './marks.ts';

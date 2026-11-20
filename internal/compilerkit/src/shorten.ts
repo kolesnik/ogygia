@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 import MagicString from 'magic-string';
-import { parseSync } from 'oxc-parser';
+import { parseSync } from './oxc.ts';
 import { walk } from 'zimmerframe';
 import type { N } from './ast.ts';
 

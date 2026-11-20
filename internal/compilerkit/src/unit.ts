@@ -9,7 +9,7 @@
  *
  * @packageDocumentation
  */
-import { parseSync } from 'oxc-parser';
+import { parseSync } from './oxc.ts';
 import type { N } from './ast.ts';
 import type { Report } from './report.ts';
 

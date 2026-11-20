@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 import { readFileSync } from 'node:fs';
-import { parseSync } from 'oxc-parser';
+import { parseSync } from './oxc.ts';
 import { keyName, type N } from './ast.ts';
 import { DEV_CHECK } from './gate.ts';
 

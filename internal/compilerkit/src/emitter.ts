@@ -11,7 +11,7 @@
  * @packageDocumentation
  */
 import MagicString from 'magic-string';
-import { parseSync } from 'oxc-parser';
+import { parseSync } from './oxc.ts';
 import { countStatements, type N } from './ast.ts';
 import type { Report } from './report.ts';
 
