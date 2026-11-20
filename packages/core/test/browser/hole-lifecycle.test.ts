@@ -19,6 +19,8 @@ const ep = (id: string, props = 'W3t9XQ') =>
 const real_fetch = window.fetch;
 beforeEach(() => {
 	document.body.innerHTML = '';
+	// @why the browser keeps 250 resource entries and drops the rest; a dev run loads each source module as one (test: hole-lifecycle › a region taken out while its island loads and put back wakes once, and stops catching clicks once awake)
+	performance.clearResourceTimings();
 });
 afterEach(() => {
 	window.fetch = real_fetch;
