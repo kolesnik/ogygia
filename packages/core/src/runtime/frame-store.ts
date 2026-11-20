@@ -92,20 +92,17 @@ type Store = {
 	world: World;
 	entries: Cache<string, Entry>;
 	flights: FrameFlights;
+	/** the machines of an address's answer and of its batch part, made with the store: the module
+	 *  does nothing as it loads, so a server that reaches it through code it never runs (a browser
+	 *  decode's write) carries none of it */
+	answers: ReturnType<typeof answer_definition>;
+	parts: ReturnType<typeof part_definition>;
 };
 
 const STORE_KEY = '__ogygia_frame_store__';
-const ANSWER_KEY = '__ogygia_frame_answer__';
-const PART_KEY = '__ogygia_frame_part__';
 const store_host = (typeof globalThis !== 'undefined' ? globalThis : {}) as {
 	[STORE_KEY]?: Store;
-	[ANSWER_KEY]?: ReturnType<typeof answer_definition>;
-	[PART_KEY]?: ReturnType<typeof part_definition>;
 };
-// (made on first use: the module does nothing as it loads, so a server that reaches it through code
-// it never runs, a browser decode's write, carries none of it)
-const answers = () => (store_host[ANSWER_KEY] ??= answer_definition());
-const parts = () => (store_host[PART_KEY] ??= part_definition());
 
 function store(): Store {
 	return (store_host[STORE_KEY] ??= make_store());
@@ -134,7 +131,14 @@ function make_store(): Store {
 			typeof work === 'function' ? fetch_frame(a, work, signal, flight) : work
 	});
 	own.defer(() => frames[life.DISPOSE]());
-	return { life: own, world: world(), entries, flights: frames };
+	return {
+		life: own,
+		world: world(),
+		entries,
+		flights: frames,
+		answers: answer_definition(),
+		parts: part_definition()
+	};
 }
 
 function shown_of(e: Entry): Shown | null {
@@ -182,10 +186,11 @@ const flying = (a: string): boolean => store_host[STORE_KEY]?.flights.peek({ a }
 const live = (a: string): boolean => watcher_count(frame_id(a)) > 0 || flying(a);
 
 function entry(a: string): Entry {
-	const entries = store().entries;
+	const s = store();
+	const entries = s.entries;
 	let e = entries.peek(a);
 	if (!e) {
-		e = { answer: fsm.create(answers()), part: null, renewed: null, refused: null };
+		e = { answer: fsm.create(s.answers), part: null, renewed: null, refused: null };
 		entries.set(a, e);
 	}
 	return e;
@@ -262,10 +267,11 @@ export function write(f: StoredFrame): boolean {
 export function reserve(a: string): void {
 	const e = entry(a);
 	if (shown_of(e) !== null || flying(a)) return;
-	const part = (e.part = fsm.create(parts()));
-	const landed = part.wait('landed').then((s) => (s === STALE ? STALE : s.html));
+	const s = store();
+	const part = (e.part = fsm.create(s.parts));
+	const landed = part.wait('landed').then((p) => (p === STALE ? STALE : p.html));
 	const settled = () => schedule_evict(a, e);
-	store().flights.get({ a, work: landed }).then(settled, settled);
+	s.flights.get({ a, work: landed }).then(settled, settled);
 }
 
 /**
