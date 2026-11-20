@@ -79,7 +79,7 @@ export function read_parcel(buf: string, from: number): Parcel | null {
 
 const STALL_MS = stream.deadline;
 
-const batch_stream = fsm.definition<{ sending: {}; reading: {}; stalled: {} }>()({
+const batch_stream = $machine<{ sending: {}; reading: {}; stalled: {} }>()({
 	name: 'batch-stream',
 	initial: 'sending',
 	steps: {

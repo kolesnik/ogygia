@@ -18,7 +18,7 @@ const region_steps = {
 	scheduled: ['connected', 'detached']
 } as const;
 
-const region_definition = fsm.definition<RegionStates>()({
+const region_definition = $machine<RegionStates>()({
 	name: 'region-life',
 	initial: 'detached',
 	steps: region_steps
@@ -79,7 +79,7 @@ const hole_steps = {
 	failed: ['idle', 'armed', 'fetching']
 } as const;
 
-const hole_definition = fsm.definition<HoleStates>()({
+const hole_definition = $machine<HoleStates>()({
 	name: 'hole',
 	initial: 'idle',
 	steps: hole_steps
@@ -121,7 +121,7 @@ const answer_steps = {
 	kept: ['answered', 'kept']
 } as const;
 
-const answer_definition = fsm.definition<AnswerStates>()({
+const answer_definition = $machine<AnswerStates>()({
 	name: 'hole-answer',
 	initial: 'none',
 	steps: answer_steps
@@ -159,7 +159,7 @@ const wake_steps = {
 	failed: ['cold']
 } as const;
 
-const wake_definition = fsm.definition<WakeStates>()({
+const wake_definition = $machine<WakeStates>()({
 	name: 'wake',
 	initial: 'cold',
 	steps: wake_steps
@@ -202,7 +202,7 @@ const live_steps = {
 	failed: ['idle', 'static', 'hydrating']
 } as const;
 
-const live_definition = fsm.definition<LiveStates>()({
+const live_definition = $machine<LiveStates>()({
 	name: 'live-region',
 	initial: 'idle',
 	steps: live_steps
@@ -233,7 +233,7 @@ const paint_steps = {
 	painting: ['painting', 'idle']
 } as const;
 
-const paint_definition = fsm.definition<PaintStates>()({
+const paint_definition = $machine<PaintStates>()({
 	name: 'region-paint',
 	initial: 'idle',
 	steps: paint_steps

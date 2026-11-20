@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 
-const INSTRUMENTS = fileURLToPath(new URL('../src/internal-instruments.ts', import.meta.url));
+const INSTRUMENTS = fileURLToPath(new URL('../dist/internal-instruments.js', import.meta.url));
 
 it('the instruments entry loads in plain Node, with no ogygia: virtual module on its path', () => {
 	const run = () =>

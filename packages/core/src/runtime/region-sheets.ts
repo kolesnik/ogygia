@@ -18,7 +18,7 @@ const sheet_steps = {
 	failed: []
 } as const;
 
-const sheet_definition = fsm.definition<SheetStates>()({
+const sheet_definition = $machine<SheetStates>()({
 	name: 'region-sheet',
 	initial: 'loading',
 	steps: sheet_steps

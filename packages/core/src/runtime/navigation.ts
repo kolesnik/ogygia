@@ -41,7 +41,7 @@ const steps = {
 	settling: ['claimed', 'idle']
 } as const;
 
-const definition = fsm.definition<States>()({ name: 'navigation', initial: 'idle', steps });
+const definition = $machine<States>()({ name: 'navigation', initial: 'idle', steps });
 
 /** The navigation machine the router holds. */
 export type Navigation = Run<States, typeof steps>;

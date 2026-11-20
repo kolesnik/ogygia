@@ -29,7 +29,7 @@ const store = cache<string, FieldRec[]>({ name: 'form continuity', max: MAX_PAGE
 const RESTORE_WINDOW_MS = 5000;
 
 const restore_window = fsm.create(
-	fsm.definition<{ idle: {}; open: {} }>()({
+	$machine<{ idle: {}; open: {} }>()({
 		name: 'form-restore',
 		initial: 'idle',
 		steps: { idle: ['open'], open: ['idle'] },

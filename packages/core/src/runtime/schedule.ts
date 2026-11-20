@@ -61,7 +61,7 @@ export function turns_counted(p: PendingTurns = P): string | null {
 }
 watch_turns(turns_counted);
 
-const drain_definition = fsm.definition<{ idle: {}; queued: {}; waiting: { at: number } }>()({
+const drain_definition = $machine<{ idle: {}; queued: {}; waiting: { at: number } }>()({
 	name: 'hydrate-drain',
 	initial: 'idle',
 	steps: {

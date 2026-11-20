@@ -20,7 +20,7 @@ export type LakeCacheEntry = {
 	maxAgeMs: number;
 };
 
-const LAKE = fsm.definition<{ open: {}; waited: {}; settling: {}; settled: {} }>()({
+const LAKE = $machine<{ open: {}; waited: {}; settling: {}; settled: {} }>()({
 	name: 'lake',
 	initial: 'open',
 	steps: {

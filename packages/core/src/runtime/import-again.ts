@@ -268,7 +268,7 @@ export function import_again<T>(
  * is that load (a fresh URL after a success would be a second copy of the module). `stuck`: a retry's
  * own file came and it still failed, a dependency's failure: every later call fails at once with it.
  */
-const file_definition = fsm.definition<{
+const file_definition = $machine<{
 	fresh: {};
 	failed: { url: string; attempt: number; verdict?: Promise<void> };
 	loaded: { run: Promise<unknown> };

@@ -16,7 +16,7 @@ import * as fsm from '@ogygia/machine/internal';
 type States = { idle: {}; refreshing: { href: string } };
 const steps = { idle: ['refreshing'], refreshing: ['refreshing', 'idle'] } as const;
 
-const definition = fsm.definition<States>()({ name: 'soft refresh', initial: 'idle', steps });
+const definition = $machine<States>()({ name: 'soft refresh', initial: 'idle', steps });
 
 /** The page's soft refresh machine. */
 export type SoftRefresh = Run<States, typeof steps>;

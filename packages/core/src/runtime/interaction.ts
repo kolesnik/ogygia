@@ -101,7 +101,7 @@ const arming_steps = {
 	over: []
 } as const;
 
-const arming_definition = fsm.definition<{ armed: {}; woken: {}; over: {} }>()({
+const arming_definition = $machine<{ armed: {}; woken: {}; over: {} }>()({
 	name: 'interaction-arming',
 	initial: 'armed',
 	steps: arming_steps

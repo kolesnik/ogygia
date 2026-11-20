@@ -50,7 +50,7 @@ export function viewport_class(el: Element): 'visible' | 'ahead' {
 export type { CriticalOutcome };
 type CriticalReport = { outcome: CriticalOutcome; resources: number; waited_ms: number };
 
-const gate_definition = fsm.definition<{
+const gate_definition = $machine<{
 	fresh: {};
 	touched: {};
 	waiting: { t0: number; resources: number };

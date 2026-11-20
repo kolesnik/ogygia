@@ -48,7 +48,7 @@ type AnswerStates = {
 };
 
 const answer_definition = () =>
-	fsm.definition<AnswerStates>()({
+	$machine<AnswerStates>()({
 		name: 'stored-answer',
 		initial: 'empty',
 		steps: { empty: ['shown'], shown: ['shown', 'kept'], kept: ['shown', 'kept'] }
@@ -63,7 +63,7 @@ type PartStates = {
 };
 
 const part_definition = () =>
-	fsm.definition<PartStates>()({
+	$machine<PartStates>()({
 		name: 'frame-part',
 		initial: 'promised',
 		steps: { promised: ['landed', 'missed'], landed: [], missed: [] }
