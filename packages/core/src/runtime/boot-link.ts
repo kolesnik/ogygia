@@ -8,7 +8,8 @@
 import { cache, flights, STALE, world } from '@ogygia/machine';
 import { slots } from './slots.ts';
 import { create_soft_refresh } from './soft-refresh.ts';
-import { KitBoot, kit_hydrates_page } from './kit-boot.ts';
+import { kit_hydrates_page } from './kit-boot.ts';
+import { KitBoot } from '../wire-markup.ts';
 import {
 	ABSOLUTE_URL_SCHEME,
 	is_warmed_module,

@@ -1,5 +1,5 @@
 import { untrack } from 'svelte';
-import { island_graph_script, modulepreload_tag } from '../server/document-tail.ts';
+import { island_graph_script, modulepreload_tag } from '#region-server';
 import { graph_hrefs, location_of } from './locate.ts';
 import type { IslandWire } from './island-wire.svelte.ts';
 import type { RegionPlan } from './plan.svelte.ts';

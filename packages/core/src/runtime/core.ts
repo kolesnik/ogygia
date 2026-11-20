@@ -14,7 +14,15 @@ import {
 } from '@ogygia/machine';
 import { frameAddress, older_by, stands_at, type FrameOrder } from '../frame.ts';
 import { on_trigger, WAKE } from '../contract/trigger.ts';
-import { OG_BAKED, OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from '../wire-markup.ts';
+import {
+	KIT_HYDRATES_KEY,
+	OG_BAKED,
+	OG_FP,
+	OG_HOLE,
+	OG_KEPT,
+	OG_STATIC,
+	OGYGIA_REGION_CSS
+} from '../wire-markup.ts';
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
 import { FRAMES } from 'ogygia:boot';
@@ -1702,6 +1710,7 @@ export function boot(
 		line
 	};
 	link_boot();
+	(globalThis as unknown as Record<symbol, unknown>)[KIT_HYDRATES_KEY] = kit_hydrates_page;
 	for (const install of installers) install();
 	// The build's location map, pinned to this page's address before any navigation moves it
 	pin_build_map();

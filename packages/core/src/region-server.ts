@@ -26,3 +26,4 @@ export {
 } from 'ogygia:server';
 export { runtime_bootstrap } from './server/entry-location.ts';
 export { region_css_tag, head_owner_attr } from './server/region-css.ts';
+export { document_tail, island_graph_script, modulepreload_tag } from './server/document-tail.ts';

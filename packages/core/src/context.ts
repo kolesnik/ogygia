@@ -6,7 +6,7 @@ import {
 	error_csr_true_routes,
 	root_layout_csr_true
 } from '#region-server';
-import { kit_hydrates_page } from './runtime/kit-boot.ts';
+import { KIT_HYDRATES_KEY, KitBoot } from './wire-markup.ts';
 
 // The nested-island mark (same `Symbol.for` rule as the keys below) is a leaf: nested.ts says why.
 export { setNested, isNested, nested_wake } from './nested.ts';
@@ -78,6 +78,13 @@ function normalize_route_id(id: string): string {
 	return `/${segs.join('/')}`;
 }
 
+/** In the browser: the booted runtime's answer, cached once per page (runtime/kit-boot.ts), else the
+ *  document's own (a page no runtime booted on, or one an older runtime runs). */
+function kit_hydrates_document(): boolean {
+	const ask = (globalThis as unknown as Record<symbol, unknown>)[KIT_HYDRATES_KEY];
+	return typeof ask === 'function' ? (ask as () => boolean)() : KitBoot.document_has(document);
+}
+
 /**
  * Does Kit hydrate THIS WHOLE DOCUMENT? The leaf page's effective csr is the single fact that decides
  * it, so a `<Region>` reads it directly — no per-host context cascade. When true, every island (a
@@ -88,7 +95,7 @@ function normalize_route_id(id: string): string {
  * number indirectly through the context cascade.)
  */
 export function documentIsCsrTrue(error_render = false): boolean {
-	if (BROWSER) return kit_hydrates_page();
+	if (BROWSER) return kit_hydrates_document();
 	try {
 		const event = get_request_event() as { route?: { id?: string | null } };
 		// An ERROR render (a 404 / 500 page) is Kit's layout-branch decision, not the page's: the

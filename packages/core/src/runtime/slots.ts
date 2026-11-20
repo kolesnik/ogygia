@@ -158,7 +158,7 @@ export type NavOps = {
  */
 export type BootLink = {
 	kit_hydrates_page: typeof import('./kit-boot.ts').kit_hydrates_page;
-	KitBoot: typeof import('./kit-boot.ts').KitBoot;
+	KitBoot: typeof import('../wire-markup.ts').KitBoot;
 	ABSOLUTE_URL_SCHEME: RegExp;
 	register_island_graph: typeof import('./island-graph-preload.ts').register_island_graph;
 	is_warmed_module: typeof import('./region-endpoint-url.ts').is_warmed_module;
