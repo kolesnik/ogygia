@@ -3,7 +3,6 @@ import { kit_hydrates_page } from './kit-boot.ts';
 import {
 	clock,
 	flights,
-	machine,
 	queue,
 	type InFlight,
 	type Place,
@@ -12,6 +11,7 @@ import {
 } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import { emit as dt_emit } from '../events/bus.ts';
 import { class_at, PRIORITY, type LoadClass } from './load-class.ts';
 import { on_screen, watch_viewport } from './viewport.ts';
@@ -50,7 +50,7 @@ export function viewport_class(el: Element): 'visible' | 'ahead' {
 export type { CriticalOutcome };
 type CriticalReport = { outcome: CriticalOutcome; resources: number; waited_ms: number };
 
-const gate_definition = machine<{
+const gate_definition = fsm.definition<{
 	fresh: {};
 	touched: {};
 	waiting: { t0: number; resources: number };
@@ -75,7 +75,7 @@ function waits_for_critical(kind: LoadKind, cls: LoadClass): boolean {
 }
 
 class LoadScheduler {
-	gate = gate_definition.create();
+	gate = fsm.create(gate_definition);
 	readonly critical = flights({ name: 'critical resources', run: () => this.#until_critical() });
 	#owner: Life = life.root();
 	line: Queue<LoadSlot> = this.#open_line();
@@ -102,23 +102,23 @@ class LoadScheduler {
 	}
 
 	critical_done(): boolean {
-		return this.gate.now.kind === 'settled';
+		return fsm.kind(this.gate) === 'settled';
 	}
 
 	on_first_input(): void {
-		const kind = this.gate.now.kind;
-		if (kind === 'fresh') this.gate.go('touched');
+		const kind = fsm.kind(this.gate);
+		if (kind === 'fresh') fsm.go(this.gate, 'touched');
 		else if (kind === 'waiting') this.settle_critical('input');
 	}
 
 	settle_critical(outcome: CriticalOutcome): void {
-		const s = this.gate.now;
+		const s = fsm.now(this.gate);
 		if (s.kind === 'settled') return;
 		const report: CriticalReport =
 			s.kind === 'waiting'
 				? { outcome, resources: s.resources, waited_ms: Math.round(now() - s.t0) }
 				: { outcome, resources: 0, waited_ms: 0 };
-		this.gate.go('settled', { report });
+		fsm.go(this.gate, 'settled', { report });
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'load.critical', ...report });
 		if (HOOK_CRITICAL_SETTLED)
 			slots.hooks?.criticalSettled?.({
@@ -132,12 +132,12 @@ class LoadScheduler {
 	#until_critical(): Promise<void> {
 		return after_document_painted().then(async () => {
 			const gate = this.gate;
-			const s = gate.now;
+			const s = fsm.now(gate);
 			if (s.kind === 'settled') return;
 			const waiting =
 				s.kind === 'touched' || document.visibilityState === 'hidden' ? [] : pending_critical();
 			if (!waiting.length) return this.settle_critical('none');
-			gate.go('waiting', { t0: now(), resources: waiting.length });
+			fsm.go(gate, 'waiting', { t0: now(), resources: waiting.length });
 			const wait = life.visit(gate);
 			life.later(wait, () => this.settle_critical('cap'), CRITICAL_CAP_MS);
 			let left = waiting.length;
@@ -148,7 +148,7 @@ class LoadScheduler {
 				life.listen(wait, el, 'load', one, { once: true });
 				life.listen(wait, el, 'error', one, { once: true });
 			}
-			$await(gate.wait('settled'));
+			$await(fsm.wait(gate, 'settled'));
 		});
 	}
 
@@ -157,8 +157,8 @@ class LoadScheduler {
 		this.#owner = life.root();
 		this.line = this.#open_line();
 		this.critical.drop(() => true);
-		this.gate.stop();
-		this.gate = gate_definition.create();
+		fsm.stop(this.gate);
+		this.gate = fsm.create(gate_definition);
 	}
 }
 
@@ -176,7 +176,7 @@ if (typeof document !== 'undefined') {
 
 /** The critical wait's outcome once it settled (the profiler's beacon reads it), else `null`. */
 export function critical_outcome(): CriticalReport | null {
-	const s = scheduler.gate.now;
+	const s = fsm.now(scheduler.gate);
 	return s.kind === 'settled' ? s.report : null;
 }
 

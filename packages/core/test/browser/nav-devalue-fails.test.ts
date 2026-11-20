@@ -8,6 +8,7 @@
 // spent. (Dropping devalue's download at the network would also drop it for the test files running
 // beside this one in the same browser page.)
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { boot_link } from '../../src/runtime/slots.ts';
@@ -41,7 +42,7 @@ test('devalue that fails to load ends the navigation and gives the address to th
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
 		// (what the browser's navigation would end: the router's visit)
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 	const to = new URL('/nav-devalue-fails-next', location.href);
 	await r.navigate(to).catch(() => {});

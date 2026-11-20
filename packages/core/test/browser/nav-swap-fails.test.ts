@@ -7,6 +7,7 @@
 // The view transition is the browser's own (Chromium has `startViewTransition`); the browser's
 // navigation is the router's `hand_off`, heard here instead of leaving the test page.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
@@ -53,7 +54,7 @@ for (const [what, marker] of [
 		vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 			handed.push(url.href);
 			// (what the browser's navigation would end: the router's visit)
-			if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+			if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 		});
 		const after: string[] = [];
 		r.afterNavigate((nav) => nav.type !== 'enter' && after.push(nav.to.url.pathname));

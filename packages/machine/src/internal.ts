@@ -20,12 +20,27 @@ export {
 	life_of,
 	listen,
 	on_close,
-	reopen,
 	signal,
 	task,
 	timeout,
-	view,
 	watch,
 	type Life
 } from './scope.ts';
-export { visit } from './machine.ts';
+export { visit } from './run.ts';
+export {
+	create,
+	data,
+	definition,
+	epoch,
+	go,
+	is,
+	kind,
+	move,
+	now,
+	stop,
+	wait,
+	type Def,
+	type Run,
+	type RunOf
+} from './run.ts';
+export { graph, paths } from './machine.ts';

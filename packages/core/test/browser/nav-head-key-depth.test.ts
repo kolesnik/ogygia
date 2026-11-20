@@ -3,6 +3,7 @@
 // `/dashboard/orders`, one file. A client navigation between the two must see one file, so the head
 // keeps one node for it, as a fresh load of the next page has.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
@@ -49,7 +50,7 @@ afterEach(() => {
 test('a navigation to a page at another depth keeps one head node for the same file', async () => {
 	const r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation(() => {
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 	await r.navigate(new URL('/shop/dashboard/orders', location.href));
 	await expect
@@ -68,7 +69,7 @@ test('a navigation to a page at another depth keeps one head node for the same f
 async function to_orders(): Promise<void> {
 	const r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation(() => {
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 	await r.navigate(new URL('/shop/dashboard/orders', location.href));
 	await expect
@@ -119,7 +120,7 @@ test('a kept, loaded sheet is not fetched again across depths, and still names i
 	next_extra = `<link rel="stylesheet" data-og-key-depth href="../${SHEET}">`;
 	const r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation(() => {
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 	await r.navigate(new URL('/test/browser/deep/orders', location.href));
 	await expect.poll(() => r.nav.now.kind, { timeout: 2_000 }).toBe('idle');

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { history_room } from './_history-budget.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
@@ -32,7 +33,7 @@ beforeEach(async () => {
 	r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.pathname);
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 });
 

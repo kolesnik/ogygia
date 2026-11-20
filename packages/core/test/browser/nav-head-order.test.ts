@@ -4,6 +4,7 @@
 // router put every <style> and stylesheet <link> the next page carries at the TOP of <head>, above
 // the app's globals, so the same page looked different reached by a click than by a load.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
@@ -57,7 +58,7 @@ test("the next page's own sheets land after the app's global <style>, as on a fr
 	const handed: string[] = [];
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 	for (const path of ['/nav-order-a', '/nav-order-b']) {
 		await r.navigate(new URL(path, location.href));

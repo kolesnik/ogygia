@@ -158,8 +158,9 @@ const CAPTURE: EventListenerOptions = { capture: true };
  *   three values followed by `WITH`, run newest first. Holding one makes no closure.
  * - Its children are a list through their `_prev`/`_next`, newest `_last`: one that closes leaves
  *   in constant time.
- * - `_epoch` is 0 or more while open and `-1 - epoch` once closed. `reopen` opens a closed one as
- *   the next visit (`epoch + 1`), so a holder of an older epoch knows its visit is over.
+ * - `_epoch` is 0 or more while open and `-1 - epoch` once closed. A closed life stays closed: a
+ *   machine's next visit is a life of its own, so code that kept a visit's life past the visit
+ *   (across an `await`) only ever finds it closed.
  */
 export class Life {
 	/** The machine whose visit it is, or null: names it in what its close throws. */
@@ -325,7 +326,10 @@ export function closed(l: Life): boolean {
 
 /** @internal A life that closes when `l` does, before `l`'s own cleanups; closed when `l` is. */
 export function child(l: Life): Life {
-	const k = new Life(l, null);
+	return link(l, new Life(l, null));
+}
+
+function link(l: Life, k: Life): Life {
 	if (l._epoch < 0) {
 		k._parent = null;
 		k._epoch = -1;
@@ -336,16 +340,6 @@ export function child(l: Life): Life {
 	if (last !== null) last._next = k;
 	l._last = k;
 	return k;
-}
-
-/** @internal Opens a closed life again as its next visit (a new epoch). Returns it. */
-export function reopen(l: Life): Life {
-	if (l._epoch < 0) {
-		l._epoch = -l._epoch;
-		l._abort = l._settling = null;
-		l._awaited = false;
-	}
-	return l;
 }
 
 /** @internal Listens until `l` closes, as `Scope.on`, with no handle. */
@@ -561,35 +555,25 @@ export function held(l: Life): number {
 
 /** @internal A life closed for good: what a stale view, or the scope of an owner that ended,
  *  works on. */
-export const ENDED: Life = new Life(null, null);
-ENDED._epoch = -1;
+export const ENDED: Life = /* @__PURE__ */ ended();
+
+function ended(): Life {
+	const l = new Life(null, null);
+	l._epoch = -1;
+	return l;
+}
 
 /**
- * The public `Scope`: a view of one life during one epoch. Once that life closes it acts closed,
- * and stays closed when the life is opened again for a later visit.
+ * The public `Scope`: a life with the methods an app calls, so a scope is its own life and every
+ * function above works on it as it is.
  */
-class Scoped implements Scope {
-	_life: Life;
-	_epoch: number;
-
-	constructor(l: Life) {
-		this._life = l;
-		this._epoch = l._epoch;
-	}
-
-	/** Its life while it is this view's epoch (open or closed), else a life closed for good. */
-	get _at(): Life {
-		const l = this._life;
-		const e = l._epoch;
-		return e === this._epoch || e === -1 - this._epoch ? l : ENDED;
-	}
-
+class Scoped extends Life implements Scope {
 	get closed(): boolean {
-		return this._at._epoch < 0;
+		return this._epoch < 0;
 	}
 
 	get signal(): AbortSignal {
-		return signal(this._at);
+		return signal(this);
 	}
 
 	on(
@@ -598,83 +582,81 @@ class Scoped implements Scope {
 		listener: (...args: never[]) => void,
 		options?: boolean | AddEventListenerOptions
 	): () => void {
-		const l = this._at;
-		return early(l, hear(l, target, type, listener, options));
+		return early(this, hear(this, target, type, listener, options));
 	}
 
 	timeout(fn: () => void, when: When): () => void {
-		const l = this._at;
-		return early(l, arm(l, fn, when));
+		return early(this, arm(this, fn, when));
 	}
 
 	every(fn: () => void, ms: number): () => void {
-		const l = this._at;
-		return early(l, every_at(l, fn, ms));
+		return early(this, every_at(this, fn, ms));
 	}
 
 	watch<O extends Watcher>(observer: O): O {
-		return watch(this._at, observer);
+		return watch(this, observer);
 	}
 
 	task<R>(work: (signal: AbortSignal) => R): Promise<Fresh<Awaited<R>> | Stale> {
-		return task(this._at, work);
+		return task(this, work);
 	}
 
 	child(): Scope {
-		const l = this._at;
-		return l._epoch < 0 ? CLOSED : new Scoped(child(l));
+		return this._epoch < 0 ? CLOSED : (link(this, new Scoped(this, null)) as Scoped);
 	}
 
 	defer(cleanup: () => void): void {
-		defer(this._at, cleanup);
+		defer(this, cleanup);
 	}
 
 	adopt<D extends Disposable | AsyncDisposable>(disposable: D): D {
-		return adopt(this._at, disposable);
+		return adopt(this, disposable);
 	}
 
 	close(): void {
-		close(this._at);
+		close(this);
 	}
 
 	[DISPOSE](): void {
-		close(this._at);
+		close(this);
 	}
 
 	async [ASYNC_DISPOSE](): Promise<void> {
-		const l = this._at;
 		const errors: unknown[] = [];
-		if (l._epoch >= 0) {
-			l._awaited = true;
+		if (this._epoch >= 0) {
+			this._awaited = true;
 			try {
-				close(l);
+				close(this);
 			} catch (error) {
 				errors.push(error);
 			}
 		}
-		for (const done of await Promise.allSettled(l._settling ?? []))
-			if (done.status === 'rejected' && l._awaited) errors.push(done.reason);
+		for (const done of await Promise.allSettled(this._settling ?? []))
+			if (done.status === 'rejected' && this._awaited) errors.push(done.reason);
 		if (errors.length === 1) throw errors[0];
 		if (errors.length > 1)
-			throw new AggregateError(errors, `[ogygia] ${named(l)}: ${errors.length} cleanups threw`);
+			throw new AggregateError(errors, `[ogygia] ${named(this)}: ${errors.length} cleanups threw`);
 	}
 }
 
-/** The scope of an owner that has already ended: everything given to it is released at once. */
-export const CLOSED: Scope = new Scoped(ENDED);
+/** @internal What a public scope is made as: a life that is a `Scope` (a machine's visits, `scope()`). */
+export const SCOPED: new (parent: Life | null, label: string | null) => Life = Scoped;
 
-/** @internal The public view of `l` as it is now (its current epoch). */
-export function view(l: Life): Scope {
-	return new Scoped(l);
+/** The scope of an owner that has already ended: everything given to it is released at once. */
+export const CLOSED: Scope = /* @__PURE__ */ closed_scope();
+
+function closed_scope(): Scoped {
+	const s = new Scoped(null, null);
+	s._epoch = -1;
+	return s;
 }
 
-/** @internal The life a public scope is a view of, while it is that view's epoch (else a life
- *  closed for good); a life is its own. What a primitive that takes an owner holds on to. */
+/** @internal The life of an owner: a public scope is its own life. */
 export function life_of(s: Scope | Life): Life {
-	return '_life' in s ? (s as Scoped)._at : (s as Life);
+	return s as Life;
 }
 
 /** A new scope; with `parent`, one that closes when the parent does (`parent.child()`). */
 export function scope(parent?: Scope): Scope {
-	return parent === undefined ? new Scoped(new Life(null, null)) : parent.child();
+	return parent === undefined ? new Scoped(null, null) : parent.child();
 }

@@ -36,7 +36,7 @@
  */
 import { observe, STALE, timers, trace } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import type { Life, Run } from '@ogygia/machine/internal';
 import { Rules, type BrokenRule } from '../rules.ts';
 import { warn } from '../messages/core.ts';
 import type { PageGlobals } from '../page-globals.ts';
@@ -182,7 +182,7 @@ function no_old_page_open(): string | null {
 
 /** What the rule reads of the router: its navigation, and its history model's page on screen. */
 interface RouterView {
-	readonly nav: { readonly now: { readonly kind: string } };
+	readonly nav: Run;
 	readonly history: { readonly current: { readonly id: string } };
 }
 
@@ -191,7 +191,7 @@ export const watch_router: (router: RouterView) => void = $rules(function watch_
 	router: RouterView
 ): void {
 	runtime_rules.add('rule_address_bar_drift', () => {
-		if (router.nav.now.kind !== 'idle') return null;
+		if (life.kind(router.nav) !== 'idle') return null;
 		const id = (history.state as { ogygia?: unknown } | null)?.ogygia;
 		// (an entry the router has not met yet: the browser's own fragment jump, the app's pushState)
 		if (typeof id !== 'string') return null;

@@ -1,7 +1,6 @@
 import {
 	cache,
 	flights,
-	machine,
 	STALE,
 	world,
 	type Cache,
@@ -11,6 +10,7 @@ import {
 	type World
 } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import { older_by, stands_at, type DropWhy, type Frame } from '../frame.ts';
 import type { VerifiedHtml } from './html-sink.ts';
@@ -48,13 +48,13 @@ type AnswerStates = {
 };
 
 const answer_definition = () =>
-	machine<AnswerStates>()({
+	fsm.definition<AnswerStates>()({
 		name: 'stored-answer',
 		initial: 'empty',
 		steps: { empty: ['shown'], shown: ['shown', 'kept'], kept: ['shown', 'kept'] }
 	});
 
-type StoredAnswer = ReturnType<ReturnType<typeof answer_definition>['create']>;
+type StoredAnswer = fsm.RunOf<ReturnType<typeof answer_definition>>;
 
 type PartStates = {
 	promised: {};
@@ -63,13 +63,13 @@ type PartStates = {
 };
 
 const part_definition = () =>
-	machine<PartStates>()({
+	fsm.definition<PartStates>()({
 		name: 'frame-part',
 		initial: 'promised',
 		steps: { promised: ['landed', 'missed'], landed: [], missed: [] }
 	});
 
-type Part = ReturnType<ReturnType<typeof part_definition>['create']>;
+type Part = fsm.RunOf<ReturnType<typeof part_definition>>;
 
 type Entry = {
 	answer: StoredAnswer;
@@ -119,8 +119,8 @@ function make_store(): Store {
 		owner: own,
 		onEvict: (a, e, why) => {
 			if (why === 'age' && live(a) && entries.set(a, e, HELD)) return;
-			e.part?.stop();
-			e.answer.stop();
+			if (e.part !== null) fsm.stop(e.part);
+			fsm.stop(e.answer);
 		}
 	});
 	const s: Store = {
@@ -143,7 +143,7 @@ function make_store(): Store {
 }
 
 function shown_of(e: Entry): Shown | null {
-	const now = e.answer.now;
+	const now = fsm.now(e.answer);
 	return now.kind === 'empty' ? null : now;
 }
 
@@ -190,7 +190,7 @@ function entry(a: string): Entry {
 	const entries = store().entries;
 	let e = entries.peek(a);
 	if (!e) {
-		e = { answer: answers.create(), part: null, renewed: null, refused: null };
+		e = { answer: fsm.create(answers), part: null, renewed: null, refused: null };
 		entries.set(a, e);
 	}
 	return e;
@@ -240,7 +240,7 @@ export function write(f: StoredFrame): boolean {
 	const why = older_by(f, s);
 	if (why !== null) {
 		const shown = s as Shown;
-		e.answer.go('kept', {
+		fsm.go(e.answer, 'kept', {
 			v: shown.v,
 			d: shown.d,
 			html: shown.html,
@@ -248,9 +248,9 @@ export function write(f: StoredFrame): boolean {
 		});
 		return false;
 	}
-	e.answer.go('shown', { ...stands_at(s, f), html: f.html });
+	fsm.go(e.answer, 'shown', { ...stands_at(s, f), html: f.html });
 	e.refused = null;
-	e.part?.move('promised', 'landed', { html: f.html });
+	if (e.part !== null) fsm.move(e.part, 'promised', 'landed', { html: f.html });
 	notify(frame_id(f.a), f);
 	schedule_evict(f.a, e);
 	return true;
@@ -267,8 +267,8 @@ export function write(f: StoredFrame): boolean {
 export function reserve(a: string): void {
 	const e = entry(a);
 	if (shown_of(e) !== null || flying(a)) return;
-	const part = (e.part = parts.create());
-	const landed = part.wait('landed').then((s) => (s === STALE ? STALE : s.html));
+	const part = (e.part = fsm.create(parts));
+	const landed = fsm.wait(part, 'landed').then((s) => (s === STALE ? STALE : s.html));
 	const settled = () => schedule_evict(a, e);
 	store().flights.get({ a, work: landed }).then(settled, settled);
 }
@@ -292,7 +292,8 @@ export function start(a: string, fetcher: FrameFetcher, signal: AbortSignal): vo
  * batch just did not carry it). No-op once a frame has landed.
  */
 export function release(a: string): void {
-	store().entries.peek(a)?.part?.move('promised', 'missed');
+	const part = store().entries.peek(a)?.part;
+	if (part != null) fsm.move(part, 'promised', 'missed');
 }
 
 /**

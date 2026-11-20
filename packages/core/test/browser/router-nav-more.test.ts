@@ -1,6 +1,7 @@
 // A CLIENT NAVIGATION'S EDGES (runtime/router-nav.ts): scroll and its hold on a back step, the
 // head's order and policy tags, the sheets it waits for, its hole batch, and the soft refresh.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { life_of } from '@ogygia/machine/internal';
 import { commands } from 'vitest/browser';
 import { scope } from '@ogygia/machine';
@@ -87,7 +88,7 @@ beforeEach(async () => {
 	r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.pathname);
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 });
 afterEach(() => {

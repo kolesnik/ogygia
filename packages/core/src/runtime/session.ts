@@ -1,6 +1,7 @@
-import { cache, machine, type Cache } from '@ogygia/machine';
+import { cache, type Cache } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import { FROZEN_SELECTOR } from './region-attrs.ts';
 import { note_visit } from './rules.ts';
 
@@ -19,7 +20,7 @@ export type LakeCacheEntry = {
 	maxAgeMs: number;
 };
 
-const LAKE = machine<{ open: {}; waited: {}; settling: {}; settled: {} }>()({
+const LAKE = fsm.definition<{ open: {}; waited: {}; settling: {}; settled: {} }>()({
 	name: 'lake',
 	initial: 'open',
 	steps: {
@@ -29,7 +30,7 @@ const LAKE = machine<{ open: {}; waited: {}; settling: {}; settled: {} }>()({
 		settled: []
 	}
 });
-type LakeMachine = ReturnType<typeof LAKE.create>;
+type LakeMachine = fsm.RunOf<typeof LAKE>;
 
 const STYLESHEET_REL_RE = /(?:^|\s)stylesheet(?:\s|$)/i;
 
@@ -218,13 +219,14 @@ export class RuntimeSession {
 	#lakes = new WeakMap<Element, LakeMachine>();
 	#lake(el: Element): LakeMachine {
 		let m = this.#lakes.get(el);
-		if (m === undefined) this.#lakes.set(el, (m = LAKE.create()));
+		if (m === undefined) this.#lakes.set(el, (m = fsm.create(LAKE)));
 		return m;
 	}
 
 	/** May the regions authored in this lake run (its content is in, or it never gets any)? */
 	lake_settled(el: Element): boolean {
-		const kind = this.#lakes.get(el)?.now.kind;
+		const m = this.#lakes.get(el);
+		const kind = m === undefined ? undefined : fsm.kind(m);
 		return kind === 'settled' || kind === 'settling';
 	}
 
@@ -233,29 +235,29 @@ export class RuntimeSession {
 	 *  back with the content (moved, they reconnect) or are woken by the caller. */
 	settle_lake(el: Element): void {
 		const m = this.#lake(el);
-		if (m.now.kind !== 'settled') m.go('settled');
+		if (fsm.kind(m) !== 'settled') fsm.go(m, 'settled');
 	}
 
 	/** A refresh's answer is in hand, its swap not done: the regions that connect from now on run (they
 	 *  come with the swap), and the ones that waited are woken by {@link wake_lake} after it. */
 	settle_lake_before_swap(el: Element): void {
 		const m = this.#lake(el);
-		if (m.now.kind === 'open') m.go('settled');
-		else if (m.now.kind === 'waited') m.go('settling');
+		if (fsm.kind(m) === 'open') fsm.go(m, 'settled');
+		else if (fsm.kind(m) === 'waited') fsm.go(m, 'settling');
 	}
 
 	/** A region in an unsettled lake waits on it: `true` when it must (the lake is not settled). */
 	wait_on_lake(el: Element): boolean {
 		const m = this.#lake(el);
-		if (m.now.kind === 'open') m.go('waited');
-		return m.now.kind === 'waited';
+		if (fsm.kind(m) === 'open') fsm.go(m, 'waited');
+		return fsm.kind(m) === 'waited';
 	}
 
 	/** After the lake's swap: `true` when regions waited on it and are to be woken now. */
 	wake_lake(el: Element): boolean {
 		const m = this.#lakes.get(el);
-		if (m === undefined || (m.now.kind !== 'settling' && m.now.kind !== 'waited')) return false;
-		m.go('settled');
+		if (m === undefined || (fsm.kind(m) !== 'settling' && fsm.kind(m) !== 'waited')) return false;
+		fsm.go(m, 'settled');
 		return true;
 	}
 

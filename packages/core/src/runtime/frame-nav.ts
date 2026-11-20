@@ -1,15 +1,7 @@
-import {
-	buggify,
-	cache,
-	clock,
-	machine,
-	net,
-	STALE,
-	tasks,
-	type MachineGraph
-} from '@ogygia/machine';
+import { buggify, cache, clock, net, STALE, tasks, type MachineGraph } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import { frameAddress } from '../frame.ts';
 import { stream } from '../policies.ts';
 import { is_idle, reserve, release, stamp, write } from './frame-store.ts';
@@ -87,7 +79,7 @@ export function read_parcel(buf: string, from: number): Parcel | null {
 
 const STALL_MS = stream.deadline;
 
-const batch_stream = machine<{ sending: {}; reading: {}; stalled: {} }>()({
+const batch_stream = fsm.definition<{ sending: {}; reading: {}; stalled: {} }>()({
 	name: 'batch-stream',
 	initial: 'sending',
 	steps: {
@@ -104,7 +96,7 @@ const batch_stream = machine<{ sending: {}; reading: {}; stalled: {} }>()({
 /** The batch stream's machine as data (test/machine-steps.test.ts holds each step to where it is
  *  taken). */
 export function batch_stream_graph(): MachineGraph {
-	return batch_stream.graph();
+	return fsm.graph(batch_stream);
 }
 
 function sigOf(endpoint: string): string | null {
@@ -166,11 +158,11 @@ export async function streamFrames(
 	let status = 0;
 	let refused: 'redirected' | 'document' | undefined;
 	let final_url: string | undefined;
-	const stream = batch_stream.create();
+	const stream = fsm.create(batch_stream);
 	const batch_scope = life.child(visit);
-	life.defer(batch_scope, () => stream.stop());
+	life.defer(batch_scope, () => fsm.stop(stream));
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a machine's wait never rejects
-	void stream.wait('stalled').then((s) => s !== STALE && life.close(batch_scope));
+	void fsm.wait(stream, 'stalled').then((s) => s !== STALE && life.close(batch_scope));
 
 	try {
 		let res: Response;
@@ -193,7 +185,7 @@ export async function streamFrames(
 			return;
 		}
 		if (RULES && buggify.fires('batch.refused')) res = new Response('busy', { status: 503 });
-		stream.go('reading');
+		fsm.go(stream, 'reading');
 		status = res.status;
 		if ((DEVTOOLS || HOOK_HOLE_BATCH_MISSED) && res.redirected) {
 			refused = 'redirected';
@@ -224,7 +216,7 @@ export async function streamFrames(
 			const { done, value } = read;
 			if (life.closed(batch_scope)) return;
 			if (done) break;
-			stream.go('reading');
+			fsm.go(stream, 'reading');
 			buffer += decoder.decode(value, { stream: true });
 			let consumed = 0;
 			for (let p = read_parcel(buffer, 0); p; p = read_parcel(buffer, consumed)) {
@@ -258,7 +250,7 @@ export async function streamFrames(
 			final_url = res.url;
 		}
 	} finally {
-		stream.stop();
+		fsm.stop(stream);
 		life.close(batch_scope);
 		for (const a of reserved) release(a);
 		if (HOOK_HOLE_BATCH_MISSED && delivered < reserved.length && !life.closed(visit))

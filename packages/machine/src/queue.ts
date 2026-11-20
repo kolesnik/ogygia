@@ -44,7 +44,6 @@ import { machine_error, report_thrown } from './messages.ts';
 import { clock } from './ports.ts';
 import {
 	child,
-	closed,
 	defer,
 	root,
 	life_of,
@@ -162,11 +161,6 @@ abstract class Line<J> implements Queue<J> {
 		if (this._owner !== null) defer(this._owner, () => this.#leave_where(() => true));
 	}
 
-	/** Its owner has closed. */
-	get _left(): boolean {
-		return this._owner !== null && closed(this._owner);
-	}
-
 	get waiting(): number {
 		return this._waiting;
 	}
@@ -176,7 +170,7 @@ abstract class Line<J> implements Queue<J> {
 	}
 
 	push(job: J, deadline = Infinity): void {
-		if (this._left) return this._stale_job(job);
+		if ((this._owner?._epoch ?? 0) < 0) return this._stale_job(job);
 		this._jobs.push(job);
 		this._deadlines.push(deadline);
 		this._waiting++;
@@ -277,7 +271,7 @@ class PlainLine<J> extends Line<J> {
 	}
 
 	protected _drain(): void {
-		if (this._left) return;
+		if ((this._owner?._epoch ?? 0) < 0) return;
 		while (this._holding < this._max && this._head < this._jobs.length) {
 			const at = this._head++;
 			const job = this._jobs[at];
@@ -348,7 +342,7 @@ class PassLine<J> extends Line<J> {
 	protected _drain(): void {
 		const state = this.#state;
 		if (state === 'running' || state === 'ending') this.#state = 'again';
-		if (state !== 'idle' || this._waiting === 0 || this._left) return;
+		if (state !== 'idle' || this._waiting === 0 || (this._owner?._epoch ?? 0) < 0) return;
 		const budget = this.#budget;
 		if (budget?.defer) {
 			this.#state = 'deferred';
@@ -437,7 +431,7 @@ class PassLine<J> extends Line<J> {
 	}
 
 	#settled(budget: QueueBudget): void {
-		if (this._left) return this.#end();
+		if ((this._owner?._epoch ?? 0) < 0) return this.#end();
 		if (this._waiting > 0 && this._now() >= this.#until) return this.#yield(budget);
 		this.#run();
 	}
@@ -455,7 +449,8 @@ class PassLine<J> extends Line<J> {
 	}
 
 	#ended(): void {
-		if (this.#state !== 'again' || this._waiting === 0 || this._left) return this.#end();
+		if (this.#state !== 'again' || this._waiting === 0 || (this._owner?._epoch ?? 0) < 0)
+			return this.#end();
 		this.#state = 'running';
 		this.#until = this._now() + this.#budget!.ms;
 		this.#run();
@@ -467,7 +462,7 @@ class PassLine<J> extends Line<J> {
 		const resume = () => {
 			if (resumed || this.#state !== waited) return;
 			resumed = true;
-			if (this._left) return this.#end();
+			if ((this._owner?._epoch ?? 0) < 0) return this.#end();
 			this.#state = 'running';
 			this.#until = this._now() + budget.ms;
 			this.#run();

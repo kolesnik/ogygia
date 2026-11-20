@@ -2,6 +2,7 @@
 // keeps and adds, the focus and announcer it leaves, the view transition, the sheets it waits for,
 // and every page it hands to the browser instead.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import { commands } from 'vitest/browser';
@@ -95,7 +96,7 @@ beforeEach(async () => {
 	vi.spyOn(r, 'hand_off').mockImplementation((url, _visit, move) => {
 		handed.push(url.pathname);
 		handed_moves.push(move);
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 });
 afterEach(() => {
@@ -125,7 +126,7 @@ function first_document(path: string, html: string): Element {
 	r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.pathname);
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 	return el;
 }
@@ -554,12 +555,12 @@ test('a next-page sheet loaded at high priority for the wait goes live at the pr
 test('a navigation whose claim a newer one took fetches nothing', async () => {
 	const nav = await import('../../src/runtime/router-nav.ts');
 	pages['/rn-claimed'] = { body: '<p>next</p>' };
-	r.nav.go('claimed', { href: 'about:first' });
-	const first = r.nav.now;
-	r.nav.go('claimed', { href: 'about:second' });
+	fsm.go(r.nav, 'claimed', { href: 'about:first' });
+	const first = fsm.epoch(r.nav);
+	fsm.go(r.nav, 'claimed', { href: 'about:second' });
 	await nav.navigate(r, new URL('/rn-claimed', location.href), r.current_url, {}, first);
 	expect(fetched).toEqual([]);
-	r.nav.go('idle');
+	fsm.go(r.nav, 'idle');
 });
 
 test('a back step reads the live head as written for the page on screen, not the address the browser moved to', async () => {

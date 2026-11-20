@@ -1,6 +1,7 @@
-import { machine, mailbox, type Mailbox, type Machine, type MachineGraph } from '@ogygia/machine';
+import { mailbox, type Kind, type Mailbox, type MachineGraph } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
+import type { Life, Run } from '@ogygia/machine/internal';
 import type { IslandHandle } from './hydrate-core.ts';
 
 type Lifetime = { life: Life; box: Mailbox };
@@ -17,7 +18,7 @@ const region_steps = {
 	scheduled: ['connected', 'detached']
 } as const;
 
-const region_definition = machine<RegionStates>()({
+const region_definition = fsm.definition<RegionStates>()({
 	name: 'region-life',
 	initial: 'detached',
 	steps: region_steps
@@ -32,16 +33,16 @@ const DETACHED: Lifetime = { life: life.ENDED, box: mailbox(life.ENDED) };
  * schedule (or found its answer), so a connect again stops there; a fetch that failed goes back to
  * `connected` for its retry to connect afresh.
  */
-export type RegionLife = Machine<RegionStates, typeof region_steps>;
+export type RegionLife = Run<RegionStates, typeof region_steps>;
 
 /** The region life machine as data. */
 export function region_life_graph(): MachineGraph {
-	return region_definition.graph();
+	return fsm.graph(region_definition);
 }
 
 /** A region element's life machine, detached. */
 export function create_region_life(): RegionLife {
-	return region_definition.create(DETACHED);
+	return fsm.create(region_definition, DETACHED);
 }
 
 /** A new lifetime in the page: its scope and its mailbox. */
@@ -78,7 +79,7 @@ const hole_steps = {
 	failed: ['idle', 'armed', 'fetching']
 } as const;
 
-const hole_definition = machine<HoleStates>()({
+const hole_definition = fsm.definition<HoleStates>()({
 	name: 'hole',
 	initial: 'idle',
 	steps: hole_steps
@@ -95,16 +96,16 @@ const hole_definition = machine<HoleStates>()({
  * before; `denied` counts those refused for the answering server (`sig`, `shape`, `foreign-key`),
  * which have tries of their own.
  */
-export type Hole = Machine<HoleStates, typeof hole_steps>;
+export type Hole = Run<HoleStates, typeof hole_steps>;
 
 /** The hole's fetch machine as data (internal/notes/flows/holes.md draws it). */
 export function hole_graph(): MachineGraph {
-	return hole_definition.graph();
+	return fsm.graph(hole_definition);
 }
 
 /** A hole's fetch machine, idle. */
 export function create_hole(): Hole {
-	return hole_definition.create();
+	return fsm.create(hole_definition);
 }
 
 type AnswerStates = {
@@ -120,7 +121,7 @@ const answer_steps = {
 	kept: ['answered', 'kept']
 } as const;
 
-const answer_definition = machine<AnswerStates>()({
+const answer_definition = fsm.definition<AnswerStates>()({
 	name: 'hole-answer',
 	initial: 'none',
 	steps: answer_steps
@@ -128,16 +129,16 @@ const answer_definition = machine<AnswerStates>()({
 
 /** What is on screen from a hole's answers. `none`: its fallback. `answered`: an answer is swapped
  *  in. `kept`: it answered `keepFallback()`, so the fallback stands as its answer. */
-export type Answer = Machine<AnswerStates, typeof answer_steps>;
+export type Answer = Run<AnswerStates, typeof answer_steps>;
 
 /** The hole's answer machine as data (internal/notes/flows/holes.md draws it). */
 export function answer_graph(): MachineGraph {
-	return answer_definition.graph();
+	return fsm.graph(answer_definition);
 }
 
 /** A hole's answer machine: nothing on screen yet. */
 export function create_answer(): Answer {
-	return answer_definition.create();
+	return fsm.create(answer_definition);
 }
 
 type WakeStates = {
@@ -158,7 +159,7 @@ const wake_steps = {
 	failed: ['cold']
 } as const;
 
-const wake_definition = machine<WakeStates>()({
+const wake_definition = fsm.definition<WakeStates>()({
 	name: 'wake',
 	initial: 'cold',
 	steps: wake_steps
@@ -169,16 +170,16 @@ const wake_definition = machine<WakeStates>()({
  *  `awake`: hydrated. `offline`: its code failed to download while the browser is offline; it wakes
  *  again once the browser is back online, its server markup staying meanwhile (`error`: the failed
  *  download, #891). `failed`: hydrating threw; its server markup stays as it is. */
-export type Wake = Machine<WakeStates, typeof wake_steps>;
+export type Wake = Run<WakeStates, typeof wake_steps>;
 
 /** The wake machine's states and steps, as data (internal/notes/flows/region-wake.md draws it). */
 export function wake_graph(): MachineGraph {
-	return wake_definition.graph();
+	return fsm.graph(wake_definition);
 }
 
 /** An island's wake machine, cold. */
 export function create_wake(): Wake {
-	return wake_definition.create();
+	return fsm.create(wake_definition);
 }
 
 type LiveBinding = { address: string | null };
@@ -201,7 +202,7 @@ const live_steps = {
 	failed: ['idle', 'static', 'hydrating']
 } as const;
 
-const live_definition = machine<LiveStates>()({
+const live_definition = fsm.definition<LiveStates>()({
 	name: 'live-region',
 	initial: 'idle',
 	steps: live_steps
@@ -215,11 +216,11 @@ const live_definition = machine<LiveStates>()({
  *  of the same module pushes props, and leaving disposes it. `failed`: its island's file could not
  *  load (said once, coded); a tick of the same module shows its HTML and loads nothing, another
  *  module or a static tick starts afresh (#942). */
-export type Live = Machine<LiveStates, typeof live_steps>;
+export type Live = Run<LiveStates, typeof live_steps>;
 
 /** A live region's machine, before its first tick. */
 export function create_live(): Live {
-	return live_definition.create();
+	return fsm.create(live_definition);
 }
 
 type PaintStates = {
@@ -232,7 +233,7 @@ const paint_steps = {
 	painting: ['painting', 'idle']
 } as const;
 
-const paint_definition = machine<PaintStates>()({
+const paint_definition = fsm.definition<PaintStates>()({
 	name: 'region-paint',
 	initial: 'idle',
 	steps: paint_steps
@@ -241,20 +242,20 @@ const paint_definition = machine<PaintStates>()({
 /** Which frame (a hole's answer or refresh, a static live tick) paints next. `idle`: no frame is
  *  waiting. `painting`: a frame waits for its stylesheets, then paints. Each frame is a new visit,
  *  so an older frame whose sheets settle later never paints over a newer one. */
-export type Paint = Machine<PaintStates, typeof paint_steps>;
+export type Paint = Run<PaintStates, typeof paint_steps>;
 
 /** A region's paint machine: which frame (a hole's answer, a static live tick) paints next. */
 export function create_paint(): Paint {
-	return paint_definition.create();
+	return fsm.create(paint_definition);
 }
 
 /** Where a region element's machines are, by machine name. (Its answer has no rest: a region put
  *  back keeps what it showed.) */
 export type RegionMachinesNow = {
-	hole: Hole['now']['kind'];
-	wake: Wake['now']['kind'];
-	'live-region': Live['now']['kind'];
-	'region-paint': Paint['now']['kind'];
+	hole: Kind<HoleStates>;
+	wake: Kind<WakeStates>;
+	'live-region': Kind<LiveStates>;
+	'region-paint': Kind<PaintStates>;
 };
 
 /** Where each rests: off the page, a region's machines are here (core.ts `#teardown` puts them

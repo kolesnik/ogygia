@@ -12,6 +12,7 @@
 // Back and forward stay with e2e: the browser's own history traversal (`popstate`) is not ours to
 // order, and the chunk's first load is a real module load (it is loaded once, before the runs).
 import { afterAll, beforeAll, describe, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { fc, simulate } from '@ogygia/config/sim';
 import { it_with_history_unthrottled } from './_browsers.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
@@ -96,7 +97,7 @@ describe('the router, simulated', () => {
 					const handed: string[] = [];
 					vi.spyOn(r, 'hand_off').mockImplementation((url, visit) => {
 						handed.push(new URL(url).pathname);
-						if (r.nav.now === visit) r.nav.go('idle');
+						if (fsm.epoch(r.nav) === visit) fsm.go(r.nav, 'idle');
 					});
 					/** the navigations, in the order they started */
 					const navs: Path[] = [];

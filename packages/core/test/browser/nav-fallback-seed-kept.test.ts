@@ -2,6 +2,7 @@
 // objects the NEXT page's seed revived. The seed is read before the swap; releasing the page's ids
 // after it must not take the incoming page's with the leaving page's.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { install as install_morph } from '../../src/runtime/morph.ts';
@@ -61,7 +62,7 @@ test('a whole-body swap keeps the objects the next page seed revived', async () 
 	const handed: string[] = [];
 	vi.spyOn(r, 'hand_off').mockImplementation((url) => {
 		handed.push(url.href);
-		if (r.nav.now.kind !== 'idle') r.nav.go('idle');
+		if (r.nav.now.kind !== 'idle') fsm.go(r.nav, 'idle');
 	});
 	await r.navigate(new URL('/nav-fallback-seed-kept-next', location.href));
 	await expect.poll(() => r.nav.now.kind, { timeout: 2_000 }).toBe('idle');

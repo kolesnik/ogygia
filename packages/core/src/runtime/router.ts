@@ -1,5 +1,6 @@
 import { flights, random, STALE, type Stale } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import { fragment_is_top, fragment_target } from './fragment.ts';
 import { import_again } from './import-again.ts';
@@ -294,7 +295,7 @@ export class SpaRouter {
 	/** href of the router's navigation in flight (claimed or loading; cleared once it applied,
 	 *  ended, or went to the browser: `hand_off`) */
 	get nav_target(): string | null {
-		const s = this.nav.now;
+		const s = fsm.now(this.nav);
 		return s.kind === 'claimed' || s.kind === 'loading' ? s.href : null;
 	}
 	/**
@@ -352,7 +353,7 @@ export class SpaRouter {
 	 * swapping left the URL on the old page and `/plain` in the DOM).
 	 */
 	supersede(): void {
-		if (this.nav.now.kind !== 'idle') this.nav.go('idle');
+		if (fsm.kind(this.nav) !== 'idle') fsm.go(this.nav, 'idle');
 	}
 
 	/**
@@ -377,9 +378,9 @@ export class SpaRouter {
 	 * is said (the page's error handler, as an uncaught throw would be), and the browser loads the
 	 * page whole.
 	 */
-	hand_off(url: URL, visit: Navigation['now'], move: HistoryMove, error?: unknown): void {
-		if (this.nav.now !== visit) return;
-		this.nav.go('idle');
+	hand_off(url: URL, visit: number, move: HistoryMove, error?: unknown): void {
+		if (fsm.epoch(this.nav) !== visit) return;
+		fsm.go(this.nav, 'idle');
 		if (error !== undefined) report_thrown(error);
 		if (move === 'push' && location.href !== url.href) location.assign(url.href);
 		else location.replace(url.href);
@@ -431,8 +432,8 @@ export class SpaRouter {
 
 		if (!this.run_before(from, url, type)) return;
 
-		this.nav.go('claimed', { href: url.href });
-		const mine = this.nav.now;
+		fsm.go(this.nav, 'claimed', { href: url.href });
+		const mine = fsm.epoch(this.nav);
 		let n: Nav | null;
 		try {
 			n = $await(

@@ -1,4 +1,3 @@
-import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
 import type { FieldSnapshot, QueuedClick, Touched } from './interaction.ts';
 import { interaction_link } from './slots.ts';
@@ -67,7 +66,7 @@ export function replay_clicks(region: Element, queued: QueuedClick[], owner: Lif
 		}
 		queued.length = 0;
 	};
-	life.later(owner, replay, 'frame');
+	interaction_link().later(owner, replay, 'frame');
 }
 
 /** The island is live: put back what the visitor did while it was waking, at each element's

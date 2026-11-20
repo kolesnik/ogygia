@@ -16,26 +16,28 @@
  * released exactly once when it leaves; and a `wait()` for a state that can no longer be reached
  * settles at once instead of hanging.
  *
- * Speed: every machine of every definition is one class with one field layout, so the moves stay
- * on V8's fast path. The value of a visit is one small object, and a visit's scope and the waiter
- * list are made the first time they are needed: a move nothing hangs work on makes neither.
+ * Speed: a machine is the plain runtime record of ./run.ts (its state an int, each state's steps a
+ * bitmask): a move tests one bit and makes no object. The state as one value (`now`) is made when
+ * something reads it, once per visit, and a visit's scope and the waiter list are made the first
+ * time they are needed: a move nothing hangs work on makes none of them.
  */
-import { DEV } from 'esm-env';
-import { machine_error, report, warn_once } from './messages.ts';
+import { machine_error, warn_once } from './messages.ts';
 import { noop } from './noop.ts';
-import { registry } from './registry.ts';
 import {
-	CLOSED,
-	close,
-	ENDED,
-	is_time,
-	later,
-	root,
-	Life,
-	MAX_TIMEOUT_MS,
-	view,
-	type Scope
-} from './scope.ts';
+	define as define_run,
+	go_to,
+	heard,
+	move_from,
+	now,
+	RULES,
+	Run,
+	stop,
+	visit,
+	wait_for,
+	watch_moves,
+	type Def
+} from './run.ts';
+import { CLOSED, SCOPED, type Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
 export { STALE, type Stale };
@@ -197,14 +199,6 @@ export type Observer = (
 	machine: AnyMachine
 ) => void;
 
-/** Dev and rules builds (tests, the rules, the simulator): moves are told to observers, and a
- *  definition draws its graph and paths. Folded out of any other (../rules-env.d.ts). */
-const RULES: boolean =
-	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-
-/** Who watches every move, in the order they started: each held until its stop (never evicted). */
-const observers = registry<Observer>();
-
 /**
  * Watches every machine's moves (tests, the rules, the simulator), in dev and rules builds. Returns
  * the function that stops watching. An observer that throws is reported and does not break the
@@ -215,307 +209,41 @@ export function observe(observer: Observer): () => void {
 		warn_once('machine_observe_off', {});
 		return noop;
 	}
-	// (its owner is the watch itself: the caller holds no scope to hand in, and its stop is the
-	// watch's end)
-	const watch = root();
-	observers.add(observer, watch);
-	return () => close(watch);
+	return watch_moves(observer as never);
 }
 
-/** A move of something that is not a `machine()` but keeps its states the same way (a flights'
- *  entries), told to the observers when there are any. */
-export function heard(name: string, from: State, to: State | null, machine: AnyMachine): void {
-	if (RULES && observers.size !== 0) notify(name, from, to, machine);
-}
-
-function notify(name: string, from: State, to: State | null, machine: AnyMachine): void {
-	// (the watchers at the move: one that stops another during the move does not cut it off)
-	const list = observers.snapshot();
-	for (let i = 0; i < list.length; i++) {
-		try {
-			list[i]!(name, from, to, machine);
-		} catch (error) {
-			report('machine_observer_failed', { name }, error);
-		}
-	}
-}
+export { heard };
 
 type State = { readonly kind: string };
-type Waiter = { kind: string; resolve: (value: State | Stale) => void };
-
-/** A state's own timeout, linked to the state it steps to. */
-interface Timed {
-	readonly ms: number | ((now: State) => number);
-	readonly to: Node;
-	readonly data: ((now: State) => object) | undefined;
-}
-
-/** One state of a definition, linked straight to the states it steps to: a move walks a short
- *  array of these and never looks a name up. */
-interface Node {
-	readonly kind: string;
-	readonly next: Node[];
-	/** The step it takes on its own after a time, or null (most states: no cost to them). */
-	timed: Timed | null;
-}
-
-/** A definition as the machines read it. */
-interface Def {
-	readonly name: string;
-	readonly initial: Node;
-	/** Null-prototype: a state named like an `Object.prototype` key is still only itself. */
-	readonly steps: Readonly<Record<string, readonly string[]>>;
-	readonly nodes: ReadonlyMap<string, Node>;
-	/** The states reachable from each state in one or more steps (built on the first `wait`). */
-	reach: Map<string, Set<string>> | null;
-}
-
-function has_step(steps: readonly string[], to: string): boolean {
-	for (let i = 0; i < steps.length; i++) if (steps[i] === to) return true;
-	return false;
-}
-
-function step_to(node: Node, to: string): Node | null {
-	const next = node.next;
-	for (let i = 0; i < next.length; i++) if (next[i].kind === to) return next[i];
-	return null;
-}
-
-function reach_of(def: Def, from: string): Set<string> {
-	let reach = def.reach;
-	if (reach === null) {
-		reach = def.reach = new Map();
-		// (over the linked states, as a move walks them: a step naming no state, which a production
-		// build keeps, leads nowhere)
-		for (const start of def.nodes.values()) {
-			const seen = new Set<string>();
-			const queue = [...start.next];
-			while (queue.length > 0) {
-				const node = queue.pop() as Node;
-				if (seen.has(node.kind)) continue;
-				seen.add(node.kind);
-				for (const next of node.next) if (!seen.has(next.kind)) queue.push(next);
-			}
-			reach.set(start.kind, seen);
-		}
-	}
-	return reach.get(from) as Set<string>;
-}
 
 /**
- * The value of state `node` with `data`, new for each visit (with no data too): a saved `now` is
- * still `now` only while that visit lasts, so `m.now === mine` tells two visits apart.
+ * A machine as `machine()` hands it out: the runtime record with the methods of `Machine`; each
+ * visit's life is a public scope, the same through the visit.
  */
-function state_of(def: Def, node: Node, data: object | undefined): State {
-	const kind = node.kind;
-	if (data === undefined) return DEV ? Object.freeze({ kind }) : { kind };
-	if (DEV) {
-		if (Object.hasOwn(data, 'kind'))
-			throw machine_error('machine_kind_in_data', { name: def.name, state: kind });
-		return Object.freeze({ ...data, kind });
-	}
-	return { ...data, kind };
-}
-
-function illegal(def: Def, from: string, to: string): false {
-	const args = { name: def.name, from, to };
-	if (DEV) throw machine_error('machine_illegal_move', args);
-	warn_once('machine_illegal_move', args);
-	return false;
-}
-
-/**
- * Every machine is one of these: one class, one field layout, whatever its definition. Its fields
- * are plain (`_`) rather than `#private`: a `#` field read costs about twice as much on V8, on the
- * path every move takes. The public type (`Machine`) shows none of them.
- */
-class Running implements AnyMachine {
-	_def: Def;
-	/** The state it is in, as the definition's node (its steps) and as its value (`now`). */
-	_node: Node;
-	_now: State;
-	_stopped = false;
-	/** The visit's life, once something asked for it: closed by the move that leaves the visit. */
-	_life: Life | null = null;
-	/** The visit's public scope, a view of its life, once something asked for it. */
-	_view: Scope | null = null;
-	_waiters: Waiter[] | null = null;
-
-	constructor(def: Def, node: Node, now: State) {
-		this._def = def;
-		this._node = node;
-		this._now = now;
-		if (node.timed !== null) this._arm(node.timed);
-	}
-
+class Running extends Run {
 	get now(): State {
-		return this._now;
+		return now(this) as State;
 	}
 
 	get scope(): Scope {
-		if (this._view !== null) return this._view;
-		if (this._stopped) return CLOSED;
-		return (this._view = view(this._visit()));
-	}
-
-	_visit(): Life {
-		return (this._life ??= new Life(null, this._def.name));
+		return this._stopped ? CLOSED : (visit(this) as unknown as Scope);
 	}
 
 	go(to: string, data?: object): boolean {
-		if (this._stopped) return false;
-		const target = step_to(this._node, to);
-		if (target === null) return illegal(this._def, this._node.kind, to);
-		this._enter(target, data);
-		return true;
+		return go_to(this, to, data);
 	}
 
 	move(from: string, to: string, data?: object): boolean {
-		if (this._stopped) return false;
-		const node = this._node;
-		if (node.kind === from) {
-			const target = step_to(node, to);
-			if (target === null) return illegal(this._def, from, to);
-			this._enter(target, data);
-			return true;
-		}
-		// not in `from`: a lost race (quiet), unless the step itself does not exist
-		const steps = this._def.steps[from];
-		if (steps === undefined || !has_step(steps, to)) return illegal(this._def, from, to);
-		return false;
+		return move_from(this, from, to, data);
 	}
 
 	wait(kind: string): Promise<State | Stale> {
-		if (!this._def.nodes.has(kind)) {
-			if (DEV)
-				throw machine_error('machine_unknown_state', {
-					name: this._def.name,
-					state: kind,
-					where: 'wait()'
-				});
-			return Promise.resolve(STALE);
-		}
-		if (this._stopped) return Promise.resolve(STALE);
-		const now = this._now;
-		if (now.kind === kind) return Promise.resolve(now);
-		if (!reach_of(this._def, now.kind).has(kind)) return Promise.resolve(STALE);
-		return new Promise((resolve) => (this._waiters ??= []).push({ kind, resolve }));
+		return wait_for(this, kind);
 	}
 
 	stop(): void {
-		if (this._stopped) return;
-		this._stopped = true;
-		const l = this._life;
-		const waiters = this._waiters;
-		this._life = this._waiters = null;
-		this._view = null;
-		if (waiters !== null) for (const w of waiters) w.resolve(STALE);
-		if (RULES && observers.size !== 0) notify(this._def.name, this._now, null, this);
-		if (l !== null) close(l);
+		stop(this);
 	}
-
-	/** The one place a move happens: the new state first, then everything the old one owned. */
-	_enter(target: Node, data: object | undefined): void {
-		const def = this._def;
-		const next = state_of(def, target, data);
-		const prev = this._now;
-		this._node = target;
-		this._now = next;
-		// detached before anything runs, so a cleanup that moves the machine again starts clean
-		const l = this._life;
-		this._life = null;
-		this._view = null;
-		// (armed before anything else runs: a waiter or an observer that moves the machine again
-		// then leaves this visit, and closing it clears this timer)
-		if (target.timed !== null) this._arm(target.timed);
-		if (this._waiters !== null) this._settle(next);
-		if (RULES && observers.size !== 0) notify(def.name, prev, next, this);
-		if (l !== null) close(l);
-	}
-
-	/**
-	 * The state's own time: still in this visit when it is up, the machine takes the step. Leaving
-	 * (or stopping) clears it. A failure while taking it (its data, a cleanup) is reported and the
-	 * machine stays where it is: a timer has nobody to throw to.
-	 */
-	_arm(timed: Timed): void {
-		let ms: unknown;
-		try {
-			ms = typeof timed.ms === 'function' ? timed.ms(this._now) : timed.ms;
-		} catch (error) {
-			report('machine_timeout_failed', { name: this._def.name, state: this._node.kind }, error);
-			return;
-		}
-		// (a made time that is not one a timer can hold would be clamped to 1 ms: the state would end
-		// at once; it does not end on its own instead, and says so)
-		if (!is_time(ms)) {
-			report('machine_timeout_not_a_time', {
-				name: this._def.name,
-				state: this._node.kind,
-				ms: String(ms)
-			});
-			return;
-		}
-		// (the visit's own timer: leaving closes its scope, which clears it, so it only ever fires in
-		// the visit that set it; and it never keeps a server process alive)
-		later(
-			this._visit(),
-			() => {
-				const from = this._node.kind;
-				try {
-					this._enter(timed.to, timed.data === undefined ? undefined : timed.data(this._now));
-				} catch (error) {
-					report(
-						'machine_timed_step_failed',
-						{ name: this._def.name, from, to: timed.to.kind },
-						error
-					);
-				}
-			},
-			ms
-		);
-	}
-
-	_settle(next: State): void {
-		const waiters = this._waiters as Waiter[];
-		let reach: Set<string> | null = null;
-		let kept = 0;
-		for (let i = 0; i < waiters.length; i++) {
-			const w = waiters[i];
-			if (w.kind === next.kind) w.resolve(next);
-			else if (!(reach ??= reach_of(this._def, next.kind)).has(w.kind)) w.resolve(STALE);
-			else waiters[kept++] = w;
-		}
-		waiters.length = kept;
-		if (kept === 0 && this._waiters === waiters) this._waiters = null;
-	}
-}
-
-/** The checks a definition passes before its first machine: dev and tests only. */
-function check(def: Def): void {
-	const { name, initial, steps } = def;
-	for (const from in steps) {
-		const list = steps[from];
-		for (let i = 0; i < list.length; i++) {
-			const to = list[i];
-			if (!(to in steps))
-				throw machine_error('machine_unknown_state', {
-					name,
-					state: to,
-					where: `a step of "${from}"`
-				});
-			if (list.indexOf(to) !== i) throw machine_error('machine_duplicate_step', { name, from, to });
-		}
-	}
-	const reached = reach_of(def, initial.kind);
-	for (const kind in steps)
-		if (kind !== initial.kind && !reached.has(kind))
-			throw machine_error('machine_unreachable_state', {
-				name,
-				state: kind,
-				initial: initial.kind
-			});
-	def.reach = null;
 }
 
 /**
@@ -529,69 +257,26 @@ export function machine<S extends Shape<S>>(): <const T extends Steps<S>, const 
 	return define as never;
 }
 
-type TimeoutConfig = {
-	ms: number | ((now: State) => number);
-	to: string;
-	data?: (now: State) => object;
-};
-
-function define(config: {
-	name: string;
-	initial: string;
-	steps: Record<string, readonly string[]>;
-	after?: Record<string, TimeoutConfig | undefined>;
-}): object {
-	const name = String(config.name);
-	const steps: Record<string, readonly string[]> = Object.create(null);
-	const nodes = new Map<string, Node>();
-	for (const kind of Object.keys(config.steps)) {
-		steps[kind] = Object.freeze([...config.steps[kind]]);
-		nodes.set(kind, { kind, next: [], timed: null });
-	}
-	// a machine with no state to start in cannot run at all: refused in every build
-	const initial = nodes.get(config.initial);
-	if (initial === undefined)
-		throw machine_error('machine_unknown_state', { name, state: config.initial, where: 'initial' });
-	const def: Def = { name, initial, steps: Object.freeze(steps), nodes, reach: null };
-	// link each state to the states it steps to (a production build skips a name that is not a
-	// state, which dev refuses below: the move to it is then refused like any other)
-	for (const node of nodes.values())
-		for (const to of steps[node.kind]) {
-			const target = nodes.get(to);
-			if (target !== undefined && !node.next.includes(target)) node.next.push(target);
-		}
-	if (DEV) check(def);
-	// each state's own timeout: refused in every build when it is not one of the state's steps, or
-	// its time is not a time (a timer set from a bad definition would fire a move nobody allowed)
-	for (const [kind, timeout] of Object.entries(config.after ?? {})) {
-		if (timeout === undefined) continue;
-		const node = nodes.get(kind);
-		if (node === undefined)
-			throw machine_error('machine_unknown_state', { name, state: kind, where: 'after' });
-		const target = step_to(node, timeout.to);
-		if (target === null)
-			throw machine_error('machine_bad_timeout', {
-				name,
-				state: kind,
-				problem: `"${timeout.to}" is not one of its steps`
-			});
-		const ms = timeout.ms;
-		if (typeof ms !== 'function' && !is_time(ms))
-			throw machine_error('machine_bad_timeout', {
-				name,
-				state: kind,
-				problem: `its ms (${String(ms)}) is not a time of 0 to ${MAX_TIMEOUT_MS} (a timer holds no more)`
-			});
-		node.timed = { ms, to: target, data: timeout.data };
-	}
+function define(config: Parameters<typeof define_run>[0]): object {
+	const def = define_run(config, true, SCOPED);
 	return Object.freeze({
-		name,
-		initial: initial.kind,
+		name: def.name,
+		initial: def.names[def.initial],
 		steps: def.steps,
-		create: (data?: object) => new Running(def, initial, state_of(def, initial, data)),
+		create: (data?: object) => new Running(def, data),
 		graph: RULES ? () => graph_of(def) : drawn_off,
 		paths: RULES ? () => paths_of(def) : drawn_off
 	});
+}
+
+/** @internal A runtime definition's graph, in dev and rules builds (`machine_graph_off` in any other). */
+export function graph(def: Def): MachineGraph {
+	return RULES ? graph_of(def) : drawn_off();
+}
+
+/** @internal A runtime definition's paths, in dev and rules builds, as `Definition.paths`. */
+export function paths(def: Def): string[][] {
+	return RULES ? paths_of(def) : drawn_off();
 }
 
 /** A definition's graph or paths asked for in a build that draws none. */
@@ -602,44 +287,48 @@ function drawn_off(): never {
 function graph_of(def: Def): MachineGraph {
 	return {
 		name: def.name,
-		initial: def.initial.kind,
-		states: [...def.nodes.values()].map((node) => ({
-			kind: node.kind,
-			steps: def.steps[node.kind],
-			final: def.steps[node.kind].length === 0,
-			after:
-				node.timed === null
-					? null
-					: {
-							to: node.timed.to.kind,
-							ms: typeof node.timed.ms === 'number' ? node.timed.ms : null
-						}
-		}))
+		initial: def.names[def.initial]!,
+		states: def.names.map((kind, k) => {
+			const timed = def.after[k];
+			return {
+				kind,
+				steps: def.steps[kind]!,
+				final: def.steps[kind]!.length === 0,
+				after:
+					timed === null || timed === undefined
+						? null
+						: { to: def.names[timed.to]!, ms: typeof timed.ms === 'number' ? timed.ms : null }
+			};
+		})
 	};
+}
+
+/** The states `from` steps to, as the definition links them (a step naming no state leads nowhere). */
+function next_of(def: Def, from: number): number[] {
+	const out: number[] = [];
+	for (const to of def.steps[def.names[from]!]!) {
+		const t = def.ids[to];
+		if (t !== undefined && !out.includes(t)) out.push(t);
+	}
+	return out;
 }
 
 /** For each step, the shortest path from `initial` that reaches its state and then takes it. */
 function paths_of(def: Def): string[][] {
 	// the shortest way to each state (breadth first)
-	const way = new Map<string, string[]>([[def.initial.kind, [def.initial.kind]]]);
-	const queue = [def.initial.kind];
+	const start = def.initial;
+	const way = new Map<number, string[]>([[start, [def.names[start]!]]]);
+	const queue = [start];
 	while (queue.length > 0) {
-		const kind = queue.shift() as string;
-		for (const { kind: to } of (def.nodes.get(kind) as Node).next)
+		const k = queue.shift() as number;
+		for (const to of next_of(def, k))
 			if (!way.has(to)) {
-				way.set(to, [...(way.get(kind) as string[]), to]);
+				way.set(to, [...(way.get(k) as string[]), def.names[to]!]);
 				queue.push(to);
 			}
 	}
 	const out: string[][] = [];
-	for (const [kind, path] of way)
-		for (const { kind: to } of (def.nodes.get(kind) as Node).next) out.push([...path, to]);
+	for (const [k, path] of way)
+		for (const to of next_of(def, k)) out.push([...path, def.names[to]!]);
 	return out;
-}
-
-/** @internal The life of the visit `m` is in now (made on first need), as `m.scope` is its public
- *  view: closed by the move that leaves the visit; closed for good on a stopped machine. */
-export function visit(m: AnyMachine): Life {
-	const r = m as Running;
-	return r._stopped ? ENDED : r._visit();
 }

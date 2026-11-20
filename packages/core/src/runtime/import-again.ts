@@ -23,9 +23,10 @@
  * imports nothing of the boot (only `@ogygia/machine`, which the boot runs on); the boot hands it
  * its message (`on_reload_needed`).
  */
-import { buggify, cache, flights, machine, noop, registry, say, STALE } from '@ogygia/machine';
+import { buggify, cache, flights, noop, registry, say, STALE } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import { code_url_or_refuse, import_code, type CodeUrl } from './code-origins.ts';
 
 // dev and rules builds (a buggify point); folded out of any other
@@ -204,9 +205,9 @@ export function import_again<T>(
 	base?: string
 ): () => Promise<T> {
 	hear_responses();
-	const state = file_definition.create();
+	const state = fsm.create(file_definition);
 	const next = (): Promise<T> => {
-		const s = state.now;
+		const s = fsm.now(state);
 		if (s.kind === 'loaded') return s.run as Promise<T>;
 		if (s.kind === 'stuck') return Promise.reject(s.error);
 		// (a retry that failed is not yet known to be a drop or a dependency's failure: ask once it is)
@@ -215,23 +216,23 @@ export function import_again<T>(
 		if (s.kind === 'failed') {
 			// (each retry its own URL, counted as it starts: two calls at once ask under two)
 			const attempt = s.attempt + 1;
-			state.go('failed', { url: s.url, attempt });
+			fsm.go(state, 'failed', { url: s.url, attempt });
 			const url = retry_url(s.url, attempt);
 			run = (fresh(url) as Promise<T>).catch((error: unknown) => {
 				const wait = (verdict?: Promise<void>) => {
-					const now = state.now;
+					const now = fsm.now(state);
 					if (now.kind === 'failed')
-						state.go('failed', { url: now.url, attempt: now.attempt, verdict });
+						fsm.go(state, 'failed', { url: now.url, attempt: now.attempt, verdict });
 				};
 				// Whether its own file came is read once its timing entry lands (Firefox on a loaded
 				// machine: after the import rejects; WebKit gives a dropped download none, so the wait
 				// runs out). The caller hears the failure now; a later call waits for the verdict.
 				const verdict: Promise<void> = response_landed(url).then((status) => {
 					// its own file came, and it still failed: a dependency's failure, which no URL fixes
-					if (status !== null && status < 400 && state.move('failed', 'stuck', { error }))
+					if (status !== null && status < 400 && fsm.move(state, 'failed', 'stuck', { error }))
 						reload.once('reload', () => say_reload_needed(url, error));
 					// (only a failed state holds a verdict)
-					else if ((state.now as { verdict?: unknown }).verdict === verdict) wait();
+					else if ((fsm.now(state) as { verdict?: unknown }).verdict === verdict) wait();
 				});
 				wait(verdict);
 				throw error;
@@ -239,14 +240,14 @@ export function import_again<T>(
 		} else {
 			run = load().catch((error: unknown) => {
 				const url = file != null && is_failed_import(error) ? file_url(file, base) : null;
-				if (url !== null) state.move('fresh', 'failed', { url, attempt: 0 });
+				if (url !== null) fsm.move(state, 'fresh', 'failed', { url, attempt: 0 });
 				throw error;
 			});
 		}
 		// oxlint-disable-next-line ogygia/no-silent-failures -- the failure is the caller's: `run` itself is returned and rejects to it
 		run.then(
 			() => {
-				if (state.now.kind !== 'loaded') state.go('loaded', { run });
+				if (fsm.kind(state) !== 'loaded') fsm.go(state, 'loaded', { run });
 			},
 			() => {}
 		);
@@ -267,7 +268,7 @@ export function import_again<T>(
  * is that load (a fresh URL after a success would be a second copy of the module). `stuck`: a retry's
  * own file came and it still failed, a dependency's failure: every later call fails at once with it.
  */
-const file_definition = machine<{
+const file_definition = fsm.definition<{
 	fresh: {};
 	failed: { url: string; attempt: number; verdict?: Promise<void> };
 	loaded: { run: Promise<unknown> };

@@ -49,7 +49,8 @@ import {
 	install as install_interaction
 } from '../src/runtime/interaction.ts';
 import { once_on_screen } from '../src/runtime/viewport.ts';
-import { flights, scope } from '@ogygia/machine';
+import { flights } from '@ogygia/machine';
+import * as life from '@ogygia/machine/internal';
 import { LoadSlot, reset_load_scheduler } from '../src/runtime/load-scheduler.ts';
 import { class_at, PRIORITY } from '../src/runtime/load-class.ts';
 import {
@@ -67,7 +68,7 @@ import {
 
 const MOD = { default: island_module } as unknown as IslandModule;
 /** The page the scheduler's regions are on: their viewport snapshots are its. */
-const PAGE = scope();
+const PAGE = life.root();
 
 // ── the region element, booted ─────────────────────────────────────────────────────────────────
 

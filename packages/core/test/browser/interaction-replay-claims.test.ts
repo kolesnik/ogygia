@@ -5,6 +5,7 @@
 // all when the region left first.
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { life_of } from '@ogygia/machine/internal';
+import * as life from '@ogygia/machine/internal';
 import { scope } from '@ogygia/machine';
 import {
 	resolve_address,
@@ -18,7 +19,7 @@ const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r,
 
 let region: HTMLElement;
 beforeEach(() => {
-	slots.interaction_link = { resolve_address };
+	slots.interaction_link = { resolve_address, later: life.later };
 	region = document.createElement('div');
 	document.body.append(region);
 });

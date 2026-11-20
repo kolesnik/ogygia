@@ -3,7 +3,6 @@ import { watch_turns } from './rules.ts';
 import {
 	clock,
 	flights,
-	machine,
 	queue,
 	tasks,
 	timers,
@@ -12,6 +11,7 @@ import {
 } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 
 export type Turn = {
 	el: Element;
@@ -61,7 +61,7 @@ export function turns_counted(p: PendingTurns = P): string | null {
 }
 watch_turns(turns_counted);
 
-const drain_definition = machine<{ idle: {}; queued: {}; waiting: { at: number } }>()({
+const drain_definition = fsm.definition<{ idle: {}; queued: {}; waiting: { at: number } }>()({
 	name: 'hydrate-drain',
 	initial: 'idle',
 	steps: {
@@ -70,11 +70,11 @@ const drain_definition = machine<{ idle: {}; queued: {}; waiting: { at: number }
 		waiting: ['queued']
 	}
 });
-const drainer = drain_definition.create();
+const drainer = fsm.create(drain_definition);
 
 /** The drain's machine as data (test/machine-steps.test.ts holds each step to where it is taken). */
 export function drain_graph(): MachineGraph {
-	return drain_definition.graph();
+	return fsm.graph(drain_definition);
 }
 const order_of = new WeakMap<Element, number>();
 let next_order = 0;
@@ -354,15 +354,15 @@ export function hydrate_turn(el: Element): Promise<void> {
 const now = clock.mono;
 
 function schedule_drain(): void {
-	if (drainer.now.kind === 'queued') return;
-	drainer.go('queued');
+	if (fsm.kind(drainer) === 'queued') return;
+	fsm.go(drainer, 'queued');
 	// oxlint-disable-next-line typescript/no-floating-promises -- a task hop never rejects, and the drain it starts is the drainer machine's own (queued until it runs)
 	yield_task().then(drain);
 }
 
 function drain_after(ms: number): void {
 	const at = now() + Math.max(1, ms);
-	drainer.go('waiting', { at });
+	fsm.go(drainer, 'waiting', { at });
 	life.later(life.visit(drainer), schedule_drain, Math.max(1, ms));
 }
 
@@ -377,7 +377,7 @@ function first_unsnapped(t: number): Turn | undefined {
 }
 
 function drain(): void {
-	drainer.go('idle');
+	fsm.go(drainer, 'idle');
 	if (!P.count) return;
 	const t = now();
 	const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
@@ -400,5 +400,5 @@ function drain(): void {
 
 /** Test seam: is a hydration turn queued or being drained right now? */
 export function schedule_idle(): boolean {
-	return P.count === 0 && drainer.now.kind !== 'queued';
+	return P.count === 0 && fsm.kind(drainer) !== 'queued';
 }

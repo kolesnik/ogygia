@@ -73,7 +73,7 @@
  * costs little to make and a kept read is a look-up.
  */
 import { buggify, clock } from './ports.ts';
-import { heard } from './machine.ts';
+import { heard } from './run.ts';
 import {
 	attempt,
 	Flight,

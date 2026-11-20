@@ -1,6 +1,7 @@
 import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
 import { buggify, clock, net } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine/internal';
 import type { PageGlobals } from '../page-globals.ts';
 import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
 import {
@@ -570,9 +571,9 @@ export async function navigate(
 		type?: string;
 		replace?: boolean;
 	} = {},
-	claim: SpaRouter['nav']['now'] = r.nav.now
+	claim: number = fsm.epoch(r.nav)
 ): Promise<void> {
-	if (r.nav.now !== claim) return;
+	if (fsm.epoch(r.nav) !== claim) return;
 
 	const dt_t0 = DEVTOOLS ? dt_now() : 0;
 	const nav_t0 = clock.mono();
@@ -591,8 +592,8 @@ export async function navigate(
 			type
 		});
 
-	r.nav.go('loading', { href: url.href });
-	const mine = r.nav.now;
+	fsm.go(r.nav, 'loading', { href: url.href });
+	const mine = fsm.epoch(r.nav);
 	own_live_head(r.current_url);
 	const attempt = life.visit(r.nav);
 	const next = session().next_visit();
@@ -667,7 +668,7 @@ export async function navigate(
 		if (built === null) return;
 		const { doc, dest } = built;
 		const { soft } = boot_link();
-		if (soft.now.kind === 'refreshing') soft.go('idle');
+		if (fsm.kind(soft) === 'refreshing') fsm.go(soft, 'idle');
 		const left = r.current_url;
 		own_live_head(left);
 		r.history.commit(dest, move, pop);
@@ -709,7 +710,7 @@ export async function navigate(
 	} catch (error) {
 		return hand_off(error);
 	}
-	if (is_stale(built) || r.nav.now !== mine) return;
+	if (is_stale(built) || fsm.epoch(r.nav) !== mine) return;
 	if (built === null) return hand_off();
 	const { dest } = built;
 
@@ -740,10 +741,10 @@ export async function navigate(
 		swap();
 	}
 	if (out.failed) return hand_off(out.failed.error, built.written);
-	if (r.nav.now !== mine) return;
+	if (fsm.epoch(r.nav) !== mine) return;
 
-	r.nav.move('loading', 'settling', { href: url.href });
-	const settled = r.nav.now;
+	fsm.move(r.nav, 'loading', 'settling', { href: url.href });
+	const settled = fsm.epoch(r.nav);
 	if (HOOK_NAVIGATED)
 		slots.hooks?.navigated?.({
 			from: `${from.pathname}${from.search}`,
@@ -779,7 +780,7 @@ export async function navigate(
 
 	r.run_after(from, dest, type);
 	document.dispatchEvent(new Event('og:page-load'));
-	if (r.nav.now === settled) r.nav.go('idle');
+	if (fsm.epoch(r.nav) === settled) fsm.go(r.nav, 'idle');
 	r.scan_preload_links();
 }
 
@@ -890,8 +891,8 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 	const url = on_screen ?? new URL(location.href);
 
 	const { soft, stage } = boot_link();
-	soft.go('refreshing', { href: url.href });
-	const mine = soft.now;
+	fsm.go(soft, 'refreshing', { href: url.href });
+	const mine = fsm.epoch(soft);
 
 	const staged = stage<Document | null>(life.visit(soft), {
 		name: 'soft refresh',
@@ -918,7 +919,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 		if (is_stale(await staged.ready)) return;
 		staged.commit();
 	} finally {
-		if (soft.now === mine) soft.go('idle');
+		if (fsm.epoch(soft) === mine) fsm.go(soft, 'idle');
 	}
 }
 

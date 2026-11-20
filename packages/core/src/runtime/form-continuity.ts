@@ -1,4 +1,5 @@
-import { cache, machine } from '@ogygia/machine';
+import { cache } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine/internal';
 import * as life from '@ogygia/machine/internal';
 import { element_address, resolve_address } from './interaction.ts';
 import { slots } from './slots.ts';
@@ -27,15 +28,17 @@ const store = cache<string, FieldRec[]>({ name: 'form continuity', max: MAX_PAGE
 
 const RESTORE_WINDOW_MS = 5000;
 
-const restore_window = machine<{ idle: {}; open: {} }>()({
-	name: 'form-restore',
-	initial: 'idle',
-	steps: { idle: ['open'], open: ['idle'] },
-	after: { open: { ms: RESTORE_WINDOW_MS, to: 'idle' } }
-}).create();
+const restore_window = fsm.create(
+	fsm.definition<{ idle: {}; open: {} }>()({
+		name: 'form-restore',
+		initial: 'idle',
+		steps: { idle: ['open'], open: ['idle'] },
+		after: { open: { ms: RESTORE_WINDOW_MS, to: 'idle' } }
+	})
+);
 
 function close_restore(): void {
-	if (restore_window.now.kind === 'open') restore_window.go('idle');
+	if (fsm.kind(restore_window) === 'open') fsm.go(restore_window, 'idle');
 }
 
 const is_checkable = (f: HTMLInputElement) => f.type === 'checkbox' || f.type === 'radio';
@@ -140,7 +143,7 @@ export function arm_form_restore(pathKey: string): void {
 		if (name !== undefined) apply_region(region, name, recs);
 	};
 	const on_answer = () => (names = read_names());
-	restore_window.go('open');
+	fsm.go(restore_window, 'open');
 	const open = life.visit(restore_window);
 	life.listen(open, document, 'ogygia:hydrated', on_hydrated, true);
 	life.listen(open, document, 'ogygia:server', on_answer, true);
