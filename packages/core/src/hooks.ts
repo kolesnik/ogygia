@@ -18,9 +18,7 @@
  *
  * @packageDocumentation
  */
-import { render } from 'svelte/server';
 import { clock, say, slot as shared, STALE } from '@ogygia/machine';
-import type { Component } from 'svelte';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { Handle } from './kit-handle.ts';
 import { KitRequestStore, type RequestState } from './server/kit-request-store.ts';
@@ -28,16 +26,11 @@ import { live_event } from './server/live-event.ts';
 import { transport as app_transport } from 'ogygia:region';
 import * as devalue from 'devalue';
 import {
-	load_server_regions,
-	region_url,
-	region_name,
+	HAS,
 	region_reads_page_data,
-	render_region,
-	region_css,
 	fn_manifest,
 	create_remote_key,
 	rate_limit,
-	session_cookie,
 	router_enabled,
 	view_transitions,
 	route_config,
@@ -55,53 +48,27 @@ import { set_page_route_config } from './plugin/routes.ts';
 import {
 	set_kit_page_reader,
 	set_kit_event_reader,
-	set_render_page_port,
-	kit_page_ready,
-	kit_page_facts_tail
+	set_render_page_port
 } from './server/kit-context.ts';
-import { hole_answer_context } from './server/answer-context.ts';
 import { PAGE_FACTS_HEADER, PAGE_FACTS_ROUTE_HEADER } from './server/page-facts.ts';
 import {
 	configure_render_page,
 	note_render_page_ask,
-	page_url_of,
 	prepare_render_page,
 	render_page,
 	render_page_facts_script,
 	render_page_version
 } from './server/render-page.ts';
-import { absolutize_hole_html } from './server/hole-urls.ts';
-import { read_capped } from './server/capped-body.ts';
-import { KEEP_FALLBACK_HTML, is_keep_fallback } from './keep-fallback.ts';
 import { set_source_recorder } from './source.ts';
 import { building, dev } from '$app/env';
 import { kit_asset } from './kit-paths.ts';
-import {
-	sign,
-	verify,
-	region_sign,
-	region_verify,
-	type RegionClaim,
-	secret_has_min_entropy,
-	MIN_SECRET_BYTES
-} from './server/hmac.ts';
-import { expiry_refusal, note_cache_control } from './server/shared-cache.ts';
+import { sign, verify, secret_has_min_entropy, MIN_SECRET_BYTES } from './server/hmac.ts';
+import { note_cache_control } from './server/shared-cache.ts';
 import { app_lifetime, server_delta_on } from './server/region-endpoint.ts';
-import { create_region_request, type RegionRequest } from './server/region-request.ts';
-import { render_cache_key, cached_render, type RenderKey } from './server/render-cache.ts';
-import { render as render_policy } from './policies.ts';
 import { install_server_rules, note_region_answer } from './server/rules.ts';
-import { B64Url } from './server/payload.ts';
-import {
-	REF_WIRE_KEY,
-	ref_names,
-	ref_reviver,
-	set_ref_names_reader,
-	type RefNames
-} from './ref.ts';
+import { ref_names, set_ref_names_reader, type RefNames } from './ref.ts';
 import type { RequestContext } from './plugin/index.ts';
 import { current_facts, facts_of, set_current_request, type RequestFacts } from './plugin/facts.ts';
-import { observe_reads } from './plugin/reads.ts';
 import {
 	around,
 	end_request,
@@ -111,24 +78,20 @@ import {
 } from './plugin/server.ts';
 import type { HtmlPass } from './plugin/index.ts';
 import { end_request_scope, own_response, request_scope } from './plugin/request-scope.ts';
-import { register_wire_kind } from './live-transport.ts';
-import { register_store_kind, register_derived_kind } from './store-transport.ts';
-import { register_snippet_kind } from './region-snippet.ts';
 import { SnippetRender } from './snippet-render.ts';
-import { register_fn_kind } from './fn-transport.ts';
 import {
-	capability_query,
 	configure_islands_endpoint,
 	islands_endpoint,
-	is_islands_endpoint,
-	MAX_REGION_PROPS_LEN,
-	REGION_CAPABILITY_VERSION,
-	is_region_id,
-	is_region_ttl,
-	is_signed_number,
-	REGION_EXP_DIGITS
+	is_islands_endpoint
 } from './server/endpoint.ts';
-import { batch_stream } from './server/stream-regions.ts';
+import { IslandsEndpoint } from './server/islands-endpoint.ts';
+import {
+	client_ip,
+	over_budget,
+	region_denied,
+	region_response
+} from './server/region-response.ts';
+import { F_FRAMES } from './contract/features.ts';
 import {
 	page_declares_router_meta,
 	page_declares_runtime_script,
@@ -154,7 +117,6 @@ import {
 	type SeedKeys
 } from './server/seed-shape.ts';
 import { html_has_kit_bootstrap } from './server/html-scan.ts';
-import { hole_head } from './server/hole-graph.ts';
 import { RateLimiter, is_shared_address } from './server/rate-limit.ts';
 import { PageSeed } from './server/page-seed.ts';
 import { analyze, SeedIndex, set_measure_memo_reader, type MeasureMemo } from './seed-refs.ts';
@@ -176,15 +138,9 @@ import {
 	type Deferred
 } from './server/page-stream.ts';
 import { PAGE_DEFER_BOOTSTRAP } from './page-defer.ts';
-import {
-	ConcurrencyGate,
-	REGION_RENDER_CONCURRENCY,
-	is_run_timeout
-} from './runtime/concurrency.ts';
 import { stringify } from 'devalue';
 import { serialize_provided_context } from './context-bridge.ts';
 import { escape_amp_quot, escape_script_text } from './escape.ts';
-import { hole_copy_key } from './contract/hash.ts';
 import { set_ctx_recorder, set_ctx_script_reader } from './context-registry.ts';
 import {
 	set_ask_scope_opener,
@@ -195,7 +151,6 @@ import {
 import { collect_remote_seed } from './server/remote-seed-gate.ts';
 import { DocumentTail, set_tail_reader } from './server/document-tail.ts';
 import { runtime_bootstrap } from './server/entry-location.ts';
-import { region_css_tag } from './server/region-css.ts';
 import {
 	set_late_recorder,
 	set_late_scope_opener,
@@ -204,9 +159,6 @@ import {
 } from './late-region-registry.ts';
 import {
 	record_request_stats,
-	record_hole_stats,
-	record_batch_hole_stats,
-	has_batch_hole_listener,
 	request_stats_detailed,
 	request_stats_wanted,
 	type SeedKeyStat
@@ -235,7 +187,6 @@ import { mark_personal } from './server/personal-response.ts';
 import { OgygiaError, warn } from './messages/server.ts';
 import { ERRORS, WARNINGS } from './messages/core.ts';
 import { define_messages, dev_or_prerender } from './contract/messages.ts';
-import { ask } from './plugin/hooks.ts';
 
 (globalThis as unknown as Record<symbol, unknown>)[Symbol.for('ogygia.prerendering')] = building;
 (globalThis as unknown as Record<symbol, unknown>)[Symbol.for('ogygia.messages')] ??=
@@ -253,8 +204,6 @@ function devtools_switch(event: RequestEvent): boolean {
 	else event.cookies.delete(DEVTOOLS_COOKIE, { path: '/' });
 	return want;
 }
-
-const MAX_REGION_BODY = 2_000_000;
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const DEVTOOLS_LAZY =
@@ -452,107 +401,7 @@ function dt_record(bag: RequestBag | undefined, input: DevtoolsEventInput): void
 // transform outside it, passes its bag to `dt_record` directly)
 if (DEVTOOLS) set_server_devtools_recorder((input) => dt_record(bag_of(), input));
 
-const MAX_BATCH_BODY = 512 * 1024;
-
-const RENDER_TIMEOUT_MS = render_policy.deadline;
-
-/** Process-local cap on concurrent region SSR (M1 CPU amp under valid MAC). */
-const render_gate = new ConcurrencyGate(REGION_RENDER_CONCURRENCY);
-/** The abandoned renders already told (one render's timeout reaches every call that joined it). */
-const told_abandoned = new WeakSet<Error>();
-
 const NO_CTXS: readonly RequestContext<unknown, unknown>[] = [];
-
-const REGION_FRAME_HEADERS = {
-	'X-Frame-Options': 'DENY',
-	'Content-Security-Policy': "frame-ancestors 'none'",
-	'X-Content-Type-Options': 'nosniff',
-	'Referrer-Policy': 'no-referrer'
-} as const;
-
-function region_response(
-	body: BodyInit | null,
-	init: { status: number; headers?: Record<string, string> }
-) {
-	return new Response(body, {
-		status: init.status,
-		headers: { ...REGION_FRAME_HEADERS, 'cache-control': 'no-store', ...init.headers }
-	});
-}
-
-function over_budget(limiter: RateLimiter, ip: string): Response {
-	return region_response('Too Many Requests', {
-		status: 429,
-		headers: { 'retry-after': String(limiter.retry_after_s(ip)) }
-	});
-}
-
-type RegionDeny =
-	| 'cross-site'
-	| 'shape'
-	| 'expired'
-	| 'renew-window'
-	| 'renew-session'
-	| 'foreign-key'
-	| 'sig'
-	| 'unknown-id'
-	| 'props'
-	| 'oversize';
-
-function region_denied(why: RegionDeny) {
-	return region_response('Forbidden', {
-		status: 403,
-		headers: { 'x-ogygia-deny': why, 'x-ogygia-key': signing_key().fp }
-	});
-}
-
-function foreign_key(k: string | null): boolean {
-	return k !== null && k !== signing_key().fp;
-}
-
-interface Capability {
-	id: string;
-	render: string;
-	payload: string;
-	exp: string;
-	v: string;
-	ttl: string;
-	wakes: string;
-	sig: string;
-	k: string | null;
-}
-
-function claim_of(cap: Capability, session: string): RegionClaim {
-	return {
-		id: cap.id,
-		payload: cap.payload,
-		session,
-		ttl: cap.ttl,
-		render: cap.render,
-		wakes: cap.wakes
-	};
-}
-
-function capability_of(params: URLSearchParams): Capability {
-	return {
-		id: params.get('id') ?? '',
-		render: params.get('r') ?? '',
-		payload: params.get('props') ?? '',
-		exp: params.get('exp') ?? '',
-		v: params.get('v') ?? '',
-		ttl: params.get('ttl') ?? '',
-		wakes: params.get('w') ?? '',
-		sig: params.get('sig') ?? '',
-		k: params.get('k')
-	};
-}
-
-function capability_target(cap: Capability): string | null {
-	if (Object.hasOwn(region_url, cap.id)) return cap.id;
-	if (cap.render !== '' && Object.hasOwn(render_region, cap.render))
-		return render_region[cap.render];
-	return null;
-}
 
 function decode_pathname(pathname: string): string | null {
 	try {
@@ -561,25 +410,6 @@ function decode_pathname(pathname: string): string | null {
 	} catch {
 		return null;
 	}
-}
-
-function client_ip(event: RequestEvent): string | null {
-	try {
-		return event.getClientAddress();
-		// oxlint-disable-next-line ogygia/no-silent-failures -- fail closed: the callers answer 429
-	} catch {
-		return null;
-	}
-}
-
-function region_css_links(id: string): string {
-	const url = region_url[id];
-	if (!url) return '';
-	let out = '';
-	for (const href of region_css(url)) {
-		out += region_css_tag(href, kit_asset(href));
-	}
-	return out;
 }
 
 function emit_ogygia_script(subtype: string, escaped_payload: string, marker = ''): string {
@@ -677,6 +507,10 @@ class OgygiaHandle {
 	readonly #shared_address = say({ max: 1 });
 	/** The client build's handoff problem, said once while it lasts (production: dev reads none). */
 	readonly #handoff_said = say({ max: 2 });
+	/** The islands endpoint: none where no region of the app streams HTML (the build's word). */
+	readonly #islands: IslandsEndpoint | null;
+	/** a request for the endpoint a build without one got, said once */
+	readonly #unbuilt_said = say({ max: 1 });
 
 	#check_handoff(): void {
 		const p = handoff_problem();
@@ -725,6 +559,24 @@ class OgygiaHandle {
 			max: rate_limit.max <= 0 ? 0 : Math.max(rate_limit.max * 5, 120),
 			windowMs: rate_limit.windowMs
 		});
+		this.#islands =
+			HAS & F_FRAMES
+				? new IslandsEndpoint({
+						probe_rate: this.probe_rate,
+						render_rate: this.render_rate,
+						render_over: (ip) => this.#render_over(ip),
+						pass: (event) => html_pass(plugins, event),
+						reads_page_data: hole_reads_page_data
+					})
+				: null;
+	}
+
+	/** A request for the islands endpoint on a build without one: said once, and a 404. */
+	#unbuilt(): Response {
+		this.#unbuilt_said.once('endpoint', () =>
+			console.error(new OgygiaError('region_endpoint_unbuilt'))
+		);
+		return region_response('Not Found', { status: 404 });
 	}
 
 	/** Charges `ip` one render; true when its budget is spent. A spent budget of an address no visitor
@@ -794,9 +646,10 @@ class OgygiaHandle {
 	/** One signed hole rendered in place with THIS request's event (a plugin's `ctx.renderHole`:
 	 *  the stored-page stitch). Null keeps the fallback: a refused capability, a failed render, or
 	 *  an answer that asks to keep it. */
-	async #render_hole(endpoint: string, event: RequestEvent): Promise<string | null> {
-		const out = await this.#render_capability(endpoint, event);
-		return out && out.html !== KEEP_FALLBACK_HTML ? out.html : null;
+	#render_hole(endpoint: string, event: RequestEvent): Promise<string | null> {
+		if (this.#islands) return this.#islands.render_hole(endpoint, event);
+		this.#unbuilt();
+		return Promise.resolve(null);
 	}
 
 	async #route(
@@ -976,63 +829,14 @@ class OgygiaHandle {
 		}
 		// POST to the endpoint = a BATCH frame stream (client-side navigation, single-flight): render a set
 		// of signed region calls and flush each as an out-of-order frame in one response.
+		const islands = this.#islands;
+		if (!islands) return this.#unbuilt();
 		const answer =
 			event.request.method.toUpperCase() === 'POST'
-				? await this.render_batch(event)
-				: await this.render_region(event);
+				? await islands.render_batch(event)
+				: await islands.render_region(event);
 		if (RULES) note_region_answer(event.url.pathname, answer);
 		return answer;
-	}
-
-	/**
-	 * Batch frame stream (client navigation, single-flight). POST body: a JSON `string[]` of signed
-	 * region endpoints — the calls the client needs. Renders them in parallel and flushes each as a
-	 * `<template data-ogygia-slot="sig">…</template>` frame the moment IT settles (out of order); a
-	 * done sentinel ends it. One response, many frames. Every call carries its own MAC so there's no
-	 * extra auth; same-origin + per-IP budget mirror the single-region path.
-	 */
-	async render_batch(event: RequestEvent): Promise<Response> {
-		const MAX_BATCH = 32;
-		if (event.request.headers.get('sec-fetch-site') === 'cross-site')
-			return region_denied('cross-site');
-		const ip = client_ip(event);
-		if (!ip) return region_response('Too Many Requests', { status: 429 });
-		// (each hole is charged as its own GET would be, in #render_capability: one budget unit, one
-		// render, whichever door it comes in by)
-		// A batch is at most MAX_BATCH signed endpoints (~8.5kB each): a body past the cap is refused
-		// as soon as it passes it, chunked or not (test/batch-body-cap.test.ts)
-		const body = await read_capped(event.request, MAX_BATCH_BODY);
-		if (body === 'too large') return region_response('Payload Too Large', { status: 413 });
-		if (body === 'unreadable') return region_response('Bad Request', { status: 400 });
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(new TextDecoder().decode(body));
-		} catch {
-			return region_response('Bad Request', { status: 400 });
-		}
-		if (!Array.isArray(parsed) || parsed.length === 0) {
-			return region_response('Bad Request', { status: 400 });
-		}
-		// (one call asked twice is one render: its one parcel answers both)
-		const calls = [...new Set(parsed.filter((e): e is string => typeof e === 'string'))].slice(
-			0,
-			MAX_BATCH
-		);
-		// (the stream's signal aborts when the visitor leaves: the holes not rendered yet never are)
-		const stream = batch_stream(
-			calls,
-			(endpoint, signal) => this.#render_capability(endpoint, event, true, signal, ip),
-			request_scope(event.request)
-		);
-
-		return region_response(stream, {
-			status: 200,
-			headers: {
-				'content-type': 'text/html; charset=utf-8',
-				'cache-control': 'no-store',
-				'x-accel-buffering': 'no'
-			}
-		});
 	}
 
 	async #pass_document(
@@ -1574,536 +1378,6 @@ class OgygiaHandle {
 			devalue.stringify(data, reducers),
 			request ? `${RESPONSE_MARK}="${response_mark(request)}"` : ''
 		);
-	}
-
-	/**
-	 * `render()` the island under the concurrency gate + timeout. Returns the HTML body, or `null`
-	 * if the render threw or timed out. Shared by the endpoint ({@link render_region}) and the
-	 * batch path ({@link #render_capability}).
-	 */
-	async #render_component(
-		/** the hole's region id: its answer's slot ids carry it */
-		id: string,
-		load: () => Promise<{ default: unknown }>,
-		props: Record<string, unknown>,
-		/** the hole wakes (its capability's signed `w`): rendered inside an island, as it hydrates */
-		wakes: boolean,
-		cache?: { key: RenderKey; ttl: number },
-		/** the profiler's hole economics: what the cache did for this request */
-		report?: (outcome: 'hit' | 'miss' | 'none') => void,
-		/** filled when the render ran: its wait for a slot in the gate, and its time in it */
-		timing?: { queue_ms?: number; render_ms?: number },
-		/** the endpoint request's URL: the answer's island graph is made root-absolute against it */
-		base?: URL,
-		/** the hole's server tree reads `page.data`: its page is looked up before it renders (a cache
-		 *  hit never pays it) */
-		reads_page_data = false,
-		/** aborts when nobody waits on this render any more (a cancelled batch): one not started
-		 *  yet never starts, and never takes a render slot (#245) */
-		signal?: AbortSignal
-	): Promise<string | null> {
-		// R6/G2: the ONE cache-fronted render seam. `cached_render` serves a memo when the hole opted
-		// into a positive `maxAge` (key carries the session seal — a per-user render never crosses
-		// users); on a miss it runs the render_body below, once for every call of its key in flight
-		// (they join it: one slot for a burst, #244). The ENDPOINT wraps its render in the
-		// concurrency gate + timeout (the inline-island path, sharing `cached_render`, does not).
-		const render_body = async (): Promise<string> => {
-			const mod = await load();
-			const rendered = render(mod.default as Component<Record<string, unknown>>, {
-				props,
-				context: hole_answer_context(wakes, id)
-			});
-			// (with what its islands wrote into the head — their graph and their CSS: the endpoint
-			// ships the body only — server/hole-graph.ts)
-			const out = await rendered;
-			const body = out.body as string;
-			if (body === KEEP_FALLBACK_HTML) return body;
-			// (and the page facts its islands read: they hydrate against what it rendered from)
-			return hole_head(out.head as string, base) + body + kit_page_facts_tail();
-		};
-		// One deadline for the hole, its wait for a slot and its render together (#195): it answers
-		// within RENDER_TIMEOUT_MS. A render still running then is abandoned (it cannot be cancelled):
-		// its hole keeps the fallback and its slot goes to the next hole, so renders stuck on a hung
-		// upstream never hold every slot.
-		try {
-			return await cached_render(
-				// (`render_signal`: this call's own, or a shared render's — aborted once nobody waits)
-				async (render_signal) => {
-					const gated = { deadline_ms: RENDER_TIMEOUT_MS, signal: render_signal };
-					// the page first, outside the gate: a render slot is never held while Kit runs the
-					// page's loads (and a cache hit never gets here)
-					await kit_page_ready(reads_page_data);
-					if (!timing) return render_gate.run(render_body, gated);
-					// the wait for a slot, and the time in it. A slot is held for the whole render,
-					// awaits included: a hole waiting on slow data keeps the next one queued
-					const asked = clock.mono();
-					return render_gate.run(async () => {
-						const entered = clock.mono();
-						timing.queue_ms = entered - asked;
-						try {
-							return await render_body();
-						} finally {
-							timing.render_ms = clock.mono() - entered;
-						}
-					}, gated);
-				},
-				cache,
-				report,
-				signal
-			);
-		} catch (e) {
-			// `keepFallback()` ends a render on purpose: the page's fallback is right for this
-			// visitor. Carried as a marker string so the cache/batch/endpoint seams stay string-typed.
-			if (is_keep_fallback(e)) return KEEP_FALLBACK_HTML;
-			// nobody waits on it: nothing to say, and nothing to answer
-			if (signal?.aborted) return null;
-			// The first render abandoned while none was: a production log line too, as renders that
-			// outlive their deadline usually await something that hangs. (Said by one call: the calls
-			// that joined a cached hole's render get the same error, render_cache.ts)
-			if (is_run_timeout(e) && render_gate.abandoned === 1 && !told_abandoned.has(e as Error)) {
-				told_abandoned.add(e as Error);
-				warn('region_render_abandoned', { ms: RENDER_TIMEOUT_MS });
-			}
-			// The response is an opaque 500 ("Region render failed"); the reason belongs in the
-			// server's log, in production as in dev (test/hole-throw-said.test.ts)
-			warn('region_render_failed', e);
-			return null;
-		}
-	}
-
-	/** A hole's render cache: none for a `ttl` of 0 (a dynamic hole). A cached hole's memo key is the
-	 *  call and the visitor's session, and — when its tree reads `page.data` — the page it renders for
-	 *  (one page's facts never answer another page's hole). Its render notes the event's personal
-	 *  reads (a cookie, a header, `locals`): one that read them is not kept for others (#434). */
-	#hole_cache(
-		id: string,
-		payload: string,
-		wakes: boolean,
-		event: RequestEvent,
-		ttl: number,
-		reads_page_data: boolean
-	): { key: RenderKey; ttl: number } | undefined {
-		if (ttl <= 0) return undefined;
-		const key = render_cache_key(
-			id,
-			payload,
-			this.#region_session(event),
-			reads_page_data ? page_url_of(event).href : null,
-			wakes
-		);
-		observe_reads(event, facts_of(event.request).reads);
-		return { key, ttl };
-	}
-
-	/** The session cookie value sealed into a region capability (empty when no `sessionCookie` is
-	 *  configured) — the same read the MAC verify uses, and the per-user part of the render-cache key. */
-	#region_session(event: RequestEvent): string {
-		return session_cookie ? (event.cookies.get(session_cookie) ?? '') : '';
-	}
-
-	// ── Shared capability core ──────────────────────────────────────────────────────────────────
-	// The endpoint ({@link render_region}) and the batch path ({@link #render_capability}) MUST verify
-	// identically — a one-sided change to the MAC message or the props reviver would weaken auth on one
-	// path only. The three security-critical steps live here, once. Each caller keeps its OWN failure
-	// shaping (403/500 + rate-limit interleaving vs null→client-fetch), which is where they legitimately
-	// differ; only the trust decisions are shared.
-
-	/**
-	 * Every check a capability passes BEFORE any HMAC (P5-HMAC-CPU), in order: charset/length (ids
-	 * are 12-hex from the transform; `ttl` is signed, but charset-gated here so a forged value never
-	 * reaches a response header; `exp` and `ttl` in their one spelling, server/endpoint.ts
-	 * `is_signed_number`), expiry (a renewal instead needs one inside the renew window: a URL
-	 * that has not expired never renews), and the signing key it names. Null when it passes, else why
-	 * it is refused.
-	 */
-	#capability_precheck(cap: Capability, renewal = false): RegionDeny | null {
-		if (
-			!is_region_id(cap.id) ||
-			(cap.render !== '' && !is_region_id(cap.render)) ||
-			cap.payload.length > MAX_REGION_PROPS_LEN ||
-			!is_region_ttl(cap.ttl) ||
-			!is_signed_number(cap.exp, REGION_EXP_DIGITS) ||
-			cap.v !== REGION_CAPABILITY_VERSION ||
-			(cap.wakes !== '' && cap.wakes !== '1')
-		)
-			return 'shape';
-		const expiry = expiry_refusal(
-			cap.exp,
-			Math.floor(clock.wall() / 1000), // wall: against the capability's signed epoch expiry
-			renewal,
-			app_lifetime.renew_window
-		);
-		if (expiry) return expiry;
-		if (foreign_key(cap.k)) return 'foreign-key';
-		return null;
-	}
-
-	/**
-	 * RENEWAL (server/shared-cache.ts): re-sign an EXPIRED capability this app minted for an
-	 * anonymous hole — the rescue for a hole on a document a cache kept longer than the hole's
-	 * capability. Refused (null) unless the visitor carries no session and the MAC over the ORIGINAL
-	 * tuple verifies with an empty session: nothing session-bound is ever renewed, and only a URL the
-	 * app itself put in public HTML can be. The caller has already gated shape + the renew window
-	 * and charged the probe budget. Returns the fresh `exp` + `sig`.
-	 */
-	#renew_capability(cap: Capability, event: RequestEvent): Capability | null {
-		if (this.#region_session(event) !== '') return null;
-		const key = signing_key();
-		const claim = claim_of(cap, '');
-		const late = app_lifetime.renew_window;
-		if (!region_verify(key.secret, islands_endpoint(), cap.v, cap.exp, claim, cap.sig, late))
-			return null;
-		const exp = app_lifetime.renewed_expiry();
-		return {
-			...cap,
-			exp: String(exp),
-			sig: region_sign(key.secret, islands_endpoint(), exp, claim),
-			k: key.fp
-		};
-	}
-
-	/** THE auth check: the region capability's signature, for this endpoint, sealed to the session
-	 *  cookie (if any), with its render identity inside when it has one (server/hmac.ts). */
-	#verify_region_mac(cap: Capability, event: RequestEvent): boolean {
-		const claim = claim_of(cap, this.#region_session(event));
-		return region_verify(signing_key().secret, islands_endpoint(), cap.v, cap.exp, claim, cap.sig);
-	}
-
-	/** Eval the island module (registers transportable codecs the reviver needs on a cold-start defer),
-	 *  then decode + revive the props payload. Null on parse failure or a non-object/array result. */
-	async #decode_region_props(
-		payload: string,
-		load: () => Promise<unknown>
-	): Promise<Record<string, unknown> | null> {
-		let props: unknown;
-		try {
-			await load();
-			// universal decode; remember:false — the SERVER never memoizes (per-request isolation)
-			register_wire_kind();
-			register_store_kind();
-			register_snippet_kind();
-			register_fn_kind();
-			register_derived_kind();
-			props = devalue.parse(B64Url.decode(payload), {
-				[REF_WIRE_KEY]: ref_reviver(false)
-			} as Parameters<typeof devalue.parse>[1]);
-		} catch (e) {
-			// in production as in dev: reached only with a capability this key signed, and the
-			// answer stays opaque (test/hole-props-decode-said.test.ts)
-			warn('endpoint_props_decode_failed', e);
-			return null;
-		}
-		if (props === null || typeof props !== 'object' || Array.isArray(props)) return null;
-		return props as Record<string, unknown>;
-	}
-
-	/**
-	 * Batch (single-flight navigation): verify a hole's OWN signed capability URL and render it in-process. Same
-	 * trust boundary as the endpoint (verify the MAC before touching the manifest), but every failure —
-	 * bad/expired MAC, unknown id, non-serializable props, render error, oversize — resolves to
-	 * `null` so the hole silently falls back to a client fetch. Never throws.
-	 */
-	async #render_capability(
-		endpoint: string,
-		event: RequestEvent,
-		/** A BATCH parcel is the hole's answer: through the app's transform like its own request, and
-		 *  logged for the profiler as a hole request. A postrender stitch splices into a stored document
-		 *  and stays as it was. */
-		batch = false,
-		/** the batch's: aborts when its visitor left (nothing more is verified, loaded or rendered) */
-		signal?: AbortSignal,
-		/** the visitor a batch charges, per hole, as its GET would (PROBE-THEN-RENDER): a probe before
-		 *  the MAC, a render after it. Over budget: no parcel, and the hole fetches on its own. A
-		 *  postrender stitch (its own stored page, no visitor) is charged nothing. */
-		ip?: string
-	): Promise<{ slot: string; html: string } | null> {
-		const r = create_region_request();
-		const parcel = await this.#capability_parcel(r, endpoint, event, batch, signal, ip);
-		r.go(parcel === null ? 'refused' : 'sent');
-		return parcel;
-	}
-
-	/** {@link #render_capability}'s steps, each move taken before its work (server/region-request.ts). */
-	async #capability_parcel(
-		r: RegionRequest,
-		endpoint: string,
-		event: RequestEvent,
-		batch: boolean,
-		signal: AbortSignal | undefined,
-		ip: string | undefined
-	): Promise<{ slot: string; html: string } | null> {
-		const q = endpoint.indexOf('?');
-		if (q === -1 || signal?.aborted) return null;
-		const cap = capability_of(new URLSearchParams(endpoint.slice(q + 1)));
-		const { id, payload, sig } = cap;
-
-		if (this.#capability_precheck(cap) || !r.go('prechecked')) return null;
-		if (!r.go('probed') || (ip !== undefined && this.probe_rate.limited(ip))) return null;
-		if (!this.#verify_region_mac(cap, event) || !r.go('verified')) return null;
-		if (!r.go('charged') || (ip !== undefined && this.#render_over(ip))) return null;
-
-		const target = capability_target(cap);
-		if (target === null) return null;
-		const load = (await load_server_regions()).regions[target];
-		if (typeof load !== 'function') return null;
-
-		const props = await this.#decode_region_props(payload, load);
-		if (!props) return null;
-
-		const ttl = Number(cap.ttl) || 0;
-		const reads_page_data = hole_reads_page_data(target);
-		const wakes = cap.wakes === '1';
-		const cache = this.#hole_cache(target, payload, wakes, event, ttl, reads_page_data);
-		// (the profiler logs each batched hole as its own hole request — only when one listens)
-		const stats = batch && has_batch_hole_listener();
-		const t0 = stats ? clock.mono() : 0;
-		const timing: { queue_ms?: number; render_ms?: number } = {};
-		let outcome: 'hit' | 'miss' | 'none' = 'none';
-		if (!r.go('rendering')) return null;
-		const body = await this.#render_component(
-			id,
-			load,
-			props,
-			wakes,
-			cache,
-			stats ? (o) => (outcome = o) : undefined,
-			stats ? timing : undefined,
-			event.url,
-			reads_page_data,
-			signal
-		);
-		if (stats)
-			record_batch_hole_stats(event.request, {
-				kind: 'hole',
-				id,
-				cache: outcome,
-				ttl,
-				...(timing.queue_ms !== undefined
-					? { queue_ms: Math.round(timing.queue_ms * 10) / 10 }
-					: {}),
-				...(region_name?.[target] ? { name: region_name[target] } : {}),
-				p: hole_copy_key(payload),
-				ms: clock.mono() - t0,
-				status: body === null ? 500 : 200
-			});
-		// (an answer nobody waits on any more is not shaped: the stream drops it)
-		if (body === null || body.length > MAX_REGION_BODY || signal?.aborted) return null;
-		// "Keep the fallback": the parcel carries the marker alone (no CSS links, nothing to hoist).
-		if (body === KEEP_FALLBACK_HTML) return { slot: sig, html: KEEP_FALLBACK_HTML };
-		// CSS links ride in the parcel; the client hoists them to <head> (a body/parcel link is inert
-		// inside the `<template>` box), so a batched server-island still styles a page that never
-		// imported its component. URLs inside are made root-absolute: `asset()` made them relative
-		// to THIS request, and the parcel lands in a page at any depth (server/hole-urls.ts).
-		let html = absolutize_hole_html(region_css_links(target) + body, event.url);
-		// The app's own pass, as on the hole's own answer (render_region): a batched hole is the same
-		// answer, and the runtime restores both the same way.
-		const pass = batch ? html_pass(plugins, event) : undefined;
-		if (pass) html = await pass.region(html);
-		return { slot: sig, html };
-	}
-
-	/**
-	 * Verify the region MAC, then render. Unknown ids and bad MACs both return 403 so the
-	 * existence of a region id is not an oracle (SEC-01). Expiry is part of the MAC message.
-	 *
-	 * Ordering: length/exp → probe rate (pre-HMAC) → verify → render rate → render.
-	 * Probe stops forged CPU amplification; render budget is only charged after a valid MAC.
-	 * A renewal (`&renew=1`) swaps the first three for its own: shape + renew window → probe →
-	 * anonymous-only re-verify of the original tuple + re-sign; then the same render rate + render.
-	 */
-	async render_region(event: RequestEvent): Promise<Response> {
-		const r = create_region_request();
-		const res = await this.#region_answer(r, event);
-		// (a success with no render before it is an illegal move: `sent` is only reached rendering)
-		r.go(res.status < 300 ? 'sent' : 'refused');
-		return res;
-	}
-
-	/** {@link render_region}'s steps, each move taken before its work (server/region-request.ts). */
-	async #region_answer(r: RegionRequest, event: RequestEvent): Promise<Response> {
-		const method = event.request.method.toUpperCase();
-		if (method !== 'GET' && method !== 'HEAD') {
-			return region_response('Method Not Allowed', {
-				status: 405,
-				headers: { allow: 'GET, HEAD' }
-			});
-		}
-
-		// Harvested capability URLs embedded cross-site (img/script/navigation) — reject when the
-		// browser reports cross-site. Missing Sec-Fetch-Site (old clients) is allowed.
-		const fetch_site = event.request.headers.get('sec-fetch-site');
-		if (fetch_site === 'cross-site') return region_denied('cross-site');
-
-		const url = event.url;
-		const ip = client_ip(event);
-		if (!ip) {
-			// Fail closed — shared 'unknown' bucket was an unfair DoS vector.
-			return region_response('Too Many Requests', { status: 429 });
-		}
-
-		let cap = capability_of(url.searchParams);
-		const { id, payload } = cap;
-		const ttl_raw = cap.ttl;
-		// RENEWAL: the runtime retries a hole whose capability EXPIRED (its document outlived it in a
-		// cache) once with `&renew=1`. The answer carries the fresh capability in
-		// `x-ogygia-capability`; the runtime adopts it for the hole's later fetches.
-		let renewed: string | null = null;
-		const renewal = url.searchParams.get('renew') === '1';
-
-		// Every check before HMAC (P5-HMAC-CPU) — the batch path runs the same one.
-		const refused = this.#capability_precheck(cap, renewal);
-		if (refused) {
-			if (import.meta.env.DEV && refused === 'foreign-key')
-				warn('endpoint_foreign_key', { id, key: String(cap.k), own: signing_key().fp });
-			return region_denied(refused);
-		}
-		r.go('prechecked');
-
-		// Pre-HMAC probe — forged floods hit this, not render() (HMAC-CPU-DOS).
-		if (!r.go('probed')) return region_response('Too Many Requests', { status: 429 });
-		if (this.probe_rate.limited(ip)) return over_budget(this.probe_rate, ip);
-
-		if (renewal) {
-			const fresh = this.#renew_capability(cap, event);
-			if (!fresh)
-				return region_denied(this.#region_session(event) !== '' ? 'renew-session' : 'sig');
-			cap = fresh;
-			renewed = url.pathname + capability_query(cap, cap.exp, cap.sig, cap.k ?? '');
-		} else {
-			// Verify (session-bound) before consulting the manifest — bad MAC never distinguishes
-			// unknown vs known id.
-			if (!this.#verify_region_mac(cap, event)) {
-				if (import.meta.env.DEV) warn('endpoint_bad_signature', { id });
-				return region_denied('sig');
-			}
-		}
-		if (!r.go('verified')) return region_denied('sig');
-
-		// Cache policy travels signed in the URL: a positive `ttl` opts this hole into a private browser
-		// cache; absent/0 keeps it dynamic (`no-store`). A hole is fresh-per-request by default. A
-		// renewed answer is never cached under its ttl: the browser would keep serving it for the OLD
-		// (expired) address the runtime is moving off.
-		const cache_control = ttl_raw && !renewed ? `private, max-age=${Number(ttl_raw)}` : 'no-store';
-		/** The fresh capability rides every successful answer to a renewal (the 204 too). */
-		const renew_headers: Record<string, string> = renewed ? { 'x-ogygia-capability': renewed } : {};
-
-		// Valid capability — now charge the per-IP render budget.
-		if (!r.go('charged')) return region_response('Too Many Requests', { status: 429 });
-		if (this.#render_over(ip)) return over_budget(this.render_rate, ip);
-
-		// Its own id, or (minted by another build) an entry of this build rendering its component.
-		const target = capability_target(cap);
-		if (target === null) {
-			if (import.meta.env.DEV)
-				warn('endpoint_unknown_id', {
-					id,
-					component: cap.render || undefined,
-					known: Object.keys(region_url).length
-				});
-			return region_denied('unknown-id');
-		}
-		const load = (await load_server_regions()).regions[target];
-		if (typeof load !== 'function') return region_denied('unknown-id');
-
-		// Same status as bad MAC on any decode failure (STATUS-ORACLE); the reason is only ever
-		// reached with a capability this key signed.
-		const props = await this.#decode_region_props(payload, load);
-		if (!props) return region_denied('props');
-
-		const ttl = Number(ttl_raw) || 0;
-		const reads_page_data = hole_reads_page_data(target);
-		const wakes = cap.wakes === '1';
-		const cache = this.#hole_cache(target, payload, wakes, event, ttl, reads_page_data);
-		const timing: { queue_ms?: number; render_ms?: number } = {};
-		let outcome: 'hit' | 'miss' | 'none' = 'none';
-		if (!r.go('rendering')) return region_response('Region render failed', { status: 500 });
-		const body = await this.#render_component(
-			id,
-			load,
-			props,
-			wakes,
-			cache,
-			(o) => (outcome = o),
-			timing,
-			event.url,
-			reads_page_data
-		);
-		// (the profiler's hole economics, with the wait for a render slot: a hole's time on the
-		// server is its queue AND its render)
-		record_hole_stats(event.request, {
-			kind: 'hole',
-			id,
-			cache: outcome,
-			ttl,
-			...(timing.queue_ms !== undefined ? { queue_ms: Math.round(timing.queue_ms * 10) / 10 } : {}),
-			// (a manifest from an older build has no names: the stub's `undefined`)
-			...(region_name?.[target] ? { name: region_name[target] } : {}),
-			p: hole_copy_key(payload)
-		});
-		// the same split for the browser (devtools, the profiler's beacon), as Server-Timing. Only for
-		// a browser that measures (dev, the devtools cookie, a visitor a plugin vouches for by its own
-		// credentials: the profiler's logged-in user): no other visitor's answer tells how loaded the
-		// server is
-		const timed =
-			timing.queue_ms !== undefined &&
-			(import.meta.env.DEV ||
-				(DEVTOOLS && event.cookies.get(DEVTOOLS_COOKIE) === DEVTOOLS_ON) ||
-				// oxlint-disable-next-line ogygia/no-silent-failures -- a failed hook was said (plugin_hook_failed); unproved is not timed
-				(await ask.measures(event).catch(() => undefined)) === true);
-		const server_timing: Record<string, string> = timed
-			? {
-					'server-timing': `og-queue;dur=${timing.queue_ms!.toFixed(1)}, og-render;dur=${(timing.render_ms ?? 0).toFixed(1)}`
-				}
-			: {};
-		if (body === null) {
-			return region_response('Region render failed', { status: 500 });
-		}
-		// `keepFallback()`: no content — the runtime keeps the page's fallback and marks the hole done.
-		if (body === KEEP_FALLBACK_HTML)
-			// (its hole's own policy, like its answer would carry: a 204 is cacheable by default)
-			return region_response(null, {
-				status: 204,
-				headers: { 'cache-control': cache_control, ...renew_headers }
-			});
-
-		if (body.length > MAX_REGION_BODY) return region_denied('oversize');
-
-		// Ship the component's stylesheet links ahead of its HTML (the client hoists them to <head>).
-		// Root-absolute URLs inside: the hole's HTML is spliced into a page at any depth — by the
-		// runtime, or by a CDN (ESI) — where a `./_app/…` entry would 404 (server/hole-urls.ts).
-		let html = absolutize_hole_html(region_css_links(target) + body, event.url);
-
-		// The app's own pass, on the fully assembled answer (the runtime restores what it moved before
-		// the answer goes in). Runs on the final body, so HEAD's `content-length` below and the GET
-		// body agree.
-		const pass = html_pass(plugins, event);
-		if (pass) html = await pass.region(html);
-
-		if (method === 'HEAD') {
-			return region_response(null, {
-				status: 200,
-				headers: {
-					'content-type': 'text/html; charset=utf-8',
-					'content-length': String(new TextEncoder().encode(html).byteLength),
-					'cache-control': cache_control,
-					...renew_headers
-				}
-			});
-		}
-
-		return region_response(html, {
-			status: 200,
-			headers: {
-				'content-type': 'text/html; charset=utf-8',
-				// Per-hole policy signed into the URL (see `cache_control` above). A hole is `no-store`
-				// (dynamic) unless it opts into caching via its preset's `maxAge`, which mints a positive
-				// `ttl` → `private, max-age=ttl`. `private` keeps shared/CDN caches out (responses are
-				// cookie-personalized) while still letting THIS browser reuse the response.
-				'cache-control': cache_control,
-				...renew_headers,
-				...server_timing
-			}
-		});
 	}
 }
 

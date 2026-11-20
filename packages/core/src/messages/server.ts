@@ -55,6 +55,18 @@ export const SERVER_ERRORS = {
 			that shows it.
 		`
 	},
+	region_endpoint_unbuilt: {
+		text: (): string => prose`
+			the islands endpoint was asked for a region, but this build has no region that streams
+			HTML: it answers 404.
+		`,
+		details: (): string => prose`
+			The build reads the app's regions and leaves the islands endpoint out of the server when
+			none of them fetches HTML from it (no deferred region, no lake, no held region). A page
+			from an earlier build that had one, still open or cached, asks for it; so does a request
+			made by hand. Reload the page to get this build's.
+		`
+	},
 	handle_secret_too_short: {
 		text: (a: { min: number }): string =>
 			`handle({ secret }) is too short for production (need ≥${a.min} UTF-8 bytes).`,
