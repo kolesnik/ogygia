@@ -51,11 +51,12 @@ export class IslandWire {
 	get has_slot_children(): boolean {
 		return this.#children() != null;
 	}
-	props_body: Props = $derived.by(() =>
-		this.has_slot_children && !BROWSER
+	/** The props the island's markup renders with (read once, by its render). */
+	get props_body(): Props {
+		return this.has_slot_children && !BROWSER
 			? { ...this.props_ready, children: this.#slot_children }
-			: this.props_ready
-	);
+			: this.props_ready;
+	}
 	wake: { on: string; margin: string | undefined } = $derived.by(() => {
 		const dual = this.as_dual;
 		return dual
@@ -92,11 +93,14 @@ export class IslandWire {
 	get in_tail(): boolean {
 		return !!this.#rp.tail && !!this.wire && !!this.fp;
 	}
-	props_inline: string = $derived.by(() =>
-		this.in_tail || !this.wire
+	/** The props sidecar written beside the island, when the page has no tail for it (read once, by
+	 *  its render). */
+	get props_inline(): string {
+		const wire = this.wire;
+		return this.in_tail || !wire
 			? ''
-			: props_sidecar(this.fp, this.wire.wire(null), 'adjacent', this.wire.wire_modules)
-	);
+			: props_sidecar(this.fp, wire.wire(null), 'adjacent', wire.wire_modules);
+	}
 
 	/** An island in its place: it warns about a wake its parent overrides, and hands its props to
 	 *  Kit's tail when the page has one. */
