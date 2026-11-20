@@ -19,6 +19,7 @@ import { server_plugins_module } from '../src/link/caps.ts';
 import { ask, notify } from '../../core/src/plugin/hooks.ts';
 import { edit as dev_edit } from './_dev-edit.ts';
 import { dedent } from '@ogygia/core/contract';
+import { core_macros } from '../../core/macros.config.ts';
 
 const own = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 const V = 'ogygia:server/server-plugins';
@@ -112,7 +113,7 @@ async function start(): Promise<{
 		root,
 		configFile: false,
 		logLevel: 'silent',
-		plugins: [plugin_list, svelte({ configFile: false })],
+		plugins: [core_macros(), plugin_list, svelte({ configFile: false })],
 		resolve: {
 			alias: [
 				{ find: /^\$app\/(.*)$/, replacement: own('../../core/test/_stubs/app-$1.ts') },

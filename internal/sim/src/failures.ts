@@ -1,8 +1,8 @@
 /**
  * EVERY FAILURE SITE ACCOUNTED FOR. Each place in the packages' source that can fail in real life
- * is a site: a catch, a `.catch(` or two-handler `.then`, a fetch, a `!res.ok`, a STALE check, an
- * `import()`, a storage call, a JSON parse, a timer (`setTimeout`, a scope's or AbortSignal's
- * `timeout`), an observer, a retry policy, an abort (`AbortController`, `.aborted`, `'AbortError'`),
+ * is a site: a catch, a `.catch(` or two-handler `.then`, a fetch, a `!res.ok`, a STALE check (written,
+ * or the one each `$await` compiles to), an `import()`, a storage call, a JSON parse, a timer (`setTimeout`, a scope's or AbortSignal's
+ * `timeout`, a life's `later` or `close_after`), an observer, a retry policy, an abort (`AbortController`, `.aborted`, `'AbortError'`),
  * an error event (`'error'`/`'abort'` listeners, `onerror`), a stream (`getReader`, `enqueue`, a
  * controller's `error`/`close`), a message (`postMessage`, `sendBeacon`, a channel), a `throw` (a
  * failure some caller must handle), a machine `.move('from', 'to')` (refused when the state moved on), an
@@ -212,12 +212,22 @@ function kind_of(node: Node, parent: Node | null): SiteKind | null {
 			const member = callee.type === 'MemberExpression';
 			if (name === 'catch' && member) return '.catch';
 			if (name === 'then' && args.length >= 2) return 'reject';
+			if (name === '$await' && !member) return 'stale';
 			if (name === 'fetch') return 'fetch';
 			if (name === 'parse' && object === 'JSON') return 'parse';
 			if (name === 'policy' && object === null) return 'policy';
 			if (name === 'setTimeout' || name === 'timeout') return 'timer';
+			if (name === 'close_after' && member) return 'timer';
 			if (
-				(name === 'addEventListener' || (name === 'on' && member)) &&
+				name === 'later' &&
+				member &&
+				args[0] !== undefined &&
+				args[0].type !== 'TemplateLiteral' &&
+				!(args[0].type === 'Literal' && typeof args[0].value === 'string')
+			)
+				return 'timer';
+			if (
+				(name === 'addEventListener' || ((name === 'on' || name === 'listen') && member)) &&
 				args.slice(0, 2).some((a) => a.type === 'Literal' && ERROR_EVENTS.has(String(a.value)))
 			)
 				return 'error-event';

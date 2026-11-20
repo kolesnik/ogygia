@@ -123,6 +123,36 @@ describe('failure sites', () => {
 		]);
 	});
 
+	it("finds a life's timers and error listeners as it finds a scope's timeout and on: later, close_after and listen", () => {
+		const got = ids(dedent`
+			function h(life, el) {
+				life.later(done, 5, null);
+				life.close_after(5);
+				life.listen(el, 'error', on_error);
+				life.listen(el, 'load', on_load);
+				later(done, 5);
+				sim.later('a task boundary');
+				sim.later(\`chunk \${n}\`, done);
+			}
+		`);
+		expect(got.map((id) => id.split(' > ').at(-1))).toEqual([
+			'timer:0',
+			'timer:1',
+			'error-event:0'
+		]);
+	});
+
+	it('finds a STALE check the build writes: each $await is one', () => {
+		const got = ids(dedent`
+			async function h(scope, turn) {
+				const v = $await(scope.task(work));
+				$await(turn.wait(ready), null);
+				await other();
+			}
+		`);
+		expect(got).toEqual(['packages/x/src/a.ts > h > stale:0', 'packages/x/src/a.ts > h > stale:1']);
+	});
+
 	it('a move is a machine move only from a named state: a text edit or a dependency mark is no refusal', () => {
 		expect(
 			ids("function f(s, v, m, part) { s.move(0, 4, 9); v.move('regions'); v.move(part); }")

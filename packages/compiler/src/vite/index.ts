@@ -518,9 +518,11 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 							});
 						}
 
+					const route_files = route_reader(node_fs);
+					if (env.command === 'build') route_files.db.reread();
 					if (env.command === 'build' && !standalone && isMainThread) {
 						const routes = kit.dirs.routes_dir;
-						if (clientBuildWillSkip(route_reader(node_fs), routes)) {
+						if (clientBuildWillSkip(route_files, routes)) {
 							inject_keep_client_route(routes);
 							arm_keep_client_cleanup(routes);
 						} else {
@@ -560,7 +562,7 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 							kit_pages:
 								env.command === 'serve' ||
 								foreign_hydrate ||
-								kit_may_hydrate(route_reader(node_fs), kit.dirs.routes_dir),
+								kit_may_hydrate(route_files, kit.dirs.routes_dir),
 							version: OGYGIA_VERSION,
 							dev_server: env.command === 'serve'
 						}),

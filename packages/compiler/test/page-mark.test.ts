@@ -118,6 +118,16 @@ describe('page mark', () => {
 		expect(resolveFeatures(marks)).toEqual(expect.arrayContaining(['page', 'mpa-nav']));
 	});
 
+	test("with the router, the router's handle is the page's navigation handle: no MPA handle ships", () => {
+		const marks = { complete: true, hydrate: ['load'], page: true };
+		expect(resolveFeatures({ ...marks, router: true })).toEqual(
+			expect.arrayContaining(['page', 'router'])
+		);
+		expect(resolveFeatures({ ...marks, router: true })).not.toContain('mpa-nav');
+		expect(resolveFeatures({ ...marks, router: false })).toContain('mpa-nav');
+		expect(resolveFeatures({ ...marks, router: true, foreign: true })).not.toContain('mpa-nav');
+	});
+
 	test('`$app/navigation` reaches the navigation handle', () => {
 		expect(marks_for(script(`\timport { goto } from '$app/navigation';`)).page).toBe(true);
 	});

@@ -143,6 +143,27 @@ describe('a literal the checks refuse: the build fails with the runtime code', (
 	});
 });
 
+test('the internal entry’s makers (lru, pass_queue) are checked at build and made trusted too', () => {
+	const internal = (...rows: ReadonlyArray<string>) =>
+		compile(
+			lines("import { lru, pass_queue } from '@ogygia/machine/internal';", ...rows),
+			'a.ts',
+			OPTIONS
+		)?.code ?? '';
+	const code = internal(
+		"export const a = lru({ name: 'a', max: 64 });",
+		"export const b = pass_queue({ name: 'b', max: 2, priority: () => 1 });"
+	);
+	expect(code).toContain('trusted_lru(');
+	expect(code).toContain('trusted_pass_queue(');
+	expect(() => internal("export const c = lru({ name: 'c', max: 0 });")).toThrow(
+		/machine_bad_option/
+	);
+	expect(() => internal("export const d = pass_queue({ name: 'd', max: 0.5 });")).toThrow(
+		/machine_bad_option/
+	);
+});
+
 test('a cache with no bound fails the build, as it throws in dev (production would refuse it)', () => {
 	expect(fails("export const c = cache({ name: 'c', max: Infinity });")).toMatch(
 		/machine_bad_option.*max/s

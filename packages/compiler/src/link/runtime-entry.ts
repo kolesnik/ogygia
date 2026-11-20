@@ -82,7 +82,7 @@ export const FEATURES: Record<FeatureId, FeatureDef> = {
 	'mpa-nav': {
 		module: 'nav-handle.js',
 		deps: [],
-		detect: (m) => m.page !== false
+		detect: (m) => m.page !== false && m.router !== true
 	},
 	router: {
 		module: 'router.js',

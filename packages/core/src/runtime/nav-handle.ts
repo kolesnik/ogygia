@@ -46,9 +46,9 @@ export type NavHandle = {
 	bust_page_cache(): void;
 };
 
-/** Feature entry (`mpa-nav`, boot phase): the MPA handle, first. The router's install, later in
- *  the feature order, replaces it, and a later call never replaces the router's. The build adds the
- *  feature only when island code can reach the handle (the `page` mark). */
+/** Feature entry (`mpa-nav`, boot phase): the MPA handle, unless another runtime on the page
+ *  published one. The build adds the feature only when island code can reach the handle (the
+ *  `page` mark) and the router is not in (its install publishes the router's handle). */
 export function install(): void {
 	if (typeof document !== 'undefined' && !(NAV_HANDLE_KEY in globalThis)) publish_nav(mpa_nav());
 }
