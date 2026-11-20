@@ -654,7 +654,10 @@ class OgygiaRegion extends HTMLElement {
 			this.#arm(when, this.#fire_hydrate);
 			return;
 		}
-		if (!(HAS & F_FRAMES)) return say_program_missing(this.getAttribute('entry') || '', 'hole');
+		if (!(HAS & F_FRAMES)) {
+			say_program_missing(this.getAttribute('entry') || '', 'hole');
+			return;
+		}
 		if (!this.#hole_armed()) return;
 		this.#arm(when, this.#fire_server);
 		const prefetch = this.getAttribute('prefetch');
