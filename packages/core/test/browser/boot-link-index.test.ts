@@ -2,8 +2,7 @@
 // helper's name ships. Two helpers of one type in swapped places would still typecheck, so each place
 // is checked against the helper it names.
 import { expect, test } from 'vitest';
-import { flights, STALE } from '@ogygia/machine';
-import { lru } from '@ogygia/machine/internal';
+import { STALE } from '@ogygia/machine';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { slots } from '../../src/runtime/slots.ts';
 import * as index from '../../src/runtime/boot-link-index.ts';
@@ -101,8 +100,6 @@ test('each place in the boot link holds the helper its number names', () => {
 		L_OGYGIA_ERROR: OgygiaError,
 		L_WARN: warn,
 		L_STALE: STALE,
-		L_FLIGHTS: flights,
-		L_CACHE: lru,
 		L_IS_DEFERRED: is_deferred,
 		L_OURS_ON_KIT_DOCUMENT: ours_on_kit_document,
 		// (dev's alone: a production build's place holds null)
