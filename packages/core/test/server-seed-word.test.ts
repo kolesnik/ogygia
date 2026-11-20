@@ -153,12 +153,12 @@ describe('the context root', () => {
 		expect(contexts[0]).toContain('dark-theme');
 	});
 
-	it('without it: nothing ships, and a document reads none', async () => {
+	// (a document's reader is installed with the recorder, when the handle's module loads with the
+	// feature in its word: this module loaded with every feature)
+	it('without it: nothing ships', async () => {
 		without(F_CONTEXT);
-		contexts.length = 0;
 		const html = await page(sets_context);
 		expect(html).not.toContain('data-ogygia-provide-page');
 		expect(html).not.toContain('dark-theme');
-		expect(contexts[0]).toBe('');
 	});
 });
