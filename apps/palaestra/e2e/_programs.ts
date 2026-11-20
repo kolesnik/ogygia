@@ -50,6 +50,18 @@ export const PROGRAMS: readonly Program[] = [
 	{ name: 'lake state', feature: 'lakes', modules: [], strings: ['lake cache'] },
 	// the region element's calls into the lakes feature (the arm it hands a frozen region)
 	{ name: 'lake calls', feature: 'lakes', modules: [], strings: ['fetch_revalidate'] },
+	// the option checks of flights, say and policy: every boot call's options are checked at build
+	// (internal/macros options pass), so no boot holds them
+	{
+		name: 'option checks',
+		feature: null,
+		modules: [],
+		strings: [
+			'a list of the input fields that make the key',
+			'a whole number of keys, 1 or more',
+			'a share of 0 to 1'
+		]
+	},
 	// the probe for a page Kit hydrates (its boot script), with ogygia's regions on it: mixed mode
 	{ name: 'kit probe', feature: null, kit: true, modules: [], strings: ['__sveltekit_'] }
 ];
