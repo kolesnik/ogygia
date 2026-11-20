@@ -13,6 +13,7 @@ import type { HistoryEntry, HistoryMove, SpaRouter } from './router.ts';
 import { spa_html_cacheable } from './spa-cacheable.ts';
 import { is_dangerous_head_node } from './head-deny.ts';
 import { pin_region_urls } from './entry-locations.ts';
+import { retire_page_head_copies } from './head-copies.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import {
 	OG_FP,
@@ -721,7 +722,7 @@ export async function navigate(
 		}
 		boot_link()[L_INIT_SHADOW_REGISTRIES](document.body);
 		(globalThis as PageGlobals).__og_restore_adopt?.();
-		session().retire_page_head_copies();
+		retire_page_head_copies(session());
 		release_head_nodes(unlisted);
 		apply_late_templates(document.body);
 		finish_spa_document();

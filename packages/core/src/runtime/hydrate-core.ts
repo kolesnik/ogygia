@@ -8,7 +8,7 @@ import { SEED_REF_KEY, seed_ref_reviver } from '../seed-ref-reviver.ts';
 import { parse_sidecar_text } from './wire-format.ts';
 import { boot_link, slots, wake_link, type HeldLake } from './slots.ts';
 import { report_thrown } from '../report-thrown.ts';
-import type { HeadMark } from './session.ts';
+import { mark_head, record_island_head, type HeadMark } from './head-copies.ts';
 import { install_hydrate_features } from 'ogygia:boot';
 import { emit as dt_emit } from '../events/bus.ts';
 import { warn } from '../messages/lazy.ts';
@@ -613,8 +613,7 @@ export function hydrate_island(
 			: { repaired: false, reason: null, conflict: null };
 	const repaired = drift.repaired;
 	try {
-		head_mark =
-			KIT_PAGES && kit_hydrates_page() ? null : boot_link()[L_RUNTIME_SESSION].mark_head();
+		head_mark = KIT_PAGES && kit_hydrates_page() ? null : mark_head();
 		if (!region.isConnected) return null;
 		unmark_html_ranges(region);
 		const ssr_children = Array.from(region.children);
@@ -726,7 +725,7 @@ export function hydrate_island(
 			warn('hydration_discarded', { entry, drift: drift.reason, strict });
 		}
 
-		if (head_mark) boot_link()[L_RUNTIME_SESSION].record_island_head(head_mark);
+		if (head_mark) record_island_head(boot_link()[L_RUNTIME_SESSION], head_mark);
 		return out;
 	} finally {
 		head_mark?.stop();

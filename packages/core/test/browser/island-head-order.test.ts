@@ -17,6 +17,7 @@ import {
 	neutralize_head_hydration_markers
 } from '../../src/runtime/hydrate-core.ts';
 import { RuntimeSession } from '../../src/runtime/session.ts';
+import { mark_head, record_island_head } from '../../src/runtime/head-copies.ts';
 import HeadStyle from './fixtures/HeadStyle.svelte';
 
 const decode = (key: 'head_style_head_b64' | 'head_style_body_b64') => from_b64(inject(key));
@@ -81,13 +82,13 @@ test("a page style that differs from an island's only in its text is the page's,
  *  head() renders a block fresh; `between`, a node the head already held, is moved inside that run
  *  while it renders. */
 function step_adds(s: RuntimeSession, html: string, between: Element | null = null): Node[] {
-	const mark = s.mark_head();
+	const mark = mark_head();
 	const tpl = document.createElement('template');
 	tpl.innerHTML = html;
 	const nodes: Node[] = [...tpl.content.childNodes, document.createTextNode('')];
 	document.head.append(...nodes);
 	if (between) (nodes[0] as Element).after(between);
-	s.record_island_head(mark);
+	record_island_head(s, mark);
 	return nodes;
 }
 
