@@ -50,23 +50,41 @@ export function is_media_query(value: string): boolean {
 
 /** `value` as a trigger, when it is a keyword `allow` holds or a media query; else `null`. */
 export function parse_trigger(value: string, allow: readonly TriggerKeyword[]): Trigger | null {
+	return read_trigger(value, allow, is_media_query);
+}
+
+function read_trigger(
+	value: string,
+	allow: readonly TriggerKeyword[],
+	media: ((value: string) => boolean) | undefined
+): Trigger | null {
 	if ((allow as readonly string[]).includes(value)) return { on: value as TriggerKeyword };
-	if (is_media_query(value)) return { on: 'media', query: value };
+	if (media?.(value)) return { on: 'media', query: value };
 	return null;
 }
 
-/** How a schedule is armed: on idle, on screen, on a media query (a load runs at once). */
-export interface ScheduleArms {
-	idle(fire: () => void): void;
-	visible(fire: () => void): void;
-	media(query: string, fire: () => void): void;
+/** The media arm: how it tells a media query (`is_media_query`), and how it arms one. */
+export interface MediaArm<F extends () => unknown = () => void> {
+	readonly is: (value: string) => boolean;
+	readonly arm: (query: string, fire: F) => void;
+}
+
+/**
+ * How a schedule is armed: on idle, on screen, on a media query (a load runs at once). A build
+ * leaves out the arms no region of its app is scheduled on (the `idle`, `visible` and `media`
+ * features): such an arm is null, and a trigger that needs it goes to `missing`, which says so and
+ * runs it on load. Without the media arm a media query cannot be told from a typo, so every value
+ * no arm holds goes to `missing` then.
+ */
+export interface ScheduleArms<F extends () => unknown = () => void> {
+	idle: ((fire: F) => void) | null;
+	visible: ((fire: F) => void) | null;
+	media: MediaArm<F> | null;
+	missing(value: string, fire: F): void;
 }
 
 /** How a wake is armed: a schedule's arms, a gesture's, and how a load starts (at once without one). */
-export interface TriggerArms<F extends () => unknown = () => void> {
-	idle(fire: F): void;
-	visible(fire: F): void;
-	media(query: string, fire: F): void;
+export interface TriggerArms<F extends () => unknown = () => void> extends ScheduleArms<F> {
 	interaction?(fire: F): void;
 	load?(fire: F): void;
 }
@@ -75,24 +93,27 @@ export interface TriggerArms<F extends () => unknown = () => void> {
  * Runs `fire` on the trigger `when` names, of those `allow` holds: the one interpreter of a trigger.
  * A value it does not hold runs on load: a typo (`visable`), or `interaction` where only a schedule
  * is taken (a hole fetched on a gesture carries it into its cached lake). Never a media query that
- * can never match (test/browser/wake-unknown-trigger.test.ts). Returns the trigger it armed, null
- * for a value it did not hold.
+ * can never match (test/browser/wake-unknown-trigger.test.ts). A trigger whose arm the build left
+ * out goes to `arms.missing` (test/browser/schedules-missing.test.ts). Returns false for a value it
+ * did not hold and nothing said: it ran on load.
  */
 export function on_trigger<F extends () => unknown>(
 	when: string,
 	allow: readonly TriggerKeyword[],
 	arms: TriggerArms<F>,
 	fire: F
-): Trigger | null {
-	const t = parse_trigger(when, allow);
-	const on = t?.on ?? 'load';
-	if (on === 'idle') arms.idle(fire);
-	else if (on === 'visible') arms.visible(fire);
-	else if (t?.on === 'media') arms.media(t.query, fire);
+): boolean {
+	const media = arms.media;
+	const t = read_trigger(when, allow, media?.is);
+	const on = t?.on;
+	const arm = on === 'idle' || on === 'visible' ? arms[on] : undefined;
+	if (arm === null || (t === null && media === null)) arms.missing(when, fire);
+	else if (arm) arm(fire);
+	else if (t?.on === 'media') media!.arm(t.query, fire);
 	else if (on === 'interaction' && arms.interaction) arms.interaction(fire);
 	else if (arms.load) arms.load(fire);
 	else fire();
-	return t;
+	return t !== null || media === null;
 }
 
 /** Runs `fire` on the schedule `when` names (a fetch, a prefetch, a revalidation): see `on_trigger`. */

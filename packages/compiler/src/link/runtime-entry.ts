@@ -1,4 +1,4 @@
-import { dedent, feature_word, type FeatureName } from '@ogygia/core/contract';
+import { dedent, feature_word, parse_trigger, WAKE, type FeatureName } from '@ogygia/core/contract';
 import { client_realms_source, type ClientRealmFile } from './caps.ts';
 
 const HYPHEN = /-/g;
@@ -14,6 +14,13 @@ export type RuntimeMarks = {
 	complete?: boolean;
 	hydrate?: string[];
 	defer?: string[];
+	/** A hole's `prefetch` schedules (warming its HTML ahead of its `fetch`). */
+	prefetch?: string[];
+	/** A lake's `remount.revalidate` schedules (a cached lake fetched again). */
+	revalidate?: string[];
+	/** The app has client plugins: their browser halves can put regions into a page that no mark
+	 *  saw, so every schedule's arm is in. */
+	clientPlugins?: boolean;
 	persist?: boolean;
 	persistKeys?: string[];
 	router?: boolean;
@@ -44,7 +51,8 @@ export type RuntimeMarks = {
 export type FeatureId = FeatureName;
 
 /**
- * WHICH CHUNK a feature lives in. The runtime ships as two static, feature-sized phases:
+ * WHICH CHUNK a feature lives in. The runtime ships as two static, feature-sized phases (and code
+ * the element itself keeps or folds):
  *
  * - `boot` — the runtime entry (`og-runtime.*.js`), loaded by the `<script>` in `<head>`. Defines
  *   `<ogygia-region>`, schedules wakes, fetches holes, morphs, routes. It must never reach Svelte:
@@ -53,20 +61,30 @@ export type FeatureId = FeatureName;
  * - `hydrate` — the hydrate core (`runtime/hydrate-core.js`), loaded by the runtime's single existing
  *   `import()` when the first island wakes, together with Svelte (which `hydrate()` needs anyway). A
  *   feature whose slot only the hydrate core reads belongs here, installed as the chunk evaluates.
+ * - `element` — no module: code inside the always-on region element, kept or folded by the
+ *   feature's bit in `HAS` alone (a schedule's arm: `idle`, `visible`, `media`).
  *
  * Both phases are generated from the same marks, so each is exactly as big as the app needs; no
  * feature adds a dynamic import of its own. `test/runtime-boot-svelte-free.test.ts` pins the boot.
  */
-export type FeaturePhase = 'boot' | 'hydrate';
+export type FeaturePhase = 'boot' | 'hydrate' | 'element';
 
 export type FeatureDef = {
-	/** Path relative to `runtime/` (no leading ./). */
-	module: string;
+	/** Path relative to `runtime/` (no leading ./). None for an `element` feature. */
+	module?: string;
 	deps: FeatureId[];
 	detect: (m: RuntimeMarks) => boolean;
 	/** Default `boot`. See {@link FeaturePhase}. */
 	phase?: FeaturePhase;
 };
+
+function schedules(m: RuntimeMarks): string[] {
+	return [...(m.hydrate || []), ...(m.defer || []), ...(m.prefetch || []), ...(m.revalidate || [])];
+}
+
+function schedules_unseen(m: RuntimeMarks): boolean {
+	return m.foreign === true || m.live === true || m.clientPlugins === true;
+}
 
 export const FEATURES: Record<FeatureId, FeatureDef> = {
 	interaction: {
@@ -152,6 +170,22 @@ export const FEATURES: Record<FeatureId, FeatureDef> = {
 		deps: [],
 		phase: 'hydrate',
 		detect: (m) => m.foreign === true || m.context === true
+	},
+	idle: {
+		deps: [],
+		phase: 'element',
+		detect: (m) => schedules_unseen(m) || schedules(m).includes('idle')
+	},
+	visible: {
+		deps: [],
+		phase: 'element',
+		detect: (m) => schedules_unseen(m) || schedules(m).includes('visible')
+	},
+	media: {
+		deps: [],
+		phase: 'element',
+		detect: (m) =>
+			schedules_unseen(m) || schedules(m).some((w) => parse_trigger(w, WAKE)?.on === 'media')
 	}
 };
 
@@ -168,7 +202,10 @@ export const FEATURE_ORDER: FeatureId[] = [
 	'forms',
 	'mpa-nav',
 	'router',
-	'context'
+	'context',
+	'idle',
+	'visible',
+	'media'
 ];
 
 /** Resolve the closed feature set for a marks manifest. */
@@ -223,7 +260,7 @@ export function generateRuntimeEntrySource(
 	lines.push(`import { boot } from ${JSON.stringify(runtime_path(runtimeDir, 'core.js'))};`);
 	for (const id of features) {
 		lines.push(
-			`import * as ${to_alias(id)} from ${JSON.stringify(runtime_path(runtimeDir, FEATURES[id].module))};`
+			`import * as ${to_alias(id)} from ${JSON.stringify(runtime_path(runtimeDir, FEATURES[id].module!))};`
 		);
 	}
 	if (cp.imports) lines.push(cp.imports.slice(0, -1));
@@ -252,7 +289,7 @@ export function generateHydrateFeaturesSource(
 	lines.push(`/** generated ogygia hydrate-phase features: ${features.join(', ') || '(none)'} */`);
 	for (const id of features) {
 		lines.push(
-			`import * as ${to_alias(id)} from ${JSON.stringify(runtime_path(runtimeDir, FEATURES[id].module))};`
+			`import * as ${to_alias(id)} from ${JSON.stringify(runtime_path(runtimeDir, FEATURES[id].module!))};`
 		);
 	}
 	lines.push('export function install() {');
@@ -285,7 +322,7 @@ export function generateRuntimeFlagsSource(
 	all = false
 ): string {
 	const features = all ? FEATURE_ORDER : resolveFeatures(marks);
-	const codec = JSON.stringify(runtime_path(runtimeDir, FEATURES.wire.module));
+	const codec = JSON.stringify(runtime_path(runtimeDir, FEATURES.wire.module!));
 	const load_wire_codec = features.includes('wire') ? 'null' : `() => import(${codec})`;
 	return `${dedent`
 		export const HAS = ${feature_word(features)};

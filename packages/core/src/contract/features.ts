@@ -22,7 +22,10 @@ export type FeatureName =
 	| 'forms'
 	| 'mpa-nav'
 	| 'router'
-	| 'context';
+	| 'context'
+	| 'idle'
+	| 'visible'
+	| 'media';
 
 export const F_REMOTE_SEEDS = 0x1;
 export const F_PAGE = 0x2;
@@ -39,6 +42,15 @@ export const F_FORMS = 0x200;
 export const F_MPA_NAV = 0x400;
 export const F_ROUTER = 0x800;
 export const F_CONTEXT = 0x1000;
+/** Some region is scheduled on `idle` (a wake, a hole's fetch or prefetch, a lake's revalidation):
+ *  the region element's idle arm. Without it, a region that asks for one says
+ *  `region_schedule_missing` and runs on load. */
+export const F_IDLE = 0x2000;
+/** Some region is scheduled on `visible`: the region element's on-screen arm. */
+export const F_VISIBLE = 0x4000;
+/** Some region is scheduled on a media query: the media arm, and the parse that tells a media query
+ *  from a typo. */
+export const F_MEDIA = 0x8000;
 
 /** Each feature's bit, by its name. */
 export const FEATURE_BITS: Readonly<Record<FeatureName, number>> = {
@@ -54,7 +66,10 @@ export const FEATURE_BITS: Readonly<Record<FeatureName, number>> = {
 	forms: F_FORMS,
 	'mpa-nav': F_MPA_NAV,
 	router: F_ROUTER,
-	context: F_CONTEXT
+	context: F_CONTEXT,
+	idle: F_IDLE,
+	visible: F_VISIBLE,
+	media: F_MEDIA
 };
 
 /** The word of the given features. */

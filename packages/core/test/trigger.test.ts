@@ -1,7 +1,14 @@
 // The `when` / `wake` / `prefetch` / `revalidate` vocabulary (src/contract/trigger.ts, #482): one
 // parse into a tagged union, read by the compiler's checks and the runtime's schedules alike.
 import { describe, expect, it, vi } from 'vitest';
-import { on_schedule, on_trigger, parse_trigger, SCHEDULE, WAKE } from '../src/contract/trigger.ts';
+import {
+	is_media_query,
+	on_schedule,
+	on_trigger,
+	parse_trigger,
+	SCHEDULE,
+	WAKE
+} from '../src/contract/trigger.ts';
 
 describe('parse_trigger', () => {
 	it('reads a keyword its set allows, and a media query, into one shape', () => {
@@ -57,8 +64,11 @@ describe('parse_trigger', () => {
 	});
 });
 
+/** A media arm: the real media query test, and a spy for its arming. */
+const media_arm = () => ({ is: is_media_query, arm: vi.fn() });
+
 describe('on_schedule', () => {
-	const arms = () => ({ idle: vi.fn(), visible: vi.fn(), media: vi.fn() });
+	const arms = () => ({ idle: vi.fn(), visible: vi.fn(), media: media_arm(), missing: vi.fn() });
 
 	it('arms the schedule its value names', () => {
 		const a = arms();
@@ -68,7 +78,7 @@ describe('on_schedule', () => {
 		on_schedule('(max-width: 1px)', a, fire);
 		expect(a.idle).toHaveBeenCalledWith(fire);
 		expect(a.visible).toHaveBeenCalledWith(fire);
-		expect(a.media).toHaveBeenCalledWith('(max-width: 1px)', fire);
+		expect(a.media.arm).toHaveBeenCalledWith('(max-width: 1px)', fire);
 		on_schedule('load', a, fire);
 		expect(fire).toHaveBeenCalledOnce();
 	});
@@ -77,7 +87,7 @@ describe('on_schedule', () => {
 		const a = arms();
 		const fire = vi.fn();
 		on_schedule('interaction', a, fire);
-		expect(a.media).not.toHaveBeenCalled();
+		expect(a.media.arm).not.toHaveBeenCalled();
 		expect(fire).toHaveBeenCalledOnce();
 	});
 });
@@ -86,7 +96,8 @@ describe('on_trigger', () => {
 	const arms = () => ({
 		idle: vi.fn(),
 		visible: vi.fn(),
-		media: vi.fn(),
+		media: media_arm(),
+		missing: vi.fn(),
 		interaction: vi.fn(),
 		load: vi.fn()
 	});
@@ -94,7 +105,7 @@ describe('on_trigger', () => {
 	it('a wake arms its gesture, and its load through its own start', () => {
 		const a = arms();
 		const fire = vi.fn();
-		expect(on_trigger('interaction', WAKE, a, fire)).toEqual({ on: 'interaction' });
+		expect(on_trigger('interaction', WAKE, a, fire)).toBe(true);
 		expect(a.interaction).toHaveBeenCalledWith(fire);
 		on_trigger('load', WAKE, a, fire);
 		expect(a.load).toHaveBeenCalledWith(fire);
@@ -104,8 +115,45 @@ describe('on_trigger', () => {
 	it('a value that is not a trigger (a typo) runs on load and says so, never waits on matchMedia', () => {
 		const a = arms();
 		const fire = vi.fn();
-		expect(on_trigger('visable', WAKE, a, fire)).toBeNull();
-		expect(a.media).not.toHaveBeenCalled();
+		expect(on_trigger('visable', WAKE, a, fire)).toBe(false);
+		expect(a.media.arm).not.toHaveBeenCalled();
 		expect(a.load).toHaveBeenCalledWith(fire);
+		expect(a.missing).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['idle', 'idle'],
+		['visible', 'visible'],
+		['media', '(min-width: 600px)']
+	] as const)(
+		'a trigger whose arm the build left out (%s) goes to missing, never to its arm or a silent load',
+		(arm, when) => {
+			const a = { ...arms(), [arm]: null };
+			const fire = vi.fn();
+			expect(on_trigger(when, WAKE, a, fire)).toBe(true);
+			expect(a.missing).toHaveBeenCalledWith(when, fire);
+			expect(a.load).not.toHaveBeenCalled();
+			expect(fire).not.toHaveBeenCalled();
+		}
+	);
+
+	it('without the media arm, a value no keyword holds goes to missing (a media query or a typo, it cannot tell)', () => {
+		const a = { ...arms(), media: null };
+		const fire = vi.fn();
+		expect(on_trigger('visable', WAKE, a, fire)).toBe(true);
+		expect(a.missing).toHaveBeenCalledWith('visable', fire);
+		expect(a.load).not.toHaveBeenCalled();
+	});
+
+	it('the arms a build kept still arm, whatever it left out beside them', () => {
+		const a = { ...arms(), idle: null, media: null };
+		const fire = vi.fn();
+		on_trigger('visible', WAKE, a, fire);
+		on_trigger('interaction', WAKE, a, fire);
+		on_trigger('load', WAKE, a, fire);
+		expect(a.visible).toHaveBeenCalledWith(fire);
+		expect(a.interaction).toHaveBeenCalledWith(fire);
+		expect(a.load).toHaveBeenCalledWith(fire);
+		expect(a.missing).not.toHaveBeenCalled();
 	});
 });

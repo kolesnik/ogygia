@@ -13,12 +13,12 @@ import {
 import { plain_flights } from '@ogygia/machine/internal';
 import type { Life, Run } from '@ogygia/machine/internal';
 import { frameAddress, older_by, stands_at } from '../frame.ts';
-import { on_trigger, WAKE } from '../contract/trigger.ts';
+import { is_media_query, on_trigger, WAKE } from '../contract/trigger.ts';
 import { OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from '../wire-markup.ts';
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
 import { HAS } from 'ogygia:boot';
-import { F_FRAMES, F_LAKES, F_LIVE } from '../contract/features.ts';
+import { F_FRAMES, F_IDLE, F_LAKES, F_LIVE, F_MEDIA, F_VISIBLE } from '../contract/features.ts';
 import { wire_for_wake } from './wire-on-use.ts';
 import { report_thrown } from '../report-thrown.ts';
 import { kit_hydrates_page, publish_kit_hydrates } from './kit-boot.ts';
@@ -103,7 +103,9 @@ import {
 	unregister_region,
 	yield_task
 } from './schedule.ts';
-import { once_on_screen } from './viewport.ts';
+import { on_idle } from './arm-idle.ts';
+import { on_visible } from './arm-visible.ts';
+import { on_media } from './arm-media.ts';
 import {
 	note_code_sheets,
 	sheet_of,
@@ -294,6 +296,12 @@ function say_island_failed(entry: string | null, err: unknown): void {
 /** A region needs a program its build's word left out (`HAS`): it keeps the server's HTML. */
 function say_program_missing(entry: string, program: 'hole' | 'live'): void {
 	console.error(new OgygiaError('region_program_missing', { entry, program }));
+}
+function region_label(el: Element): string {
+	return el.getAttribute('entry') || el.getAttribute(OG_HOLE) || 'ogygia-region';
+}
+function say_schedule_missing(el: Element, value: string): void {
+	console.error(new OgygiaError('region_schedule_missing', { region: region_label(el), value }));
 }
 const nothing = (): void => {};
 const kit_boot_failed = (err: unknown): boolean =>
@@ -750,14 +758,30 @@ class OgygiaRegion extends HTMLElement {
 
 	#lake_arm() {
 		return {
-			idle: (fire: () => void) => {
-				if (this.#hole_armed()) this.#on_idle(fire, this.#hole);
-			},
-			visible: (fire: () => void, margin?: string) => {
-				if (this.#hole_armed()) this.#on_visible(fire, margin, this.#hole);
-			},
-			media: (when: string, fire: () => void) => {
-				if (this.#hole_armed()) this.#on_media(when, fire, this.#hole);
+			idle:
+				HAS & F_IDLE
+					? (fire: () => void) => {
+							if (this.#hole_armed()) on_idle(fire, this.#hole);
+						}
+					: null,
+			visible:
+				HAS & F_VISIBLE
+					? (fire: () => void, margin?: string) => {
+							if (this.#hole_armed()) on_visible(this, fire, margin, this.#hole);
+						}
+					: null,
+			media:
+				HAS & F_MEDIA
+					? {
+							is: is_media_query,
+							arm: (when: string, fire: () => void) => {
+								if (this.#hole_armed()) on_media(when, fire, this.#hole);
+							}
+						}
+					: null,
+			missing: (value: string, fire: () => void) => {
+				say_schedule_missing(this, value);
+				fire();
 			},
 			fetch_revalidate: () => this.#box.post((turn) => this.#fetch_html(turn, true)),
 			wake_children: () => this.#wake_waiting_regions()
@@ -791,14 +815,21 @@ class OgygiaRegion extends HTMLElement {
 		// starts nothing (#335).
 		const armed = owner.visit();
 		const start = () => background_start(() => void (armed.closed || fire()));
-		const trigger = on_trigger(
+		const held = on_trigger(
 			when,
 			WAKE,
 			{
-				idle: (f) => this.#on_idle(f, owner),
-				visible: () => this.#on_visible(start, visible_margin, owner),
+				idle: HAS & F_IDLE ? (f) => on_idle(f, owner) : null,
+				visible: HAS & F_VISIBLE ? () => on_visible(this, start, visible_margin, owner) : null,
 				load: start,
-				media: (query) => this.#on_media(query, start, owner),
+				media:
+					HAS & F_MEDIA
+						? { is: is_media_query, arm: (query) => on_media(query, start, owner) }
+						: null,
+				missing: (value) => {
+					say_schedule_missing(this, value);
+					start();
+				},
 				interaction: (f) => {
 					if (HAS & F_FRAMES && owner === this.#hole) {
 						arm_on_demand(
@@ -814,11 +845,7 @@ class OgygiaRegion extends HTMLElement {
 			},
 			fire
 		);
-		if (!trigger)
-			warn('region_wake_unknown', {
-				region: this.getAttribute('entry') || this.getAttribute(OG_HOLE) || 'ogygia-region',
-				value: when
-			});
+		if (!held) warn('region_wake_unknown', { region: region_label(this), value: when });
 	}
 
 	/**
@@ -1235,41 +1262,6 @@ class OgygiaRegion extends HTMLElement {
 		for (const el of this.querySelectorAll('ogygia-region')) {
 			if (el instanceof OgygiaRegion) el.connectedCallback();
 		}
-	}
-
-	#on_idle(fire: () => unknown, owner: Leaves) {
-		const s = owner.visit();
-		// @why WebKit has no requestIdleCallback (test: test/browser/hole-when.test.ts › an idle hole in a browser with no idle callback fetches after a short pause, not at once)
-		if (!('requestIdleCallback' in window)) {
-			s.later(() => fire(), 200);
-			return;
-		}
-		const once = s.child();
-		const first = () => {
-			once.close();
-			fire();
-		};
-		once.later(first, 'idle');
-		once.later(first, 2000);
-	}
-
-	#on_visible(fire: () => unknown, root_margin: string | undefined, owner: Leaves) {
-		const rootMargin = root_margin || this.getAttribute('margin') || '0px';
-		// oxlint-disable-next-line ogygia/no-silent-failures -- a wake; its hydrate says its own failure
-		const seen = () => void fire();
-		owner.visit().defer(once_on_screen(this, rootMargin, seen));
-	}
-
-	#on_media(q: string, fire: () => unknown, owner: Leaves) {
-		const mql = matchMedia(q);
-		// oxlint-disable-next-line ogygia/no-silent-failures -- a wake; its hydrate says its own failure
-		if (mql.matches) return void fire();
-		const once = owner.visit().child();
-		once.listen(mql, 'change', (e) => {
-			if (!e.matches) return;
-			once.close();
-			fire();
-		});
 	}
 
 	async #hydrate(held: Turn) {
