@@ -23,6 +23,9 @@ const { compile, compileModule } = core_require(
 const RUNES_MODULE_RE = /\.svelte\.(ts|js)$/;
 
 const STUBS = new URL('../../../packages/core/test/_stubs/', import.meta.url);
+/** Core's source: its own `#` imports resolve to source there (package.json, `ogygia-source`), as
+ *  core's tests resolve them; every other reader gets dist. */
+const CORE_SRC = new URL('../../../packages/core/src/', import.meta.url).href;
 /** Where the bench page's island files are (packages/core/bench/hydration-page.ts `island_file`). */
 const ISLAND_FILES = 'https://shop.example.test/_app/ogygia/';
 const APP = '$app/';
@@ -57,6 +60,11 @@ registerHooks({
 			file.searchParams.set('entry', specifier.slice(ISLAND_FILES.length));
 			return { url: file.href, shortCircuit: true };
 		}
+		if (specifier.startsWith('#') && context.parentURL?.includes(CORE_SRC))
+			return next(specifier, {
+				...context,
+				conditions: ['ogygia-source', ...(context.conditions ?? [])]
+			});
 		const name = stub_name(specifier);
 		if (name === null) return next(specifier, context);
 		const file = new URL(`${name}.ts`, STUBS);
