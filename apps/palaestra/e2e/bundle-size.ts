@@ -176,8 +176,8 @@ const PROGRAMS: ReadonlyArray<{
 			'packages/core/dist/runtime/hole-facts.js'
 		]
 	},
-	// the region element's hole program: fetch, apply, revalidate, retry (its answer's event)
-	{ name: 'hole program', feature: 'frames', modules: [], strings: ['ogygia:server'] },
+	// the region element's hole program: fetch, apply, revalidate, retry (its revalidated mark)
+	{ name: 'hole program', feature: 'frames', modules: [], strings: ['data-revalidated'] },
 	// the region element's live program: a held region's ticks (its tick's event)
 	{ name: 'live program', feature: 'frames', modules: [], strings: ['ogygia:live'] }
 ];
