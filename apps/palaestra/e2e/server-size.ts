@@ -170,11 +170,14 @@ const SERVER_PROGRAMS: readonly { feature: string; bit: number; modules: readonl
 		modules: ['core/region-parts/live-value.svelte', 'core/PromiseRegionAwait.svelte']
 	}
 ];
-/** The browser's own modules (an island entry's load and its recovery): in no server build. */
+/** The browser's own modules (an island entry's load and its recovery, the frame store, the
+ *  `{@html}` range marks taken out before a hydrate): in no server build. */
 const BROWSER_ONLY: readonly string[] = [
 	'core/runtime/entry-locations',
 	'core/runtime/import-again',
-	'core/runtime/code-origins'
+	'core/runtime/code-origins',
+	'core/runtime/frame-store',
+	'core/runtime/html-ranges'
 ];
 const WORD_RE = /\b(?:var|const|let) HAS(?:\$\d+)? = (\d+);/;
 
