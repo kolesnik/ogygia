@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'vitest';
 import { hold, on_frozen_connect, release } from '../../src/runtime/lakes.ts';
-import { runtime_session } from '../../src/runtime/session.ts';
+import { lake_state } from '../../src/runtime/lakes.ts';
 import type { LakeArm } from '../../src/runtime/slots.ts';
 
 let next = 0;
@@ -39,18 +39,18 @@ test('a lake inside an island that will hydrate waits for that hydrate; any othe
 		'[data-lake]'
 	);
 	on_frozen_connect(in_island, arms().arm);
-	expect(runtime_session.lake_settled(in_island), 'inside an island').toBe(false);
+	expect(lake_state.lake_settled(in_island), 'inside an island').toBe(false);
 
 	const in_lake = place(
 		`<ogygia-region wake="none" entry="${unique('outer')}">${lake(unique('in-lake'))}</ogygia-region>`,
 		'[data-lake]'
 	);
 	on_frozen_connect(in_lake, arms().arm);
-	expect(runtime_session.lake_settled(in_lake), 'inside a lake').toBe(true);
+	expect(lake_state.lake_settled(in_lake), 'inside a lake').toBe(true);
 
 	const top = place(lake(unique('top')), '[data-lake]');
 	on_frozen_connect(top, arms().arm);
-	expect(runtime_session.lake_settled(top), 'at the top of the page').toBe(true);
+	expect(lake_state.lake_settled(top), 'at the top of the page').toBe(true);
 });
 
 test('a lake its island gives back keeps the copy taken first: a later hydrate of that island does not replace it', () => {
@@ -63,7 +63,7 @@ test('a lake its island gives back keeps the copy taken first: a later hydrate o
 	release(island, hold(island));
 	lk.innerHTML = '<p>changed on the client</p>';
 	release(island, hold(island));
-	const kept = runtime_session.lake_cache.peek(id);
+	const kept = lake_state.lake_cache.peek(id);
 	expect(kept && [...kept.frag.childNodes].map((n) => n.textContent)).toEqual(['server']);
 });
 
@@ -80,7 +80,7 @@ test('a lake that comes back empty (remount="empty") keeps no copy; one that rep
 		);
 		const island = lk.parentElement!;
 		release(island, hold(island));
-		expect(runtime_session.lake_cache.has(id), policy).toBe(kept);
+		expect(lake_state.lake_cache.has(id), policy).toBe(kept);
 	}
 });
 

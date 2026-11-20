@@ -2,7 +2,8 @@ import { getContext, setContext, untrack } from 'svelte';
 import { BROWSER } from 'esm-env';
 import { page } from '$app/state';
 import { KIT_REQUEST_CONTEXT, kit_request_event } from '../server/kit-context.ts';
-import { document_tail, type DocumentTail } from '../server/document-tail.ts';
+import { document_tail } from '#region-server';
+import type { DocumentTail } from '../server/document-tail.ts';
 import { warn } from '../messages/island.ts';
 import {
 	isNested,

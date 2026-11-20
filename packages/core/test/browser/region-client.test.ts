@@ -14,6 +14,7 @@ import { REGION_BRAND } from '../../src/region.ts';
 import { setNested } from '../../src/nested.ts';
 import { setInLake, setInLiveSnippet } from '../../src/context.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
+import { publish_kit_hydrates } from '../../src/runtime/kit-boot.ts';
 import { mark_written } from '../../src/frame.ts';
 import RegionSet from '../_fixtures/RegionSet.svelte';
 import { normalize_hashes } from '../_normalize-hashes.ts';
@@ -66,7 +67,10 @@ type Place = {
 	csr?: boolean;
 };
 const setup = (place: Place) => (): void => {
-	if (place.csr) runtime_session.kit_page = true;
+	if (place.csr) {
+		runtime_session.kit_page = true;
+		publish_kit_hydrates();
+	}
 	if (place.nested) setNested(true, () => 'load');
 	if (place.live_snippet) setInLiveSnippet(true);
 	if (place.in_lake) setInLake();

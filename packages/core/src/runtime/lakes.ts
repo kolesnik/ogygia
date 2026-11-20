@@ -1,5 +1,6 @@
 import { on_schedule } from '../contract/trigger.ts';
-import { clock } from '@ogygia/machine';
+import { cache, clock, type Cache } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine/internal';
 import {
 	FROZEN_SELECTOR,
 	document_is_stored,
@@ -10,11 +11,140 @@ import {
 	region_on_expire,
 	region_remount
 } from './region-attrs.ts';
-import { runtime_session } from './session.ts';
+import { runtime_session, type PageVisit, type RuntimeSession } from './session.ts';
 import { slots, type HeldLake, type LakeArm } from './slots.ts';
 import { warn } from '../messages/core.ts';
 import { OG_LAKE } from '../wire-markup.ts';
 import { note_lake_restore } from './rules.ts';
+
+const LAKE_CACHE_MAX = 64;
+
+/** Cached SSR DOM (+ optional SWR endpoint) for `{#if}` remount of hydrate:none regions.
+ * Keyed by lake entry id — size is O(unique lakes on the page), not O(toggles).
+ * The page visit's: gone with it. SWR refresh replaces the entry (does not grow). */
+export type LakeCacheEntry = {
+	frag: Node;
+	endpoint: string;
+	when: string;
+	/** `clock.mono()` when this entry was first cached or last successfully revalidated. */
+	cachedAt: number;
+	/** Client TTL in ms; `0` = no expiry. */
+	maxAgeMs: number;
+};
+
+const LAKE = $machine<{ open: {}; waited: {}; settling: {}; settled: {} }>()({
+	name: 'lake',
+	initial: 'open',
+	steps: {
+		open: ['waited', 'settled'],
+		waited: ['settling', 'settled'],
+		settling: ['settled'],
+		settled: []
+	}
+});
+type LakeMachine = fsm.RunOf<typeof LAKE>;
+
+/** What one page visit keeps of its lakes. */
+type VisitLakes = {
+	/** Its lakes' cached server DOM, for an `{#if}` remount. */
+	readonly cache: Cache<string, LakeCacheEntry>;
+	/** The lake ids whose first connect on this page ran. */
+	readonly initialized: Set<string>;
+};
+
+/**
+ * A page's lakes: each lake element's settle machine, and, per page visit (a session's
+ * `PageVisit`), the cache of their server DOM and the lakes that connected once. The lakes
+ * feature's own: a build without lakes never carries it. The visit's part goes with the visit.
+ */
+export class LakeState {
+	readonly #session: RuntimeSession;
+	/** Each lake element's {@link LAKE} machine, made the first time it is asked about. */
+	#lakes = new WeakMap<Element, LakeMachine>();
+	#visits = new WeakMap<PageVisit, VisitLakes>();
+
+	constructor(session: RuntimeSession) {
+		this.#session = session;
+	}
+
+	#visit(): VisitLakes {
+		const visit = this.#session.visit;
+		let lakes = this.#visits.get(visit);
+		if (lakes === undefined) {
+			const owner = visit.scope;
+			const kept = cache<string, LakeCacheEntry>({
+				name: 'lake cache',
+				max: LAKE_CACHE_MAX,
+				owner
+			});
+			this.#visits.set(visit, (lakes = { cache: kept, initialized: new Set() }));
+		}
+		return lakes;
+	}
+
+	/** The page's cache of its lakes' server DOM. */
+	get lake_cache(): Cache<string, LakeCacheEntry> {
+		return this.#visit().cache;
+	}
+
+	/** The lake ids whose first connect on this page ran. */
+	get initialized_lakes(): Set<string> {
+		return this.#visit().initialized;
+	}
+
+	#lake(el: Element): LakeMachine {
+		let m = this.#lakes.get(el);
+		if (m === undefined) this.#lakes.set(el, (m = fsm.create(LAKE)));
+		return m;
+	}
+
+	/** May the regions authored in this lake run (its content is in, or it never gets any)? */
+	lake_settled(el: Element): boolean {
+		const m = this.#lakes.get(el);
+		const kind = m === undefined ? undefined : fsm.kind(m);
+		return kind === 'settled' || kind === 'settling';
+	}
+
+	/** The lake's content is in now (put back by its host, swapped in by a navigation, there as it
+	 *  stands, or kept after a refresh failed for good): every region in it runs. Ones that waited came
+	 *  back with the content (moved, they reconnect) or are woken by the caller. */
+	settle_lake(el: Element): void {
+		const m = this.#lake(el);
+		if (fsm.kind(m) !== 'settled') fsm.go(m, 'settled');
+	}
+
+	/** A refresh's answer is in hand, its swap not done: the regions that connect from now on run (they
+	 *  come with the swap), and the ones that waited are woken by {@link wake_lake} after it. */
+	settle_lake_before_swap(el: Element): void {
+		const m = this.#lake(el);
+		if (fsm.kind(m) === 'open') fsm.go(m, 'settled');
+		else if (fsm.kind(m) === 'waited') fsm.go(m, 'settling');
+	}
+
+	/** A region in an unsettled lake waits on it: `true` when it must (the lake is not settled). */
+	wait_on_lake(el: Element): boolean {
+		const m = this.#lake(el);
+		if (fsm.kind(m) === 'open') fsm.go(m, 'waited');
+		return fsm.kind(m) === 'waited';
+	}
+
+	/** After the lake's swap: `true` when regions waited on it and are to be woken now. */
+	wake_lake(el: Element): boolean {
+		const m = this.#lakes.get(el);
+		if (m === undefined || (fsm.kind(m) !== 'settling' && fsm.kind(m) !== 'waited')) return false;
+		fsm.go(m, 'settled');
+		return true;
+	}
+
+	/** Every lake at or under `root` is settled. */
+	settle_lakes_in(root: ParentNode): void {
+		if (root instanceof Element && root.matches?.(FROZEN_SELECTOR)) this.settle_lake(root);
+		for (const lake of root.querySelectorAll(FROZEN_SELECTOR)) this.settle_lake(lake);
+	}
+}
+
+/** The document's lakes, on the runtime's session. */
+export const lake_state: LakeState = new LakeState(runtime_session);
 
 /** Feature entry: fill the `lakes` slot so core holds/releases frozen regions. */
 export function install(): void {
@@ -31,7 +161,7 @@ export function install(): void {
 }
 
 export function settle_in(root: ParentNode): void {
-	runtime_session.settle_lakes_in(root);
+	lake_state.settle_lakes_in(root);
 }
 
 const hosted_lakes_of = (parent: Element) =>
@@ -70,7 +200,7 @@ export function release(parent: Element, held: HeldLake[]): void {
 		if (was) found++;
 		const moved = !!was && was !== lake && !was.isConnected;
 		settle_in(lake);
-		runtime_session.initialized_lakes.add(id);
+		lake_state.initialized_lakes.add(id);
 		if (moved) {
 			settle_in(was);
 			const endpoint = was.getAttribute('endpoint');
@@ -100,13 +230,12 @@ function remember(
 	meta: { endpoint: string; when: string; maxAgeMs: number }
 ) {
 	const policy = region_remount(lake);
-	if (!((policy === 'cache' || policy === 'swr') && id && !runtime_session.lake_cache.has(id)))
-		return;
+	if (!((policy === 'cache' || policy === 'swr') && id && !lake_state.lake_cache.has(id))) return;
 	const cached = document.createDocumentFragment();
 	for (const child of Array.from(lake.childNodes)) {
 		cached.appendChild(child.cloneNode(true));
 	}
-	runtime_session.lake_cache.set(id, {
+	lake_state.lake_cache.set(id, {
 		frag: cached,
 		endpoint: meta.endpoint,
 		when: meta.when,
@@ -118,7 +247,7 @@ function remember(
 export function on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean {
 	if (!is_frozen(el)) return false;
 	const id = lake_key(el);
-	if (!runtime_session.initialized_lakes.has(id)) {
+	if (!lake_state.initialized_lakes.has(id)) {
 		if (region_remount(el) === 'swr' && el.getAttribute('endpoint') && document_is_stored()) {
 			on_schedule(el.getAttribute('when') || 'load', arm, () => arm.fetch_revalidate());
 		} else if (
@@ -129,32 +258,32 @@ export function on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean {
 			warn('live_region_no_host', { id: el.getAttribute('entry') || id });
 		}
 		if (unhosted(el)) {
-			runtime_session.settle_lake(el);
+			lake_state.settle_lake(el);
 			if (!region_is_vacant(el)) {
 				remember(el, id, {
 					endpoint: el.getAttribute('endpoint') || '',
 					when: el.getAttribute('when') || 'load',
 					maxAgeMs: region_max_age_ms(el)
 				});
-				runtime_session.initialized_lakes.add(id);
+				lake_state.initialized_lakes.add(id);
 			}
 		}
 		return true;
 	}
 	if (!region_is_vacant(el)) {
-		if (unhosted(el)) runtime_session.settle_lake(el);
+		if (unhosted(el)) lake_state.settle_lake(el);
 		return true;
 	}
 	const policy = region_remount(el);
 	switch (policy) {
 		case 'empty':
-			runtime_session.settle_lake(el);
+			lake_state.settle_lake(el);
 			return true;
 		case 'cache':
 		case 'swr': {
-			const cached = runtime_session.lake_cache.peek(id);
+			const cached = lake_state.lake_cache.peek(id);
 			if (!cached) {
-				runtime_session.settle_lake(el);
+				lake_state.settle_lake(el);
 				return true;
 			}
 			const max_age = region_max_age_ms(el) || cached.maxAgeMs || 0;
@@ -162,13 +291,13 @@ export function on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean {
 			const on_expire = region_on_expire(el);
 
 			if (expired && on_expire === 'empty') {
-				runtime_session.settle_lake(el);
+				lake_state.settle_lake(el);
 				return true;
 			}
 
 			if (expired && on_expire === 'fetch') {
 				if (!cached.endpoint) {
-					runtime_session.settle_lake(el);
+					lake_state.settle_lake(el);
 					return true;
 				}
 				el.setAttribute('endpoint', cached.endpoint);
@@ -178,13 +307,13 @@ export function on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean {
 			}
 
 			if (policy === 'cache') {
-				runtime_session.settle_lake(el);
+				lake_state.settle_lake(el);
 				el.appendChild(cached.frag.cloneNode(true));
 				return true;
 			}
 			el.appendChild(cached.frag.cloneNode(true));
 			if (!cached.endpoint) {
-				runtime_session.settle_lake(el);
+				lake_state.settle_lake(el);
 				arm.wake_children();
 				if (import.meta.env.DEV) {
 					warn('live_region_no_endpoint', { id: el.getAttribute('entry') || id });
@@ -210,11 +339,11 @@ export function on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean {
  * nothing else would.
  */
 export function wait_for_boundary(_el: HTMLElement, boundary: Element | null): boolean {
-	return !!boundary && is_frozen(boundary) && runtime_session.wait_on_lake(boundary);
+	return !!boundary && is_frozen(boundary) && lake_state.wait_on_lake(boundary);
 }
 
 export function mark_frozen_settled(region: HTMLElement): void {
-	if (is_frozen(region)) runtime_session.settle_lake_before_swap(region);
+	if (is_frozen(region)) lake_state.settle_lake_before_swap(region);
 }
 
 export function after_html_swap(
@@ -223,7 +352,7 @@ export function after_html_swap(
 	wake_children: () => void
 ): void {
 	if (!is_frozen(region)) return;
-	if (runtime_session.wake_lake(region)) wake_children();
+	if (lake_state.wake_lake(region)) wake_children();
 	if (!opts.revalidate) return;
 	const id = lake_key(region);
 	if (!id) return;
@@ -231,8 +360,8 @@ export function after_html_swap(
 	for (const child of Array.from(region.childNodes)) {
 		cached.appendChild(child.cloneNode(true));
 	}
-	const prev = runtime_session.lake_cache.peek(id);
-	runtime_session.lake_cache.set(id, {
+	const prev = lake_state.lake_cache.peek(id);
+	lake_state.lake_cache.set(id, {
 		frag: cached,
 		endpoint: region.getAttribute('endpoint') || prev?.endpoint || '',
 		when: region.getAttribute('when') || prev?.when || 'load',
@@ -247,7 +376,7 @@ export function after_fetch_exhausted(
 	wake_children: () => void
 ): void {
 	if (opts.revalidate && is_frozen(region) && region.isConnected) {
-		runtime_session.settle_lake(region);
+		lake_state.settle_lake(region);
 		wake_children();
 	}
 }

@@ -1,11 +1,10 @@
 import { untrack } from 'svelte';
 import { BROWSER } from 'esm-env';
 import { building } from '$app/env';
-import { mint_server_region } from '#region-server';
+import { island_graph_script, mint_server_region } from '#region-server';
 import { kit_page_version } from '../server/kit-context.ts';
 import { hole_copy_of } from '../contract/hash.ts';
 import { kit_asset } from '../kit-paths.ts';
-import { island_graph_script } from '../server/document-tail.ts';
 import { hole_identity, PropsWire, props_sidecar } from '../server/props-wire.ts';
 import { record_server_event } from '../events/server-registry.ts';
 import { escape_attr } from '../escape.ts';

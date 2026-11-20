@@ -1,9 +1,11 @@
 // RUNTIME FLAGS (`ogygia:boot/runtime-flags`): build-time constants for code that lives inside the
-// always-on region element. `FRAMES` follows the `frames` feature exactly — the element's fetch /
-// apply / morph path is only ever reached through the frame store, so a build without the store
-// must not ship that path, and a build with it must keep it.
+// always-on region element. `HAS`, the feature word, holds a feature's bit exactly when the marks
+// select it: the element's fetch / apply / morph path is only ever reached through the frame store,
+// so a build without the store must not ship that path, and a build with it must keep it.
 import { describe, expect, it } from 'vitest';
+import { FEATURE_BITS, F_FRAMES, type FeatureName } from '@ogygia/core/contract';
 import {
+	FEATURE_ORDER,
 	generateRuntimeFlagsSource,
 	resolveFeatures,
 	type RuntimeMarks
@@ -11,11 +13,35 @@ import {
 
 const RUNTIME_DIR = '/app/node_modules/@ogygia/core/dist/runtime';
 
-const flag = (marks: RuntimeMarks, all = false) =>
-	/FRAMES = (true|false)/.exec(generateRuntimeFlagsSource(marks, RUNTIME_DIR, all))![1] === 'true';
+const word = (marks: RuntimeMarks, all = false) =>
+	Number(/HAS = (\d+);/.exec(generateRuntimeFlagsSource(marks, RUNTIME_DIR, all))![1]);
+const flag = (marks: RuntimeMarks, all = false) => (word(marks, all) & F_FRAMES) !== 0;
 
 describe('runtime flags', () => {
-	it('FRAMES is the frames feature: on wherever a region streams HTML', () => {
+	it('the word holds a bit for each selected feature, and only those', () => {
+		const cases: RuntimeMarks[] = [
+			{ complete: true, hydrate: ['load'] },
+			{ complete: true, hydrate: ['interaction'], forms: true, router: true },
+			{ complete: true, live: true, wire: true, context: true },
+			{ complete: true, foreign: true },
+			{}
+		];
+		for (const marks of cases) {
+			const selected = new Set(resolveFeatures(marks));
+			for (const id of FEATURE_ORDER)
+				expect((word(marks) & FEATURE_BITS[id]) !== 0, `${id} ${JSON.stringify(marks)}`).toBe(
+					selected.has(id)
+				);
+		}
+	});
+
+	it('every feature has a bit of its own', () => {
+		const bits = FEATURE_ORDER.map((id: FeatureName) => FEATURE_BITS[id]);
+		expect(new Set(bits).size).toBe(FEATURE_ORDER.length);
+		for (const bit of bits) expect(bit & (bit - 1)).toBe(0);
+	});
+
+	it('the frames bit is the frames feature: on wherever a region streams HTML', () => {
 		const cases: RuntimeMarks[] = [
 			{ complete: true, hydrate: ['load'] },
 			{ complete: true, hydrate: ['load'], defer: ['load'] },

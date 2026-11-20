@@ -19,10 +19,11 @@ import { on_trigger, WAKE } from '../contract/trigger.ts';
 import { OG_BAKED, OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from '../wire-markup.ts';
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
-import { FRAMES } from 'ogygia:boot';
+import { HAS } from 'ogygia:boot';
+import { F_FRAMES, F_LIVE } from '../contract/features.ts';
 import { wire_for_wake } from './wire-on-use.ts';
 import { report_thrown } from '../report-thrown.ts';
-import { kit_hydrates_page } from './kit-boot.ts';
+import { kit_hydrates_page, publish_kit_hydrates } from './kit-boot.ts';
 import {
 	init_shadow_registries,
 	parse_region_html,
@@ -554,8 +555,9 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#connect(turn: Turn): Promise<void> | undefined {
-		if (this.hasAttribute('live')) return this.#live_put_back(turn);
-		if (FRAMES && this.#minted_endpoint === null && is_deferred(this)) {
+		if (this.hasAttribute('live'))
+			return HAS & F_FRAMES && HAS & F_LIVE ? this.#live_put_back(turn) : undefined;
+		if (HAS & F_FRAMES && this.#minted_endpoint === null && is_deferred(this)) {
 			const minted = this.getAttribute('endpoint');
 			if (minted) this.#minted_endpoint = minted;
 			else {
@@ -629,7 +631,7 @@ class OgygiaRegion extends HTMLElement {
 		if (!deferred && slots.lakes.wait_for_boundary(this, boundary)) return;
 		fsm.move(this.#region, 'connected', 'scheduled', lifetime_of(fsm.data(this.#region)));
 		// A hole that had its answer, put back on the page: its schedule is spent (#336)
-		if (deferred && fsm.kind(this.#answer) !== 'none') {
+		if (HAS & F_FRAMES && deferred && fsm.kind(this.#answer) !== 'none') {
 			this.#put_back();
 			return;
 		}
@@ -651,7 +653,7 @@ class OgygiaRegion extends HTMLElement {
 			this.#arm(when, this.#fire_hydrate);
 			return;
 		}
-		if (!this.#hole_armed()) return;
+		if (!(HAS & F_FRAMES) || !this.#hole_armed()) return;
 		this.#arm(when, this.#fire_server);
 		const prefetch = this.getAttribute('prefetch');
 		if (prefetch && prefetch !== when && prefetch !== 'interaction') {
@@ -692,7 +694,7 @@ class OgygiaRegion extends HTMLElement {
 	 * nothing left to warm.
 	 */
 	#prefetch_html() {
-		if (!FRAMES) return;
+		if (!(HAS & F_FRAMES)) return;
 		if (
 			fsm.kind(this.#answer) !== 'none' ||
 			fsm.kind(this.#hole) === 'fetching' ||
@@ -818,7 +820,7 @@ class OgygiaRegion extends HTMLElement {
 				load: start,
 				media: (query) => this.#on_media(query, start, owner),
 				interaction: (f) => {
-					if (owner === this.#hole) {
+					if (HAS & F_FRAMES && owner === this.#hole) {
 						arm_on_demand(
 							this,
 							() => {
@@ -912,6 +914,7 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#bind(endpoint: string): boolean {
+		if (!(HAS & F_FRAMES)) return false;
 		const address = frameAddress(endpoint);
 		if (this.#bound() && this.#frame_address === address) return false;
 		if (fsm.kind(this.#hole) === 'fetching') fsm.go(this.#hole, 'idle');
@@ -949,7 +952,7 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#server(turn: Turn): Promise<void> | undefined {
-		if (!FRAMES) return;
+		if (!(HAS & F_FRAMES)) return;
 		const endpoint = this.#endpoint();
 		const replayed = endpoint ? this.#bind(endpoint) : false;
 		const run = replayed ? undefined : this.#fetch_html(turn);
@@ -1111,7 +1114,7 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	async #fetch_html(turn: Turn, revalidate = false): Promise<void> {
-		if (!FRAMES) return;
+		if (!(HAS & F_FRAMES)) return;
 		if (!revalidate && fsm.kind(this.#answer) !== 'none') return;
 		const endpoint = this.#endpoint();
 		if (!endpoint) return;
@@ -1499,7 +1502,7 @@ class OgygiaRegion extends HTMLElement {
 	 * - **Later tick, module changed:** unmount, swap, re-hydrate.
 	 */
 	async applyLive(desc: LiveTick): Promise<void> {
-		if (!FRAMES) return;
+		if (!(HAS & F_FRAMES) || !(HAS & F_LIVE)) return;
 		this.#live_last = desc;
 		$await(this.#box.ask((turn) => this.#apply_live(desc, turn)));
 	}
@@ -1717,6 +1720,7 @@ export function boot(
 		line
 	};
 	link_boot();
+	publish_kit_hydrates();
 	for (const install of installers) install();
 	// The build's location map, pinned to this page's address before any navigation moves it
 	pin_build_map();

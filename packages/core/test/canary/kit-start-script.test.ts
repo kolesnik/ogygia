@@ -2,7 +2,7 @@
  * CANARY (#1714, #1718, #1719): how SvelteKit starts its client, asked of a real Kit app
  * (kit-app.ts) for every Kit the workspace installs, in dev and in a build of each bundle strategy.
  * The start gate (src/server/kit-gate.ts) rewrites the first `import("…")` of Kit's inline start
- * script so Kit starts after ogygia's runtime; `is_kit_boot_script` (src/runtime/kit-boot.ts) knows
+ * script so Kit starts after ogygia's runtime; `is_kit_boot_script` (src/wire-markup.ts) knows
  * the script by its `__sveltekit_*` global; and the Kit page thread (kit-page-thread.svelte.ts) waits
  * for `page.status` to leave -1, which it reads in an effect.
  */
@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Browser } from 'playwright';
 import { kit_gate, kit_start_ungated } from '../../src/server/kit-gate.ts';
 import { kit_boot_script } from '../../src/server/html-scan.ts';
-import { is_kit_boot_script } from '../../src/runtime/kit-boot.ts';
+import { is_kit_boot_script } from '../../src/wire-markup.ts';
 import { KitApp, SLOW_RUNTIME, type KitAppOptions, type KitMode } from './kit-app.ts';
 import { broke, KITS, type Internal } from './upstream.ts';
 
@@ -25,7 +25,7 @@ const START: Internal = {
 const GLOBAL: Internal = {
 	upstream: "SvelteKit's `__sveltekit_*` global (assigned in its start script)",
 	used_by: [
-		'packages/core/src/runtime/kit-boot.ts (is_kit_boot_script)',
+		'packages/core/src/wire-markup.ts (is_kit_boot_script)',
 		'packages/core/src/server/html-scan.ts'
 	],
 	issue: 1718

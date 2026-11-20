@@ -1,5 +1,5 @@
 import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
-import { buggify, clock, net } from '@ogygia/machine';
+import { buggify, clock, net, stage } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import * as fsm from '@ogygia/machine/internal';
 import type { PageGlobals } from '../page-globals.ts';
@@ -686,12 +686,12 @@ export async function navigate(
 			reconcile_body(document.body, doc.body, slots.morph!);
 			built.reconciled = true;
 			adopt_title(doc);
-			session().settle_lakes_in(document.body);
+			slots.lakes.settle_in(document.body);
 		} else {
 			if (DEVTOOLS) dt_emit({ domain: 'nav', name: 'nav.fallback', reason: swap });
 			swap_body(document.body, doc.body);
 			adopt_title(doc);
-			session().settle_lakes_in(document.body);
+			slots.lakes.settle_in(document.body);
 		}
 		boot_link().init_shadow_registries(document.body);
 		(globalThis as PageGlobals).__og_restore_adopt?.();
@@ -703,7 +703,7 @@ export async function navigate(
 		document.dispatchEvent(new Event('og:after-swap'));
 	};
 
-	const staged = boot_link().stage<Built | null>(attempt, { name: 'navigation', build, commit });
+	const staged = stage<Built | null>(attempt, { name: 'navigation', build, commit });
 	let built: Built | null | Stale;
 	try {
 		built = await staged.ready;
@@ -890,7 +890,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 	bust_page_cache();
 	const url = on_screen ?? new URL(location.href);
 
-	const { soft, stage } = boot_link();
+	const { soft } = boot_link();
 	fsm.go(soft, 'refreshing', { href: url.href });
 	const mine = fsm.epoch(soft);
 

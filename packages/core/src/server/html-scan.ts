@@ -2,8 +2,13 @@
  * Small scans shared by the server's per-request HTML work. Tags are read through the browser-faithful
  * reader (wire-markup.ts `tags()`); the character tests below serve hand-written scans elsewhere.
  */
-import { is_kit_boot_script } from '../runtime/kit-boot.ts';
-import { Needle, next_tag, OGYGIA_REGION_CSS, text_of } from '../wire-markup.ts';
+import {
+	is_kit_boot_script,
+	Needle,
+	next_tag,
+	OGYGIA_REGION_CSS,
+	text_of
+} from '../wire-markup.ts';
 
 /** The regex `\s`: ASCII whitespace and the Unicode spaces (NaN, past the end, is not). */
 export function is_space(c: number): boolean {
@@ -27,7 +32,7 @@ const KIT_BOOT_WINDOW = 65_536;
 
 /**
  * Whether a page's HTML carries Kit's boot (a csr=true page): the DOM probe's question
- * (runtime/kit-boot.ts `is_kit_boot_script`) over a string (pass the index of `</body>` as `end`).
+ * (../wire-markup.ts `is_kit_boot_script`) over a string (pass the index of `</body>` as `end`).
  * A 2.6 MB document is never scanned whole: see {@link kit_boot_script}.
  */
 export function html_has_kit_bootstrap(html: string, end: number = html.length): boolean {

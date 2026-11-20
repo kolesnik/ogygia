@@ -1,36 +1,6 @@
-import { cache, type Cache } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import type { Life } from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
-import { FROZEN_SELECTOR } from './region-attrs.ts';
 import { note_visit } from './rules.ts';
-
-const LAKE_CACHE_MAX = 64;
-
-/** Cached SSR DOM (+ optional SWR endpoint) for `{#if}` remount of hydrate:none regions.
- * Keyed by lake entry id — size is O(unique lakes on the page), not O(toggles).
- * The page visit's: gone with it. SWR refresh replaces the entry (does not grow). */
-export type LakeCacheEntry = {
-	frag: Node;
-	endpoint: string;
-	when: string;
-	/** `clock.mono()` when this entry was first cached or last successfully revalidated. */
-	cachedAt: number;
-	/** Client TTL in ms; `0` = no expiry. */
-	maxAgeMs: number;
-};
-
-const LAKE = $machine<{ open: {}; waited: {}; settling: {}; settled: {} }>()({
-	name: 'lake',
-	initial: 'open',
-	steps: {
-		open: ['waited', 'settled'],
-		waited: ['settling', 'settled'],
-		settling: ['settled'],
-		settled: []
-	}
-});
-type LakeMachine = fsm.RunOf<typeof LAKE>;
 
 const STYLESHEET_REL_RE = /(?:^|\s)stylesheet(?:\s|$)/i;
 
@@ -65,21 +35,14 @@ export type PageVisit = {
 	readonly seeded: { page: boolean; remote: boolean };
 	/** Kit hydrates this page (kit-boot.ts): asked once, on first need. */
 	kit_page: boolean | undefined;
-	/** Its lakes' cached server DOM, for an `{#if}` remount (./lakes.ts). */
-	readonly lake_cache: Cache<string, LakeCacheEntry>;
-	/** The lake ids whose first connect on this page ran (./lakes.ts). */
-	readonly initialized_lakes: Set<string>;
 };
 
 function page_visit(): PageVisit {
-	const owner = life.root();
 	const visit: PageVisit = {
-		scope: owner,
+		scope: life.root(),
 		facts: [],
 		seeded: { page: false, remote: false },
-		kit_page: undefined,
-		lake_cache: cache<string, LakeCacheEntry>({ name: 'lake cache', max: LAKE_CACHE_MAX, owner }),
-		initialized_lakes: new Set()
+		kit_page: undefined
 	};
 	note_visit(visit, false);
 	return visit;
@@ -215,52 +178,6 @@ export class RuntimeSession {
 		}
 	}
 
-	/** Each lake element's {@link LAKE} machine, made the first time it is asked about. */
-	#lakes = new WeakMap<Element, LakeMachine>();
-	#lake(el: Element): LakeMachine {
-		let m = this.#lakes.get(el);
-		if (m === undefined) this.#lakes.set(el, (m = fsm.create(LAKE)));
-		return m;
-	}
-
-	/** May the regions authored in this lake run (its content is in, or it never gets any)? */
-	lake_settled(el: Element): boolean {
-		const m = this.#lakes.get(el);
-		const kind = m === undefined ? undefined : fsm.kind(m);
-		return kind === 'settled' || kind === 'settling';
-	}
-
-	/** The lake's content is in now (put back by its host, swapped in by a navigation, there as it
-	 *  stands, or kept after a refresh failed for good): every region in it runs. Ones that waited came
-	 *  back with the content (moved, they reconnect) or are woken by the caller. */
-	settle_lake(el: Element): void {
-		const m = this.#lake(el);
-		if (fsm.kind(m) !== 'settled') fsm.go(m, 'settled');
-	}
-
-	/** A refresh's answer is in hand, its swap not done: the regions that connect from now on run (they
-	 *  come with the swap), and the ones that waited are woken by {@link wake_lake} after it. */
-	settle_lake_before_swap(el: Element): void {
-		const m = this.#lake(el);
-		if (fsm.kind(m) === 'open') fsm.go(m, 'settled');
-		else if (fsm.kind(m) === 'waited') fsm.go(m, 'settling');
-	}
-
-	/** A region in an unsettled lake waits on it: `true` when it must (the lake is not settled). */
-	wait_on_lake(el: Element): boolean {
-		const m = this.#lake(el);
-		if (fsm.kind(m) === 'open') fsm.go(m, 'waited');
-		return fsm.kind(m) === 'waited';
-	}
-
-	/** After the lake's swap: `true` when regions waited on it and are to be woken now. */
-	wake_lake(el: Element): boolean {
-		const m = this.#lakes.get(el);
-		if (m === undefined || (fsm.kind(m) !== 'settling' && fsm.kind(m) !== 'waited')) return false;
-		fsm.go(m, 'settled');
-		return true;
-	}
-
 	#visit: PageVisit = page_visit();
 	/** The visit of the page on screen (see {@link PageVisit}). */
 	get visit(): PageVisit {
@@ -271,13 +188,6 @@ export class RuntimeSession {
 	 *  it when there is no swap) until `reset(next)` makes it the page. */
 	next_visit(): PageVisit {
 		return page_visit();
-	}
-
-	get lake_cache(): Cache<string, LakeCacheEntry> {
-		return this.#visit.lake_cache;
-	}
-	get initialized_lakes(): Set<string> {
-		return this.#visit.initialized_lakes;
 	}
 
 	get remote_seeded(): boolean {
@@ -299,11 +209,6 @@ export class RuntimeSession {
 	}
 	set kit_page(v: boolean | undefined) {
 		this.#visit.kit_page = v;
-	}
-
-	settle_lakes_in(root: ParentNode): void {
-		if (root instanceof Element && root.matches?.(FROZEN_SELECTOR)) this.settle_lake(root);
-		for (const lake of root.querySelectorAll(FROZEN_SELECTOR)) this.settle_lake(lake);
 	}
 
 	/** The next page takes over (its visit, made by its navigation; a new one when none is given),

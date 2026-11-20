@@ -18,13 +18,15 @@
 //   pnpm bundle-size                   # measure + gate against the snapshot
 //   pnpm bundle-size --update          # rewrite the baseline snapshot
 //   pnpm bundle-size --json            # machine-readable output (for the docs page)
+//   pnpm bundle-size --out <dir>       # also write each profile's chunks and sourcemaps
 // ─────────────────────────────────────────────────────────────────────────────
 import { brotliCompressSync } from 'node:zlib';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { rolldown, type OutputChunk } from 'rolldown';
+import { rolldown, type OutputChunk, type Plugin } from 'rolldown';
+import { dedent } from 'ogygia/plugin/utils';
 import type { RuntimeMarks } from '../../../packages/compiler/dist/link/runtime-entry.js';
 
 /** The value after `flag` on the command line, if any. */
@@ -42,7 +44,12 @@ const COMPILER_ENTRY = [
 	join(CORE, '../compiler/dist/link/runtime-entry.js'),
 	join(CORE, '../compiler/dist/compiler/link/runtime-entry.js')
 ].find((p) => existsSync(p));
-const { generateRuntimeEntrySource, resolveFeatures } = (await import(
+const {
+	generateRuntimeEntrySource,
+	generateRuntimeFlagsSource,
+	generateHydrateFeaturesSource,
+	resolveFeatures
+} = (await import(
 	pathToFileURL(COMPILER_ENTRY ?? join(CORE, 'dist/compiler/link/runtime-entry.js')).href
 )) as typeof import('../../../packages/compiler/dist/link/runtime-entry.js');
 
@@ -61,9 +68,19 @@ const HOOK_CONSTANTS: string[] = existsSync(HOOKS_FILE)
 	: [];
 /** A build constant's name (`__OGYGIA_X__`), as it is left in code when nothing defined it. */
 const BUILD_CONSTANT_RE = /\b__OGYGIA_[A-Z0-9_]+__\b/g;
+/** The boot realm's virtual module (`ogygia:boot`, `ogygia:boot/…`), as an import a chunk kept.
+ *  (`ogygia:region` is the app's transport, the app's own code: external, like svelte.) */
+const VIRTUAL_ID_RE = /^ogygia:boot(\/|$)/;
+/** A generated module's `export const <name>`. */
+const EXPORTED_CONST_RE = /^export const (\w+)/gm;
+/** A sourcemap source's leading `../` steps (the path is relative to the chunk). */
+const SOURCE_UP_RE = /^(\.\.\/)+/;
 const SNAPSHOT = fileURLToPath(new URL('./bundle-size.snapshot.json', import.meta.url));
 // `--compare <json>`: gate against another build's `--json` (the PR's base) instead of the snapshot
 const COMPARE = arg('--compare');
+// `--out <dir>`: write each profile's chunks with their sourcemaps (<dir>/<profile>/), to attribute
+// the bytes to the modules they came from
+const OUT = arg('--out');
 /** A profile may grow this much over its baseline before the gate fails: over the snapshot, the
  *  build's own noise; over the base branch's build (same tool, same machine), almost nothing. */
 const TOLERANCE = COMPARE ? 0.005 : 0.02;
@@ -73,45 +90,62 @@ const asJson = process.argv.includes('--json');
 
 // App profiles → the runtime marks a real app of that shape produces. `wire` + `remote-seeds` are
 // always on (props/seeds decode); `forms` is on by default for progressively-enhanced actions.
-const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks }> = [
+// `budget`: the most the profile's boot may weigh, brotli bytes, in every mode but `--core`: a
+// ceiling of its own, whatever the base branch weighs (raise it on purpose, with the PR's
+// `Size baseline:` line).
+const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks; budget: number }> = [
 	{
 		name: 'Static content',
 		blurb: 'load-hydrated islands',
-		marks: { complete: true, hydrate: ['load'], forms: false }
+		marks: { complete: true, hydrate: ['load'], forms: false },
+		budget: 25_600
 	},
 	{
 		name: 'Interactive',
 		blurb: 'interaction-hydrated widgets',
-		marks: { complete: true, hydrate: ['interaction'], forms: false }
+		marks: { complete: true, hydrate: ['interaction'], forms: false },
+		budget: 25_600
 	},
 	{
 		name: 'Forms',
 		blurb: 'progressively-enhanced actions',
-		marks: { complete: true, hydrate: ['load'], forms: true }
+		marks: { complete: true, hydrate: ['load'], forms: true },
+		budget: 26_200
 	},
 	{
 		name: 'SPA router',
 		blurb: 'client-side navigation',
-		marks: { complete: true, hydrate: ['load'], router: true, forms: true }
+		marks: { complete: true, hydrate: ['load'], router: true, forms: true },
+		budget: 31_400
+	},
+	{
+		name: 'Deferred regions',
+		blurb: 'server-rendered holes',
+		marks: { complete: true, hydrate: ['load'], defer: ['load'], forms: false },
+		budget: 33_700
 	},
 	{
 		name: 'Frozen regions',
 		blurb: 'lakes',
-		marks: { complete: true, hydrate: ['none'], lakes: true, forms: false }
+		marks: { complete: true, hydrate: ['none'], lakes: true, forms: false },
+		budget: 31_600
 	},
 	{
 		name: 'Live regions',
 		blurb: 'streaming held regions',
-		marks: { complete: true, hydrate: ['load'], live: true, morph: true }
+		marks: { complete: true, hydrate: ['load'], live: true, morph: true },
+		budget: 34_550
 	},
 	{
 		name: 'Context',
 		blurb: 'cross-island Provide / setContext',
-		marks: { complete: true, hydrate: ['load'], context: true, forms: false }
+		marks: { complete: true, hydrate: ['load'], context: true, forms: false },
+		budget: 25_550
 	},
 	{
 		name: 'Everything',
 		blurb: 'kitchen sink, with the profiler beacon and a client plugin',
+		budget: 40_000,
 		marks: {
 			complete: true,
 			hydrate: ['load', 'interaction', 'none'],
@@ -130,6 +164,44 @@ const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks }> = [
 	}
 ];
 
+type FeatureId = ReturnType<typeof resolveFeatures>[number];
+
+/**
+ * The runtime's optional programs, each by the modules only it brings (a module's id as `modules`
+ * names it). `feature`: the feature (the compiler's `FEATURES`) whose install brings the program
+ * into the boot, so a profile's boot holds its modules exactly when its marks select that feature
+ * (or every one of a list).
+ * `null`: a program no boot holds (it lives in a lazy chunk, loaded on use), whatever the marks.
+ * THE LEAK GATE: a program in a boot whose marks do not select it is a feature that page pays for
+ * and never runs; one missing from a boot that selects it would leave the server's markup with
+ * nothing to revive it. Both fail the run, in every mode. `strings`: for a program that lives
+ * inside a shared module (the region element's), text only its code writes, read in the boot's code.
+ */
+const PROGRAMS: ReadonlyArray<{
+	name: string;
+	feature: FeatureId | FeatureId[] | null;
+	modules: string[];
+	strings?: string[];
+}> = [
+	// the router's navigation and the soft refresh (lazy router-nav chunk): `stage`
+	{ name: 'navigation', feature: null, modules: ['packages/machine/src/stage.ts'] },
+	// a deferred region's fetch, and the server's record of the page's holes
+	{
+		name: 'holes',
+		feature: 'frames',
+		modules: [
+			'packages/core/dist/runtime/hole-fetch.js',
+			'packages/core/dist/runtime/hole-facts.js'
+		]
+	},
+	// the region element's hole program: fetch, apply, revalidate, retry (its revalidated mark)
+	{ name: 'hole program', feature: 'frames', modules: [], strings: ['data-revalidated'] },
+	// the region element's live program: a held region's ticks (its tick's event)
+	{ name: 'live program', feature: ['frames', 'live'], modules: [], strings: ['ogygia:live'] },
+	// a page's lakes: each one's settle machine and the visit's cache of their server DOM
+	{ name: 'lake state', feature: 'lakes', modules: [], strings: ['lake cache'] }
+];
+
 type Size = { raw: number; brotli: number };
 type Row = {
 	name: string;
@@ -140,6 +212,8 @@ type Row = {
 	lazy: Array<{ name: string } & Size>;
 	/** The boot's modules, by minified length. */
 	modules: Record<string, number>;
+	/** The lazy chunks' modules. */
+	lazy_modules: string[];
 };
 type Snapshot = Record<string, { boot: Size; total: Size }>;
 
@@ -148,10 +222,37 @@ const size = (code: string): Size => {
 	return { raw: buf.length, brotli: brotliCompressSync(buf).length };
 };
 
+/** The boot realm's virtual module, `ogygia:boot`, served from the profile's marks as the plugin
+ *  serves an app build's (the runtime flags, the hydrate-phase features; no region names). An older
+ *  checkout's compiler without the generators leaves it external, as that build's own tool did. */
+function boot_realm(marks: RuntimeMarks): Plugin {
+	// (one named re-export per name, as the plugin's realm module is: virtual/resolver.ts)
+	const flags = () => generateRuntimeFlagsSource(marks, RUNTIME_DIR);
+	const flag_names = () => [...flags().matchAll(EXPORTED_CONST_RE)].map((m) => m[1]).join(', ');
+	const ids: Record<string, () => string> = {
+		'ogygia:boot': () => dedent`
+			export { ${flag_names()} } from 'ogygia:boot/runtime-flags';
+			export { install as install_hydrate_features } from 'ogygia:boot/hydrate-features';
+			export const region_names = {};
+		`,
+		'ogygia:boot/runtime-flags': flags,
+		'ogygia:boot/hydrate-features': () => generateHydrateFeaturesSource(marks, RUNTIME_DIR).code
+	};
+	const served = typeof generateRuntimeFlagsSource === 'function';
+	return {
+		name: 'ogygia-size:boot-realm',
+		resolveId: (id) => (served && id in ids ? `\0${id}` : null),
+		load: (id) => (id.startsWith('\0') ? (ids[id.slice(1)]?.() ?? null) : null)
+	};
+}
+
 async function measure(
 	marks: RuntimeMarks,
-	extras: boolean
-): Promise<Pick<Row, 'boot' | 'total' | 'lazy' | 'modules'>> {
+	extras: boolean,
+	profile: string
+): Promise<
+	Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'> & { boot_code: string }
+> {
 	const { code } = generateRuntimeEntrySource(marks, RUNTIME_DIR);
 	const dir = mkdtempSync(join(tmpdir(), 'ogygia-size-'));
 	const entry = join(dir, 'entry.mjs');
@@ -163,8 +264,9 @@ async function measure(
 	// bundle (they print the code's link alone) are not shipped, and not counted.
 	const bundle = await rolldown({
 		input: entry,
-		external: [/^svelte(\/|$)/, /^\$app\//, /\.svelte$/],
+		external: [/^svelte(\/|$)/, /^\$app\//, /\.svelte$/, /^ogygia:region(\/|$)/],
 		resolve: { conditionNames: ['browser', 'production', 'import', 'default'] },
+		plugins: [boot_realm(marks)],
 		// Strip DEV like a real Vite prod build (import.meta.env.DEV → false), so the numbers reflect
 		// what actually ships — not the dev-only warnings and the PropMutationGuard, which prod DCEs.
 		// Mirror the plugin's `define` (vite/index.ts) at their prod defaults: the runtime's build-time
@@ -191,9 +293,17 @@ async function measure(
 		},
 		logLevel: 'silent'
 	});
-	const { output } = await bundle.generate({ format: 'es', minify: true });
+	const { output } = await bundle.generate({ format: 'es', minify: true, sourcemap: 'hidden' });
 	await bundle.close();
 	const chunks = output.filter((o): o is OutputChunk => o.type === 'chunk');
+	if (OUT) {
+		const at = join(OUT, profile.replaceAll(' ', '_'));
+		mkdirSync(at, { recursive: true });
+		for (const c of chunks) {
+			writeFileSync(join(at, c.fileName), c.code);
+			if (c.map) writeFileSync(join(at, `${c.fileName}.map`), c.map.toString());
+		}
+	}
 	// every build constant is defined, as the plugin's build defines it: one left undefined keeps its
 	// default branch (on) and the bytes behind it, a size no real build ships
 	const undefined_constants = new Set(
@@ -202,6 +312,15 @@ async function measure(
 	if (undefined_constants.size)
 		throw new Error(
 			`bundle-size: build constants left undefined (define them as the plugin does): ${[...undefined_constants].join(', ')}`
+		);
+	// every virtual module is the build's own, as the plugin serves it: one left external keeps
+	// what its flags would fold (`FRAMES` off still ships the frame path), a size no real build ships
+	const unresolved_virtuals = new Set(
+		chunks.flatMap((c) => c.imports.filter((id) => VIRTUAL_ID_RE.test(id)))
+	);
+	if (unresolved_virtuals.size && typeof generateRuntimeFlagsSource === 'function')
+		throw new Error(
+			`bundle-size: virtual modules left unresolved (serve them as the plugin does): ${[...unresolved_virtuals].join(', ')}`
 		);
 	// BOOT is the entry chunk plus everything it imports STATICALLY (a module the entry shares with
 	// a lazy chunk lands in a shared chunk the entry still loads at boot); the rest is lazy.
@@ -213,23 +332,80 @@ async function measure(
 		for (const dep of by_name.get(name)?.imports ?? []) walk(dep);
 	};
 	for (const c of chunks) if (c.isEntry) walk(c.fileName);
-	const boot = size(
-		chunks
-			.filter((c) => boot_set.has(c.fileName))
-			.map((c) => c.code)
-			.join('\n')
-	);
+	const boot_code = chunks
+		.filter((c) => boot_set.has(c.fileName))
+		.map((c) => c.code)
+		.join('\n');
+	const boot = size(boot_code);
 	const total = size(chunks.map((c) => c.code).join('\n'));
 	const lazy = chunks
 		.filter((c) => !boot_set.has(c.fileName))
 		.map((c) => ({ name: c.name, ...size(c.code) }));
-	// each module of the boot, by its minified length (`--modules`): what to look at first
+	// each module of the boot, by its minified length: what to look at first. Read off the
+	// sourcemap, after minify: a module's rendered length is measured before it, and counts a module
+	// the minifier then drops whole (every call to it behind a flag that folded off).
 	const modules: Record<string, number> = {};
+	const lazy_modules: string[] = [];
 	for (const c of chunks)
-		if (boot_set.has(c.fileName))
-			for (const [id, m] of Object.entries(c.modules))
-				if (m.renderedLength > 0) modules[module_name(id)] = m.renderedLength;
-	return { boot, total, lazy, modules };
+		for (const [id, bytes] of minified_lengths(c))
+			if (boot_set.has(c.fileName)) modules[module_name(id)] = bytes;
+			else lazy_modules.push(module_name(id));
+	return { boot, total, lazy, modules, lazy_modules, boot_code };
+}
+
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/** The minified bytes of `chunk` each source module wrote, by its sourcemap: each mapped segment
+ *  runs to the next one on its line. */
+function minified_lengths(chunk: OutputChunk): Map<string, number> {
+	const map = chunk.map;
+	if (!map) throw new Error(`bundle-size: no sourcemap for ${chunk.fileName}`);
+	const lines = chunk.code.split('\n');
+	const out = new Map<string, number>();
+	let source = 0;
+	map.mappings.split(';').forEach((line, at) => {
+		const segments: Array<[column: number, source: number]> = [];
+		let column = 0;
+		for (const segment of line.split(',')) {
+			if (!segment) continue;
+			const fields = vlq(segment);
+			column += fields[0];
+			if (fields.length >= 4) source += fields[1];
+			segments.push([column, fields.length >= 4 ? source : -1]);
+		}
+		const text = lines[at] ?? '';
+		segments.forEach(([from, of], i) => {
+			if (of === -1) return;
+			const id = map.sources[of];
+			const to = i + 1 < segments.length ? segments[i + 1][0] : text.length;
+			out.set(id, (out.get(id) ?? 0) + Buffer.byteLength(text.slice(from, to)));
+		});
+	});
+	// (sources are written relative to the chunk; the module ids rolldown names are absolute)
+	const by_id = new Map<string, number>();
+	for (const id of Object.keys(chunk.modules)) {
+		const bytes = out.get(map.sources.find((s) => id.endsWith(s.replace(SOURCE_UP_RE, ''))) ?? '');
+		if (bytes) by_id.set(id, bytes);
+	}
+	return by_id;
+}
+
+/** One sourcemap segment's fields (base64 VLQ). */
+function vlq(segment: string): number[] {
+	const fields: number[] = [];
+	let shift = 0;
+	let value = 0;
+	for (const ch of segment) {
+		const digit = BASE64.indexOf(ch);
+		value += (digit & 31) << shift;
+		if (digit & 32) shift += 5;
+		else {
+			fields.push(value & 1 ? -(value >> 1) : value >> 1);
+			value = 0;
+			shift = 0;
+		}
+	}
+	return fields;
 }
 
 /** A module's id, short: its path from the repo's packages (or its package in node_modules). */
@@ -241,9 +417,54 @@ function module_name(id: string): string {
 }
 
 const rows: Row[] = [];
+/** Each profile's boot code, by its name (for the leak gate's strings). */
+const boot_codes = new Map<string, string>();
 for (const p of PROFILES) {
-	const m = await measure(p.marks, p.name === 'Everything');
+	const { boot_code, ...m } = await measure(p.marks, p.name === 'Everything', p.name);
+	boot_codes.set(p.name, boot_code);
 	rows.push({ name: p.name, blurb: p.blurb, features: resolveFeatures(p.marks), ...m });
+}
+
+// The leak gate (PROGRAMS), on this checkout's runtime; another checkout's (`--core`, the base
+// branch CI measures) is only measured.
+if (!arg('--core')) {
+	const leaks: string[] = [];
+	for (const r of rows)
+		for (const p of PROGRAMS) {
+			const needs = p.feature === null ? [] : [p.feature].flat();
+			const held = needs.length > 0 && needs.every((f) => r.features.includes(f));
+			const selects = needs.join(' + ');
+			for (const mod of p.modules) {
+				if (held && !(mod in r.modules))
+					leaks.push(`${r.name}: selects ${selects}, but its boot lacks ${mod} (${p.name})`);
+				else if (!held && mod in r.modules)
+					leaks.push(`${r.name}: its boot holds ${mod} (${p.name}), which its marks never run`);
+				else if (p.feature === null && !r.lazy_modules.includes(mod))
+					leaks.push(`${r.name}: no lazy chunk holds ${mod} (${p.name})`);
+			}
+			const code = boot_codes.get(r.name) ?? '';
+			for (const text of p.strings ?? []) {
+				if (held && !code.includes(text))
+					leaks.push(`${r.name}: selects ${selects}, but its boot lacks ${p.name}`);
+				else if (!held && code.includes(text))
+					leaks.push(`${r.name}: its boot holds ${p.name} ('${text}'), which its marks never run`);
+			}
+		}
+	for (const p of PROFILES) {
+		const r = rows.find((row) => row.name === p.name)!;
+		if (r.boot.brotli > p.budget)
+			leaks.push(
+				`${r.name}: its boot weighs ${r.boot.brotli} B brotli, over its budget ${p.budget}`
+			);
+	}
+	if (leaks.length) {
+		console.error(
+			`✗ bundle-size: a program in the wrong boot, or a boot over budget:\n  ${leaks.join('\n  ')}`
+		);
+		// (`--json` still writes the numbers; the run fails after)
+		process.exitCode = 1;
+		if (!asJson) process.exit(1);
+	}
 }
 
 if (update) {
@@ -256,7 +477,7 @@ if (update) {
 
 if (asJson) {
 	console.log(JSON.stringify(rows, null, 2));
-	process.exit(0);
+	process.exit();
 }
 
 const base: Snapshot = COMPARE
