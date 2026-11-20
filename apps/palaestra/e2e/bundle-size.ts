@@ -119,6 +119,12 @@ const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks; budget
 		budget: 31_600
 	},
 	{
+		name: 'Deferred regions',
+		blurb: 'server-rendered holes',
+		marks: { complete: true, hydrate: ['load'], defer: ['load'], forms: false },
+		budget: 31_000
+	},
+	{
 		name: 'Frozen regions',
 		blurb: 'lakes',
 		marks: { complete: true, hydrate: ['none'], lakes: true, forms: false },
@@ -163,7 +169,8 @@ type FeatureId = ReturnType<typeof resolveFeatures>[number];
 /**
  * The runtime's optional programs, each by the modules only it brings (a module's id as `modules`
  * names it). `feature`: the feature (the compiler's `FEATURES`) whose install brings the program
- * into the boot, so a profile's boot holds its modules exactly when its marks select that feature.
+ * into the boot, so a profile's boot holds its modules exactly when its marks select that feature
+ * (or every one of a list).
  * `null`: a program no boot holds (it lives in a lazy chunk, loaded on use), whatever the marks.
  * THE LEAK GATE: a program in a boot whose marks do not select it is a feature that page pays for
  * and never runs; one missing from a boot that selects it would leave the server's markup with
@@ -172,7 +179,7 @@ type FeatureId = ReturnType<typeof resolveFeatures>[number];
  */
 const PROGRAMS: ReadonlyArray<{
 	name: string;
-	feature: FeatureId | null;
+	feature: FeatureId | FeatureId[] | null;
 	modules: string[];
 	strings?: string[];
 }> = [
@@ -190,7 +197,7 @@ const PROGRAMS: ReadonlyArray<{
 	// the region element's hole program: fetch, apply, revalidate, retry (its revalidated mark)
 	{ name: 'hole program', feature: 'frames', modules: [], strings: ['data-revalidated'] },
 	// the region element's live program: a held region's ticks (its tick's event)
-	{ name: 'live program', feature: 'frames', modules: [], strings: ['ogygia:live'] }
+	{ name: 'live program', feature: ['frames', 'live'], modules: [], strings: ['ogygia:live'] }
 ];
 
 type Size = { raw: number; brotli: number };
@@ -422,7 +429,7 @@ if (!arg('--core')) {
 	const leaks: string[] = [];
 	for (const r of rows)
 		for (const p of PROGRAMS) {
-			const held = p.feature !== null && r.features.includes(p.feature);
+			const held = p.feature !== null && [p.feature].flat().every((f) => r.features.includes(f));
 			for (const mod of p.modules) {
 				if (held && !(mod in r.modules))
 					leaks.push(`${r.name}: selects ${p.feature}, but its boot lacks ${mod} (${p.name})`);
