@@ -199,6 +199,12 @@ export function observe(observer: Observer): () => void {
 	return () => watch.close();
 }
 
+/** A move of something that is not a `machine()` but keeps its states the same way (`loads()`'s
+ *  entries), told to the observers when there are any. */
+export function heard(name: string, from: State, to: State | null, machine: AnyMachine): void {
+	if (observers.size !== 0) notify(name, from, to, machine);
+}
+
 function notify(name: string, from: State, to: State | null, machine: AnyMachine): void {
 	// (the watchers at the move: one that stops another during the move does not cut it off)
 	const list = observers.snapshot();
