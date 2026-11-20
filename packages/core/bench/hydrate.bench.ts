@@ -33,6 +33,7 @@ import {
 import { frag, type DomNode } from '../test/_stubs/dom.ts';
 import { bench } from '@bench/heisenbench/bench';
 import { RuntimeSession } from '../src/runtime/session.ts';
+import { mark_head, record_island_head } from '../src/runtime/head-copies.ts';
 import island_module from '../test/_stubs/island-module.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
 import { __heisenbench as core_private, boot } from '../src/runtime/core.ts';
@@ -263,8 +264,8 @@ function island_head_step(): void {
 // observer's callback first here (a task boundary inside the step), and come back in head order.
 bench(
 	'head mark: an island’s head block, from the observer’s records',
-	async ({ session }) => {
-		const mark = session.mark_head();
+	async () => {
+		const mark = mark_head();
 		island_head_step();
 		await Promise.resolve();
 		const added = mark.added();
@@ -278,9 +279,9 @@ bench(
 bench(
 	'head record: an island’s head block takes the place of the page’s copy (#1107)',
 	({ session }) => {
-		const mark = session.mark_head();
+		const mark = mark_head();
 		island_head_step();
-		session.record_island_head(mark);
+		record_island_head(session, mark);
 		return document.head.childNodes.length;
 	},
 	{
@@ -301,8 +302,8 @@ const saved_observer = (globalThis as { MutationObserver?: unknown }).MutationOb
 // Growth: linear in the head (without MutationObserver the head is copied, then scanned).
 bench(
 	'head mark: an island’s head block, without MutationObserver',
-	({ session }) => {
-		const mark = session.mark_head();
+	() => {
+		const mark = mark_head();
 		island_head_step();
 		const added = mark.added();
 		mark.stop();

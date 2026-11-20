@@ -32,8 +32,7 @@ import {
 } from '../../src/runtime/html-sink.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { regions_in_shadow } from '../../src/runtime/connected.ts';
-import { release_head_nodes } from '../../src/runtime/region-sheets.ts';
-import { add_head_owners, adopt_owner_record, head_owners } from '../../src/head-owners.ts';
+import { sheets_in_use } from '../../src/runtime/region-sheets.ts';
 import { yield_task } from '../../src/runtime/schedule.ts';
 import { client_region_hydrate } from '../../src/runtime/client-plugins.ts';
 import {
@@ -76,10 +75,7 @@ test('each place in the boot link holds the helper its number names', () => {
 		L_VOUCH_PAGE_HTML: vouch_page_html,
 		L_RUNTIME_SESSION: runtime_session,
 		L_REGIONS_IN_SHADOW: regions_in_shadow,
-		L_RELEASE_HEAD_NODES: release_head_nodes,
-		L_HEAD_OWNERS: head_owners,
-		L_ADD_HEAD_OWNERS: add_head_owners,
-		L_ADOPT_OWNER_RECORD: adopt_owner_record,
+		L_SHEETS_IN_USE: sheets_in_use,
 		L_YIELD_TASK: yield_task,
 		// (the test build keeps every hook: the subscribers' runner, not its no-op)
 		L_REGION_HYDRATE: client_region_hydrate,

@@ -5914,7 +5914,7 @@
 		"packages/core/src/runtime/schedule.ts > drain_after > timer:0",
 		"packages/core/src/runtime/seeds.ts > parse_page_seed > catch:0",
 		"packages/core/src/runtime/seeds.ts > apply_page_seed > catch:0",
-		"packages/core/src/runtime/session.ts > RuntimeSession > mark_head > observer:0",
+		"packages/core/src/runtime/head-copies.ts > mark_head > observer:0",
 		"packages/core/src/runtime/speculate-hint.ts > speculate_url > catch:0",
 		"packages/core/src/runtime/stale-deps.ts > confirm_and_reload > fetch:0",
 		"packages/core/src/runtime/stale-deps.ts > confirm_and_reload > catch:0",

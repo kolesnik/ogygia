@@ -181,11 +181,20 @@ test('the new page’s preload links are read once it is in', async () => {
 });
 
 test('a kept island’s head copies are retired once the swap has settled which islands stayed', async () => {
-	const retire = vi.spyOn(runtime_session, 'retire_page_head_copies');
-	pages['/rn-retire'] = { body: '<p>next</p>' };
+	const live = document.createElement('meta');
+	live.setAttribute('name', 'rn-island');
+	live.setAttribute('content', 'kept');
+	document.head.append(live);
+	runtime_session.island_head.add(live);
+	pages['/rn-retire'] = {
+		head: '<meta name="rn-island" content="kept">',
+		body: '<p>next</p>'
+	};
 	await go('/rn-retire');
-	expect(retire).toHaveBeenCalled();
-	retire.mockRestore();
+	expect(document.head.querySelectorAll('meta[name="rn-island"]')).toHaveLength(1);
+	expect(live.isConnected).toBe(true);
+	runtime_session.island_head.delete(live);
+	live.remove();
 });
 
 test('a region inside a shadow root makes the navigation a whole-body swap', async () => {
