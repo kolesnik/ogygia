@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { parseSync } from 'oxc-parser';
 import { keyName, type N } from './ast.ts';
-import { DEV_CHECK } from './dev.ts';
+import { DEV_CHECK } from './gate.ts';
 
 /** A message as its table holds it: its code, its fixed id, its words and what to do, and the
  *  arguments production may print. */
@@ -107,10 +107,14 @@ export function argumentProblem(
 
 /**
  * A message's arguments as output passes them: an object literal of every hole (`source` gives
- * each one's code), behind the development check when some are not safe, so production builds
+ * each one's code), behind the development check (`check`, default `DEV_CHECK`) when some are not safe, so production builds
  * only the safe ones and never evaluates the rest.
  */
-export function argumentsOf(message: Message, source: (hole: string) => string): string {
+export function argumentsOf(
+	message: Message,
+	source: (hole: string) => string,
+	check: string = DEV_CHECK
+): string {
 	const holes = holesOf(message.text);
 	const record = (names: ReadonlyArray<string>) =>
 		names.length === 0
@@ -119,13 +123,13 @@ export function argumentsOf(message: Message, source: (hole: string) => string):
 	const all = record(holes);
 	return message.safe.length === holes.length
 		? all
-		: `${DEV_CHECK} ? ${all} : ${record(holes.filter((h) => message.safe.includes(h)))}`;
+		: `${check} ? ${all} : ${record(holes.filter((h) => message.safe.includes(h)))}`;
 }
 
 /** A message's words as output passes them: `[code, text, fix]` in development, null in
  *  production. */
-export function wordsOf(message: Message): string {
-	return `${DEV_CHECK} ? ${JSON.stringify([message.code, message.text, message.fix])} : null`;
+export function wordsOf(message: Message, check: string = DEV_CHECK): string {
+	return `${check} ? ${JSON.stringify([message.code, message.text, message.fix])} : null`;
 }
 
 /**

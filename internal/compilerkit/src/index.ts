@@ -23,7 +23,15 @@ export {
 	type N
 } from './ast.ts';
 export { MacroError, Report } from './report.ts';
-export { DEV_CHECK, devOnly } from './dev.ts';
+export {
+	DEV_CHECK,
+	NODE_ENV_DEV,
+	expressionGate,
+	gated,
+	hoistedGate,
+	importedGate,
+	type Gate
+} from './gate.ts';
 export { Emitter, code, type Part } from './emitter.ts';
 export { hookOf, walkPasses, type Pass, type Visit } from './pass.ts';
 export { defineMacro, namesOf, type Macro } from './macro.ts';
