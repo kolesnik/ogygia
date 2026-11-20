@@ -18,3 +18,4 @@ export {
 	type RunOf
 } from './run.ts';
 export { graph, paths } from './machine.ts';
+export { lru, type Lru, type LruOptions } from './lru.ts';

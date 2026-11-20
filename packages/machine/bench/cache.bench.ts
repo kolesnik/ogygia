@@ -2,6 +2,7 @@
 // recently used out, gets that find (and touch) what it holds, and the eviction notices.
 import { bench } from '@bench/heisenbench/bench';
 import { cache, type Cache } from '../src/index.ts';
+import { lru, type Lru } from '../src/internal.ts';
 
 const keys = (n: number): string[] => Array.from({ length: n }, (_, i) => `/page/${i}`);
 
@@ -53,5 +54,38 @@ bench(
 	{
 		setup: () => filled(200, 200),
 		scale: (_ctx, k) => filled(200 * k, 200 * k)
+	}
+);
+
+function lru_filled(n: number, max: number): { c: Lru<string, number>; keys: string[] } {
+	const c = lru<string, number>({ max });
+	const ks = keys(n);
+	for (let i = 0; i < ks.length; i++) c.set(ks[i]!, i);
+	return { c, keys: ks };
+}
+
+bench(
+	'lru: set into a full cache (each set lets the least recently used go)',
+	({ c, keys }) => {
+		let kept = 0;
+		for (const k of keys) if (c.set(`${k}?again`, 1)) kept++;
+		return kept;
+	},
+	{
+		setup: () => lru_filled(200, 200),
+		scale: (_ctx, k) => lru_filled(200 * k, 200 * k)
+	}
+);
+
+bench(
+	'lru: get of every key it holds (each a use)',
+	({ c, keys }) => {
+		let found = 0;
+		for (const k of keys) if (c.get(k) !== undefined) found++;
+		return found;
+	},
+	{
+		setup: () => lru_filled(200, 200),
+		scale: (_ctx, k) => lru_filled(200 * k, 200 * k)
 	}
 );
