@@ -28,14 +28,17 @@ const log = new WarningLog();
  *  step's effects flush (a microtask after it returns): the mark holds until the task ends, and
  *  islands hydrate one per task, so the next one never inherits it. The task's end is `owner`'s to
  *  wait for (the island's lifetime in the page): an island gone first takes its mark with it. */
-export function set_hydrating(el: Element, owner: Scope): void {
+export const set_hydrating: (el: Element, owner: Scope) => void = $dev(function set_hydrating(
+	el: Element,
+	owner: Scope
+): void {
 	hydrating = el;
 	const clear = () => {
 		if (hydrating === el) hydrating = null;
 	};
 	owner.timeout(clear, 0);
 	owner.defer(clear);
-}
+});
 
 export function svelte_warnings(): SvelteWarning[] {
 	return log.kept.slice();

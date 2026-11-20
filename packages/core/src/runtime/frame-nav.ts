@@ -172,24 +172,25 @@ export async function streamFrames(
 	void stream.wait('stalled').then((s) => s !== STALE && batch_scope.close());
 
 	try {
-		let res: Response | typeof STALE;
+		let res: Response;
 		try {
 			if (RULES && buggify.fires('batch.fetch-fails')) throw new TypeError('Failed to fetch');
-			res = await stream.scope.task(() =>
-				net.fetch(path, {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify(endpoints),
-					...(page !== undefined ? { referrer: page } : {}),
-					signal: batch_scope.signal
-				})
+			res = $await(
+				stream.scope.task(() =>
+					net.fetch(path, {
+						method: 'POST',
+						credentials: 'same-origin',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify(endpoints),
+						...(page !== undefined ? { referrer: page } : {}),
+						signal: batch_scope.signal
+					})
+				)
 			);
 			// oxlint-disable-next-line ogygia/no-silent-failures -- a network error: the finally releases the reservations, and the holes fetch on their own
 		} catch {
 			return;
 		}
-		if (res === STALE) return;
 		if (RULES && buggify.fires('batch.refused')) res = new Response('busy', { status: 503 });
 		stream.go('reading');
 		status = res.status;
@@ -210,15 +211,15 @@ export async function streamFrames(
 		let buffer = '';
 		let parcels = false;
 		for (;;) {
-			let read: ReadableStreamReadResult<Uint8Array> | typeof STALE;
+			let read: ReadableStreamReadResult<Uint8Array>;
 			try {
 				if (RULES && buggify.fires('batch.body-breaks')) throw new TypeError('network error');
-				read = await stream.scope.task(() => reader.read());
+				read = $await(stream.scope.task(() => reader.read()));
 				// oxlint-disable-next-line ogygia/no-silent-failures -- the body broke off, as a request can fail: the holes it still owes fetch on their own
 			} catch {
 				return;
 			}
-			if (read === STALE || (RULES && buggify.fires('batch.body-stalls'))) return;
+			if (RULES && buggify.fires('batch.body-stalls')) return;
 			const { done, value } = read;
 			if (batch_scope.closed) return;
 			if (done) break;

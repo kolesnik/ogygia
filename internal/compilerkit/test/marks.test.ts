@@ -143,6 +143,22 @@ describe('gates', () => {
 		);
 	});
 
+	test("a gate hoisted as a constant reuses the file's own constant of that expression", () => {
+		const rules = hoistedGate('rules', 'RULES', 'import.meta.env?.DEV || globalThis.R === true');
+		const source = `${dedent`
+			const RULES =
+				import.meta.env?.DEV  ||  globalThis.R === true;
+			a()
+		`}\n`;
+		expect(compile(source, rules, 1)).toBe(
+			`${dedent`
+			const RULES =
+				import.meta.env?.DEV  ||  globalThis.R === true;
+			RULES && a()
+		`}\n`
+		);
+	});
+
 	test('a gate has a name: a compiler picks its gates by it', () => {
 		expect([NODE_ENV_DEV.name, importedGate('rules', 'x', 'R').name]).toEqual(['dev', 'rules']);
 	});

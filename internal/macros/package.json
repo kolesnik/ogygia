@@ -23,8 +23,8 @@
 		"zimmerframe": "catalog:"
 	},
 	"devDependencies": {
+		"@ogygia/machine": "workspace:*",
 		"@types/node": "catalog:",
-		"esm-env": "catalog:",
 		"rolldown": "catalog:",
 		"typescript": "catalog:tsgo",
 		"vitest": "catalog:"

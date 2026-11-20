@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { brotliCompressSync } from 'node:zlib';
 import { rolldown } from 'rolldown';
 import { dedent } from '../src/contract/dedent.ts';
+import { core_macros } from '../macros.config.ts';
 
 const SRC = fileURLToPath(new URL('../src/', import.meta.url));
 const RUNTIME_RULES = [
@@ -38,6 +39,8 @@ async function build(entry: string, rules: boolean): Promise<string> {
 	const bundle = await rolldown({
 		input: file,
 		external: [/^svelte(\/|$)/, /^\$app\//, 'esm-env', /\.svelte$/, /^node:/],
+		// core's source as core's build compiles it (its `$rules` functions behind the rules gate)
+		plugins: [core_macros()],
 		transform: {
 			define: {
 				'import.meta.env.DEV': 'false',

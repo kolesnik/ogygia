@@ -179,7 +179,10 @@ async function recover_location(entry: string, failed: string): Promise<string |
 		for (let n = 1; n <= rollover.attempts; n++) {
 			if (n > 1) {
 				const wait = backoffAfter(rollover, n - 1);
-				await waits.task(() => new Promise<void>((resolve) => waits.timeout(resolve, wait)));
+				$await(
+					waits.task(() => new Promise<void>((resolve) => waits.timeout(resolve, wait))),
+					current ?? null
+				);
 			}
 			current = await current_location(entry);
 			if (current === undefined) continue;

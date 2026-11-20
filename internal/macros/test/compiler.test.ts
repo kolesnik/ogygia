@@ -55,12 +55,11 @@ describe('the gates', () => {
 		return e.finish('rt', program);
 	};
 
-	test("dev reads esm-env's DEV, imported once", () => {
+	test("dev reads import.meta.env.DEV, as core's own checks do", () => {
 		expect(behind(DEV)).toBe(
 			`${dedent`
-			import { DEV } from 'esm-env'
-			DEV && check(1)
-			DEV && check(2)
+			import.meta.env.DEV && check(1)
+			import.meta.env.DEV && check(2)
 		`}\n`
 		);
 	});

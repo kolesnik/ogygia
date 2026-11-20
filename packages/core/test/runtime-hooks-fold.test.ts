@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { rolldown } from 'rolldown';
 import { RUNTIME_HOOK_CONSTANTS, type RuntimeHookName } from '../src/contract/runtime-hooks.ts';
 import { dedent } from '../src/contract/dedent.ts';
+import { core_macros } from '../macros.config.ts';
 
 const SRC = fileURLToPath(new URL('../src/', import.meta.url));
 const ENTRY = dedent`
@@ -26,6 +27,8 @@ async function build(subscribed: readonly RuntimeHookName[]): Promise<string> {
 	const bundle = await rolldown({
 		input: file,
 		external: [/^svelte(\/|$)/, /^\$app\//, 'esm-env', /\.svelte$/, /^node:/],
+		// core's source as core's build compiles it
+		plugins: [core_macros()],
 		transform: {
 			define: {
 				'import.meta.env.DEV': 'false',

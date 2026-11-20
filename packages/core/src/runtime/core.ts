@@ -913,15 +913,15 @@ class OgygiaRegion extends HTMLElement {
 		this.#frame_address = address;
 		binding.defer(() => {
 			if (this.#binding === binding) this.#frame_address = null;
-			if (RULES) note_unbound(this);
+			note_unbound(this);
 		});
 		const box = this.#box;
 		let replayed = false;
 		const off = slots.frames?.subscribe(address, (f) => {
 			replayed = true;
-			if (RULES) note_handed(this, address, f.v, () => this.#paint.now.kind === 'painting');
+			note_handed(this, address, f.v, () => this.#paint.now.kind === 'painting');
 			box.post((turn) => {
-				if (RULES) note_turn(this);
+				note_turn(this);
 				return this.#apply(f.html, turn, f.v);
 			});
 		});
@@ -1000,7 +1000,7 @@ class OgygiaRegion extends HTMLElement {
 		const painting = this.#paint_next();
 		if (html === KEEP_FALLBACK_HTML) {
 			this.#painted(painting);
-			if (RULES && v !== undefined) note_shown(this, v);
+			if (v !== undefined) note_shown(this, v);
 			use_sheets(this, []); // (the fallback's sheets are the page's)
 			this.#answered('kept');
 			if (!is_awake(this)) this.setAttribute('data-hydrated', '');
@@ -1011,9 +1011,10 @@ class OgygiaRegion extends HTMLElement {
 		}
 		const revalidate = is_frozen(this) || this.#answer.now.kind === 'answered';
 		const { frag, ready, sheets } = region_fragment(html);
-		if ((await turn.wait(ready)) === STALE || this.#paint.now !== painting) return;
+		$await(turn.wait(ready));
+		if (this.#paint.now !== painting) return;
 		this.#painted(painting);
-		if (RULES && v !== undefined) note_shown(this, v);
+		if (v !== undefined) note_shown(this, v);
 		use_sheets(this, sheets);
 		this.#shown = html;
 		slots.lakes.settle_in(frag);
@@ -1072,7 +1073,8 @@ class OgygiaRegion extends HTMLElement {
 		}
 		const painting = this.#paint_next();
 		const { frag, ready, sheets } = region_fragment(html);
-		if ((await turn.wait(ready)) === STALE || this.#paint.now !== painting) return;
+		$await(turn.wait(ready));
+		if (this.#paint.now !== painting) return;
 		this.#painted(painting);
 		use_sheets(this, sheets);
 		slots.lakes.settle_in(frag);
@@ -1126,9 +1128,11 @@ class OgygiaRegion extends HTMLElement {
 		const mine = this.#hole.now;
 		try {
 			if (RULES && buggify.fires('hole.fetch-lost')) throw new TypeError('Failed to fetch');
-			await turn.wait(
-				this.#hole.scope.task((signal) =>
-					this.#ensure_frame(frames, endpoint, address, revalidate, signal)
+			$await(
+				turn.wait(
+					this.#hole.scope.task((signal) =>
+						this.#ensure_frame(frames, endpoint, address, revalidate, signal)
+					)
 				)
 			);
 		} catch (err) {
@@ -1239,12 +1243,13 @@ class OgygiaRegion extends HTMLElement {
 			if (offline) {
 				this.#hole.go('offline', { revalidate });
 				const waiting = this.#hole.scope;
-				const back = await turn.wait(
-					waiting.task(
-						() => new Promise<void>((resolve) => waiting.on(window, 'online', () => resolve()))
+				$await(
+					turn.wait(
+						waiting.task(
+							() => new Promise<void>((resolve) => waiting.on(window, 'online', () => resolve()))
+						)
 					)
 				);
-				if (back === STALE) return;
 				if (revalidate) return this.#fetch_html(turn, true);
 				return this.#connect(turn);
 			}
@@ -1255,10 +1260,11 @@ class OgygiaRegion extends HTMLElement {
 			if (later !== null) wait = Math.min(later, backoffAfter(region_rate_limited, attempts));
 			else if (other_build) wait = backoffAfter(region_other_build, denied);
 			else wait = backoffAfter(region_fetch, attempts);
-			const waited = await turn.wait(
-				retrying.task(() => new Promise<void>((resolve) => retrying.timeout(resolve, wait)))
+			$await(
+				turn.wait(
+					retrying.task(() => new Promise<void>((resolve) => retrying.timeout(resolve, wait)))
+				)
 			);
-			if (waited === STALE) return;
 			if (revalidate) return this.#fetch_html(turn, true);
 			return this.#connect(turn);
 		}
@@ -1330,37 +1336,37 @@ class OgygiaRegion extends HTMLElement {
 			// SPA swap (and any post-load hydrate) the document is already parsed, so skip the await
 			// entirely — no need to burn a microtask turn before every island wakes.
 			if (typeof document !== 'undefined' && document.readyState === 'loading') {
-				if ((await turn.wait(dom_ready())) === STALE) return;
+				$await(turn.wait(dom_ready()));
 			} else if (!this.isConnected) return;
 			const entry = island_entry_of(this);
 			if (!entry) return;
 			const cls = () => (this.#visitor ? 'user' : viewport_class(this));
 			const slot = new LoadSlot({ kind: 'code', cls, label: entry, el: this });
-			const release = await turn.wait(slot.ready);
 			// (gone while it queued: the slot, when it comes, goes straight back)
 			// oxlint-disable-next-line ogygia/no-silent-failures -- a slot's turn never fails
-			if (release === STALE) return void slot.ready.then(hand_back);
+			const release = $await(turn.wait(slot.ready), void slot.ready.then(hand_back));
 			let mod: IslandModule, core: HydrateCore;
 			try {
 				hydrate_started(this); // a viewport island in flight holds ready islands below the fold
 				// The island's module first: its graph links go in before the lazy runtime chunks' own preloads.
-				const loaded = await turn.wait(
-					Promise.all([
-						load_island(entry, cls()),
-						hydrate_core.get(),
-						slots.wire_classes?.(this),
-						wire_for_wake(this),
-						devalue_for_wake()
-					])
+				const loaded = $await(
+					turn.wait(
+						Promise.all([
+							load_island(entry, cls()),
+							hydrate_core.get(),
+							slots.wire_classes?.(this),
+							wire_for_wake(this),
+							devalue_for_wake()
+						])
+					)
 				);
-				if (loaded === STALE) return;
 				[mod, core] = loaded;
 			} finally {
 				release();
 			}
 			t_loaded = now_ms();
 			use_code_sheets(this, mod);
-			if ((await turn.wait(this.#kit_page_ready(core, visit))) === STALE) return;
+			$await(turn.wait(this.#kit_page_ready(core, visit)));
 			// The page's seeds parse now, BEFORE the turn: data arriving is not the hydrate step. The
 			// first island parses the seed once (700 KB on a large CMS page), and inside its turn that
 			// parse plus the hydrate made one long task. (The step calls these again: a no-op by then.)
@@ -1374,8 +1380,9 @@ class OgygiaRegion extends HTMLElement {
 			do {
 				visitor = this.#visitor;
 				// (a replay that failed says so itself)
-				if (visitor && (await turn.wait(visitor.catch(nothing))) === STALE) return;
-				if ((await turn.wait(hydrate_turn(this))) === STALE || this.#app) return;
+				if (visitor) $await(turn.wait(visitor.catch(nothing)));
+				$await(turn.wait(hydrate_turn(this)));
+				if (this.#app) return;
 			} while (this.#visitor !== visitor);
 			t_turn = now_ms();
 			const ssr_html = this.#ssr_html;
@@ -1383,18 +1390,19 @@ class OgygiaRegion extends HTMLElement {
 			// hydrate step edits it (lakes lifted): an untouched island skips the parse-and-compare.
 			const touched = ssr_html === null || region_changed(this);
 			// (dev: a Svelte hydration warning raised in this step is this island's)
-			if (import.meta.env.DEV) set_hydrating(this, this.#life);
+			set_hydrating(this, this.#life);
 			this.#app = core.hydrate_island(this, entry, mod, ssr_html, touched);
 			this.#ssr_html = null;
 			this.#unwatch();
 			if (!this.#app) return;
-			if (RULES) note_mount(this);
+			note_mount(this);
 			const t_done = now_ms();
 			// (Svelte's `hydrate()` runs `$effect` and onMount in a microtask it queued during the call; one
 			// awaited now runs after it — mounted means they ran)
 			await Promise.resolve();
 			const t_mounted = now_ms();
-			if ((await turn.wait(snippets_settled(this, visit))) === STALE || !this.#app) return;
+			$await(turn.wait(snippets_settled(this, visit)));
+			if (!this.#app) return;
 			this.setAttribute('data-hydrated', '');
 			if (HOOK_REGION_HYDRATED)
 				slots.hooks?.regionHydrated?.({
@@ -1478,7 +1486,7 @@ class OgygiaRegion extends HTMLElement {
 	async applyLive(desc: LiveTick): Promise<void> {
 		if (!FRAMES) return;
 		this.#live_last = desc;
-		await this.#box.ask((turn) => this.#apply_live(desc, turn));
+		$await(this.#box.ask((turn) => this.#apply_live(desc, turn)));
 	}
 
 	#live_put_back(turn: Turn): Promise<void> | undefined {
@@ -1555,7 +1563,8 @@ class OgygiaRegion extends HTMLElement {
 		const { frag, ready, sheets } = region_fragment(vouch_remote_answer(desc.html));
 		// stylesheet before paint — an interactive held region has CSS too (no FOUC). (STALE: the
 		// region left the page meanwhile; another tick took over: it paints)
-		if ((await turn.wait(ready)) === STALE || this.#live.now !== mine) return;
+		$await(turn.wait(ready));
+		if (this.#live.now !== mine) return;
 		this.#painted(painting);
 		use_sheets(this, sheets);
 		slots.lakes.settle_in(frag);
@@ -1577,24 +1586,25 @@ class OgygiaRegion extends HTMLElement {
 		pending: { props: Record<string, unknown> | null },
 		turn: Turn
 	) {
-		const ours = (back?: unknown) => back !== STALE && this.isConnected && this.#live.now === mine;
+		const ours = () => this.isConnected && this.#live.now === mine;
 		try {
-			if (!ours(await turn.wait(dom_ready()))) return;
+			$await(turn.wait(dom_ready()));
+			if (!ours()) return;
 			const entry = island_entry_of(this);
 			if (!entry) return;
 			const cls = () => viewport_class(this);
 			const slot = new LoadSlot({ kind: 'code', cls, label: entry, el: this });
-			const release = await turn.wait(slot.ready);
 			// (gone while it queued: the slot, when it comes, goes straight back)
 			// oxlint-disable-next-line ogygia/no-silent-failures -- a slot's turn never fails
-			if (release === STALE) return void slot.ready.then(hand_back);
+			const release = $await(turn.wait(slot.ready), void slot.ready.then(hand_back));
 			let mod: IslandModule, core: HydrateCore;
 			try {
 				if (!ours()) return;
-				const loaded = await turn.wait(
-					Promise.all([load_island(entry, cls()), hydrate_core.get(), devalue_for_wake()])
+				const loaded = $await(
+					turn.wait(
+						Promise.all([load_island(entry, cls()), hydrate_core.get(), devalue_for_wake()])
+					)
 				);
-				if (loaded === STALE) return;
 				[mod, core] = loaded;
 			} finally {
 				release();
@@ -1602,11 +1612,13 @@ class OgygiaRegion extends HTMLElement {
 			if (!ours()) return;
 			use_code_sheets(this, mod);
 			// (Kit cannot start: the region keeps its swapped HTML, and the wait said why)
-			const kit = await turn.wait(this.#kit_page_ready(core, this.#live.scope)).catch((err) => {
-				if (kit_boot_failed(err)) return STALE;
-				throw err;
-			});
-			if (!ours(kit)) return;
+			$await(
+				turn.wait(this.#kit_page_ready(core, this.#live.scope)).catch((err) => {
+					if (kit_boot_failed(err)) return STALE;
+					throw err;
+				})
+			);
+			if (!ours()) return;
 			if (HOOK_REGION_MOUNT) client_region_mount(this);
 			const app = core.hydrate_live(this, entry, mod, props);
 			if (!app) return;
@@ -1647,19 +1659,19 @@ class OgygiaRegion extends HTMLElement {
 		if (this.#hole.now.kind !== 'idle') this.#hole.go('idle');
 		if (this.#wake.now.kind !== 'cold') this.#wake.go('cold');
 		if (this.#paint.now.kind !== 'idle') this.#paint.go('idle');
-		if (RULES) note_left(this, () => busy_machines(this.#machines()));
+		note_left(this, () => busy_machines(this.#machines()));
 		this.#life.close();
 		this.#region.go('detached', detached());
 		if (this.#app) {
 			this.#app.dispose();
 			this.#app = null;
-			if (RULES) note_unmount(this);
+			note_unmount(this);
 		}
 	}
 }
 
-function apply_dev_head_region_css(): void {
-	if (!import.meta.env.DEV || typeof document === 'undefined') return;
+const apply_dev_head_region_css: () => void = $dev(function apply_dev_head_region_css(): void {
+	if (typeof document === 'undefined') return;
 	// oxlint-disable-next-line ogygia/no-silent-failures -- dom_ready never rejects, and the work in it catches
 	void dom_ready().then(() => {
 		const seen = new Set<string>();
@@ -1674,14 +1686,14 @@ function apply_dev_head_region_css(): void {
 			void import_code(url).catch(() => {});
 		}
 	});
-}
+});
 
 export function boot(
 	installers: Array<() => void> = [],
 	client_plugins: readonly ClientRealm[] = []
 ): void {
 	disclose_version();
-	if (RULES) install_rules(import.meta.env.DEV);
+	install_rules(import.meta.env.DEV);
 	runtime_session.adopt_document_head();
 	// island-side code (a shim) throws and logs through the runtime's own messages (messages/island.ts)
 	(globalThis as unknown as Record<symbol, unknown>)[Symbol.for('ogygia.messages')] ??= {
@@ -1704,7 +1716,7 @@ export function boot(
 	on_reload_needed(say_reload_needed);
 	on_file_load(note_code_sheets);
 
-	if (import.meta.env.DEV) apply_dev_head_region_css();
+	apply_dev_head_region_css();
 
 	// DEV: Svelte's hydration warnings (the server and the browser disagreed; Svelte kept the
 	// server's value, so only the console knew) reach the devtools and the profiler's browser half
