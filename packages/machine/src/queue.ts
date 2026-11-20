@@ -657,14 +657,16 @@ export function check_queue<J>(options: QueueOptions<J>): void {
 			value: String(max),
 			rule: 'a whole number of at least 1'
 		});
-	const windows = options.windows ?? [];
-	if (windows.length > MAX_WINDOWS)
-		throw machine_error('machine_bad_option', {
-			option: 'windows',
-			value: String(windows.length),
-			rule: `at most ${MAX_WINDOWS} windows`
-		});
-	for (let w = 0; w < windows.length; w++) cap(`windows[${w}].max`, windows[w].max);
+	const windows = options.windows;
+	if (windows !== undefined) {
+		if (windows.length > MAX_WINDOWS)
+			throw machine_error('machine_bad_option', {
+				option: 'windows',
+				value: String(windows.length),
+				rule: `at most ${MAX_WINDOWS} windows`
+			});
+		for (let w = 0; w < windows.length; w++) cap(`windows[${w}].max`, windows[w].max);
+	}
 	const ms = options.budget?.ms;
 	if (ms !== undefined && !(Number.isFinite(ms) && ms >= 0))
 		throw machine_error('machine_bad_option', {
