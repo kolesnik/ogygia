@@ -42,6 +42,7 @@ import { heisenbench_dir, bench_packages, link_heisenbench, REPO_ROOT } from './
 import { gone_exemptions, unexempted_new_functions, type Exemption } from './stale.ts';
 import { failed_cases, failed_cases_md } from './failed-cases.ts';
 import { read_ledger_file } from '../../sim/src/ledger-json.ts';
+import { unmirror } from './unmirror.ts';
 
 const { values } = parseArgs({
 	options: {
@@ -142,8 +143,10 @@ benches.forEach((file, i) => {
 	const rel = relative(REPO_ROOT, file);
 	log(`bench ${rel}`);
 	heisenbench_cli(['run', rel, '--root', '.', '--out', report], { preload: true });
-	if (existsSync(report)) reports.push(report);
-	else log(`  ${rel} produced no report; its functions count as not run by a bench`);
+	if (existsSync(report)) {
+		writeFileSync(report, unmirror(readFileSync(report, 'utf8')));
+		reports.push(report);
+	} else log(`  ${rel} produced no report; its functions count as not run by a bench`);
 });
 
 // 2. every function, and the ones no bench ran

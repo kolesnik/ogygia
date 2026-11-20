@@ -24,15 +24,20 @@
 	],
 	"imports": {
 		"#region-server": {
-			"browser": "./src/region-server.browser.ts",
-			"default": "./src/region-server.ts"
+			"ogygia-source": {
+				"browser": "./src/region-server.browser.ts",
+				"default": "./src/region-server.ts"
+			},
+			"types": "./dist/region-server.d.ts",
+			"browser": "./dist/region-server.browser.js",
+			"default": "./dist/region-server.js"
 		}
 	},
 	"exports": {
 		".": {
-			"svelte": "./src/index.ts",
 			"types": "./dist/index.d.ts",
-			"default": "./src/index.ts"
+			"svelte": "./dist/index.js",
+			"default": "./dist/index.js"
 		},
 		"./contract": {
 			"types": "./dist/contract/index.d.ts",
@@ -40,73 +45,73 @@
 		},
 		"./runtime": {
 			"types": "./dist/runtime/index.d.ts",
-			"default": "./src/runtime/index.ts"
+			"default": "./dist/runtime/index.js"
 		},
 		"./hooks": {
 			"types": "./dist/hooks.d.ts",
-			"default": "./src/hooks.ts"
+			"default": "./dist/hooks.js"
 		},
 		"./app": {
 			"types": "./dist/app.d.ts",
-			"default": "./src/app.ts"
+			"default": "./dist/app.js"
 		},
 		"./internal": {
-			"svelte": "./src/internal.ts",
 			"types": "./dist/internal.d.ts",
-			"default": "./src/internal.ts"
+			"svelte": "./dist/internal.js",
+			"default": "./dist/internal.js"
 		},
 		"./internal/server": {
-			"svelte": "./src/internal-server.ts",
 			"types": "./dist/internal-server.d.ts",
-			"default": "./src/internal-server.ts"
+			"svelte": "./dist/internal-server.js",
+			"default": "./dist/internal-server.js"
 		},
 		"./internal/instruments": {
-			"svelte": "./src/internal-instruments.ts",
 			"types": "./dist/internal-instruments.d.ts",
-			"default": "./src/internal-instruments.ts"
+			"svelte": "./dist/internal-instruments.js",
+			"default": "./dist/internal-instruments.js"
 		},
 		"./internal/messages": {
-			"svelte": "./src/messages/index.ts",
 			"types": "./dist/messages/index.d.ts",
-			"default": "./src/messages/index.ts"
+			"svelte": "./dist/messages/index.js",
+			"default": "./dist/messages/index.js"
 		},
 		"./internal/register": {
-			"svelte": "./src/internal-register.ts",
 			"types": "./dist/internal-register.d.ts",
-			"default": "./src/internal-register.ts"
+			"svelte": "./dist/internal-register.js",
+			"default": "./dist/internal-register.js"
 		},
 		"./internal/reconcile": {
-			"svelte": "./src/internal-reconcile.ts",
 			"types": "./dist/internal-reconcile.d.ts",
-			"default": "./src/internal-reconcile.ts"
+			"svelte": "./dist/internal-reconcile.js",
+			"default": "./dist/internal-reconcile.js"
 		},
 		"./server": {
 			"types": "./dist/hooks.d.ts",
-			"default": "./src/hooks.ts"
+			"default": "./dist/hooks.js"
 		},
 		"./plugin": {
 			"types": "./dist/plugin/index.d.ts",
-			"default": "./src/plugin/index.ts"
+			"default": "./dist/plugin/index.js"
 		},
 		"./plugin/utils": {
 			"types": "./dist/plugin/utils.d.ts",
-			"default": "./src/plugin/utils.ts"
+			"default": "./dist/plugin/utils.js"
 		},
 		"./plugin/css": {
 			"types": "./dist/plugin/css.d.ts",
-			"default": "./src/plugin/css.ts"
+			"default": "./dist/plugin/css.js"
 		},
 		"./plugin/testing": {
 			"types": "./dist/plugin/testing.d.ts",
-			"default": "./src/plugin/testing.ts"
+			"default": "./dist/plugin/testing.js"
 		},
 		"./plugin/client": {
 			"types": "./dist/plugin/client.d.ts",
-			"default": "./src/plugin/client.ts"
+			"default": "./dist/plugin/client.js"
 		},
 		"./events": {
 			"types": "./dist/events/index.d.ts",
-			"default": "./src/events/index.ts"
+			"default": "./dist/events/index.js"
 		},
 		"./types": {
 			"types": "./ambient.d.ts"
@@ -231,6 +236,7 @@
 		"@typescript/native": "catalog:tsgo",
 		"@vitest/browser": "catalog:",
 		"@vitest/browser-playwright": "catalog:",
+		"ogygia-internal-macros": "workspace:*",
 		"rolldown": "catalog:",
 		"sass-embedded": "^1.104.1",
 		"svelte": "catalog:",

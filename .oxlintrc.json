@@ -48,6 +48,7 @@
 		"ogygia/stale-whole": "error",
 		"ogygia/no-string-concat": "error",
 		"ogygia/prefer-dedent": "error",
+		"ogygia/no-macro-in-svelte": "error",
 		"ogygia/html-sink": "error",
 		"ogygia/one-markup-walk": "error",
 		"ogygia/one-hash": "error",

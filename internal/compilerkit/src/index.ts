@@ -36,6 +36,7 @@ export { Emitter, code, type Part } from './emitter.ts';
 export { hookOf, walkPasses, type Pass, type Visit } from './pass.ts';
 export { defineMacro, namesOf, type Macro } from './macro.ts';
 export { refuseReserved, vocabulary, type Vocabulary } from './vocabulary.ts';
+export { parseSync } from './oxc.ts';
 export { parse, runtimeOf, type Mode, type Runtimes } from './unit.ts';
 export { Tracker, type Binding, type Classifier, type Where } from './tracker.ts';
 export { pipeline, step, type Step } from './pipeline.ts';

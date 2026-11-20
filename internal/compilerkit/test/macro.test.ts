@@ -141,3 +141,11 @@ describe('a compiler on the kit', () => {
 		expect(check(() => 2).passes()).toBe(2);
 	});
 });
+
+describe('a vocabulary', () => {
+	test('an empty vocabulary uses nothing: no file is worth parsing', () => {
+		const none = vocabulary([]);
+		expect(none.mayUse('const a = $x + $state')).toBe(false);
+		expect(none.mayUse('')).toBe(false);
+	});
+});

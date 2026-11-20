@@ -1,8 +1,10 @@
+import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { REGION_GRID_FILES, region_grid_run } from './scripts/region-grid-files.ts';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { browser_runs, playwright_run, sim_define, stub_aliases } from '@ogygia/config/vitest';
 import { heisenbench_record } from '../../internal/heisenbench/src/record.ts';
+import { core_macros } from './macros.config.ts';
 import type { BrowserCommand, BrowserCommandContext } from 'vitest/node';
 import type {} from '@vitest/browser-playwright';
 // (the compiler's build plugin, from its source, as core's tests read devtools' own)
@@ -143,14 +145,17 @@ export default defineConfig({
 	// the island fixtures (client compile) and their SSR twin in `setup.ts` (server compile).
 	// heisenbench_record(): nothing, unless the measurement-source gate records the tests' inputs
 	// (internal/heisenbench/src/record.ts)
-	plugins: [...heisenbench_record()],
+	plugins: [core_macros(), ...heisenbench_record()],
 	define: sim_define(process.env),
 	// The browser tests' dependencies, bundled before the first test file loads: found during the
 	// run, Vite bundles again and changes the URLs a test file still imports.
 	optimizeDeps: { include: ['devalue', 'esm-env', 'fast-check'] },
 	// Kit's `$app/*` and ogygia's virtual modules (the realm modules and their entries), stubbed so
 	// suites load without a Kit app or the Vite plugin (test/_stubs, by file name)
-	resolve: { alias: stub_aliases() },
+	resolve: { alias: stub_aliases(), conditions: ['ogygia-source', ...defaultClientConditions] },
+	// core's own `#region-server` from its source (package.json `imports`, the `ogygia-source`
+	// condition): every other reader of the package gets dist
+	ssr: { resolve: { conditions: ['ogygia-source', ...defaultServerConditions] } },
 	test: {
 		// @why expect.poll and expect.element give up after 1 s by default, shorter than a dev-mode module load on a loaded runner running the full suite (test: test/browser/region-left-mid-wake.test.ts › a region taken out while it waits for its hydrate turn never comes alive)
 		expect: { poll: { timeout: 5_000 } },
