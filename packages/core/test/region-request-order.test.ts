@@ -3,6 +3,7 @@
 // rendered and sent, or refused at any step. Rendering, or charging the render budget, before the
 // capability verifies is an illegal move, for a GET, a renewal and each hole of a batch.
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import * as fsm from '@ogygia/machine/internal';
 import { trace } from '@ogygia/machine';
 
 vi.mock('ogygia:server/sign', () => import('../src/server/hmac.ts'));
@@ -56,8 +57,8 @@ const lines = () =>
 describe('a region request, as a machine', () => {
 	it('the only way to rendering is through verified, then charged', () => {
 		const into = (to: string) =>
-			region_request
-				.graph()
+			fsm
+				.graph(region_request)
 				.states.filter((s) => (s.steps as readonly string[]).includes(to))
 				.map((s) => s.kind);
 		expect(into('rendering')).toEqual(['charged']);
@@ -68,11 +69,12 @@ describe('a region request, as a machine', () => {
 	});
 
 	it('render before verify is an illegal move', () => {
-		const r = region_request.create();
-		r.go('prechecked');
-		r.go('probed');
-		expect(() => r.go('rendering')).toThrow(/machine_illegal_move/);
-		expect(() => r.go('charged')).toThrow(/machine_illegal_move/);
+		const r = fsm.create(region_request);
+		fsm.go(r, 'prechecked');
+		fsm.go(r, 'probed');
+		const go = fsm.go as (m: typeof r, to: string) => boolean;
+		expect(() => go(r, 'rendering')).toThrow(/machine_illegal_move/);
+		expect(() => go(r, 'charged')).toThrow(/machine_illegal_move/);
 	});
 
 	it('a GET walks every step in order', async () => {

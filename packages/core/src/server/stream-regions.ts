@@ -1,4 +1,5 @@
-import { machine, type Scope } from '@ogygia/machine';
+import type { Scope } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine/internal';
 import { OG_LEN, OGYGIA_SLOT } from '../wire-markup.ts';
 
 const STREAM_DONE_SLOT = '__ogygia_done__';
@@ -37,7 +38,7 @@ export type BatchAnswer = { slot: string; html: string } | null;
 
 type BatchStates = { streaming: {}; ended: {}; cancelled: {} };
 const batch_steps = { streaming: ['ended', 'cancelled'], ended: [], cancelled: [] } as const;
-const batch_def = machine<BatchStates>()({
+const batch_def = $machine<BatchStates>()({
 	name: 'batch stream',
 	initial: 'streaming',
 	steps: batch_steps
@@ -57,31 +58,31 @@ export function batch_stream(
 	owner?: Scope
 ): ReadableStream<Uint8Array> {
 	const encoder = new TextEncoder();
-	const batch = batch_def.create();
+	const batch = fsm.create(batch_def);
 	owner?.defer(() => {
-		batch.move('streaming', 'cancelled');
+		fsm.move(batch, 'streaming', 'cancelled');
 	});
 	return new ReadableStream<Uint8Array>({
 		async start(controller) {
-			const streaming = batch.now;
+			const streaming = fsm.epoch(batch);
 			$await(
-				batch.scope.task((signal) =>
+				fsm.task(fsm.visit(batch), (signal) =>
 					Promise.all(
 						calls.map(async (endpoint) => {
 							// oxlint-disable-next-line ogygia/no-silent-failures -- the render says its own failure; the hole keeps its fallback and fetches itself
 							const out = await render(endpoint, signal).catch(() => null);
-							if (out && batch.now === streaming)
+							if (out && fsm.epoch(batch) === streaming)
 								controller.enqueue(encoder.encode(build_parcel(out.slot, out.html)));
 						})
 					)
 				)
 			);
-			if (!batch.move('streaming', 'ended')) return;
+			if (!fsm.move(batch, 'streaming', 'ended')) return;
 			controller.enqueue(encoder.encode(done_parcel()));
 			controller.close();
 		},
 		cancel() {
-			batch.move('streaming', 'cancelled');
+			fsm.move(batch, 'streaming', 'cancelled');
 		}
 	});
 }

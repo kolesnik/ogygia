@@ -87,7 +87,8 @@ import {
 } from './server/hmac.ts';
 import { expiry_refusal, note_cache_control } from './server/shared-cache.ts';
 import { app_lifetime, server_delta_on } from './server/region-endpoint.ts';
-import { region_request, type RegionRequest } from './server/region-request.ts';
+import { create_region_request, type RegionRequest } from './server/region-request.ts';
+import * as fsm from '@ogygia/machine/internal';
 import { render_cache_key, cached_render, type RenderKey } from './server/render-cache.ts';
 import { render as render_policy } from './policies.ts';
 import { install_server_rules, note_region_answer } from './server/rules.ts';
@@ -1817,9 +1818,9 @@ class OgygiaHandle {
 		 *  postrender stitch (its own stored page, no visitor) is charged nothing. */
 		ip?: string
 	): Promise<{ slot: string; html: string } | null> {
-		const r = region_request.create();
+		const r = create_region_request();
 		const parcel = await this.#capability_parcel(r, endpoint, event, batch, signal, ip);
-		r.go(parcel === null ? 'refused' : 'sent');
+		fsm.go(r, parcel === null ? 'refused' : 'sent');
 		return parcel;
 	}
 
@@ -1837,10 +1838,10 @@ class OgygiaHandle {
 		const cap = capability_of(new URLSearchParams(endpoint.slice(q + 1)));
 		const { id, payload, sig } = cap;
 
-		if (this.#capability_precheck(cap) || !r.go('prechecked')) return null;
-		if (!r.go('probed') || (ip !== undefined && this.probe_rate.limited(ip))) return null;
-		if (!this.#verify_region_mac(cap, event) || !r.go('verified')) return null;
-		if (!r.go('charged') || (ip !== undefined && this.#render_over(ip))) return null;
+		if (this.#capability_precheck(cap) || !fsm.go(r, 'prechecked')) return null;
+		if (!fsm.go(r, 'probed') || (ip !== undefined && this.probe_rate.limited(ip))) return null;
+		if (!this.#verify_region_mac(cap, event) || !fsm.go(r, 'verified')) return null;
+		if (!fsm.go(r, 'charged') || (ip !== undefined && this.#render_over(ip))) return null;
 
 		const target = capability_target(cap);
 		if (target === null) return null;
@@ -1859,7 +1860,7 @@ class OgygiaHandle {
 		const t0 = stats ? clock.mono() : 0;
 		const timing: { queue_ms?: number; render_ms?: number } = {};
 		let outcome: 'hit' | 'miss' | 'none' = 'none';
-		if (!r.go('rendering')) return null;
+		if (!fsm.go(r, 'rendering')) return null;
 		const body = await this.#render_component(
 			id,
 			load,
@@ -1912,10 +1913,10 @@ class OgygiaHandle {
 	 * anonymous-only re-verify of the original tuple + re-sign; then the same render rate + render.
 	 */
 	async render_region(event: RequestEvent): Promise<Response> {
-		const r = region_request.create();
+		const r = create_region_request();
 		const res = await this.#region_answer(r, event);
 		// (a success with no render before it is an illegal move: `sent` is only reached rendering)
-		r.go(res.status < 300 ? 'sent' : 'refused');
+		fsm.go(r, res.status < 300 ? 'sent' : 'refused');
 		return res;
 	}
 
@@ -1957,10 +1958,10 @@ class OgygiaHandle {
 				warn('endpoint_foreign_key', { id, key: String(cap.k), own: signing_key().fp });
 			return region_denied(refused);
 		}
-		r.go('prechecked');
+		fsm.go(r, 'prechecked');
 
 		// Pre-HMAC probe — forged floods hit this, not render() (HMAC-CPU-DOS).
-		if (!r.go('probed')) return region_response('Too Many Requests', { status: 429 });
+		if (!fsm.go(r, 'probed')) return region_response('Too Many Requests', { status: 429 });
 		if (this.probe_rate.limited(ip)) return over_budget(this.probe_rate, ip);
 
 		if (renewal) {
@@ -1977,7 +1978,7 @@ class OgygiaHandle {
 				return region_denied('sig');
 			}
 		}
-		if (!r.go('verified')) return region_denied('sig');
+		if (!fsm.go(r, 'verified')) return region_denied('sig');
 
 		// Cache policy travels signed in the URL: a positive `ttl` opts this hole into a private browser
 		// cache; absent/0 keeps it dynamic (`no-store`). A hole is fresh-per-request by default. A
@@ -1988,7 +1989,7 @@ class OgygiaHandle {
 		const renew_headers: Record<string, string> = renewed ? { 'x-ogygia-capability': renewed } : {};
 
 		// Valid capability — now charge the per-IP render budget.
-		if (!r.go('charged')) return region_response('Too Many Requests', { status: 429 });
+		if (!fsm.go(r, 'charged')) return region_response('Too Many Requests', { status: 429 });
 		if (this.#render_over(ip)) return over_budget(this.render_rate, ip);
 
 		// Its own id, or (minted by another build) an entry of this build rendering its component.
@@ -2016,7 +2017,7 @@ class OgygiaHandle {
 		const cache = this.#hole_cache(target, payload, wakes, event, ttl, reads_page_data);
 		const timing: { queue_ms?: number; render_ms?: number } = {};
 		let outcome: 'hit' | 'miss' | 'none' = 'none';
-		if (!r.go('rendering')) return region_response('Region render failed', { status: 500 });
+		if (!fsm.go(r, 'rendering')) return region_response('Region render failed', { status: 500 });
 		const body = await this.#render_component(
 			id,
 			load,
