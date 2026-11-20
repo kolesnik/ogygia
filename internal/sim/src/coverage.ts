@@ -116,9 +116,13 @@ function files(dir: string): string[] {
 }
 
 /**
- * Every machine the packages define, by name, read from their source: `machine<S>()({ ... })` with
- * a literal name, and each `flights({ name })` (its entries' steps, from flights' own `ENTRY_STEPS`).
+ * Every machine the packages define, by name, read from their source: `machine<S>()({ ... })`,
+ * core's `$machine<S>()({ ... })` and the runtime's `definition<S>()({ ... })` with a literal name,
+ * and each `flights({ name })` (its entries' steps, from flights' own `ENTRY_STEPS`).
  */
+/** The calls a machine definition is made by. */
+const DEFINERS: ReadonlySet<string> = new Set(['machine', '$machine', 'definition']);
+
 export function universe(root: string): Map<string, MachineDef> {
 	const out = new Map<string, MachineDef>();
 	const flights_named: Array<{
@@ -134,7 +138,12 @@ export function universe(root: string): Map<string, MachineDef> {
 	for (const pkg of PACKAGES)
 		for (const file of files(join(root, 'packages', pkg, 'src'))) {
 			const source = readFileSync(file, 'utf8');
-			if (!source.includes('machine<') && !source.includes('flights')) continue;
+			if (
+				!source.includes('machine<') &&
+				!source.includes('definition<') &&
+				!source.includes('flights')
+			)
+				continue;
 			const ast = parseAst(source, { lang: 'ts' }) as unknown as Node;
 			const consts = new Map<string, unknown>();
 			for (const s of ast.body as Node[])
@@ -176,11 +185,13 @@ export function universe(root: string): Map<string, MachineDef> {
 				const callee = n.callee as Node;
 				const config = bare((n.arguments as unknown[])[0]);
 				if (!is(config, 'ObjectExpression')) return;
-				// machine<S>()({ ... })
+				// machine<S>()({ ... }), $machine<S>()({ ... }), rt.definition<S>()({ ... })
+				const definer = is(callee, 'CallExpression') ? (callee.callee as Node) : null;
 				if (
-					is(callee, 'CallExpression') &&
-					is(callee.callee, 'Identifier') &&
-					callee.callee.name === 'machine'
+					(is(definer, 'Identifier') && DEFINERS.has(definer.name as string)) ||
+					(is(definer, 'MemberExpression') &&
+						is(definer.property, 'Identifier') &&
+						DEFINERS.has(definer.property.name as string))
 				) {
 					const steps = steps_of(prop(config, 'steps'), consts);
 					const initial = literal(prop(config, 'initial'));
