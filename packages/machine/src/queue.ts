@@ -585,6 +585,38 @@ function cap(option: string, value: number): void {
 /** A bounded queue of jobs: first come, first served, or by the rules its options give (see the
  *  module). */
 export function queue<J>(options: QueueOptions<J>): Queue<J> {
+	check_queue(options);
+	return trusted_queue(options);
+}
+
+/** {@link queue} for options its caller's build checked ({@link check_queue}, run on a literal). */
+export function trusted_queue<J>(options: QueueOptions<J>): Queue<J> {
+	if (
+		options.max === undefined ||
+		options.priority !== undefined ||
+		options.ready !== undefined ||
+		options.windows !== undefined ||
+		options.budget !== undefined
+	)
+		return new PassLine(options);
+	return new PlainLine(options);
+}
+
+/** @internal {@link queue} for options that rank, gate, window or budget its jobs (or set no
+ *  max), for ogygia's runtime: a runtime whose queues all do carries no first-come-first-served
+ *  line. The build checks a call's options and makes it {@link trusted_pass_queue}. */
+export function pass_queue<J>(options: QueueOptions<J>): Queue<J> {
+	check_queue(options);
+	return new PassLine(options);
+}
+
+/** @internal {@link pass_queue} for options its caller's build checked ({@link check_queue}). */
+export function trusted_pass_queue<J>(options: QueueOptions<J>): Queue<J> {
+	return new PassLine(options);
+}
+
+/** {@link queue}'s checks of its options alone: `machine_bad_option` for one it refuses. */
+export function check_queue<J>(options: QueueOptions<J>): void {
 	const { max } = options;
 	if (max !== undefined && !(Number.isInteger(max) && max >= 1))
 		throw machine_error('machine_bad_option', {
@@ -592,21 +624,6 @@ export function queue<J>(options: QueueOptions<J>): Queue<J> {
 			value: String(max),
 			rule: 'a whole number of at least 1'
 		});
-	if (
-		max === undefined ||
-		options.priority !== undefined ||
-		options.ready !== undefined ||
-		options.windows !== undefined ||
-		options.budget !== undefined
-	)
-		return passes(options);
-	return new PlainLine(options);
-}
-
-/** @internal A queue whose jobs are ranked, gated, windowed or budgeted (`queue()` for those
- *  options), for ogygia's runtime: a boot that makes no first-come-first-served queue carries
- *  none of its code. */
-export function passes<J>(options: QueueOptions<J>): Queue<J> {
 	const windows = options.windows ?? [];
 	if (windows.length > MAX_WINDOWS)
 		throw machine_error('machine_bad_option', {
@@ -622,5 +639,4 @@ export function passes<J>(options: QueueOptions<J>): Queue<J> {
 			value: String(ms),
 			rule: 'a time of at least 0 ms'
 		});
-	return new PassLine(options);
 }

@@ -3,7 +3,8 @@
  * more, spelled into one string; a `world` its answers are made in (and `touches`); a `weigh`.
  * Its own module, so a page whose flights need none of these (`plain_flights`) carries none of it.
  */
-import { Flown, makers, type FlightsOptions, type Makers } from './flights.ts';
+import { bad_option } from './messages.ts';
+import { check_flights, Flown, makers, type FlightsOptions, type Makers } from './flights.ts';
 import type { Flight } from './flight.ts';
 import type { Watched } from './world.ts';
 
@@ -61,8 +62,12 @@ class Full<I, V, K> extends Flown<I, V, K> {
 		this._world = o.world;
 		this._touches = o.touches as ((answer: V) => Iterable<unknown>) | undefined;
 		// (heard for itself, held weakly: a flights nobody holds is collected, its world forgets it)
-		if (o.world !== undefined)
-			this._unwatch = (o.world as Watched<unknown>)._watch!(this, heard_move);
+		if (o.world !== undefined) {
+			const w = o.world as Watched<unknown>;
+			if (typeof w._watch !== 'function')
+				throw bad_option('world', typeof o.world, 'a world from world()');
+			this._unwatch = w._watch(this, heard_move);
+		}
 	}
 
 	/** A keyed flights' key of no field or of two or more: its key fields, in their order,
@@ -114,5 +119,13 @@ function heard_move(
  *  a maker of a flights over object input `I` keyed by some of its fields,
  *  `flights.keyed<Ask>()({ key: ['href'], run })`. */
 export const flights: Makers<{}, 'any'> = /* @__PURE__ */ makers<{}, 'any'>(
-	(options) => new Full(options as FlightsOptions<unknown, unknown, unknown>)
+	(options) => new Full(options as FlightsOptions<unknown, unknown, unknown>),
+	check_flights
+);
+
+/** @internal {@link flights} (or `flights.keyed<I>()`) for options its caller's build checked
+ *  ({@link check_flights}, run on a literal). */
+export const trusted_flights: Makers<{}, 'any'> = /* @__PURE__ */ makers<{}, 'any'>(
+	(options) => new Full(options as FlightsOptions<unknown, unknown, unknown>),
+	null
 );

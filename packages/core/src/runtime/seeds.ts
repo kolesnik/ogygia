@@ -16,6 +16,8 @@ const server_channel = (doc: Document, selector: string) =>
 	boot_link()[L_SERVER_CHANNEL](doc, selector);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
+const no_kit_wait = (): null => null;
 
 export { PAGE_SEED_SELECTOR };
 const REMOTE_SEED_SELECTOR = 'script[type="application/ogygia-remote"]';
@@ -25,12 +27,17 @@ export { parse_sidecar_text };
 /**
  * The PAGE feature (link/runtime-entry.ts, hydrate phase): what island code sees of its page — the
  * page seed behind `$app/state` / `$app/stores`, the seed references in island props, and, on a
- * Kit-hydrated document, the wait for Kit's own page. Installed only when island code can reach
- * Kit's world (the driver's island-closure walk, failing open on anything it cannot follow): an app
- * whose islands never read their page gets no seed from the server and ships none of this.
+ * Kit-hydrated document, the wait for Kit's own page (an app with pages Kit hydrates only). Installed
+ * only when island code can reach Kit's world (the driver's island-closure walk, failing open on
+ * anything it cannot follow): an app whose islands never read their page gets no seed from the
+ * server and ships none of this.
  */
 export function install(): void {
-	slots.page = { seed_page_once, seed_data_of, kit_page_thread };
+	slots.page = {
+		seed_page_once,
+		seed_data_of,
+		kit_page_thread: KIT_PAGES ? kit_page_thread : no_kit_wait
+	};
 }
 type PageSeed = Partial<Omit<PageSnapshot, 'url'> & { url: string | URL }>;
 

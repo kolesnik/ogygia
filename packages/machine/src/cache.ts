@@ -104,7 +104,43 @@ const SWEEP_MS = 1000;
 /** A keyed store, bounded and owned (see the module's comment). */
 export function cache<K, V>(o: CacheOptions<K, V>): Cache<K, V> {
 	if (typeof o !== 'object' || o === null) throw bad_option('max', o, 'a number more than 0');
-	return new Store(o);
+	// a bound is a finite number more than 0: Infinity is no bound. In dev it throws; in production
+	// the cache is refused (it keeps nothing) and the code is printed
+	const refused = refused_max(o);
+	if (refused !== null) {
+		if (DEV) throw machine_error('machine_bad_option', refused);
+		report('machine_bad_option', refused);
+	}
+	check_keep(o);
+	return new Store(o, refused !== null);
+}
+
+/** @internal Why `max` is no bound (null: it is one), as {@link cache} refuses it. */
+export function refused_max<K, V>(
+	o: CacheOptions<K, V>
+): { option: string; value: string; rule: string } | null {
+	const max = o.max;
+	if (typeof max === 'number' && max > 0 && Number.isFinite(max)) return null;
+	return { option: 'max', value: String(max), rule: 'a finite number more than 0' };
+}
+
+function check_keep<K, V>(o: CacheOptions<K, V>): void {
+	const keep = o.keep ?? Infinity;
+	if (typeof keep !== 'function' && !(typeof keep === 'number' && keep >= 0))
+		throw bad_option('keep', keep, 'a time in ms of 0 or more, or a function that makes one');
+}
+
+/** {@link cache}'s checks of its options alone, as dev runs them: `machine_bad_option` for one it
+ *  refuses. */
+export function check_cache<K, V>(o: CacheOptions<K, V>): void {
+	const refused = refused_max(o);
+	if (refused !== null) throw machine_error('machine_bad_option', refused);
+	check_keep(o);
+}
+
+/** {@link cache} for options its caller's build checked ({@link check_cache}, run on a literal). */
+export function trusted_cache<K, V>(o: CacheOptions<K, V>): Cache<K, V> {
+	return new Store(o, false);
 }
 
 /** A cache as flights holds it: also the newest key and what it holds, so a use of the newest
@@ -116,7 +152,7 @@ export interface CacheStore<K, V> extends Cache<K, V> {
 
 /** A cache, with its newest readable (see {@link CacheStore}). */
 export function cache_store<K, V>(o: CacheOptions<K, V>): CacheStore<K, V> {
-	return new Store(o);
+	return new Store(o, false);
 }
 
 /**
@@ -154,23 +190,9 @@ class Store<K, V> implements CacheStore<K, V> {
 	_telling = false;
 	_life: Life;
 
-	constructor(o: CacheOptions<K, V>) {
-		// a bound is a finite number more than 0: Infinity is no bound. In dev it throws; in production
-		// the cache is refused (it keeps nothing) and the code is printed
-		let max = o.max;
-		let refused = false;
-		if (!(typeof max === 'number' && max > 0 && Number.isFinite(max))) {
-			const args = { option: 'max', value: String(max), rule: 'a finite number more than 0' };
-			if (DEV) throw machine_error('machine_bad_option', args);
-			report('machine_bad_option', args);
-			max = 1;
-			refused = true;
-		}
-		const keep = o.keep ?? Infinity;
-		if (typeof keep !== 'function' && !(typeof keep === 'number' && keep >= 0))
-			throw bad_option('keep', keep, 'a time in ms of 0 or more, or a function that makes one');
-		this._max = max;
-		this._keep = keep;
+	constructor(o: CacheOptions<K, V>, refused: boolean) {
+		this._max = refused ? 1 : o.max;
+		this._keep = o.keep ?? Infinity;
 		this._name = o.name ?? 'cache';
 		this._weigh = o.weigh;
 		this._on_evict = o.onEvict;

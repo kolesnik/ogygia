@@ -18,6 +18,14 @@ export {
 	type RunOf
 } from './run.ts';
 export { graph, paths } from './machine.ts';
-export { lru, type Lru, type LruOptions } from './lru.ts';
-export { passes as pass_queue } from './queue.ts';
-export { plain_flights } from './flights.ts';
+export {
+	check_flights,
+	check_plain_flights,
+	plain_flights,
+	trusted_plain_flights
+} from './flights.ts';
+export { trusted_flights } from './flights-full.ts';
+export { check_cache, trusted_cache } from './cache.ts';
+export { lru, trusted_lru, type Lru, type LruOptions } from './lru.ts';
+export { check_queue, pass_queue, trusted_pass_queue, trusted_queue } from './queue.ts';
+export { check_say, trusted_say } from './say.ts';

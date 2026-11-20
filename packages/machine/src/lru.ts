@@ -7,6 +7,7 @@
  * @packageDocumentation
  */
 import { DEV } from 'esm-env';
+import { refused_max } from './cache.ts';
 import { machine_error, report } from './messages.ts';
 import { DISPOSE, Life, type Scope } from './scope.ts';
 
@@ -56,17 +57,8 @@ class Bounded<K, V> implements Lru<K, V> {
 	#room: number;
 	#life: Life;
 
-	constructor(o: LruOptions) {
-		let max = o.max;
-		let refused = false;
-		if (!(typeof max === 'number' && max > 0 && Number.isFinite(max))) {
-			const args = { option: 'max', value: String(max), rule: 'a finite number more than 0' };
-			if (DEV) throw machine_error('machine_bad_option', args);
-			report('machine_bad_option', args);
-			max = 1;
-			refused = true;
-		}
-		this.#room = Math.floor(max);
+	constructor(o: LruOptions, refused: boolean) {
+		this.#room = Math.floor(o.max);
 		const l = (this.#life = o.owner === undefined ? new Life() : (o.owner as Life).child());
 		l.defer(() => this.clear());
 		if (refused) l.close();
@@ -138,7 +130,19 @@ class Bounded<K, V> implements Lru<K, V> {
 	}
 }
 
-/** @internal A bounded cache of `max` values, least recently used out first (see the module). */
+/** @internal A bounded cache of `max` values, least recently used out first (see the module): its
+ *  max refused as `cache()` refuses it. The build checks a call's options and makes it
+ *  {@link trusted_lru} (internal/macros options pass). */
 export function lru<K, V>(o: LruOptions): Lru<K, V> {
-	return new Bounded<K, V>(o);
+	const refused = refused_max(o as { max: number });
+	if (refused !== null) {
+		if (DEV) throw machine_error('machine_bad_option', refused);
+		report('machine_bad_option', refused);
+	}
+	return new Bounded<K, V>(o, refused !== null);
+}
+
+/** @internal {@link lru} for options its caller's build checked (`check_cache`, run on a literal). */
+export function trusted_lru<K, V>(o: LruOptions): Lru<K, V> {
+	return new Bounded<K, V>(o, false);
 }

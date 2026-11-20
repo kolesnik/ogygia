@@ -6,7 +6,7 @@
  * alone (the page words it from the link's arguments).
  */
 import { BROWSER, DEV } from 'esm-env';
-import { say, type Say } from './say.ts';
+import { trusted_say, type Say } from './say.ts';
 
 type Entry<A> = { text: (a: A) => string; details: () => string };
 
@@ -312,5 +312,5 @@ let warned: Say | null = null;
 /** Prints `code` once for each distinct set of arguments (of the last 1024 said). */
 export function warn_once<C extends keyof Errors>(code: C, a: ArgsOf<C>): void {
 	const text = line(code, a);
-	(warned ??= say()).once(text, () => console.warn(text));
+	(warned ??= trusted_say()).once(text, () => console.warn(text));
 }

@@ -98,19 +98,20 @@ export function priority_of(options: GetOptions | undefined): number {
 /** One try with no deadline needs no policy: the run is the flight's work as it is. */
 export function retry_of(retry: Policy | null | undefined): Policy | null {
 	if (retry == null) return null;
-	if (!(typeof retry === 'object' && Number.isInteger(retry.attempts)))
-		throw bad_option('retry', typeof retry, 'a policy from policy()');
 	return retry.attempts <= 1 && retry.deadline === Infinity ? null : retry;
 }
 
-/** How long an answer stays: a number of ms (0 or more), or a function that makes one. */
-export function keep_of<F extends (...args: never[]) => number>(
-	keep: number | F | undefined
-): number | F {
-	keep ??= Infinity;
-	if (typeof keep !== 'function' && !(typeof keep === 'number' && keep >= 0))
+/** A `retry` is none, or a policy from `policy()`: `machine_bad_option` else. */
+export function check_retry(retry: Policy | null | undefined): void {
+	if (retry != null && !(typeof retry === 'object' && Number.isInteger(retry.attempts)))
+		throw bad_option('retry', typeof retry, 'a policy from policy()');
+}
+
+/** How long an answer stays is a number of ms (0 or more), or a function that makes one:
+ *  `machine_bad_option` else. */
+export function check_keep(keep: unknown): void {
+	if (keep !== undefined && typeof keep !== 'function' && !(typeof keep === 'number' && keep >= 0))
 		throw bad_option('keep', keep, 'a time in ms of 0 or more, or a function that makes one');
-	return keep;
 }
 
 /** One flight's work: one run, or the runs its policy gives (`STALE` once the flight is left). */

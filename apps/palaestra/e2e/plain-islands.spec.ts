@@ -89,7 +89,7 @@ test.describe('the plainest app: islands only, a boot without frames', () => {
 
 	test("the palaestra's boot, which every feature's marks select, holds every program", () => {
 		const code = boot_code(path.join(repo, 'apps/palaestra'));
-		for (const p of PROGRAMS)
+		for (const p of PROGRAMS.filter((row) => row.feature !== null || row.kit))
 			for (const text of p.strings ?? [])
 				expect(code.includes(text), `the boot lacks the ${p.name} ('${text}')`).toBe(true);
 	});
