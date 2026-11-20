@@ -43,6 +43,7 @@ import { gone_exemptions, unexempted_new_functions, type Exemption } from './sta
 import { failed_cases, failed_cases_md } from './failed-cases.ts';
 import { read_ledger_file } from '../../sim/src/ledger-json.ts';
 import { unmirror } from './unmirror.ts';
+import { as_run, compile_as_run } from './macros.ts';
 
 const { values } = parseArgs({
 	options: {
@@ -126,6 +127,8 @@ function base_inventory_of(rev: string): string {
 		renameSync(join(base_root, f), join(base_root, to));
 		return to;
 	});
+	for (const kept of compile_as_run(base_root, base_files))
+		log(`base file kept as written (this checkout's macros cannot compile it): ${kept}`);
 	const base_list = join(out, 'base-files.txt');
 	writeFileSync(base_list, `${base_files.join('\n')}\n`);
 	const base_inventory = join(out, 'base-inventory.json');
@@ -143,15 +146,14 @@ benches.forEach((file, i) => {
 	const rel = relative(REPO_ROOT, file);
 	log(`bench ${rel}`);
 	heisenbench_cli(['run', rel, '--root', '.', '--out', report], { preload: true });
-	if (existsSync(report)) {
-		writeFileSync(report, unmirror(readFileSync(report, 'utf8')));
-		reports.push(report);
-	} else log(`  ${rel} produced no report; its functions count as not run by a bench`);
+	if (existsSync(report)) reports.push(report);
+	else log(`  ${rel} produced no report; its functions count as not run by a bench`);
 });
 
-// 2. every function, and the ones no bench ran
+// 2. every function, and the ones no bench ran: each file as a run loads it (a core file with
+// macros as its mirror, ./macros.ts `as_run`), then every path named as its source file
 const list = join(out, 'files.txt');
-writeFileSync(list, `${source_files(null).join('\n')}\n`);
+writeFileSync(list, `${as_run(source_files(null)).join('\n')}\n`);
 const targets = join(out, 'targets.json');
 const inventory = join(out, 'inventory.json');
 heisenbench_cli([
@@ -164,6 +166,8 @@ heisenbench_cli([
 	inventory,
 	...(ids_only ? [] : ['--reports', reports.join(','), '--targets', targets])
 ]);
+for (const named of [inventory, ...(ids_only ? [] : [targets]), ...reports])
+	writeFileSync(named, unmirror(readFileSync(named, 'utf8')));
 
 // The exemptions that name no function any more (./stale.ts), matched as the Heisenbench
 // checkout's gate matches them

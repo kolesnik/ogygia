@@ -69,3 +69,37 @@ export function register_macro_mirror(): void {
 		}
 	});
 }
+
+/** `files` (repository paths) as a run loads them: a core file with macros as its mirror, the code
+ *  a bench counts and core's tests (its vitest macros) run, so an inventory of them names each
+ *  function as their reports do: `$rules(function f …)` is `f`, a maker call the build checked sits
+ *  in `trusted_<maker>:0`. */
+export function as_run(files: readonly string[]): string[] {
+	return files.map((f) => {
+		const to = mirrored(join(REPO, f));
+		return to === null ? f : relative(REPO, to);
+	});
+}
+
+/** The files of another checkout (`files`, repository paths under `root`) made the form a run
+ *  loads, in place, as {@link as_run} names this checkout's: each core file with macros compiled.
+ *  The files this checkout's macros cannot compile stay as written, and are returned. */
+export function compile_as_run(root: string, files: readonly string[]): string[] {
+	const kept: string[] = [];
+	for (const f of files) {
+		const file = join(REPO, f);
+		if (SVELTE_RE.test(file) || !file.endsWith('.ts') || file.endsWith('.d.ts')) continue;
+		if (!MACRO_ROOTS.some((r) => file.startsWith(r))) continue;
+		const at = join(root, f);
+		const code = readFileSync(at, 'utf8');
+		let result: ReturnType<typeof core_compile>;
+		try {
+			result = core_compile(code, file, MODE);
+		} catch (error) {
+			kept.push(`${f}: ${(error as Error).message.split('\n')[0]}`);
+			continue;
+		}
+		if (result !== null && result.code !== code) writeFileSync(at, result.code);
+	}
+	return kept;
+}
