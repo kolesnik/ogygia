@@ -20,3 +20,4 @@ export {
 export { graph, paths } from './machine.ts';
 export { lru, type Lru, type LruOptions } from './lru.ts';
 export { passes as pass_queue } from './queue.ts';
+export { plain_flights } from './flights.ts';

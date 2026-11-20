@@ -18,8 +18,8 @@ export {
 	type StateOf,
 	type Steps
 } from './machine.ts';
+export { flights } from './flights-full.ts';
 export {
-	flights,
 	type FlightEntry,
 	type Flights,
 	type FlightsOptions,
