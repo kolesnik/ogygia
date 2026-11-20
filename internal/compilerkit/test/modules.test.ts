@@ -81,4 +81,21 @@ describe('resolveSpecifier', () => {
 		expect(resolveSpecifier(from, '#b/z.ts')).toBeNull();
 		expect(resolveSpecifier(from, 'compilerkit')).toBeNull();
 	});
+
+	test('an alias whose target depends on the build (conditions) is not followed, and never throws', () => {
+		const pkg = mkdtempSync(join(tmpdir(), 'compilerkit-specifier-'));
+		mkdirSync(join(pkg, 'src'), { recursive: true });
+		writeFileSync(
+			join(pkg, 'package.json'),
+			JSON.stringify({
+				imports: {
+					'#twin': { browser: './src/twin.browser.ts', default: './src/twin.ts' },
+					'#plain': './src/plain.ts'
+				}
+			})
+		);
+		const from = join(pkg, 'src/x.ts');
+		expect(resolveSpecifier(from, '#twin')).toBeNull();
+		expect(resolveSpecifier(from, '#plain')).toBe(join(pkg, 'src/plain.ts'));
+	});
 });
