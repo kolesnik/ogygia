@@ -25,6 +25,17 @@ declare global {
    *  right of a plain assignment, in an async function. */
   function $await<T>(wait: PromiseLike<T>, give_up?: unknown): Exclude<T, Stale>;
 
+  /** Marks a function, where it is defined, as one on a per-event or per-turn path: the build
+   *  fails at anything in it that may allocate or force a layout. Compiles to the function. */
+  const $hot: (<F extends (...args: never[]) => unknown>(fn: F) => F) & {
+  	/** An allocation made on purpose in a $hot function, by its name from the closed list
+  	 *  (internal/macros/src/hot.ts). Compiles to `value`. */
+  	allow<T>(exception: string, value: T): T;
+  };
+  /** Marks a function, where it is defined, as one that forces a layout: a $hot function that
+   *  calls it fails. Compiles to the function. */
+  function $layout<F extends (...args: never[]) => unknown>(fn: F): F;
+
   /** A machine definition, read and checked at build: as `machine<S>()({ … })` takes it,
    *  for the runtime of `@ogygia/machine/internal` (`create(def)`). A production build
    *  carries it as data; dev and rules builds run `define` on it, with its checks. */

@@ -41,12 +41,13 @@ export class GatePass implements Pass<Scope> {
 
 	prepare(): void {
 		const { program, report, options } = this.#c;
-		for (const [name, mark] of marks_of(program)) this.#marked.set(name, mark);
+		for (const [name, mark] of marks_of(program))
+			if (Object.hasOwn(GATE_MARKS, mark)) this.#marked.set(name, mark);
 		for (const statement of program.body as Array<N>) {
 			const d = marked_definition(statement);
 			if (d === null) continue;
 			if (!d.named || !d.alone) report.fail(d.declarator, say_shape(d.mark));
-			if (d.fn.async || d.fn.generator)
+			if (Object.hasOwn(GATE_MARKS, d.mark) && (d.fn.async || d.fn.generator))
 				report.fail(
 					d.fn,
 					`${d.mark} marks a plain function: an async or generator one returns a value, which a build without the gate has not.`
@@ -64,7 +65,7 @@ export class GatePass implements Pass<Scope> {
 		}
 		if (options.path !== undefined) {
 			for (const [local, mark] of imported_marks(options.path, program))
-				this.#marked.set(local, mark);
+				if (Object.hasOwn(GATE_MARKS, mark)) this.#marked.set(local, mark);
 			for (const statement of program.body as Array<N>)
 				this.#whole_imports(statement, options.path);
 		}
@@ -120,8 +121,9 @@ export class GatePass implements Pass<Scope> {
 		const source = statement.source?.value;
 		if (typeof source !== 'string') return;
 		const file = resolveSpecifier(path, source);
-		const marks = file === null ? null : marked_in(file);
-		if (marks === null || marks.size === 0) return;
+		const all = file === null ? null : marked_in(file);
+		const marks = new Map([...(all ?? [])].filter(([, mark]) => Object.hasOwn(GATE_MARKS, mark)));
+		if (marks.size === 0) return;
 		const report = this.#c.report;
 		if (statement.type === 'ExportAllDeclaration')
 			report.fail(

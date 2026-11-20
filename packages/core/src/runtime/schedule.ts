@@ -96,20 +96,23 @@ function stop_loading(el: Element): boolean {
 	return L.all.delete(el);
 }
 
-const before = (a: Turn, b: Turn): boolean =>
-	a.order < b.order || (a.order === b.order && a.seq < b.seq);
+const before: (a: Turn, b: Turn) => boolean = $hot(function before(a: Turn, b: Turn): boolean {
+	return a.order < b.order || (a.order === b.order && a.seq < b.seq);
+});
 
-function heap_push(h: Turn[], t: Turn): void {
-	let i = h.push(t) - 1;
+const heap_push: (h: Turn[], t: Turn) => void = $hot(function heap_push(h: Turn[], t: Turn): void {
+	let i = $hot.allow('grow', h.push(t)) - 1;
 	while (i > 0) {
 		const p = (i - 1) >> 1;
 		if (!before(h[i], h[p])) break;
-		[h[i], h[p]] = [h[p], h[i]];
+		const up = h[i];
+		h[i] = h[p];
+		h[p] = up;
 		i = p;
 	}
-}
+});
 
-function heap_pop(h: Turn[]): void {
+const heap_pop: (h: Turn[]) => void = $hot(function heap_pop(h: Turn[]): void {
 	const last = h.pop()!;
 	if (!h.length) return;
 	h[0] = last;
@@ -120,15 +123,20 @@ function heap_pop(h: Turn[]): void {
 		if (l < h.length && before(h[l], h[m])) m = l;
 		if (r < h.length && before(h[r], h[m])) m = r;
 		if (m === i) return;
-		[h[i], h[m]] = [h[m], h[i]];
+		const down = h[i];
+		h[i] = h[m];
+		h[m] = down;
 		i = m;
 	}
-}
+});
 
-function heap_top(h: Turn[], vis: boolean): Turn | undefined {
+const heap_top: (h: Turn[], vis: boolean) => Turn | undefined = $hot(function heap_top(
+	h: Turn[],
+	vis: boolean
+): Turn | undefined {
 	while (h.length && (h[0].done || h[0].vis !== vis)) heap_pop(h);
 	return h[0];
-}
+});
 
 function refile(el: Element): void {
 	const vis = in_viewport.get(el) === true;
