@@ -501,6 +501,50 @@ export function define(
 	return def;
 }
 
+const NO_STEPS: Readonly<Record<string, readonly string[]>> = /* @__PURE__ */ Object.freeze(
+	Object.create(null) as Record<string, readonly string[]>
+);
+
+/** @internal A state's own timeout as the build writes it: `[state, ms, to, data]`. */
+export type CompiledTimeout = readonly [
+	state: number,
+	ms: number | ((now: State) => number),
+	to: number,
+	data?: (now: State) => object
+];
+
+/**
+ * @internal A definition the build already read and checked (`$machine`, internal/macros): its
+ * states' names in order, its initial state's int, each state's steps as masks (`define`'s layout)
+ * and its timeouts. What a production build runs in place of `define`, which dev and rules builds
+ * keep (its checks, `graph()` and `paths()` read the steps by name).
+ */
+export function compiled(
+	name: string,
+	names: readonly string[],
+	initial: number,
+	masks: readonly number[],
+	timed?: readonly CompiledTimeout[]
+): Def {
+	const ids: Record<string, number> = Object.create(null);
+	for (let k = 0; k < names.length; k++) ids[names[k]!] = k;
+	const after: (Timed | null)[] = names.map(() => null);
+	if (timed !== undefined) for (const [k, ms, to, data] of timed) after[k] = { ms, to, data };
+	return {
+		name,
+		names,
+		ids,
+		initial,
+		words: (names.length + 31) >>> 5,
+		masks,
+		steps: NO_STEPS,
+		after,
+		reach: null,
+		copies: false,
+		life: Life
+	};
+}
+
 /** @internal A new machine of `def`, in its initial state (with `data`, if that state has data). */
 export function create<S extends Shape<S>, T extends Steps<S>, I extends Kind<S>>(
 	def: Def<S, T, I>,

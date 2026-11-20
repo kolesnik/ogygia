@@ -40,7 +40,6 @@ import {
 	defer,
 	DISPOSE,
 	root,
-	life_of,
 	MAX_TIMEOUT_MS,
 	timeout,
 	type Life,
@@ -184,7 +183,7 @@ class Store<K, V> implements CacheStore<K, V> {
 		this._on_evict = o.onEvict;
 		this._pinned = o.pinned;
 		this._world = o.world as World<unknown> | undefined;
-		const l = (this._life = o.owner === undefined ? root() : child(life_of(o.owner)));
+		const l = (this._life = o.owner === undefined ? root() : child(o.owner as Life));
 		defer(l, () => this._let_all_go('end'));
 		if (refused) close(l);
 	}

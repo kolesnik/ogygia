@@ -28,8 +28,10 @@ export {
 } from './scope.ts';
 export { visit } from './run.ts';
 export {
+	compiled,
 	create,
 	data,
+	define,
 	definition,
 	epoch,
 	go,
@@ -39,6 +41,7 @@ export {
 	now,
 	stop,
 	wait,
+	type CompiledTimeout,
 	type Def,
 	type Run,
 	type RunOf

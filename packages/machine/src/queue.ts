@@ -42,16 +42,7 @@
  */
 import { machine_error, report_thrown } from './messages.ts';
 import { clock } from './ports.ts';
-import {
-	child,
-	defer,
-	root,
-	life_of,
-	MAX_TIMEOUT_MS,
-	timeout,
-	type Life,
-	type Scope
-} from './scope.ts';
+import { child, defer, root, MAX_TIMEOUT_MS, timeout, type Life, type Scope } from './scope.ts';
 
 export interface QueueOptions<J> {
 	/** Names the queue in messages. */
@@ -157,7 +148,7 @@ abstract class Line<J> implements Queue<J> {
 		this._start = o.start;
 		this.#stale = o.stale ?? null;
 		this._now = o.now ?? clock.mono;
-		this._owner = o.owner === undefined ? null : life_of(o.owner);
+		this._owner = o.owner === undefined ? null : (o.owner as Life);
 		if (this._owner !== null) defer(this._owner, () => this.#leave_where(() => true));
 	}
 

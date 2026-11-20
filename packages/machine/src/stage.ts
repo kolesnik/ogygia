@@ -1,16 +1,6 @@
 import * as rt from './run.ts';
 import { machine_error, report } from './messages.ts';
-import {
-	child,
-	close,
-	closed,
-	defer,
-	life_of,
-	signal,
-	task,
-	type Life,
-	type Scope
-} from './scope.ts';
+import { child, close, closed, defer, signal, task, type Life, type Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
 /** What a build is handed: the owner's signal, and a way to give back a change it made. */
@@ -48,17 +38,26 @@ type StageStates = {
 	committed: {};
 	discarded: {};
 };
-const stage_machine = rt.definition<StageStates>()({
-	name: 'stage',
-	initial: 'building',
-	steps: {
-		building: ['built', 'discarded'],
-		built: ['committing', 'discarded'],
-		committing: ['committed', 'discarded'],
-		committed: [],
-		discarded: []
-	}
-});
+const stage_steps = {
+	building: ['built', 'discarded'],
+	built: ['committing', 'discarded'],
+	committing: ['committed', 'discarded'],
+	committed: [],
+	discarded: []
+} as const;
+
+/** @internal The stage machine as a production build carries it (what `$machine` would write for
+ *  it: test/stage-definition.test.ts holds it to `define`'s reading of the steps). */
+export const STAGE_COMPILED: Parameters<typeof rt.compiled> = [
+	'stage',
+	['building', 'built', 'committing', 'committed', 'discarded'],
+	0,
+	[18, 20, 24, 0, 0]
+];
+
+const stage_machine: rt.Def<StageStates, typeof stage_steps, 'building'> = rt.RULES
+	? rt.definition<StageStates>()({ name: 'stage', initial: 'building', steps: stage_steps })
+	: (rt.compiled(...STAGE_COMPILED) as rt.Def<StageStates, typeof stage_steps, 'building'>);
 
 class Staged<B> implements Stage<B> {
 	readonly ready: Promise<B | Stale>;
@@ -78,7 +77,7 @@ class Staged<B> implements Stage<B> {
 				});
 		this._name = o.name ?? 'stage';
 		this._commit = o.commit;
-		const life = (this._life = child(life_of(owner)));
+		const life = (this._life = child(owner as Life));
 		defer(life, () => {
 			const kind = rt.kind(this._m);
 			if (kind === 'building' || kind === 'built') this._discard();

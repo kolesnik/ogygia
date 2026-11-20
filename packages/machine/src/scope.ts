@@ -343,21 +343,17 @@ function link(l: Life, k: Life): Life {
 }
 
 /** @internal Listens until `l` closes, as `Scope.on`, with no handle. */
-export function listen<T extends ListenerTarget, K extends string>(
+export const listen: <T extends ListenerTarget, K extends string>(
 	l: Life,
 	target: T,
 	type: K,
 	listener: (event: EventOf<T, K>) => void,
 	options?: boolean | AddEventListenerOptions
-): void {
-	hear(l, target, type, listener as (...args: never[]) => void, options);
-}
+) => void = hear as never;
 
 /** @internal Runs `fn(a)` once after `when`, unless `l` closes first, as `Scope.timeout`, with no
  *  handle. Passing the one value `fn` needs as `a` makes no closure for it. */
-export function later<A>(l: Life, fn: (a: A) => void, when: When, a?: A): void {
-	arm(l, fn as (a?: A) => void, when, a);
-}
+export const later: <A>(l: Life, fn: (a: A) => void, when: When, a?: A) => void = arm as never;
 
 /** @internal `later`, with the function that cancels it sooner, as `Scope.timeout` returns. */
 export function timeout(l: Life, fn: () => void, when: When): () => void {
