@@ -122,6 +122,8 @@ function files(dir: string): string[] {
  */
 /** The calls a machine definition is made by. */
 const DEFINERS: ReadonlySet<string> = new Set(['machine', '$machine', 'definition']);
+/** What makes a flights: the public maker, and the runtime's plain one (no world or weigh). */
+const FLIGHTS_MAKERS: ReadonlySet<string> = new Set(['flights', 'plain_flights']);
 
 export function universe(root: string): Map<string, MachineDef> {
 	const out = new Map<string, MachineDef>();
@@ -202,12 +204,13 @@ export function universe(root: string): Map<string, MachineDef> {
 					return;
 				}
 				// flights({ name }), flights.keyed<I>()({ name }), link().flights.keyed<I>()({ name }),
-				// boot_link()[L_FLIGHTS].keyed<I>()({ name }) (the boot link by number, boot-link-index.ts)
+				// plain_flights({ name }), plain_flights.keyed<I>()({ name }) (@ogygia/machine/internal)
 				const names_flights = (n: unknown): boolean =>
-					(is(n, 'Identifier') && n.name === 'flights') ||
+					(is(n, 'Identifier') && FLIGHTS_MAKERS.has(n.name as string)) ||
 					(is(n, 'MemberExpression') &&
+						!n.computed &&
 						is(n.property, 'Identifier') &&
-						(n.computed ? n.property.name === 'L_FLIGHTS' : n.property.name === 'flights'));
+						FLIGHTS_MAKERS.has(n.property.name as string));
 				const is_flights =
 					names_flights(callee) ||
 					(is(callee, 'CallExpression') &&
