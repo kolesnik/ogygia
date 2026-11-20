@@ -74,6 +74,24 @@ export class Emitter {
 		return (this.ns = n);
 	}
 
+	/** Named imports by module, in first-use order: exported name → the local the file reads. */
+	private readonly named = new Map<string, Map<string, string>>();
+
+	/**
+	 * A named export of another module (a gate's flag such as `DEV` from `esm-env`, a sentinel),
+	 * imported once per file. The local is the export's own name, or `name_1`… when the file
+	 * already binds it. The names of one module share one import declaration.
+	 */
+	imported(spec: string, exported: string): string {
+		let names = this.named.get(spec);
+		if (names === undefined) this.named.set(spec, (names = new Map()));
+		const known = names.get(exported);
+		if (known !== undefined) return known;
+		const local = this.fresh(exported);
+		names.set(exported, local);
+		return local;
+	}
+
 	/** A fresh local name, not imported: for hoisted tables and variables. */
 	fresh(base: string): string {
 		let n = base;
@@ -165,10 +183,20 @@ export class Emitter {
 		} else this.s.overwrite(node.callee.start, first.start, `${head}(${target}, `);
 	}
 
-	/** The output: hoisted helpers, the runtime's import, then the edited text; parsed again. */
+	/**
+	 * The output: the runtime's import, the named imports, hoisted helpers, then the edited text;
+	 * parsed again.
+	 */
 	finish(spec: string, program: N): string {
 		if (this.hoisted.length !== 0) this.s.prepend(`${this.hoisted.join('\n')}\n`);
-		if (this.used.size !== 0) this.s.prepend(`import * as ${this.ns} from '${spec}'\n`);
+		const imports = this.used.size !== 0 ? [`import * as ${this.ns} from '${spec}'`] : [];
+		for (const [from, names] of this.named) {
+			const list = [...names].map(([name, local]) =>
+				name === local ? name : `${name} as ${local}`
+			);
+			imports.push(`import { ${list.join(', ')} } from '${from}'`);
+		}
+		if (imports.length !== 0) this.s.prepend(`${imports.join('\n')}\n`);
 		const out = this.s.toString();
 		this.check(out, program);
 		return out;
@@ -186,7 +214,11 @@ export class Emitter {
 				`the compiler wrote code that doesn't parse: ${again.errors[0]!.message}`
 			);
 		const want =
-			countStatements(program) + this.added + this.hoisted.length + (this.used.size ? 1 : 0);
+			countStatements(program) +
+			this.added +
+			this.hoisted.length +
+			(this.used.size ? 1 : 0) +
+			this.named.size;
 		const got = countStatements(again.program);
 		if (got !== want)
 			this.report.fail(
