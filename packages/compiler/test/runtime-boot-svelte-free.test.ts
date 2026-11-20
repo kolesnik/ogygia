@@ -117,6 +117,24 @@ function static_files(entry: string, components = false): Map<string, string[]> 
 	return seen;
 }
 
+/** The names `files` import from the boot realm's module (`ogygia:boot`), types aside. */
+function boot_realm_names(files: Iterable<string>): Set<string> {
+	const names = new Set<string>();
+	for (const file of files) {
+		if (file.endsWith('.svelte')) continue;
+		const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest);
+		for (const stmt of sf.statements) {
+			if (!ts.isImportDeclaration(stmt)) continue;
+			if ((stmt.moduleSpecifier as ts.StringLiteral).text !== 'ogygia:boot') continue;
+			const named = stmt.importClause?.namedBindings;
+			if (named && ts.isNamedImports(named))
+				for (const e of named.elements)
+					if (!e.isTypeOnly) names.add((e.propertyName ?? e.name).text);
+		}
+	}
+	return names;
+}
+
 /** Every chain from `entry` that ends in Svelte. */
 function svelte_chains(entry: string): string[] {
 	const seen = new Set<string>();
@@ -265,6 +283,7 @@ describe('island-side modules reach the runtime only through its handles', () =>
 	// so every boot module a lazy chunk imports is split into a file of its own — the boot arrived as
 	// nine. Lazy chunks reach boot helpers through the registry (runtime/slots.ts `BootLink`).
 	const kit_transport_shared = new Set(static_files(path.join(SRC, 'transport.ts')).keys());
+	const boot_names = boot_realm_names(boot.keys());
 	for (const lazy of ['hydrate-core.ts', 'router-nav.ts', 'interaction-replay.ts']) {
 		it(`lazy chunk ${lazy} imports no boot module beyond what Kit's transport shares`, () => {
 			const reached = static_files(path.join(RUNTIME, lazy));
@@ -274,6 +293,26 @@ describe('island-side modules reach the runtime only through its handles', () =>
 			expect(into_boot).toEqual([]);
 		});
 	}
+
+	// The build's own words (`ogygia:boot`: the feature word `HAS`, the codec's load) are generated
+	// modules, so the walk above never follows them. A lazy chunk that imports a name the boot also
+	// imports shares that module with the runtime chunk, and the bundler inlines a shared number into
+	// each chunk only while it is three characters or fewer (rolldown: 999 is inlined, 1000 stays a
+	// module): a feature word of every feature (8191) would be a file of its own, ahead of the page.
+	for (const lazy of ['hydrate-core.ts', 'router-nav.ts', 'interaction-replay.ts']) {
+		it(`lazy chunk ${lazy} imports no name of ogygia:boot the boot imports`, () => {
+			const shared = [...boot_realm_names(static_files(path.join(RUNTIME, lazy)).keys())].filter(
+				(name) => boot_names.has(name)
+			);
+			expect(shared).toEqual([]);
+		});
+	}
+
+	it('the ogygia:boot check is not vacuous: the boot reads the feature word, the hydrate core its features', () => {
+		expect(boot_names.has('HAS')).toBe(true);
+		const hydrate = boot_realm_names(static_files(path.join(RUNTIME, 'hydrate-core.ts')).keys());
+		expect(hydrate.has('install_hydrate_features')).toBe(true);
+	});
 
 	it('Kit’s transport really does share the registry (so it is the allowed exception, not a loophole)', () => {
 		expect(kit_transport_shared.has(path.join(RUNTIME, 'slots.ts'))).toBe(true);
