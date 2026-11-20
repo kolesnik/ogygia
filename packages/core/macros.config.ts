@@ -34,6 +34,7 @@ export function core_compile(code: string, file: string, mode: Mode): CompileRes
 	return compile(code, relative(ROOT, file), {
 		mode,
 		runtime: specifier(file, MACRO_RUNTIME),
-		reference: specifier(file, MACRO_RUNTIME)
+		reference: specifier(file, MACRO_RUNTIME),
+		path: file
 	});
 }

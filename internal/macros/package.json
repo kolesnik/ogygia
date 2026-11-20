@@ -18,10 +18,14 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"ogygia-internal-compilerkit": "workspace:*"
+		"ogygia-internal-compilerkit": "workspace:*",
+		"periscopic": "catalog:",
+		"zimmerframe": "catalog:"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
+		"esm-env": "catalog:",
+		"rolldown": "catalog:",
 		"typescript": "catalog:tsgo",
 		"vitest": "catalog:"
 	}

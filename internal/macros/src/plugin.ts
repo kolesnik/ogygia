@@ -46,6 +46,7 @@ export function ogygia_macros(
 			compile(code, relative(root, file), {
 				mode,
 				runtime: specifier(file, options.runtime),
+				path: file,
 				reference: specifier(file, options.reference ?? options.runtime)
 			})
 	});
