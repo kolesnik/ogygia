@@ -3,7 +3,12 @@
  * markup's (../wire-markup.ts `KitBoot`), where island code reads it too.
  */
 import { runtime_session } from './session.ts';
-import { KitBoot } from '../wire-markup.ts';
+import { KIT_HYDRATES_KEY, KitBoot } from '../wire-markup.ts';
+
+/** Hand island code the answer below ({@link KIT_HYDRATES_KEY}): the runtime does at boot. */
+export function publish_kit_hydrates(): void {
+	(globalThis as unknown as Record<symbol, unknown>)[KIT_HYDRATES_KEY] = kit_hydrates_page;
+}
 
 /**
  * Mixed mode: on a csr=true page, Kit boots and hydrates the whole tree (including our island
