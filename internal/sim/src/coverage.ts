@@ -201,12 +201,13 @@ export function universe(root: string): Map<string, MachineDef> {
 					out.set(name, { name, pkg, file: rel, initial, steps });
 					return;
 				}
-				// flights({ name }), flights.keyed<I>()({ name }), link().flights.keyed<I>()({ name })
+				// flights({ name }), flights.keyed<I>()({ name }), link().flights.keyed<I>()({ name }),
+				// boot_link()[L_FLIGHTS].keyed<I>()({ name }) (the boot link by number, boot-link-index.ts)
 				const names_flights = (n: unknown): boolean =>
 					(is(n, 'Identifier') && n.name === 'flights') ||
 					(is(n, 'MemberExpression') &&
 						is(n.property, 'Identifier') &&
-						n.property.name === 'flights');
+						(n.computed ? n.property.name === 'L_FLIGHTS' : n.property.name === 'flights'));
 				const is_flights =
 					names_flights(callee) ||
 					(is(callee, 'CallExpression') &&
