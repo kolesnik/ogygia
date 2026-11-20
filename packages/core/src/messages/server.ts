@@ -40,6 +40,21 @@ export const SERVER_ERRORS = {
 			value on the server from it.
 		`
 	},
+	region_program_unbuilt: {
+		text: (a: { entry: string; program: 'hole' | 'lake' | 'live' }): string => prose`
+			region ${a.entry} needs the ${a.program} program, which this build left out: the server
+			refuses to render it.
+		`,
+		details: (): string => prose`
+			The build reads the app's regions and ships only the programs they need, on the server
+			and in the browser alike: a deferred region's render and fetch (the hole program), a
+			lake's (the lake program), a held region's updates (the live program). The server was
+			asked to render a region that needs one, and the build saw none that did, so the page's
+			runtime could not revive it. A region the build never read (a package that does not
+			declare its regions) does this; else it is an ogygia bug: please report it with the page
+			that shows it.
+		`
+	},
 	handle_secret_too_short: {
 		text: (a: { min: number }): string =>
 			`handle({ secret }) is too short for production (need ≥${a.min} UTF-8 bytes).`,

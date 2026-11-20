@@ -22,8 +22,10 @@ export {
 	get_request_event,
 	csr_true_routes,
 	error_csr_true_routes,
-	root_layout_csr_true
+	root_layout_csr_true,
+	HAS
 } from 'ogygia:server';
 export { runtime_bootstrap } from './server/entry-location.ts';
+export { need_program } from './server/programs.ts';
 export { region_css_tag, head_owner_attr } from './server/region-css.ts';
 export { document_tail, island_graph_script, modulepreload_tag } from './server/document-tail.ts';

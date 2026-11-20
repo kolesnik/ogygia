@@ -2,7 +2,7 @@ import { getContext, setContext, untrack } from 'svelte';
 import { BROWSER } from 'esm-env';
 import { page } from '$app/state';
 import { KIT_REQUEST_CONTEXT, kit_request_event } from '../server/kit-context.ts';
-import { document_tail } from '#region-server';
+import { document_tail, need_program } from '#region-server';
 import type { DocumentTail } from '../server/document-tail.ts';
 import { warn } from '../messages/island.ts';
 import {
@@ -55,7 +55,13 @@ export class RegionPlan {
 	resolved: RegionValue | undefined = $derived.by(() =>
 		this.of_is_promise || this.placed ? undefined : (this.#of() as RegionValue | undefined)
 	);
-	arm: RegionArm = $derived.by(() => (this.placed ? this.plan.arm : this.#held_arm()));
+	arm: RegionArm = $derived.by(() => {
+		if (this.placed) return this.plan.arm;
+		const arm = this.#held_arm();
+		if (!BROWSER)
+			need_program(arm, this.resolved?.kind === 'inline' ? '' : (this.resolved?.module ?? ''));
+		return arm;
+	});
 
 	/** Reads a region's facts from its settings, its value and the components above it, decides its
 	 *  plan, leaves the marks the plan names for the components below it, and claims its slot id
@@ -78,6 +84,7 @@ export class RegionPlan {
 			this.of_is_promise || this.placed ? undefined : (first as RegionValue | undefined);
 		this.inputs = untrack(() => this.#read_inputs());
 		this.plan = REGION_PLANS.decide(this.inputs);
+		if (!BROWSER && this.placed) need_program(this.plan.arm, settings.entry ?? '');
 		untrack(() => this.#mark());
 		this.tail = this.plan.tail && !BROWSER ? document_tail() : null;
 		this.slot_id = untrack(() => next_slot_id(this.#slot_entry(), getContext(HOLE_SLOT_SEQUENCE)));
