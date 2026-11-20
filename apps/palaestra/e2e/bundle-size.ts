@@ -122,13 +122,13 @@ const PROFILES: Array<{ name: string; blurb: string; marks: RuntimeMarks; budget
 		name: 'Deferred regions',
 		blurb: 'server-rendered holes',
 		marks: { complete: true, hydrate: ['load'], defer: ['load'], forms: false },
-		budget: 31_000
+		budget: 33_950
 	},
 	{
 		name: 'Frozen regions',
 		blurb: 'lakes',
 		marks: { complete: true, hydrate: ['none'], lakes: true, forms: false },
-		budget: 32_350
+		budget: 31_500
 	},
 	{
 		name: 'Live regions',

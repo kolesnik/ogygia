@@ -18,7 +18,7 @@ import { OG_BAKED, OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from 
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
 import { HAS } from 'ogygia:boot';
-import { F_FRAMES } from '../contract/features.ts';
+import { F_FRAMES, F_LIVE } from '../contract/features.ts';
 import { wire_for_wake } from './wire-on-use.ts';
 import { report_thrown } from '../report-thrown.ts';
 import { kit_hydrates_page, publish_kit_hydrates } from './kit-boot.ts';
@@ -552,7 +552,8 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#connect(turn: Turn): Promise<void> | undefined {
-		if (this.hasAttribute('live')) return HAS & F_FRAMES ? this.#live_put_back(turn) : undefined;
+		if (this.hasAttribute('live'))
+			return HAS & F_FRAMES && HAS & F_LIVE ? this.#live_put_back(turn) : undefined;
 		if (HAS & F_FRAMES && this.#minted_endpoint === null && is_deferred(this)) {
 			const minted = this.getAttribute('endpoint');
 			if (minted) this.#minted_endpoint = minted;
@@ -1486,7 +1487,7 @@ class OgygiaRegion extends HTMLElement {
 	 * - **Later tick, module changed:** unmount, swap, re-hydrate.
 	 */
 	async applyLive(desc: LiveTick): Promise<void> {
-		if (!(HAS & F_FRAMES)) return;
+		if (!(HAS & F_FRAMES) || !(HAS & F_LIVE)) return;
 		this.#live_last = desc;
 		$await(this.#box.ask((turn) => this.#apply_live(desc, turn)));
 	}
