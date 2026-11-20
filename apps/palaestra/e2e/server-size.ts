@@ -160,6 +160,12 @@ const SERVER_PROGRAMS: readonly { feature: string; bit: number; modules: readonl
 		modules: ['core/region-parts/live-value.svelte', 'core/PromiseRegionAwait.svelte']
 	}
 ];
+/** The browser's own modules (an island entry's load and its recovery): in no server build. */
+const BROWSER_ONLY: readonly string[] = [
+	'core/runtime/entry-locations',
+	'core/runtime/import-again',
+	'core/runtime/code-origins'
+];
 const WORD_RE = /\b(?:var|const|let) HAS(?:\$\d+)? = (\d+);/;
 
 /** The server's feature word, as its build wrote it. */
@@ -181,6 +187,8 @@ function leaks_of(r: Report, word: number): string[] {
 			else if (!held && mod in r.modules)
 				out.push(`its word has no ${p.feature}, but the server holds ${mod}`);
 		}
+	for (const mod of BROWSER_ONLY)
+		if (mod in r.modules) out.push(`the server holds ${mod}, a browser-only module`);
 	return out;
 }
 

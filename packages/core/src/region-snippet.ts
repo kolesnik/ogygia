@@ -38,7 +38,7 @@ import { document_counts, type SlotSeq } from './server/document-counts.ts';
 import { PORTABLE_FORM, with_portable_forms } from './portable-form.ts';
 import { analyze } from './seed-refs.ts';
 import { fnv1a, fnv1a32 } from './contract/hash.ts';
-import { import_entry } from './runtime/entry-locations.ts';
+import { import_entry } from '#region-server';
 import { unmark_html_ranges } from './runtime/html-ranges.ts';
 import { OgygiaError } from './messages/island.ts';
 import { OG_SLOT, OG_STATIC, OGYGIA_REGION_CSS } from './wire-markup.ts';
