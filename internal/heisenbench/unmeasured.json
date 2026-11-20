@@ -3993,8 +3993,8 @@
 			"reason": "test seam: the number of observers, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/region-endpoint-url.ts > make_warms > trusted_plain_flights:0~93991a > run > onRaise:0~1a69dd",
-			"reason": "browser only: a more urgent warm joins one whose import is already on the wire, and its graph links are raised (one preload_island_graph call, measured by its own bench)"
+			"id": "packages/core/src/runtime/region-endpoint-url.ts > make_warms > trusted_plain_flights:0~fe3e1d > run > onRaise:0~367f39",
+			"reason": "browser only: a more urgent warm joins one whose import is already on the wire, and its graph links are raised (one graph.preload call through the boot's graph slot, measured by its own bench)"
 		},
 		{
 			"id": "packages/core/src/runtime/region-endpoint-url.ts > reset_island_warms > drop:0~8b94d4",
