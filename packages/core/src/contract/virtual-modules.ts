@@ -272,6 +272,7 @@ export interface VirtualConstants {
 	__OGYGIA_HOOK_NAV_STARTED__: boolean;
 	__OGYGIA_HOOK_LOAD_STARTED__: boolean;
 	__OGYGIA_KIT_MAJOR__: number | null;
+	__OGYGIA_KIT_PAGES__: boolean;
 	__OGYGIA_VERSION__: string;
 	__OGYGIA_DEV_HMR_URL__: string;
 }

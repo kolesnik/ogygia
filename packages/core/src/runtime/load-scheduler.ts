@@ -26,6 +26,7 @@ const HOOK_LOAD_STARTED =
 	typeof __OGYGIA_HOOK_LOAD_STARTED__ !== 'undefined' ? __OGYGIA_HOOK_LOAD_STARTED__ : true;
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 
 /** `code`: an island's modules. `content`: HTML (a hole's answer, a prefetched page). */
 export type LoadKind = 'code' | 'content';
@@ -70,7 +71,7 @@ const is_background = (cls: LoadClass): boolean => cls === 'ahead' || cls === 's
 
 function waits_for_critical(kind: LoadKind, cls: LoadClass): boolean {
 	if (cls === 'user') return false;
-	if (kit_hydrates_page()) return false;
+	if (KIT_PAGES && kit_hydrates_page()) return false;
 	return !(kind === 'content' && cls === 'visible');
 }
 

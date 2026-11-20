@@ -10,7 +10,7 @@ import { cache, flights, STALE, world } from '@ogygia/machine';
 import { slots } from './slots.ts';
 import { create_soft_refresh } from './soft-refresh.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
-import { KitBoot } from '../wire-markup.ts';
+import { KitBoot, kit_meta_of } from '../wire-markup.ts';
 import {
 	ABSOLUTE_URL_SCHEME,
 	is_warmed_module,
@@ -53,12 +53,16 @@ import { load_devalue, devalue, with_devalue, needs_devalue } from './devalue-la
 import { OgygiaError, warn } from '../messages/core.ts';
 
 const no_region_hydrate: typeof client_region_hydrate = () => null;
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
+/** Without Kit pages no document of the app is Kit's: one that says so is refused. */
+const KIT_META = { document_has: (doc: ParentNode): boolean => kit_meta_of(doc) === true };
+const no_kit = (): boolean => false;
 
 export function link_boot(): void {
 	// (in ./boot-link-index.ts's order: the lazy chunks read each by its number)
 	slots.boot ??= [
-		kit_hydrates_page,
-		KitBoot,
+		KIT_PAGES ? kit_hydrates_page : no_kit,
+		KIT_PAGES ? KitBoot : KIT_META,
 		ABSOLUTE_URL_SCHEME,
 		register_island_graph,
 		is_warmed_module,
@@ -102,7 +106,7 @@ export function link_boot(): void {
 		world,
 		create_soft_refresh(),
 		is_deferred,
-		ours_on_kit_document,
+		KIT_PAGES ? ours_on_kit_document : no_kit,
 		import.meta.env.DEV ? region_ssr_truncated : null
 	];
 }

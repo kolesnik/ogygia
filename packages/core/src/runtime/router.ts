@@ -47,6 +47,7 @@ function hovered_anchor(event: Event): HTMLAnchorElement | null {
 const native_push = typeof History !== 'undefined' ? History.prototype.pushState : null;
 // oxlint-disable-next-line typescript/unbound-method -- the native method, kept before an instance patch; called with .call(history)
 const native_replace = typeof History !== 'undefined' ? History.prototype.replaceState : null;
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 export const push_state = (state: unknown, url: string): void =>
 	native_push ? native_push.call(history, state, '', url) : history.pushState(state, '', url);
 export const replace_state = (state: unknown, url?: string): void => {
@@ -500,7 +501,7 @@ export class SpaRouter {
 	start(): void {
 		if (this.#started || typeof document === 'undefined') return;
 		if (!document.querySelector('meta[name="ogygia-router"]')) return;
-		if (kit_hydrates_page()) return;
+		if (KIT_PAGES && kit_hydrates_page()) return;
 		this.#started = true;
 		const stepped =
 			document_key(new URL(document_address())) !== document_key(new URL(location.href)) &&
@@ -866,7 +867,7 @@ export function install(): void {
 	});
 	const start = () => {
 		if (!document.querySelector('meta[name="ogygia-router"]')) return;
-		if (kit_hydrates_page()) return;
+		if (KIT_PAGES && kit_hydrates_page()) return;
 		startRouter();
 		document.dispatchEvent(new Event('og:page-load'));
 	};

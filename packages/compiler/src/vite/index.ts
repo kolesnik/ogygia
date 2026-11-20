@@ -97,6 +97,7 @@ import { assert_known_options, validate_region_presets, resolve_options } from '
 import {
 	clientBuildWillSkip,
 	hasAnyCsrFalseRoute,
+	kit_may_hydrate,
 	route_reader,
 	keep_client_dir,
 	inject_keep_client_route,
@@ -556,6 +557,10 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 							client_plugins: client_plugins.length > 0,
 							hooks: runtime_hooks,
 							kit_major: kit_major(path.resolve(userConfig.root ?? '.')),
+							kit_pages:
+								env.command === 'serve' ||
+								foreign_hydrate ||
+								kit_may_hydrate(route_reader(node_fs), kit.dirs.routes_dir),
 							version: OGYGIA_VERSION,
 							dev_server: env.command === 'serve'
 						}),
