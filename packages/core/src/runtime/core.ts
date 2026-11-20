@@ -437,10 +437,11 @@ export function region_fragment(html: VerifiedHtml): {
 					page,
 					() =>
 						new Promise<void>((resolve) => {
-							const cancel = life.timeout(page, resolve, 5000);
+							const wait = life.child(page);
+							life.later(wait, resolve, 5000);
 							// oxlint-disable-next-line ogygia/no-silent-failures -- every pending wait above resolves, failed or not
 							void Promise.all(pending).then(() => {
-								cancel();
+								life.close(wait);
 								resolve();
 							});
 						})
@@ -1302,13 +1303,13 @@ class OgygiaRegion extends HTMLElement {
 			life.later(s, () => fire(), 200);
 			return;
 		}
+		const once = life.child(s);
 		const first = () => {
-			off_idle();
-			off_cap();
+			life.close(once);
 			fire();
 		};
-		const off_idle = life.timeout(s, first, 'idle');
-		const off_cap = life.timeout(s, first, 2000);
+		life.later(once, first, 'idle');
+		life.later(once, first, 2000);
 	}
 
 	#on_visible(fire: () => unknown, root_margin: string | undefined, owner: Leaves) {
@@ -1322,9 +1323,10 @@ class OgygiaRegion extends HTMLElement {
 		const mql = matchMedia(q);
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a wake; its hydrate says its own failure
 		if (mql.matches) return void fire();
-		const off = life.hear_until(life.visit(owner), mql, 'change', (e) => {
+		const once = life.child(life.visit(owner));
+		life.listen(once, mql, 'change', (e) => {
 			if (!e.matches) return;
-			off();
+			life.close(once);
 			fire();
 		});
 	}

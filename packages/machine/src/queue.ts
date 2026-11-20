@@ -42,7 +42,16 @@
  */
 import { machine_error, report_thrown } from './messages.ts';
 import { clock } from './ports.ts';
-import { child, defer, root, MAX_TIMEOUT_MS, timeout, type Life, type Scope } from './scope.ts';
+import {
+	child,
+	close,
+	defer,
+	later,
+	root,
+	MAX_TIMEOUT_MS,
+	type Life,
+	type Scope
+} from './scope.ts';
 
 export interface QueueOptions<J> {
 	/** Names the queue in messages. */
@@ -139,7 +148,7 @@ abstract class Line<J> implements Queue<J> {
 	readonly #stale: ((job: J) => void) | null;
 	#timed = 0;
 	#armed_at = Infinity;
-	#disarm: (() => void) | null = null;
+	#disarm: Life | null = null;
 	#timers: Life | null = null;
 
 	constructor(o: QueueOptions<J>) {
@@ -204,22 +213,23 @@ abstract class Line<J> implements Queue<J> {
 	/** A waiting job with a deadline left: the last one takes the timer with it. */
 	protected _untime(): void {
 		if (--this.#timed > 0 || this.#disarm === null) return;
-		this.#disarm();
+		close(this.#disarm);
 		this.#disarm = null;
 		this.#armed_at = Infinity;
 	}
 
 	/** The one timer goes off at `at` (the earliest deadline waiting). */
 	#arm(at: number): void {
-		this.#disarm?.();
+		if (this.#disarm !== null) close(this.#disarm);
 		this.#armed_at = at;
 		const timers = (this.#timers ??= this._owner === null ? root() : child(this._owner));
 		const ms = Math.min(MAX_TIMEOUT_MS, Math.max(0, at - this._now()));
-		this.#disarm = timeout(timers, () => this.#expire(), ms);
+		later((this.#disarm = child(timers)), () => this.#expire(), ms);
 	}
 
 	/** The deadlines that came: those jobs are stale; the timer goes on to the next one. */
 	#expire(): void {
+		if (this.#disarm !== null) close(this.#disarm);
 		this.#disarm = null;
 		this.#armed_at = Infinity;
 		const now = this._now();

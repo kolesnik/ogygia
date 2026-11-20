@@ -123,23 +123,16 @@ function make_store(): Store {
 			fsm.stop(e.answer);
 		}
 	});
-	const s: Store = {
-		life: own,
-		world: world(),
-		entries,
-		flights: life.adopt(
-			own,
-			flights.keyed<FrameAsk>()({
-				name: 'frames',
-				key: ['a'],
-				ignore: { work: 'one flight per address: a fetch or a batch part out there is joined' },
-				keep: 0,
-				run: ({ a, work }, signal, flight): Promise<VerifiedHtml | Stale> =>
-					typeof work === 'function' ? fetch_frame(a, work, signal, flight) : work
-			})
-		)
-	};
-	return s;
+	const frames = flights.keyed<FrameAsk>()({
+		name: 'frames',
+		key: ['a'],
+		ignore: { work: 'one flight per address: a fetch or a batch part out there is joined' },
+		keep: 0,
+		run: ({ a, work }, signal, flight): Promise<VerifiedHtml | Stale> =>
+			typeof work === 'function' ? fetch_frame(a, work, signal, flight) : work
+	});
+	life.defer(own, () => frames[life.DISPOSE]());
+	return { life: own, world: world(), entries, flights: frames };
 }
 
 function shown_of(e: Entry): Shown | null {

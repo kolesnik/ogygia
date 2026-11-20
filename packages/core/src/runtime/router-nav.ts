@@ -1070,10 +1070,11 @@ function preload_stylesheets(
 	}
 	if (!pending.length) return Promise.resolve();
 	return new Promise<void>((resolve) => {
-		const cancel = life.timeout(attempt, resolve, STYLESHEET_WAIT_MS);
+		const wait = life.child(attempt);
+		life.later(wait, resolve, STYLESHEET_WAIT_MS);
 		// oxlint-disable-next-line ogygia/no-silent-failures -- every pending sheet resolves, on load or on error
 		void Promise.all(pending).then(() => {
-			cancel();
+			life.close(wait);
 			resolve();
 		});
 	});

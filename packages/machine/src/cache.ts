@@ -41,7 +41,7 @@ import {
 	DISPOSE,
 	root,
 	MAX_TIMEOUT_MS,
-	timeout,
+	later,
 	type Life,
 	type Scope
 } from './scope.ts';
@@ -134,6 +134,10 @@ export function cache_store<K, V>(o: CacheOptions<K, V>): CacheStore<K, V> {
  * The cache itself. A class: its methods are made once, so a cache costs a few fields to make
  * (flights and collections each make one), and a read is a method call on a known shape.
  */
+function fire(store: Store<unknown, unknown>): void {
+	store._fire();
+}
+
 class Store<K, V> implements CacheStore<K, V> {
 	_max: number;
 	_keep: number | ((value: V, key: K) => number);
@@ -150,7 +154,7 @@ class Store<K, V> implements CacheStore<K, V> {
 	_newest_h: Held<V> | undefined = undefined;
 	_weight = 0;
 	/** The age timer's stop (`null`: none set), and when it fires (`Infinity`: none set). */
-	_stop_timer: (() => void) | null = null;
+	_stop_timer: Life | null = null;
 	_timer_at = Infinity;
 	/** When the timer last swept (`-Infinity`: never). */
 	_swept_at = -Infinity;
@@ -248,20 +252,28 @@ class Store<K, V> implements CacheStore<K, V> {
 
 	/** The age timer, set to fire at `at`. */
 	_set_timer(at: number, now: number): void {
-		this._stop_timer?.();
-		this._stop_timer = null;
+		this._stop();
 		const l = this._life;
 		if (closed(l)) return;
 		this._timer_at = at;
-		this._stop_timer = timeout(
-			l,
-			() => this._fire(),
-			Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS)
+		const t = (this._stop_timer = child(l));
+		later(
+			t,
+			fire,
+			Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS),
+			this as Store<unknown, unknown>
 		);
 	}
 
-	_fire(): void {
+	/** Clears the age timer (its own life). */
+	_stop(): void {
+		const t = this._stop_timer;
 		this._stop_timer = null;
+		if (t !== null) close(t);
+	}
+
+	_fire(): void {
+		this._stop();
 		this._timer_at = Infinity;
 		const fired = clock.mono();
 		this._swept_at = fired;
@@ -283,8 +295,7 @@ class Store<K, V> implements CacheStore<K, V> {
 		held.clear();
 		this._newest = NO_KEY;
 		this._weight = 0;
-		this._stop_timer?.();
-		this._stop_timer = null;
+		this._stop();
 		this._timer_at = Infinity;
 		this._tell();
 	}

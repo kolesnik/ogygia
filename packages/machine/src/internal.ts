@@ -11,6 +11,7 @@ export {
 	close,
 	closed,
 	defer,
+	DISPOSE,
 	ENDED,
 	every,
 	hear_until,

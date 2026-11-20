@@ -258,13 +258,13 @@ export class RouterHistory {
 }
 
 function on_idle(page: Life, fn: () => void, cap = 1000) {
+	const once = life.child(page);
 	const run = () => {
-		idle();
-		capped();
+		life.close(once);
 		fn();
 	};
-	const idle = life.timeout(page, run, 'idle');
-	const capped = life.timeout(page, run, cap);
+	life.later(once, run, 'idle');
+	life.later(once, run, cap);
 }
 
 type Nav = typeof import('./router-nav.ts');
