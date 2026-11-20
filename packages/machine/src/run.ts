@@ -149,7 +149,8 @@ export class Run<S = any, T = any> {
 	/** The state it is in, as one value: `{ kind, ...data }`, the same value through the visit, a
 	 *  new one every visit (what an observer is given). */
 	get now(): ValueOf<S> {
-		return value_of(this) as ValueOf<S>;
+		return (this._now ??
+			(this._now = made(this._def.names[this._state]!, this.data))) as ValueOf<S>;
 	}
 
 	/** The name of the state it is in. */
