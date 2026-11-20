@@ -158,7 +158,16 @@ type FeatureId = ReturnType<typeof resolveFeatures>[number];
  */
 const PROGRAMS: ReadonlyArray<{ name: string; feature: FeatureId | null; modules: string[] }> = [
 	// the router's navigation and the soft refresh (lazy router-nav chunk): `stage`
-	{ name: 'navigation', feature: null, modules: ['packages/machine/src/stage.ts'] }
+	{ name: 'navigation', feature: null, modules: ['packages/machine/src/stage.ts'] },
+	// a deferred region's fetch, and the server's record of the page's holes
+	{
+		name: 'holes',
+		feature: 'frames',
+		modules: [
+			'packages/core/dist/runtime/hole-fetch.js',
+			'packages/core/dist/runtime/hole-facts.js'
+		]
+	}
 ];
 
 type Size = { raw: number; brotli: number };
