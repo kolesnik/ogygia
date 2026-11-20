@@ -25,7 +25,6 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"esbuild": "0.28.2",
 		"magic-string": "1.4.3",
 		"periscopic": "4.0.3",
 		"rolldown": "catalog:",

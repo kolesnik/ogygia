@@ -8,7 +8,7 @@
  *
  * @packageDocumentation
  */
-import { transformSync } from 'esbuild';
+import { stripTypeScriptTypes } from 'node:module';
 import { parseSync } from './oxc.ts';
 import { analyze } from 'periscopic';
 import type { N } from './ast.ts';
@@ -37,9 +37,14 @@ export class UnknownAtBuild extends Error {
 	}
 }
 
+/** An expression's TypeScript stripped as Node strips it: only erasable syntax (an enum fails). */
+function javascript(source: string): string {
+	return stripTypeScriptTypes(`(${source})`, { mode: 'strip' });
+}
+
 /** The free names of an expression (TypeScript), other than the pure globals, sorted. */
 export function freeNames(source: string): Array<string> {
-	const js = transformSync(`(${source})`, { loader: 'ts' }).code;
+	const js = javascript(source);
 	const { globals } = analyze(parseSync('value.js', js).program as N);
 	return [...globals.keys()].filter((name) => !PURE_GLOBALS.has(name)).sort();
 }
@@ -52,7 +57,7 @@ export function evaluate(
 	source: string,
 	bindings: Readonly<Record<string, unknown>> = {}
 ): unknown {
-	const js = transformSync(`(${source})`, { loader: 'ts' }).code;
+	const js = javascript(source);
 	const { globals } = analyze(parseSync('value.js', js).program as N);
 	for (const name of globals.keys())
 		if (!PURE_GLOBALS.has(name) && !(name in bindings)) throw new UnknownAtBuild(name);

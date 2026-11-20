@@ -24,6 +24,11 @@ describe('comptime', () => {
 		expect(freeNames('a + Math.PI + b')).toEqual(['a', 'b']);
 	});
 
+	test('types are stripped as Node strips them: TypeScript that is not only types (an enum) is refused', () => {
+		expect(evaluate('(<T,>(v: T): T => v)(2 satisfies number)')).toBe(2);
+		expect(() => evaluate('(() => { enum E { a } return E.a })()')).toThrow(/enum|TypeScript/i);
+	});
+
 	test('a name the build does not know is an error naming it', () => {
 		expect(() => evaluate('window.innerWidth')).toThrow(UnknownAtBuild);
 		expect(() => evaluate('window.innerWidth')).toThrow(
