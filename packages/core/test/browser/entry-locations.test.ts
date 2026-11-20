@@ -12,16 +12,9 @@ import {
 	note_entry_location,
 	on_entry_fallback
 } from '../../src/runtime/entry-locations.ts';
-import {
-	island_module_url,
-	warm_island_module,
-	is_warmed_module
-} from '../../src/runtime/region-endpoint-url.ts';
-import {
-	preload_island_graph,
-	register_island_graph
-} from '../../src/runtime/island-graph-preload.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { island_module_url } from '../../src/runtime/region-endpoint-url.ts';
+import { warm_island_module, is_warmed_module } from '../../src/runtime/island-warm.ts';
+import { register_island_graph } from '../../src/runtime/island-graph-preload.ts';
 import { encode_island_graph } from '../../src/island-graph.ts';
 
 // a build's identity (a name, no file) and its file, the iid in both names (only the same island's
@@ -264,7 +257,6 @@ describe('the warmer goes to the location', () => {
 	});
 
 	test("a started warm raised later lifts its graph's links to the new priority", async () => {
-		slots.graph = { preload: preload_island_graph, register: register_island_graph };
 		const entry = '/test/browser/fixtures/entry-current.ts?t=graph-raise';
 		register_island_graph(
 			encode_island_graph(new Map([[entry, ['/test/browser/fixtures/graph-raise-dep.js']]]))

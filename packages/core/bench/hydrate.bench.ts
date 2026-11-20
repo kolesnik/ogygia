@@ -50,11 +50,6 @@ import {
 	install as install_interaction
 } from '../src/runtime/interaction.ts';
 import { once_on_screen } from '../src/runtime/viewport.ts';
-import {
-	preload_island_graph,
-	register_island_graph
-} from '../src/runtime/island-graph-preload.ts';
-import { slots } from '../src/runtime/slots.ts';
 import { flights } from '@ogygia/machine';
 import * as life from '@ogygia/machine/internal';
 import { LoadSlot, reset_load_scheduler } from '../src/runtime/load-scheduler.ts';
@@ -63,7 +58,7 @@ import {
 	is_warmed_module,
 	reset_island_warms,
 	warm_island_module
-} from '../src/runtime/region-endpoint-url.ts';
+} from '../src/runtime/island-warm.ts';
 import {
 	background_start,
 	hydrate_settled,
@@ -432,7 +427,7 @@ bench(
 );
 
 /**
- * The module warmer (region-endpoint-url.ts, one warm per module on the flights' priority): a page
+ * The module warmer (island-warm.ts, one warm per module on the flights' priority): a page
  * prefetch warms every island of the next page as a guess, and the visitor then reaches for every
  * fourth one (a `user` warm joins and raises it). The modules are loaded ahead of the window, as the
  * booted page's are. Ends when the warms had their turns.
@@ -451,7 +446,6 @@ bench(
 	() => warm_page(ISLAND_ENTRIES),
 	{
 		setup: () => {
-			slots.graph = { preload: preload_island_graph, register: register_island_graph };
 			for (const entry of ISLAND_ENTRIES) note_entry_location(entry, src_of(entry));
 			return Promise.all(ISLAND_ENTRIES.map((entry) => import_entry(entry))).then(() => ({}));
 		}

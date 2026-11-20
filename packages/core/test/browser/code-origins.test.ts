@@ -13,7 +13,7 @@ import {
 	island_entry_of,
 	note_entry_location
 } from '../../src/runtime/entry-locations.ts';
-import { warm_island_module } from '../../src/runtime/region-endpoint-url.ts';
+import { warm_island_module } from '../../src/runtime/island-warm.ts';
 import { code_url } from '../../src/runtime/code-origins.ts';
 import {
 	preload_island_graph,

@@ -122,7 +122,7 @@ import {
 	use_sheets,
 	type RegionSheet
 } from './region-sheets.ts';
-import { preload_island_graph, register_island_graph } from './island-graph-preload.ts';
+import { preload_island_graph } from './island-graph-preload.ts';
 import { fetch_priority_of, LoadSlot, viewport_class, type LoadClass } from './load-scheduler.ts';
 import { PRIORITY } from './load-class.ts';
 import type { FrameFetcher } from './frame-store.ts';
@@ -1516,8 +1516,6 @@ export function boot(
 		warn,
 		line
 	};
-	slots.graph =
-		HAS & F_GRAPH ? { preload: preload_island_graph, register: register_island_graph } : null;
 	link_boot();
 	for (const install of installers) install();
 	// The build's location map, pinned to this page's address before any navigation moves it

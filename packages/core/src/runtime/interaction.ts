@@ -5,7 +5,7 @@ import * as fsm from '@ogygia/machine/internal';
 import { LoadSlot } from './load-scheduler.ts';
 import { import_again } from './import-again.ts';
 import { slots } from './slots.ts';
-import { warm_island_module } from './region-endpoint-url.ts';
+import { warm_island_module } from './island-warm.ts';
 import { island_entry_of } from './entry-locations.ts';
 import { OgygiaError } from '../messages/core.ts';
 import { download } from '../policies.ts';

@@ -3985,11 +3985,15 @@
 			"reason": "test seam: the number of observers, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/region-endpoint-url.ts > make_warms > trusted_plain_flights:0~93991a > run > onRaise:0~1a69dd",
+			"id": "packages/core/src/runtime/island-warm.ts > make_warms > trusted_plain_flights:0~54cae6 > run > onRaise:0~1a69dd",
 			"reason": "browser only: a more urgent warm joins one whose import is already on the wire, and its graph links are raised (one preload_island_graph call, measured by its own bench)"
 		},
 		{
-			"id": "packages/core/src/runtime/region-endpoint-url.ts > reset_island_warms > drop:0~8b94d4",
+			"id": "packages/core/src/runtime/boot-link.ts > no_graph",
+			"reason": "a build whose word has no graph: a router read of a fetched page's graph does nothing, constant work; proven in packages/core/test/browser/island-graph-preload.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/island-warm.ts > reset_island_warms > drop:0~8b94d4",
 			"reason": "test seam: the predicate that drops every warm, constant work"
 		},
 		{
