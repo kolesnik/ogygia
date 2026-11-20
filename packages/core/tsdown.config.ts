@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { inline_markup_names } from '@ogygia/config/tsdown';
 import { svelte } from '@ogygia/tsdown-plugin-svelte';
 import { defineConfig } from 'tsdown';
+import { core_macros } from './macros.config.ts';
 
 // Ship `.svelte` COMPONENTS and standalone `.css` into dist/ at their parallel paths, plus a
 // `.svelte.d.ts` beside each component: the svelte-package treatment without compiling the
@@ -31,7 +32,7 @@ export default defineConfig({
 	dts: true,
 	clean: true,
 	treeshake: false, // keep every module intact; nothing here is dead code
-	plugins: [svelte({ root: pkg_root }), inline_markup_names()],
+	plugins: [core_macros(), svelte({ root: pkg_root }), inline_markup_names()],
 	deps: {
 		// never inline — peers / deps / consumer-resolved specifiers
 		neverBundle: [

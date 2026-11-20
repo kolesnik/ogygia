@@ -231,6 +231,7 @@
 		"@typescript/native": "catalog:tsgo",
 		"@vitest/browser": "catalog:",
 		"@vitest/browser-playwright": "catalog:",
+		"ogygia-internal-macros": "workspace:*",
 		"rolldown": "catalog:",
 		"sass-embedded": "^1.104.1",
 		"svelte": "catalog:",
