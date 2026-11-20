@@ -121,11 +121,11 @@ type DataOf<S> = unknown extends S ? object | undefined : S[keyof S] & object;
 // oxlint-disable-next-line typescript/no-explicit-any -- a bare `Run` takes every machine (see above)
 export class Run<S = any, T = any> {
 	declare readonly _types?: [S, T];
-	_def: Def;
-	_state: number;
+	declare _def: Def;
+	declare _state: number;
 	/** The data the state it is in was entered with, not copied (`undefined`: none): a read that
 	 *  makes no object, for a machine whose states all carry the same kind of data. */
-	data: DataOf<S>;
+	declare data: DataOf<S>;
 	/** The state as one value, made on first read in this visit. */
 	_now: State | null = null;
 	/** Its visits so far: every move makes a new one. A value read before an `await` that still
@@ -143,7 +143,7 @@ export class Run<S = any, T = any> {
 		this.data = data as DataOf<S>;
 		if (DEV) checked_data(def, s, data);
 		if (def.copies) this._now = made(def.names[s]!, data);
-		if (def.after[s] !== null) arm(this);
+		if (def.after[s]) arm(this);
 	}
 
 	/** The state it is in, as one value: `{ kind, ...data }`, the same value through the visit, a
@@ -290,7 +290,7 @@ function enter(m: Bare, to: number, data: object | undefined): void {
 	m._life = null;
 	// (armed before anything else runs: a waiter or an observer that moves the machine again
 	// then leaves this visit, and closing it clears this timer)
-	if (def.after[to] !== null) arm(m);
+	if (def.after[to]) arm(m);
 	if (m._waiters !== null) settle(m);
 	if (l !== null) l.close();
 }

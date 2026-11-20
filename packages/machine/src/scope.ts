@@ -165,7 +165,7 @@ const CAPTURE: EventListenerOptions = { capture: true };
  */
 export class Life {
 	/** The machine whose visit it is, or null: names it in what its close throws. */
-	_label: string | null;
+	declare _label: string | null;
 	_parent: Life | null = null;
 	_prev: Life | null = null;
 	_next: Life | null = null;
