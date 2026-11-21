@@ -37,6 +37,7 @@ import { server_ports } from '../server-ports.ts';
 import { HOLES_SCRIPT_TYPE } from '../holes-record.ts';
 import { HEAD_OWNERS_ATTR } from '../head-owners.ts';
 import { encode_island_graph } from '../island-graph.ts';
+import { early_code_tags } from '../early-code.ts';
 import {
 	OG_LOCATIONS,
 	OGYGIA_GRAPH,
@@ -162,6 +163,8 @@ export type HoleRecord = {
 export class DocumentTail {
 	readonly #hints = new Set<string>();
 	readonly #graph = new Map<string, readonly string[]>();
+	/** the files of the islands that wake at load (each island's file, then its chunks), each once */
+	readonly #load_code = new Set<string>();
 	/** entry identity → location, for entries no element carries (a portable snippet's live entry) */
 	readonly #locations = new Map<string, string>();
 	readonly #props = new Map<string, Sidecar>();
@@ -197,6 +200,21 @@ export class DocumentTail {
 			const s = this.#props.get(fp);
 			if (s && s.hints.length === 0) s.hints = [src || entry, ...hrefs];
 		}
+	}
+
+	/** An island that wakes at load: its file (`src`, its location) and the chunks it needs, which
+	 *  the early start of the load wake's code may fetch before the runtime is in (../early-code.ts).
+	 *  The first one also records what the runtime's first wake imports (`wake`: the hydrate core's
+	 *  files, read once per page), ahead of every island's own. */
+	load_island(src: string, hrefs: readonly string[], wake: () => readonly string[]): void {
+		if (this.#load_code.size === 0) for (const href of wake()) this.#load_code.add(href);
+		if (src) this.#load_code.add(src);
+		for (const href of hrefs) this.#load_code.add(href);
+	}
+
+	/** Some island on the page wakes at load. */
+	get wakes_at_load(): boolean {
+		return this.#load_code.size > 0;
 	}
 
 	/** Record where an entry no element carries is served from (the graph script's `s`). */
@@ -279,6 +297,7 @@ export class DocumentTail {
 		return (
 			this.#hints.size === 0 &&
 			this.#graph.size === 0 &&
+			this.#load_code.size === 0 &&
 			this.#locations.size === 0 &&
 			this.#props.size === 0 &&
 			this.#holes.size === 0 &&
@@ -296,13 +315,16 @@ export class DocumentTail {
 		};
 	}
 
-	/** The tail's HTML: hints, the island graph, then props (each rendered now, against `seed`), then
-	 *  the holes record (one script, JSON, `<`-escaped). Empty string when nothing was recorded. With
-	 *  `detail`, the per-island rows (bytes, lane, references, the devalue culprit) are kept for
-	 *  the profiler — a little extra work, only while it records. `mark`: the response's mark
-	 *  attribute, on the holes record (server/response-mark.ts `mark_attr`, RESPONSE-MARK). */
-	render(seed: SeedIndex | null = null, detail = false, mark = ''): string {
+	/** The tail's HTML: the early start of the load wake's code, hints, the island graph, then props
+	 *  (each rendered now, against `seed`), then the holes record (one script, JSON, `<`-escaped).
+	 *  Empty string when nothing was recorded. With `detail`, the per-island rows (bytes, lane,
+	 *  references, the devalue culprit) are kept for the profiler — a little extra work, only while
+	 *  it records. `mark`: the response's mark attribute, on the holes record
+	 *  (server/response-mark.ts `mark_attr`, RESPONSE-MARK). `early`: the document may carry the
+	 *  early start (its head allowed the script, ./early-holes-csp.ts `EARLY_CODE_SOURCE`). */
+	render(seed: SeedIndex | null = null, detail = false, mark = '', early = false): string {
 		const out: string[] = [];
+		if (early && this.#load_code.size) out.push(early_code_tags([...this.#load_code]));
 		for (const href of this.#hints) out.push(modulepreload_tag(href));
 		out.push(island_graph_script(this.#graph, this.#locations));
 		const rows: IslandStat[] | null = detail ? [] : null;

@@ -7,6 +7,7 @@ export { runtime_url } from 'ogygia:server/runtime-url';
 export { devtools_boot_url } from 'ogygia:server/devtools-boot-url';
 export {
 	region_deps,
+	wake_code,
 	region_interactivity,
 	chunk_contents,
 	chunk_heavy,

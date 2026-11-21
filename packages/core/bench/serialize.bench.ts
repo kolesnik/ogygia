@@ -189,6 +189,32 @@ bench(
 );
 
 bench(
+	'document tail: a CMS page whose islands wake at load, with the early start of their code',
+	({ data }) => {
+		const tail = new DocumentTail();
+		const wake = () => Array.from({ length: 21 }, (_, i) => `/_app/immutable/chunks/w${i}.js`);
+		for (const [i, b] of data.catalog.blocks.entries()) {
+			const entry = island_entry(i);
+			const plan = new PropsWire({ block: b }, entry);
+			const fp = region_fingerprint(entry, plan.canonical);
+			tail.props(fp, plan);
+			const hrefs = [
+				`/_app/immutable/chunks/svelte.js`,
+				`/_app/immutable/chunks/${fp.slice(0, 6)}.js`
+			];
+			tail.graph(entry, hrefs, fp);
+			if (i % 2 === 0)
+				tail.load_island(`/_app/immutable/og-region.${fp.slice(0, 8)}.js`, hrefs, wake);
+		}
+		return tail.wakes_at_load ? tail.render(SeedIndex.of(data), false, '', true).length : 0;
+	},
+	{
+		setup: () => ({ data: page_tree() }),
+		scale: (_ctx, k) => ({ data: page_of(20 * k) })
+	}
+);
+
+bench(
 	'region props: a hole’s props, devalue and base64url',
 	({ props }) => encode_region_props(props),
 	{ setup: () => ({ props: { product: block(2), at: new Date(Date.UTC(2026, 0, 1)) } }) }

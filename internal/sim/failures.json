@@ -5785,6 +5785,18 @@
 			"reason": "the cap on a page that never goes idle; proved by hand: the cap's callback made to do nothing turns the test red",
 			"test": "packages/core/test/browser/hole-when.test.ts",
 			"name": "an idle hole on a page that never goes idle still fetches within 2 s"
+		},
+		{
+			"site": "packages/core/src/early-code.ts > start_early_code > observer:0",
+			"reason": "the early start's wait for the first contentful paint: a page that never paints content (or an engine without paint timing) adds nothing, and the runtime's own wake fetches the code as before; proved: the observer made never to call back turns the test red",
+			"test": "packages/core/test/browser/early-code.test.ts",
+			"name": "after first paint: a low-priority modulepreload per file, a few at a time, none for a file already linked"
+		},
+		{
+			"site": "packages/core/src/early-code.ts > start_early_code > start > error-event:0",
+			"reason": "an early file that fails to download (a dropped connection, a 404 from a deploy that moved on) only frees its place for the next; the runtime's own import fetches and reports it; proved: the error listener removed turns the test red (the held files are answered 404: the window never moves on)",
+			"test": "packages/core/test/browser/early-code.test.ts",
+			"name": "after first paint: a low-priority modulepreload per file, a few at a time, none for a file already linked"
 		}
 	],
 	"impossible": [
@@ -5829,6 +5841,12 @@
 			"why": "the poll's wait is a task of `steps`, its caller `settled`'s own root scope: nothing else holds it, and it closes only in settled's finally, after the poll returns. So while the poll awaits it, the task cannot settle STALE; it is a task so the timer has an owner that ends with the call.",
 			"by": "packages/devtools/src/devtools/testing-engine.ts",
 			"name": "settled"
+		},
+		{
+			"site": "packages/core/src/early-code.ts > start_early_code > parse:0",
+			"why": "the data block is written by the server only (DocumentTail.render → early_code_tags: JSON.stringify of a string list, script-escaped), the same response as the script that reads it, so its text is always JSON; a page that is not ogygia's own has no such block (the script returns at its getElementById)",
+			"by": "packages/core/src/early-code.ts",
+			"name": "escape_script_text(JSON.stringify(hrefs))"
 		}
 	],
 	"equivalent": [

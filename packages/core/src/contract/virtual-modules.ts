@@ -25,6 +25,9 @@ export type CodecMap = Record<
 export interface RegionDepsModule {
 	/** Public URLs of hashed dependency chunks for a hydrate island entry (`/_app/immutable/…`). */
 	region_deps(entry: string): string[];
+	/** Public URLs of the hydrate core's chunk and its static imports: what the runtime's first
+	 *  island wake imports. `[]` in dev and with a handoff from before it. */
+	wake_code(): string[];
 	/** WAKE ADVISOR: what the island's own components do, from the build; `null` without facts. */
 	region_interactivity(entry: string): {
 		handlers: number;

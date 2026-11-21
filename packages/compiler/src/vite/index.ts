@@ -1119,7 +1119,8 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 					page_reads && ((module_id) => page_reads!.keys(module_id)),
 					readFile,
 					entries.runtime_file,
-					{ islands: entries.islands, runtime: entries.runtime }
+					{ islands: entries.islands, runtime: entries.runtime },
+					real_posix(path.join(RUNTIME_DIR, 'hydrate-core.js'))
 				);
 				const page_why = page_reads
 					? report_seed_shaping(

@@ -1,6 +1,34 @@
 {
 	"exempt": [
 		{
+			"id": "packages/compiler/src/link/island-deps.ts > collectIslandDepModulepreloads > some:0~0d9b89",
+			"reason": "build time, once per client build: finds the chunk that bundles the hydrate core among the bundle's chunks; proven in packages/compiler/test/island-deps.test.ts"
+		},
+		{
+			"id": "packages/core/src/early-code.ts > map:0~27dc4f",
+			"reason": "module constant: the early start's script tag, built once when the server loads (its three JSON arguments)"
+		},
+		{
+			"id": "packages/core/src/early-code.ts > start_early_code",
+			"reason": "runs in the browser only, inline in a page (its source is written into the HTML, never called on the server); what it costs a page is measured in real browsers, paired, LCP and TBT per page (lane C2's matrix); proven in packages/core/test/browser/early-code.test.ts"
+		},
+		{
+			"id": "packages/core/src/early-code.ts > start_early_code > PerformanceObserver:0~d9f0ae",
+			"reason": "runs in the browser only, inline in a page: the first paint's callback; proven in packages/core/test/browser/early-code.test.ts"
+		},
+		{
+			"id": "packages/core/src/early-code.ts > start_early_code > PerformanceObserver:0~d9f0ae > start",
+			"reason": "runs in the browser only, inline in a page: adds one link, at most once per file; proven in packages/core/test/browser/early-code.test.ts"
+		},
+		{
+			"id": "packages/core/src/region-parts/locate.ts > wake_hrefs",
+			"reason": "once per document (the first island that wakes at load): the handoff's first-wake files through Kit's asset(); proven in packages/core/test/document-tail.test.ts"
+		},
+		{
+			"id": "packages/core/src/region-parts/locate.ts > wake_hrefs > map:0~a923dd",
+			"reason": "once per document: one asset() per first-wake file; proven in packages/core/test/document-tail.test.ts"
+		},
+		{
 			"id": "packages/core/src/runtime/resolved-url.ts > ResolvedUrls > forget",
 			"reason": "a test seam: forgets every parse, constant work (a bench's setup calls it, outside the window)"
 		},

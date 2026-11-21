@@ -104,12 +104,13 @@ import { error_route_is_csr_true, route_is_csr_true } from './context.ts';
 import { early_holes_head, take_early_holes } from './early-holes-head.ts';
 import {
 	add_early_holes_csp,
+	EARLY_CODE_SOURCE,
 	EARLY_HOLES_SOURCE,
 	with_early_holes_meta_csp
 } from './server/early-holes-csp.ts';
 import { kit_gate, kit_start_ungated } from './server/kit-gate.ts';
 import { merge_seed_ask, type SeedKeys } from './server/seed-shape.ts';
-import { html_has_kit_bootstrap } from './server/html-scan.ts';
+import { html_has_kit_bootstrap, marks_critical } from './server/html-scan.ts';
 import { RateLimiter, is_shared_address } from './server/rate-limit.ts';
 import { analyze, MeasureMemo, set_measure_memo_reader } from './seed-refs.ts';
 import { OGYGIA_DEV_HMR, OGYGIA_DEVTOOLS_BOOT, OGYGIA_SPECULATE } from './wire-markup.ts';
@@ -823,6 +824,15 @@ class OgygiaHandle {
 		// (Kit's client is on the page exactly when the route is Kit-hydrated: the route fact, never a
 		// search of the whole document for its bootstrap on every chunk)
 		if (csr_page && bag) bag.kit_client = true;
+		if (
+			!csr_page &&
+			head !== null &&
+			spans.body_end !== -1 &&
+			bag?.tail.wakes_at_load &&
+			bag.tail.hole_rows().length === 0 &&
+			!marks_critical(html, spans.body_end)
+		)
+			csp_sources.push(EARLY_CODE_SOURCE);
 		if (csr_page) {
 			let head_inject = '';
 			if (head !== null) {
@@ -1000,7 +1010,12 @@ class OgygiaHandle {
 		}
 		const tail_html = seed
 			? seed.tail_html
-			: bag!.tail.render(null, detail, mark_attr(bag!.request));
+			: bag!.tail.render(
+					null,
+					detail,
+					mark_attr(bag!.request),
+					!!bag!.csp_sources?.includes(EARLY_CODE_SOURCE)
+				);
 		if (!seed) {
 			const memo = bag!.measure_memo;
 			if (analyze(page_snap.data, memo).thenable || analyze(page_snap.form ?? null, memo).thenable)

@@ -24,6 +24,7 @@ import { REGION_BRAND } from '../region-brand.ts';
 import { OG_FORMAT, OGYGIA_PAGE } from '../wire-markup.ts';
 import { RESPONSE_MARK } from '../contract/response-mark.ts';
 import type { DocumentTail } from './document-tail.ts';
+import { EARLY_CODE_SOURCE } from './early-holes-csp.ts';
 import { ogygia_script } from './document-assembly.ts';
 import { PageSeed, type SeedText } from './page-seed.ts';
 import {
@@ -47,6 +48,8 @@ export interface SeedBag {
 	readonly page: PageSnapshot | null;
 	readonly seed_keys: SeedKeys | null;
 	readonly tail: DocumentTail;
+	/** the inline scripts the document's head allowed (./early-holes-csp.ts) */
+	readonly csp_sources?: readonly string[];
 	readonly facts: RequestFacts;
 	/** the request's measure memo (seed-refs.ts): this step runs after Kit cleared its request
 	 *  store, where the installed reader finds no request */
@@ -118,7 +121,12 @@ export async function ship_page_seed(
 	const page_snap = bag.page!;
 	const memo = bag.measure_memo;
 	const index = SeedIndex.of(page_snap.data, memo);
-	const tail_html = bag.tail.render(index, detail, mark_attr(bag.request));
+	const tail_html = bag.tail.render(
+		index,
+		detail,
+		mark_attr(bag.request),
+		!!bag.csp_sources?.includes(EARLY_CODE_SOURCE)
+	);
 	const keys = bag.seed_keys!;
 	if (keys !== 'all') for (const k of index.touched) keys.add(k);
 	const shaped_data = shape_page_data(page_snap.data, keys);

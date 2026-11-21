@@ -11,6 +11,7 @@ const empty = (): string[] => [];
 const blank = (): string => '';
 
 export const region_deps: typeof Server.region_deps = empty;
+export const wake_code: typeof Server.wake_code = empty;
 export const region_css: typeof Server.region_css = empty;
 export const region_css_inline: typeof Server.region_css_inline = none;
 export const content_css: typeof Server.content_css = empty;
