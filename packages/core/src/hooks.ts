@@ -995,7 +995,8 @@ class OgygiaHandle {
 			? seed.tail_html
 			: bag!.tail.render(null, detail, mark_attr(bag!.request));
 		if (!seed) {
-			if (analyze(page_snap.data).thenable || analyze(page_snap.form ?? null).thenable)
+			const memo = bag!.measure_memo;
+			if (analyze(page_snap.data, memo).thenable || analyze(page_snap.form ?? null, memo).thenable)
 				bag!.facts.reads.visitor('streamed load (promise in page data)');
 			if (tail_html) scripts.push(tail_html);
 		}
@@ -1126,7 +1127,7 @@ class OgygiaHandle {
 				else if (shipped) reason = 'read';
 				keys.push({
 					key,
-					bytes: analyze((data as Record<string, unknown>)[key]).bytes,
+					bytes: analyze((data as Record<string, unknown>)[key], bag.measure_memo).bytes,
 					readers: read,
 					referenced_by: refd,
 					shipped,

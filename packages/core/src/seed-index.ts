@@ -152,11 +152,11 @@ export class SeedIndex {
 	#by_hash = new Map<number, { hashed: number; first: Map<string, object> }>();
 
 	/** The index of `data`, cached per `data` object: one index per request, however many islands
-	 *  ask. */
-	static of(data: unknown, min_bytes = 96): SeedIndex {
-		if (!is_plain(data)) return new SeedIndex(data, min_bytes);
+	 *  ask. `memo`: the request's measure memo, when the caller holds it (seed-refs.ts `analysis`). */
+	static of(data: unknown, memo?: MeasureMemo, min_bytes = 96): SeedIndex {
+		if (!is_plain(data)) return new SeedIndex(data, min_bytes, memo);
 		let index = index_cache.get(data);
-		if (!index) index_cache.set(data, (index = new SeedIndex(data, min_bytes)));
+		if (!index) index_cache.set(data, (index = new SeedIndex(data, min_bytes, memo)));
 		return index;
 	}
 
@@ -176,7 +176,7 @@ export class SeedIndex {
 		const keys = new Set<string>();
 		let count = 0;
 		if (this.size > 0) {
-			const memo = analysis(props).memo;
+			const memo = analysis(props, this.#memo ?? undefined).memo;
 			const hashed = new Map<object, { hash: string; bytes: number } | null>();
 			const seen = new Set<object>();
 			const hit = (v: object, path: SeedPath) => {
@@ -211,9 +211,9 @@ export class SeedIndex {
 		};
 	}
 
-	constructor(data: unknown, min_bytes: number) {
+	constructor(data: unknown, min_bytes: number, request_memo?: MeasureMemo) {
 		if (is_plain(data)) {
-			const memo = (this.#memo = analysis(data).memo);
+			const memo = (this.#memo = analysis(data, request_memo).memo);
 			const at = this.#at;
 			const nodes = this.#nodes;
 			const seen = new Set<object>();
