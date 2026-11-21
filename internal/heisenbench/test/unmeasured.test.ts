@@ -12,10 +12,11 @@ const GATE = fileURLToPath(new URL('../src/unmeasured.ts', import.meta.url));
 /** The gate's inventory ids (`--ids-only`: no bench or test run). */
 function inventory_ids(): string[] {
 	const out = mkdtempSync(join(tmpdir(), 'og-gate-'));
-	spawnSync(process.execPath, [GATE, '--ids-only', '--out', relative(REPO_ROOT, out)], {
+	const run = spawnSync(process.execPath, [GATE, '--ids-only', '--out', relative(REPO_ROOT, out)], {
 		cwd: REPO_ROOT,
 		encoding: 'utf8'
 	});
+	assert.equal(run.status, 0, `the gate failed:\n${run.stderr}`);
 	const inventory = JSON.parse(readFileSync(join(out, 'inventory.json'), 'utf8')) as {
 		functions: { id: string }[];
 	};
