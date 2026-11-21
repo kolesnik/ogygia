@@ -215,23 +215,25 @@ const analysis_cache = new WeakMap<object, Analysis>();
 
 /** The walk, cached per plain root object: the seed's `page.data` is measured once per request
  *  however many islands, lanes and decisions ask; a props object once per island — and against
- *  the request's shared memo, so a props object that is a seed node costs a lookup. */
-export function analysis(value: unknown): Analysis {
+ *  the request's shared memo, so a props object that is a seed node costs a lookup. `memo`: the
+ *  request's memo, from a caller that holds the request (the document's seed step, which runs
+ *  where the installed reader finds no request); otherwise the reader's. */
+export function analysis(value: unknown, memo?: MeasureMemo): Analysis {
 	if (!is_plain(value)) {
-		const memo: MeasureMemo = new Map();
-		return { root: unpack(measure(value, memo)), memo };
+		const own: MeasureMemo = new Map();
+		return { root: unpack(measure(value, own)), memo: own };
 	}
 	const hit = analysis_cache.get(value);
 	if (hit) return hit;
-	const memo = memo_reader?.() ?? new Map<object, number>();
-	const a: Analysis = { root: unpack(measure(value, memo)), memo };
+	const shared = memo ?? memo_reader?.() ?? new Map<object, number>();
+	const a: Analysis = { root: unpack(measure(value, shared)), memo: shared };
 	analysis_cache.set(value, a);
 	return a;
 }
 
-/** What one walk says about a value (see {@link Measure}). */
-export function analyze(value: unknown): Measure {
-	return analysis(value).root;
+/** What one walk says about a value (see {@link Measure}); `memo` as {@link analysis} takes it. */
+export function analyze(value: unknown, memo?: MeasureMemo): Measure {
+	return analysis(value, memo).root;
 }
 
 /**

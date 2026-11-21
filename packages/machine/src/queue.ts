@@ -599,28 +599,27 @@ export function trusted_queue<J>(options: QueueOptions<J>): Queue<J> {
 	return new PlainLine(options);
 }
 
-/** @internal {@link queue} for options that rank, gate, window or budget its jobs (or set no
- *  max), for ogygia's runtime: a runtime whose queues all do carries no first-come-first-served
- *  line. The build checks a call's options and makes it {@link trusted_pass_queue}. */
+/** `passQueue`: {@link queue} for options that rank, gate, window or budget its jobs (or set no
+ *  max): a runtime whose queues all do carries no first-come-first-served line. ogygia's build
+ *  checks a call's options and makes it `trustedPassQueue`. */
 export function pass_queue<J>(options: QueueOptions<J>): Queue<J> {
 	check_queue(options);
 	return new PassLine(options);
 }
 
-/** @internal {@link pass_queue} for options its caller's build checked ({@link check_queue}). */
+/** `trustedPassQueue`: `passQueue` for options its caller's build checked (`checkQueue`). */
 export function trusted_pass_queue<J>(options: QueueOptions<J>): Queue<J> {
 	return new PassLine(options);
 }
 
-/** @internal {@link queue} for a bounded first-come-first-served line (a `max`, and no priority,
- *  ready, windows or budget), for ogygia's server: a server whose queues are all plain carries no
- *  passes. */
+/** `plainQueue`: {@link queue} for a bounded first-come-first-served line (a `max`, and no
+ *  priority, ready, windows or budget): a server whose queues are all plain carries no passes. */
 export function plain_queue<J>(options: QueueOptions<J>): Queue<J> {
 	check_plain_queue(options);
 	return new PlainLine(options);
 }
 
-/** @internal {@link plain_queue} for options its caller's build checked ({@link check_plain_queue}). */
+/** `trustedPlainQueue`: `plainQueue` for options its caller's build checked (`checkPlainQueue`). */
 export function trusted_plain_queue<J>(options: QueueOptions<J>): Queue<J> {
 	return new PlainLine(options);
 }
@@ -632,7 +631,7 @@ export function check_plain_queue<J>(options: QueueOptions<J>): void {
 		throw machine_error('machine_bad_option', {
 			option: 'max',
 			value: 'missing',
-			rule: 'given to plain_queue(), a bounded line'
+			rule: 'given to plainQueue(), a bounded line'
 		});
 	if (
 		options.priority !== undefined ||
@@ -642,8 +641,8 @@ export function check_plain_queue<J>(options: QueueOptions<J>): void {
 	)
 		throw machine_error('machine_bad_option', {
 			option: 'priority, ready, windows or budget',
-			value: 'given to plain_queue()',
-			rule: 'given to queue() or pass_queue() only'
+			value: 'given to plainQueue()',
+			rule: 'given to queue() or passQueue() only'
 		});
 }
 

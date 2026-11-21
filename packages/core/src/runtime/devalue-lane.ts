@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 import { backoffAfter, STALE, timers, type Stale } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
 import { import_again } from './import-again.ts';
 import { devalue_download, download } from '../policies.ts';
 import { OG_FORMAT, OGYGIA_PROPS } from '../wire-markup.ts';
@@ -19,7 +19,7 @@ let lib: Devalue | null = null;
 
 const import_devalue = import_again(() => import('devalue'));
 
-const devalue_load = plain_flights({
+const devalue_load = plainFlights({
 	name: 'devalue',
 	run: () => import_devalue().then((m) => (lib = m)),
 	retry: download

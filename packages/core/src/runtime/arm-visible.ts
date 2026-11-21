@@ -4,7 +4,7 @@
  *
  * @packageDocumentation
  */
-import type { Run } from '@ogygia/machine/internal';
+import type { Run } from '@ogygia/machine';
 import { once_on_screen } from './viewport.ts';
 
 /** Runs `fire` once `el` is on screen, within `root_margin` (else its `margin`), while `owner`'s

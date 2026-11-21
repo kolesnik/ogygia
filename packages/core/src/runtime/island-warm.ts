@@ -7,7 +7,7 @@
  */
 import { HAS } from 'ogygia:boot';
 import { STALE, type Flights } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
 import { F_GRAPH } from '../contract/features.ts';
 import { LoadSlot } from './load-scheduler.ts';
 import { class_at, fetch_priority_of, PRIORITY, type LoadClass } from './load-class.ts';
@@ -21,7 +21,7 @@ type Warm = { key: string; entry: string; base: string | undefined; url: CodeUrl
 let warm_flights: Flights<Warm, unknown, Pick<Warm, 'key'>> | undefined;
 const warms = () => (warm_flights ??= make_warms());
 const make_warms = () =>
-	plain_flights.keyed<Warm>()({
+	plainFlights.keyed<Warm>()({
 		name: 'island warm',
 		key: ['key'],
 		ignore: {

@@ -1,9 +1,9 @@
-import { create } from '@ogygia/machine/internal';
+import { createRun } from '@ogygia/machine';
 
 const steps = { off: ['on'], on: ['off'] } as const;
 
 const toggle = $machine<{ off: {}; on: {} }>()({ name: 'fold-toggle', initial: 'off', steps });
 
-const m = create(toggle);
+const m = createRun(toggle);
 m.go('on');
 export const now: string = m.kind;

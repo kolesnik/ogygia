@@ -24,8 +24,8 @@
  * into a boot file of its own (./slots.ts `BootLink`).
  */
 import type { MachineGraph } from '@ogygia/machine';
-import type { Run } from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
+import type { Run } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
 
 type States = {
 	idle: {};
@@ -53,5 +53,5 @@ export function navigation_graph(): MachineGraph {
 
 /** A navigation machine, idle. */
 export function create_navigation(): Navigation {
-	return fsm.create(definition);
+	return fsm.createRun(definition);
 }

@@ -1,5 +1,5 @@
 import { STALE } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
 import { import_again } from './import-again.ts';
 import { code_url_or_refuse, import_code } from './code-origins.ts';
 import { speculate_url } from './speculate-hint.ts';
@@ -18,7 +18,7 @@ import type { AfterNavigateCallback, BeforeNavigateCallback } from './router.ts'
  */
 export const NAV_HANDLE_KEY: unique symbol = Symbol.for('ogygia.nav');
 
-const load_refresh = plain_flights({
+const load_refresh = plainFlights({
 	name: 'soft refresh',
 	run: import_again(
 		() => import('./router-nav.ts').then(({ invalidate_all }) => ({ invalidate_all })),

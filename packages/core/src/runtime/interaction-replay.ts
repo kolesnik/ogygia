@@ -1,4 +1,4 @@
-import type { Life } from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine';
 import type { FieldSnapshot, QueuedClick, Touched } from './interaction.ts';
 import { interaction_link } from './slots.ts';
 import { emit as dt_emit } from '../events/bus.ts';

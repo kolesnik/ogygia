@@ -67,16 +67,15 @@ const HOT = defineMacro<Compiler, Scope>({
 const MACHINE = defineMacro<Compiler, Scope>({
 	names: ['$machine'],
 	helpers: dedent`
-		import type { Config, Kind, Shape, Steps } from '@ogygia/machine';
-		import type { Def } from '@ogygia/machine/internal';
+		import type { Config, Kind, RunDef, Shape, Steps } from '@ogygia/machine';
 	`,
 	types: dedent`
 		/** A machine definition, read and checked at build: as \`machine<S>()({ … })\` takes it,
-		 *  for the runtime of \`@ogygia/machine/internal\` (\`create(def)\`). A production build
-		 *  carries it as data; dev and rules builds run \`define\` on it, with its checks. */
+		 *  for \`@ogygia/machine\`'s runtime (\`createRun(def)\`). A production build carries it
+		 *  as data (\`compiledRunDef\`); dev and rules builds run \`runDef\` on it, with its checks. */
 		function $machine<S extends Shape<S>>(): <const T extends Steps<S>, const I extends Kind<S>>(
 			config: Config<S, T, I>
-		) => Def<S, T, I>;
+		) => RunDef<S, T, I>;
 	`,
 	pass: (c: Compiler) => new MachinePass(c)
 });

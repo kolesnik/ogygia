@@ -1,7 +1,7 @@
 import { noop, registry, STALE, type Stale } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
-import type { Life, Run } from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
+import type { Life, Run } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
 import { LoadSlot } from './load-scheduler.ts';
 import { import_again } from './import-again.ts';
 import { slots } from './slots.ts';
@@ -130,7 +130,7 @@ const armed = registry.keyed<Element, Armed>();
 let installed = false;
 
 type Replay = typeof import('./interaction-replay.ts');
-const load_replay = plain_flights({
+const load_replay = plainFlights({
 	name: 'interaction replay',
 	run: import_again(() => import('./interaction-replay.ts')),
 	retry: download
@@ -264,7 +264,7 @@ export function arm_interaction(
 		warm,
 		fire,
 		owner,
-		arming: fsm.create(arming_definition),
+		arming: fsm.createRun(arming_definition),
 		warmed: false,
 		queued: [],
 		forget: noop

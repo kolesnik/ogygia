@@ -1,4 +1,4 @@
-import { plain_flights } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
 import { wire_loaders, wire_all } from 'ogygia:region';
 import { import_again } from './import-again.ts';
 import { props_sidecar_of } from './sidecar.ts';
@@ -17,7 +17,7 @@ const paths = Object.keys(loaders);
 const imports: ReadonlyMap<string, { load?: () => Promise<unknown> }> = new Map(
 	paths.map((p) => [p, {}])
 );
-const loads = plain_flights({
+const loads = plainFlights({
 	name: 'wire class',
 	run: (path: string) => {
 		const slot = imports.get(path)!;

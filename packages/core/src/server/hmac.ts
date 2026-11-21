@@ -11,7 +11,13 @@
  * verified (#1769). Signing keys are HKDF-derived (`ogygia-mac-v1`) from the raw secret so the
  * id-salt domain stays separate.
  */
-import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
+import {
+	createHmac,
+	createSecretKey,
+	hkdfSync,
+	timingSafeEqual,
+	type KeyObject
+} from 'node:crypto';
 import { cache, capability, type Capability } from '@ogygia/machine';
 import { PRERENDER_REGION_TTL_SEC, REGION_CAPABILITY_VERSION, is_lower_hex } from './endpoint.ts';
 const MAC_INFO = Buffer.from('ogygia-mac-v1');
@@ -23,14 +29,15 @@ export const MIN_SECRET_BYTES = 16;
 // The secret is a process constant (env / build), so the derived key is too: derived once per
 // distinct secret, not once per sign and once per verify (an HKDF per island mint and per hole
 // request added up on a page of twenty). Bounded: a process sees one secret, tests a handful.
-const mac_keys = cache<string, Buffer>({ name: 'mac keys', max: 16 });
+const mac_keys = cache<string, KeyObject>({ name: 'mac keys', max: 16 });
 
-/** HKDF-SHA256 → 32-byte MAC key (hex for stable logging / tests; Buffer used internally). */
-export function derive_mac_key(secret: string): Buffer {
+/** HKDF-SHA256 → the 32-byte MAC key, as the KeyObject every HMAC of it takes: made once per
+ *  secret (an HMAC keyed by bytes makes Node build a key object again for each one). */
+export function derive_mac_key(secret: string): KeyObject {
 	let key = mac_keys.get(secret);
 	if (key === undefined) {
-		key = Buffer.from(
-			hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.alloc(0), MAC_INFO, 32)
+		key = createSecretKey(
+			Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.alloc(0), MAC_INFO, 32))
 		);
 		mac_keys.set(secret, key);
 	}
@@ -50,7 +57,7 @@ export function secret_has_min_entropy(secret: string): boolean {
 }
 
 export class Hmac {
-	static sha256(key: Buffer, message: string): string {
+	static sha256(key: KeyObject, message: string): string {
 		return createHmac('sha256', key).update(message, 'utf8').digest('hex');
 	}
 

@@ -3,7 +3,7 @@
 // rendered and sent, or refused at any step. Rendering, or charging the render budget, before the
 // capability verifies is an illegal move, for a GET, a renewal and each hole of a batch.
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine';
 import { trace } from '@ogygia/machine';
 
 vi.mock('ogygia:server/sign', () => import('../src/server/hmac.ts'));
@@ -69,7 +69,7 @@ describe('a region request, as a machine', () => {
 	});
 
 	it('render before verify is an illegal move', () => {
-		const r = fsm.create(region_request);
+		const r = fsm.createRun(region_request);
 		r.go('prechecked');
 		r.go('probed');
 		const loose = r as unknown as { go(to: string): boolean };

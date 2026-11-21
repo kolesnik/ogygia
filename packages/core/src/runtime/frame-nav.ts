@@ -1,7 +1,7 @@
 import { buggify, clock, net, STALE, tasks, type MachineGraph } from '@ogygia/machine';
-import type { Life } from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
-import { lru } from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import { lru } from '@ogygia/machine';
 import { frameAddress } from '../frame.ts';
 import { stream } from '../policies.ts';
 import { is_idle, reserve, release, stamp, write } from './frame-store.ts';
@@ -152,7 +152,7 @@ export async function streamFrames(
 	let status = 0;
 	let refused: 'redirected' | 'document' | undefined;
 	let final_url: string | undefined;
-	const stream = fsm.create(batch_stream);
+	const stream = fsm.createRun(batch_stream);
 	const batch_scope = visit.child();
 	batch_scope.defer(() => stream.stop());
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a machine's wait never rejects

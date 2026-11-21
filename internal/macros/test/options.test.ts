@@ -27,7 +27,7 @@ const fails = (...rows: ReadonlyArray<string>) => {
 };
 
 describe('a literal the checks pass: made unchecked', () => {
-	test('each maker calls its trusted form, from the internal entry', () => {
+	test('each maker calls its trusted form, from the same entry', () => {
 		const code = out(
 			"export const a = flights({ name: 'a', run: async () => 1, max: 8 });",
 			"export const b = flights.keyed<{ id: string }>()({ key: ['id'], run: async () => 1 });",
@@ -36,11 +36,11 @@ describe('a literal the checks pass: made unchecked', () => {
 			'export const e = say();',
 			'export const f = say({ max: 32 });'
 		)!;
-		expect(code).toContain('trusted_flights');
-		expect(code).toContain('trusted_cache');
-		expect(code).toContain('trusted_queue');
-		expect(code).toContain('trusted_say');
-		expect(code).toMatch(/import \{[^}]*trusted_flights[^}]*\} from '@ogygia\/machine\/internal'/);
+		expect(code).toContain('trustedFlights');
+		expect(code).toContain('trustedCache');
+		expect(code).toContain('trustedQueue');
+		expect(code).toContain('trustedSay');
+		expect(code).toMatch(/import \{[^}]*trustedFlights[^}]*\} from '@ogygia\/machine'/);
 		expect(code).not.toMatch(/\b(?:flights|cache|queue|say)\(/);
 		expect(code).not.toContain('.keyed');
 	});
@@ -52,7 +52,7 @@ describe('a literal the checks pass: made unchecked', () => {
 			'declare const owner: object;',
 			"export const a = flights({ name: 'a', run: load, max: MAX, owner, touches: (x) => [x] });"
 		)!;
-		expect(code).toContain('trusted_flights(');
+		expect(code).toContain('trustedFlights(');
 	});
 
 	test('a policy is its frozen data: no maker runs at runtime', () => {
@@ -70,9 +70,8 @@ describe('a literal the checks pass: made unchecked', () => {
 	});
 });
 
-describe("the runtime's lean makers (`@ogygia/machine/internal`)", () => {
-	const INTERNAL =
-		"import { lru, pass_queue, plain_flights, plain_queue } from '@ogygia/machine/internal';";
+describe("the runtime's lean makers (`plainFlights`, `passQueue`, `plainQueue`, `lru`)", () => {
+	const INTERNAL = "import { lru, passQueue, plainFlights, plainQueue } from '@ogygia/machine';";
 	const lean = (...rows: ReadonlyArray<string>) =>
 		compile(lines(INTERNAL, ...rows), 'a.ts', OPTIONS)?.code ?? null;
 	const lean_fails = (...rows: ReadonlyArray<string>) => {
@@ -86,34 +85,31 @@ describe("the runtime's lean makers (`@ogygia/machine/internal`)", () => {
 
 	test('each is checked as its public maker is, and calls its trusted lean form', () => {
 		const code = lean(
-			"export const a = plain_flights({ name: 'a', run: async () => 1 });",
-			"export const b = plain_flights.keyed<{ id: string }>()({ key: ['id'], run: async () => 1 });",
+			"export const a = plainFlights({ name: 'a', run: async () => 1 });",
+			"export const b = plainFlights.keyed<{ id: string }>()({ key: ['id'], run: async () => 1 });",
 			"export const c = lru({ name: 'c', max: 64 });",
-			"export const d = pass_queue({ name: 'd', budget: { ms: 30, yield: (f: () => void) => f() }, start: () => {} });",
-			"export const e = plain_queue({ name: 'e', max: 4, start: () => {} });"
+			"export const d = passQueue({ name: 'd', budget: { ms: 30, yield: (f: () => void) => f() }, start: () => {} });",
+			"export const e = plainQueue({ name: 'e', max: 4, start: () => {} });"
 		)!;
-		expect(code).toContain('trusted_plain_flights');
-		expect(code).toContain('trusted_lru');
-		expect(code).toContain('trusted_pass_queue');
-		expect(code).toContain('trusted_plain_queue');
-		expect(code).not.toMatch(/\b(?:plain_flights|lru|pass_queue|plain_queue)\(/);
+		expect(code).toContain('trustedPlainFlights');
+		expect(code).toContain('trustedLru');
+		expect(code).toContain('trustedPassQueue');
+		expect(code).toContain('trustedPlainQueue');
+		expect(code).not.toMatch(/\b(?:plainFlights|lru|passQueue|plainQueue)\(/);
 		expect(code).not.toContain('.keyed');
 	});
 
 	test.each([
-		["plain_flights({ name: 'a', run: async () => 1, max: Infinity })", /max/],
+		["plainFlights({ name: 'a', run: async () => 1, max: Infinity })", /max/],
+		["plainFlights({ name: 'a', run: async () => 1, weigh: () => 1, max: 9 })", /flights\(\) only/],
 		[
-			"plain_flights({ name: 'a', run: async () => 1, weigh: () => 1, max: 9 })",
-			/flights\(\) only/
-		],
-		[
-			"plain_flights.keyed<{ a: string; b: string }>()({ key: ['a', 'b'], run: async () => 1 })",
+			"plainFlights.keyed<{ a: string; b: string }>()({ key: ['a', 'b'], run: async () => 1 })",
 			/flights\(\) only/
 		],
 		["lru({ name: 'c', max: 0 })", /max/],
-		['pass_queue({ max: 1.5 })', /max/],
-		['plain_queue({ start: () => {} })', /max/],
-		['plain_queue({ max: 2, start: () => {}, priority: () => 0 })', /plain_queue/]
+		['passQueue({ max: 1.5 })', /max/],
+		['plainQueue({ start: () => {} })', /max/],
+		['plainQueue({ max: 2, start: () => {}, priority: () => 0 })', /plainQueue/]
 	])('%s fails the build', (call, rule) => {
 		const message = lean_fails(`export const x = ${call};`);
 		expect(message).toContain('machine_bad_option');
@@ -122,8 +118,8 @@ describe("the runtime's lean makers (`@ogygia/machine/internal`)", () => {
 
 	test('a public maker of the same name is not one of them', () => {
 		const code = out("export const a = flights({ name: 'a', run: async () => 1 });")!;
-		expect(code).toContain('trusted_flights');
-		expect(code).not.toContain('trusted_plain_flights');
+		expect(code).toContain('trustedFlights');
+		expect(code).not.toContain('trustedPlainFlights');
 	});
 });
 
@@ -148,23 +144,20 @@ describe('a literal the checks refuse: the build fails with the runtime code', (
 	});
 });
 
-test('the internal entry’s makers (lru, pass_queue) are checked at build and made trusted too', () => {
+test('the lean makers (lru, passQueue) are checked at build and made trusted too', () => {
 	const internal = (...rows: ReadonlyArray<string>) =>
-		compile(
-			lines("import { lru, pass_queue } from '@ogygia/machine/internal';", ...rows),
-			'a.ts',
-			OPTIONS
-		)?.code ?? '';
+		compile(lines("import { lru, passQueue } from '@ogygia/machine';", ...rows), 'a.ts', OPTIONS)
+			?.code ?? '';
 	const code = internal(
 		"export const a = lru({ name: 'a', max: 64 });",
-		"export const b = pass_queue({ name: 'b', max: 2, priority: () => 1 });"
+		"export const b = passQueue({ name: 'b', max: 2, priority: () => 1 });"
 	);
-	expect(code).toContain('trusted_lru(');
-	expect(code).toContain('trusted_pass_queue(');
+	expect(code).toContain('trustedLru(');
+	expect(code).toContain('trustedPassQueue(');
 	expect(() => internal("export const c = lru({ name: 'c', max: 0 });")).toThrow(
 		/machine_bad_option/
 	);
-	expect(() => internal("export const d = pass_queue({ name: 'd', max: 0.5 });")).toThrow(
+	expect(() => internal("export const d = passQueue({ name: 'd', max: 0.5 });")).toThrow(
 		/machine_bad_option/
 	);
 });
@@ -184,7 +177,7 @@ describe('options the build cannot read', () => {
 		);
 		const result = compile(code, 'a.ts', OPTIONS);
 		expect(result?.code ?? code).toContain('cache({');
-		expect(result?.code ?? '').not.toContain('trusted_cache');
+		expect(result?.code ?? '').not.toContain('trustedCache');
 		expect(result?.warnings.join('\n')).toMatch(/keeps its runtime check.*max/s);
 	});
 
@@ -194,7 +187,7 @@ describe('options the build cannot read', () => {
 			'declare const retry: ReturnType<typeof policy>;',
 			"export const a = flights({ name: 'a', run: make(), retry });"
 		)!;
-		expect(code).toContain('trusted_flights(');
+		expect(code).toContain('trustedFlights(');
 		expect(fails("export const b = flights({ name: 'b', run: make(), max: 0 });")).toContain(
 			'machine_bad_option'
 		);
@@ -202,7 +195,7 @@ describe('options the build cannot read', () => {
 
 	test('options not written in place stay checked at runtime', () => {
 		const code = out('declare const o: never;', 'export const a = queue(o);');
-		expect(code ?? '').not.toContain('trusted_queue');
+		expect(code ?? '').not.toContain('trustedQueue');
 	});
 
 	test('only an imported maker is read: a maker reached through a value is left to its own checks', () => {
@@ -222,7 +215,7 @@ describe('options the build cannot read', () => {
 			'makers()[0].keyed<{ id: string }>()({ key: ["id"], run: async () => 1, max: 0 })'
 		]) {
 			const out = through(call);
-			expect(out?.code ?? '').not.toContain('trusted_');
+			expect(out?.code ?? '').not.toMatch(/\btrusted[A-Z]/);
 		}
 	});
 
@@ -244,7 +237,7 @@ describe('options the build cannot read', () => {
 		);
 		writeFileSync(file, src);
 		const result = compile(src, 'a.ts', { ...OPTIONS, path: file });
-		expect(result?.code).toContain('trusted_flights(');
+		expect(result?.code).toContain('trustedFlights(');
 	});
 
 	test('a local of the same name is not the maker', () => {
@@ -253,6 +246,6 @@ describe('options the build cannot read', () => {
 			"	return cache({ max: 0, name: 'local' });",
 			'}'
 		);
-		expect(code ?? '').not.toContain('trusted_cache');
+		expect(code ?? '').not.toContain('trustedCache');
 	});
 });

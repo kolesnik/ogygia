@@ -1,5 +1,5 @@
-import * as life from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { note_visit } from './rules.ts';
 
 /**
@@ -29,7 +29,7 @@ export type PageVisit = {
 
 function page_visit(): PageVisit {
 	const visit: PageVisit = {
-		scope: life.root(),
+		scope: life.rootLife(),
 		facts: [],
 		seeded: { page: false, remote: false },
 		kit_page: undefined

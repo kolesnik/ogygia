@@ -39,6 +39,7 @@ import {
 	type RequestStatsSink
 } from '../src/server/request-stats.ts';
 import { merge_seed_ask, shape_page_data, type SeedAsk } from '../src/server/seed-shape.ts';
+import { kit_asset } from '../src/kit-paths.ts';
 import { set_island_deps } from '../test/_stubs/server.region-deps.ts';
 import { csr_true_routes } from '../test/_stubs/server.route-csr.ts';
 import {
@@ -57,7 +58,10 @@ import {
 // Kit runs every request inside its request store (`with_request_store`, exported at runtime but
 // not in Kit's types): the handle's recorders and readers find the request bag through it.
 const { with_request_store } = kit_server as unknown as {
-	with_request_store: <T>(store: { event: RequestEvent; state: RequestState }, fn: () => T) => T;
+	with_request_store: <T>(
+		store: { event: RequestEvent; state: RequestState } | null,
+		fn: () => T
+	) => T;
 };
 
 type Handle = InstanceType<typeof hooks.OgygiaHandle>;
@@ -254,9 +258,10 @@ function content_request(blocks: number, o: PageOptions = {}): Request_ {
 	return { handle, html: content_document(blocks), state, event, bag };
 }
 
-/** The handle's `transformPageChunk` on one chunk, inside the request's Kit store (as Kit calls it). */
+/** The handle's `transformPageChunk` on one chunk, where Kit calls it: inside `resolve`, which Kit
+ *  runs with its request store cleared (runtime/server/respond.js `with_request_store(null, …)`). */
 function transform(r: Request_, html = r.html): Promise<string> {
-	return with_request_store({ event: r.event, state: r.state }, () =>
+	return with_request_store(null, () =>
 		r.handle.inject_client_seeds(html, r.state, r.event, r.bag)
 	);
 }
@@ -372,7 +377,10 @@ function resolve_of(r: Request_) {
 		opts?: { transformPageChunk?: (i: { html: string; done: boolean }) => unknown }
 	) => {
 		Object.assign(hooks.bags.get(event.request)!, records);
-		const html = (await opts!.transformPageChunk!({ html: r.html, done: true })) as string;
+		// (Kit runs `resolve` with its request store cleared)
+		const html = (await with_request_store(null, () =>
+			opts!.transformPageChunk!({ html: r.html, done: true })
+		)) as string;
 		return new Response(html, { headers: { 'content-type': 'text/html' } });
 	};
 }
@@ -685,3 +693,32 @@ function remotes_of(queries: number, rows: number) {
 	} as unknown as RequestState;
 	return { state, wanted: new Set([REMOTE_HASH]) };
 }
+
+// KIT'S `asset()` FOR A PAGE'S URLS: every URL Region writes for an island (its chunk, its location,
+// the chunks of its graph) goes through Kit's `asset()`, inside the render's request store.
+
+/** The URLs a page of `islands` islands of twelve kinds writes: each island's chunk and location, and
+ *  its kind's graph (eight chunks, shared between kinds). */
+function page_urls(islands: number): string[] {
+	const urls: string[] = [];
+	for (let i = 0; i < islands; i++) {
+		const kind = i % 12;
+		urls.push(`/_app/immutable/entry/island-${kind}.js`, `/_app/immutable/entry/island-${kind}.js`);
+		for (let k = 0; k < 8; k++) urls.push(`/_app/immutable/chunks/c${(kind * 3 + k) % 20}.js`);
+	}
+	return urls;
+}
+
+bench(
+	'kit_asset: the URLs a page of forty islands writes, in one request',
+	({ urls, event, state }) =>
+		with_request_store({ event, state }, () => {
+			let n = 0;
+			for (const url of urls) n += kit_asset(url).length;
+			return n;
+		}),
+	{
+		setup: () => ({ urls: page_urls(40), ...event_of(false) }),
+		scale: (_ctx, k) => ({ urls: page_urls(40 * k), ...event_of(false) })
+	}
+);

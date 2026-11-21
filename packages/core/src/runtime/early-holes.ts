@@ -3,8 +3,8 @@
  *
  * @packageDocumentation
  */
-import * as life from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { EARLY_HOLES_KEY, type EarlyHole } from '../early-holes.ts';
 import { frameAddress } from '../frame.ts';
 import { renew, start } from './frame-store.ts';
@@ -31,7 +31,7 @@ export function adopt_early_holes(visit: Life): void {
 			address,
 			async (signal) => {
 				// @why its last caller leaving cancels the request in the network (test: test/browser/early-holes.test.ts › that nobody joins, left before its answer lands: cancelled in the network, nothing written, nothing unhandled)
-				const tie = life.root();
+				const tie = life.rootLife();
 				tie.listen(signal, 'abort', () => controller.abort(signal.reason));
 				try {
 					return await read_hole(url, response, {

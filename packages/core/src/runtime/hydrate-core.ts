@@ -20,7 +20,7 @@ import { emit as dt_emit } from '../events/bus.ts';
 import { warn } from '../messages/lazy.ts';
 import { OG_FP, OG_HEALED, OG_RECOVERED, OGYGIA_KEEP } from '../wire-markup.ts';
 import { clock, say, type Fresh, type Stale } from '@ogygia/machine';
-import type { Life } from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine';
 import { ANCHOR, BLOCK_CLOSE, BLOCK_OPEN, FIRST_BRANCH_OPEN } from './svelte-markers.ts';
 import { unmark_html_ranges } from './html-ranges.ts';
 import {

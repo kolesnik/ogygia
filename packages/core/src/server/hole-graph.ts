@@ -19,11 +19,11 @@ import { decode_island_graph, decode_island_locations } from '../island-graph-re
 import { Needle, next_tag, OGYGIA_GRAPH, text_of } from '../wire-markup.ts';
 import { island_graph_script } from './document-tail.ts';
 import { region_css_tags } from './html-scan.ts';
+import { RootPaths } from './hole-urls.ts';
 
-function root_absolute(value: string, base: URL): string {
+function root_absolute(value: string, roots: RootPaths): string {
 	if (!value.startsWith('./') && !value.startsWith('../')) return value;
-	const u = new URL(value, base);
-	return u.origin === base.origin ? u.pathname + u.search + u.hash : value;
+	return roots.resolve(value) ?? value;
 }
 
 /** What the answer carries of the render's head: its islands' graph and their CSS (html-scan.ts
@@ -42,6 +42,7 @@ export function hole_graph_script(head: string, base: URL): string {
 	if (mark.gone) return '';
 	const graph = new Map<string, string[]>();
 	const locations = new Map<string, string>();
+	const roots = new RootPaths(base);
 	for (let t = next_tag(head, 'script', 0); t !== null; t = next_tag(head, 'script', t.next)) {
 		const held = mark.holds(t);
 		if (mark.gone) break;
@@ -49,15 +50,15 @@ export function hole_graph_script(head: string, base: URL): string {
 		const text = text_of(head, t, 'script');
 		if (text === null) break;
 		for (const [entry, hrefs] of decode_island_graph(text)) {
-			const key = root_absolute(entry, base);
+			const key = root_absolute(entry, roots);
 			if (!graph.has(key))
 				graph.set(
 					key,
-					hrefs.map((h) => root_absolute(h, base))
+					hrefs.map((h) => root_absolute(h, roots))
 				);
 		}
 		for (const [entry, src] of decode_island_locations(text))
-			locations.set(root_absolute(entry, base), root_absolute(src, base));
+			locations.set(root_absolute(entry, roots), root_absolute(src, roots));
 	}
 	return island_graph_script(graph, locations);
 }

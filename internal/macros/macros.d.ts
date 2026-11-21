@@ -5,8 +5,7 @@ export {}
 
 import type { Stale } from '@ogygia/machine';
 
-import type { Config, Kind, Shape, Steps } from '@ogygia/machine';
-import type { Def } from '@ogygia/machine/internal';
+import type { Config, Kind, RunDef, Shape, Steps } from '@ogygia/machine';
 
 declare global {
   /** Marks a function, where it is defined, as development only:
@@ -37,9 +36,9 @@ declare global {
   function $layout<F extends (...args: never[]) => unknown>(fn: F): F;
 
   /** A machine definition, read and checked at build: as `machine<S>()({ … })` takes it,
-   *  for the runtime of `@ogygia/machine/internal` (`create(def)`). A production build
-   *  carries it as data; dev and rules builds run `define` on it, with its checks. */
+   *  for `@ogygia/machine`'s runtime (`createRun(def)`). A production build carries it
+   *  as data (`compiledRunDef`); dev and rules builds run `runDef` on it, with its checks. */
   function $machine<S extends Shape<S>>(): <const T extends Steps<S>, const I extends Kind<S>>(
   	config: Config<S, T, I>
-  ) => Def<S, T, I>;
+  ) => RunDef<S, T, I>;
 }

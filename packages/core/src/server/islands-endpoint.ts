@@ -163,6 +163,45 @@ function region_css_links(id: string): string {
 	return out;
 }
 
+type RegionModule = { default: unknown };
+type RegionLoader = () => Promise<RegionModule>;
+
+/** A built server's region modules, kept once they loaded: each `import()` walks Node's module
+ *  loader again (a resolve and a module job), three per hole request. A failed load is not kept, so
+ *  the next request loads it again; a dev server keeps nothing (an edit replaces the module). */
+export class RegionModules {
+	#table: Record<string, RegionLoader> | null = null;
+	readonly #loaders = new Map<string, RegionLoader>();
+	readonly #kept = new Map<string, RegionModule>();
+
+	/** `target`'s loader, or null when the build has no such region. */
+	async loader(target: string): Promise<RegionLoader | null> {
+		const table = this.#table ?? (await this.#load_table());
+		const load = table[target];
+		if (typeof load !== 'function') return null;
+		if (import.meta.env.DEV) return load;
+		let kept_load = this.#loaders.get(target);
+		if (kept_load === undefined) {
+			kept_load = () => {
+				const kept = this.#kept.get(target);
+				if (kept !== undefined) return Promise.resolve(kept);
+				return load().then((mod) => {
+					this.#kept.set(target, mod);
+					return mod;
+				});
+			};
+			this.#loaders.set(target, kept_load);
+		}
+		return kept_load;
+	}
+
+	async #load_table(): Promise<Record<string, RegionLoader>> {
+		const { regions } = await load_server_regions();
+		if (!import.meta.env.DEV) this.#table = regions;
+		return regions;
+	}
+}
+
 /** The islands endpoint of one handle. */
 export class IslandsEndpoint {
 	/** Process-local cap on concurrent region SSR (M1 CPU amp under valid MAC): one for every
@@ -171,6 +210,7 @@ export class IslandsEndpoint {
 
 	readonly #host: EndpointHost;
 	readonly #render_gate: ConcurrencyGate;
+	readonly #modules = new RegionModules();
 
 	constructor(host: EndpointHost) {
 		this.#host = host;
@@ -501,8 +541,8 @@ export class IslandsEndpoint {
 
 		const target = capability_target(cap);
 		if (target === null) return null;
-		const load = (await load_server_regions()).regions[target];
-		if (typeof load !== 'function') return null;
+		const load = await this.#modules.loader(target);
+		if (load === null) return null;
 
 		const props = await this.#decode_region_props(payload, load);
 		if (!props) return null;
@@ -659,8 +699,8 @@ export class IslandsEndpoint {
 				});
 			return region_denied('unknown-id');
 		}
-		const load = (await load_server_regions()).regions[target];
-		if (typeof load !== 'function') return region_denied('unknown-id');
+		const load = await this.#modules.loader(target);
+		if (load === null) return region_denied('unknown-id');
 
 		// Same status as bad MAC on any decode failure (STATUS-ORACLE); the reason is only ever
 		// reached with a capability this key signed.

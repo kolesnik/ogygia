@@ -2,13 +2,13 @@
  * `$machine<S>()({ name, initial, steps, after })`: a machine definition, read and checked at build.
  *
  * The build reads the definition (its steps written in place, or a module const of an object
- * literal, `as const` or not), refuses what `define` would refuse at runtime, and writes:
+ * literal, `as const` or not), refuses what `runDef` would refuse at runtime, and writes:
  *
- *   RULES ? define({ …as written… }) : compiled('hole', ['idle', 'armed', …], 0, [6, 5, …], [timeouts])
+ *   RULES ? runDef({ …as written… }) : compiledRunDef('hole', ['idle', 'armed', …], 0, [6, 5, …], [timeouts])
  *
  * so a production build carries the definition as data (its states' names, its initial state's
- * int, each state's steps as bitmasks, its timeouts) and none of `define`'s reading or checks, while
- * dev and rules builds (tests, e2e, the simulator) keep `define` itself: its checks, `graph()` and
+ * int, each state's steps as bitmasks, its timeouts) and none of `runDef`'s reading or checks, while
+ * dev and rules builds (tests, e2e, the simulator) keep `runDef` itself: its checks, `graph()` and
  * `paths()`, and the moves its observers hear, as before.
  *
  * Refused at build: a call that is not `$machine<S>()({ … })` with one object literal; a `name` or
@@ -25,7 +25,7 @@ import type { Compiler } from './compiler.ts';
 import { GATES } from './gates.ts';
 
 /** Where the runtime the output calls lives. */
-export const MACHINE_RUNTIME = '@ogygia/machine/internal';
+export const MACHINE_RUNTIME = '@ogygia/machine';
 
 /** The longest delay a timer holds (2^31 - 1 ms). */
 const MAX_TIMEOUT_MS = 2_147_483_647;
@@ -38,7 +38,7 @@ export interface ReadMachine {
 	readonly name: string;
 	readonly names: readonly string[];
 	readonly initial: number;
-	/** Each state's steps, `words` 32-bit words per state (`define`'s layout). */
+	/** Each state's steps, `words` 32-bit words per state (`runDef`'s layout). */
 	readonly masks: readonly number[];
 	/** Each timeout: its state, its ms and data as written (data `null`: none), its `to`. */
 	readonly timed: ReadonlyArray<{ state: number; ms: N; to: number; data: N }>;
@@ -64,8 +64,8 @@ export class MachinePass implements Pass<Scope> {
 		if (config.type !== 'ObjectExpression') c.report.fail(config, SHAPE);
 		const read = read_machine(this.#c, config);
 		const e = this.#c.emitter;
-		const define = e.imported(MACHINE_RUNTIME, 'define');
-		const compiled = e.imported(MACHINE_RUNTIME, 'compiled');
+		const define = e.imported(MACHINE_RUNTIME, 'runDef');
+		const compiled = e.imported(MACHINE_RUNTIME, 'compiledRunDef');
 		const rules = GATES.get('rules')!.check(e);
 		const timed = read.timed.map(
 			(t) => `[${t.state}, ${e.text(t.ms)}, ${t.to}${t.data === null ? '' : `, ${e.text(t.data)}`}]`
@@ -125,7 +125,7 @@ function number_of(c: Compiler, node: N): number | null {
 const string_of = (node: N): string | null =>
 	node?.type === 'Literal' && typeof node.value === 'string' ? (node.value as string) : null;
 
-/** Reads and checks the definition `config` (an object literal), as `define` and its dev checks
+/** Reads and checks the definition `config` (an object literal), as `runDef` and its dev checks
  *  would at runtime. */
 export function read_machine(c: Compiler, config: N): ReadMachine {
 	const props = new Map<string, N>();
@@ -254,7 +254,7 @@ export function read_machine(c: Compiler, config: N): ReadMachine {
 			const fn = ms.type === 'ArrowFunctionExpression' || ms.type === 'FunctionExpression';
 			const n = fn ? null : number_of(c, ms);
 			// (an ms the build cannot read, a const of another module, is checked where the time is
-			// armed, and by define in dev and rules builds)
+			// armed, and by runDef in dev and rules builds)
 			if (!fn && n !== null && (!Number.isFinite(n) || n < 0 || n > MAX_TIMEOUT_MS))
 				c.report.fail(
 					ms,

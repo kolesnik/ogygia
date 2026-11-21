@@ -1,6 +1,6 @@
 import { seen, tasks } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 
 type Heard = (on: boolean) => void;
 type Seen = { crosses: boolean; w: number; h: number };
@@ -174,7 +174,7 @@ class Tracker {
 
 class Trackers {
 	readonly by_margin = new Map<string, Tracker>();
-	readonly owner: Life = life.root();
+	readonly owner: Life = life.rootLife();
 }
 let T: Trackers | null = null;
 

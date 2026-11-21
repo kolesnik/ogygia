@@ -8,7 +8,7 @@
 // below the fold and ready; `late` asks for a turn without a snapshot (a stalled observer: it was
 // never registered, so the drain waits its 48 ms, then goes on without it).
 import { afterEach, expect, test } from 'vitest';
-import { life_of } from '@ogygia/machine/internal';
+import { lifeOf } from '@ogygia/machine';
 import {
 	hydrate_started,
 	hydrate_turn,
@@ -52,8 +52,8 @@ afterEach(() => {
 test('a short snapshot wait set after a long hold wakes the drain at its own time', async () => {
 	const top = region('top');
 	const low = region('low');
-	register_region(top, life_of(page));
-	register_region(low, life_of(page));
+	register_region(top, lifeOf(page));
+	register_region(low, lifeOf(page));
 	await snapshots();
 	hydrate_started(top); // a viewport island still loads its module
 	const t0 = performance.now();
@@ -74,8 +74,8 @@ test('a short snapshot wait set after a long hold wakes the drain at its own tim
 test('a long hold set after a short wait ran out still ends at its own deadline', async () => {
 	const top = region('top');
 	const low = region('low');
-	register_region(top, life_of(page));
-	register_region(low, life_of(page));
+	register_region(top, lifeOf(page));
+	register_region(low, lifeOf(page));
 	await snapshots();
 	hydrate_started(top); // loads, and never takes its turn in this test
 	const t0 = performance.now();

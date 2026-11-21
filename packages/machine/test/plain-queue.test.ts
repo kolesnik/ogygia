@@ -1,10 +1,10 @@
 /**
- * plain_queue(): the server's bounded first-come-first-served line, as queue({ max }) makes it,
+ * plainQueue(): the server's bounded first-come-first-served line, as queue({ max }) makes it,
  * with none of the passes' options (it refuses them, and a missing max).
  */
 import { describe, expect, test } from 'vitest';
 import { queue, scope, type Place, type Queue, type QueueOptions } from '../src/index.ts';
-import { plain_queue, trusted_plain_queue } from '../src/internal.ts';
+import { plainQueue, trustedPlainQueue } from '../src/index.ts';
 
 type Made = (o: QueueOptions<number>) => Queue<number>;
 
@@ -41,23 +41,23 @@ function walk(make: Made, seed: number): string {
 	return said.join(' ');
 }
 
-describe('plain_queue', () => {
+describe('plainQueue', () => {
 	test('it walks as queue({ max }) walks: every start, stale, wait and hold the same', () => {
 		for (let seed = 1; seed <= 200; seed++) {
 			const want = walk((o) => queue(o), seed);
-			expect(walk(plain_queue, seed)).toBe(want);
-			expect(walk(trusted_plain_queue, seed)).toBe(want);
+			expect(walk(plainQueue, seed)).toBe(want);
+			expect(walk(trustedPlainQueue, seed)).toBe(want);
 		}
 	});
 
 	test('it refuses what only passes take, and a missing max', () => {
 		const start = () => {};
-		expect(() => plain_queue({ start })).toThrow(/machine_bad_option|max/);
-		expect(() => plain_queue({ max: 2, start, priority: () => 0 })).toThrow(/plain_queue/);
-		expect(() => plain_queue({ max: 2, start, ready: () => true })).toThrow(/plain_queue/);
-		expect(() => plain_queue({ max: 2, start, budget: { ms: 1, yield: () => {} } })).toThrow(
-			/plain_queue/
+		expect(() => plainQueue({ start })).toThrow(/machine_bad_option|max/);
+		expect(() => plainQueue({ max: 2, start, priority: () => 0 })).toThrow(/plainQueue/);
+		expect(() => plainQueue({ max: 2, start, ready: () => true })).toThrow(/plainQueue/);
+		expect(() => plainQueue({ max: 2, start, budget: { ms: 1, yield: () => {} } })).toThrow(
+			/plainQueue/
 		);
-		expect(() => plain_queue({ max: 0, start })).toThrow();
+		expect(() => plainQueue({ max: 0, start })).toThrow();
 	});
 });

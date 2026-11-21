@@ -4,7 +4,7 @@
 // `waiting -> waiting`, wake `cold -> waking`). A machine made by `flights()` is not here: its steps
 // are the primitive's own, taken by other flights.
 import { describe, expect, it } from 'vitest';
-import * as fsm from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine';
 import type { MachineGraph } from '@ogygia/machine';
 import { batch_stream_graph } from '../src/runtime/frame-nav.ts';
 import { hole_graph, wake_graph } from '../src/runtime/region-machines.ts';

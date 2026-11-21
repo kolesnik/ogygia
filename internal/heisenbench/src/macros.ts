@@ -73,7 +73,7 @@ export function register_macro_mirror(): void {
 /** `files` (repository paths) as a run loads them: a core file with macros as its mirror, the code
  *  a bench counts and core's tests (its vitest macros) run, so an inventory of them names each
  *  function as their reports do: `$rules(function f …)` is `f`, a maker call the build checked sits
- *  in `trusted_<maker>:0`. */
+ *  in its trusted maker (`trustedPassQueue:0`). */
 export function as_run(files: readonly string[]): string[] {
 	return files.map((f) => {
 		const to = mirrored(join(REPO, f));

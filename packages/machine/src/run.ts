@@ -1,6 +1,6 @@
 /**
- * @internal The machine runtime, as plain data and a record whose methods are its moves: what
- * `machine()` is built on, and what ogygia's own runtime calls (`@ogygia/machine/internal`).
+ * The machine runtime, as plain data and a record whose methods are its moves: what `machine()`
+ * is built on, and what ogygia's own runtime calls (`runDef`, `compiledRunDef`, `createRun`).
  *
  * - A definition (`Def`) is its states as ints: their names in order (`names`), each state's steps
  *   as a bitmask of the states it may go to (`masks`, `words` words of 32 bits per state: one for
@@ -72,7 +72,7 @@ interface Timed {
 	readonly data: ((now: State) => object) | undefined;
 }
 
-/** @internal A definition as the runtime reads it (`S`, `T`, `I`: its types, for the typed calls). */
+/** `RunDef`: a definition as the runtime reads it (`S`, `T`, `I`: its types, for the typed calls). */
 export interface Def<S = unknown, T = unknown, I = unknown> {
 	/** Its types, for the typed calls (never set). */
 	readonly _types?: [S, T, I];
@@ -102,7 +102,7 @@ export interface Def<S = unknown, T = unknown, I = unknown> {
 	life: new (label: string | null) => Life;
 }
 
-/** @internal The machines a definition makes: `RunOf<typeof def>`. */
+/** The machines a definition makes: `RunOf<typeof def>`. */
 export type RunOf<D> = D extends Def<infer S, infer T> ? Run<S, T> : never;
 
 type Waiter = { kind: number; resolve: (value: State | Stale) => void };
@@ -111,7 +111,7 @@ type KindOf<S> = unknown extends S ? string : Kind<S>;
 type ValueOf<S> = unknown extends S ? State : StateOf<S>;
 type DataOf<S> = unknown extends S ? object | undefined : S[keyof S] & object;
 
-/** @internal A running machine: its state's int, that state's data, and its visits so far
+/** A running machine: its state's int, that state's data, and its visits so far
  *  (`S`, `T`: its types, for the typed calls). Its moves are its methods. */
 export class Run<
 	// oxlint-disable-next-line typescript/no-explicit-any -- a bare `Run` takes every machine: its typed reads make it invariant in `S`, so only `any` lets every machine fit it
@@ -427,7 +427,7 @@ function check(def: Def): void {
 			});
 }
 
-/** @internal Reads a definition into the runtime's form, refusing what cannot run (in every build:
+/** `runDef`: reads a definition into the runtime's form, refusing what cannot run (in every build:
  *  no state to start in, a timeout that is not one of its state's steps or not a time; in dev:
  *  every other mistake, `check`). */
 export function define(
@@ -510,7 +510,7 @@ const NO_STEPS: Readonly<Record<string, readonly string[]>> = /* @__PURE__ */ Ob
 	Object.create(null) as Record<string, readonly string[]>
 );
 
-/** @internal A state's own timeout as the build writes it: `[state, ms, to, data]`. */
+/** A state's own timeout as the build writes it: `[state, ms, to, data]`. */
 export type CompiledTimeout = readonly [
 	state: number,
 	ms: number | ((now: State) => number),
@@ -519,9 +519,9 @@ export type CompiledTimeout = readonly [
 ];
 
 /**
- * @internal A definition the build already read and checked (`$machine`, internal/macros): its
- * states' names in order, its initial state's int, each state's steps as masks (`define`'s layout)
- * and its timeouts. What a production build runs in place of `define`, which dev and rules builds
+ * `compiledRunDef`: a definition the build already read and checked (`$machine`, internal/macros): its
+ * states' names in order, its initial state's int, each state's steps as masks (`runDef`'s layout)
+ * and its timeouts. What a production build runs in place of `runDef`, which dev and rules builds
  * keep (its checks, `graph()` and `paths()` read the steps by name).
  */
 export function compiled(
@@ -562,7 +562,7 @@ export function compiled(
 	};
 }
 
-/** @internal A new machine of `def`, in its initial state (with `data`, if that state has data). */
+/** `createRun`: a new machine of `def`, in its initial state (with `data`, if that state has data). */
 export function create<S extends Shape<S>, T extends Steps<S>, I extends Kind<S>>(
 	def: Def<S, T, I>,
 	...data: DataArgs<S[I]>
@@ -571,8 +571,8 @@ export function create(def: Def, data?: object): Run {
 	return new Run(def, data);
 }
 
-/** @internal Defines a machine for ogygia's own runtime, as `machine()` does (the same `Config`,
- *  the same refusals), as the runtime's plain definition: its machines are made by `create`. */
+/** `runDefinition`: defines a machine for ogygia's own runtime, as `machine()` does (the same `Config`,
+ *  the same refusals), as the runtime's plain definition: its machines are made by `createRun`. */
 export function definition<S extends Shape<S>>(): <
 	const T extends Steps<S>,
 	const I extends Kind<S>

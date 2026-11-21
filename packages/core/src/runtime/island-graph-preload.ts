@@ -2,7 +2,7 @@ import { decode_island_graph, decode_island_locations } from '../island-graph-re
 import { OGYGIA_GRAPH, OGYGIA_GRAPH_PRELOAD } from '../wire-markup.ts';
 import { note_entry_location } from './entry-locations.ts';
 import { code_url } from './code-origins.ts';
-import { lru } from '@ogygia/machine/internal';
+import { lru } from '@ogygia/machine';
 import { runtime_session } from './session.ts';
 
 const GRAPH_SELECTOR = `script[${OGYGIA_GRAPH}]`;

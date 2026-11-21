@@ -25,8 +25,51 @@ function well_formed(url: string): boolean {
 
 export { app_path } from './app-base.ts';
 
-/** Kit's `asset()` for a base-less URL ogygia baked (`/_app/immutable/x.js`). */
+let asset_request: (() => object | null) | null = null;
+let asset_check: ((path: string, ours: string, kits: string) => void) | null = null;
+const prefixes = new WeakMap<object, string | null>();
+const PROBE = '/_app';
+
+/** Installs the reader of the request `asset()` answers for (the server's handle), and with rules on
+ *  the check of each answer against Kit's. */
+export function set_asset_request_reader(
+	read: (() => object | null) | null,
+	check: ((path: string, ours: string, kits: string) => void) | null = null
+): void {
+	asset_request = read;
+	asset_check = check;
+}
+
+function plain_path(file: string): boolean {
+	return !file.includes('[') && !file.includes('(') && !file.includes('//');
+}
+
+/** Kit's `asset()` for a base-less URL ogygia baked (`/_app/immutable/x.js`). Within one request Kit
+ *  answers a plain path as one prefix and the path, so it is asked once per request (its answer for
+ *  a probe) instead of once per URL: each ask resolves the path as a route. */
 export function kit_asset(file: string): string {
+	if (asset_request !== null && wants_slash !== null) {
+		const request = asset_request();
+		if (request !== null && file.startsWith('/') && plain_path(file)) {
+			let prefix = prefixes.get(request);
+			if (prefix === undefined) prefixes.set(request, (prefix = asset_prefix(wants_slash)));
+			if (prefix !== null) {
+				const out = prefix + (wants_slash ? file : file.slice(1));
+				if (asset_check !== null) asset_check(file, out, kit_call(file));
+				return out;
+			}
+		}
+	}
+	return kit_call(file);
+}
+
+function asset_prefix(slash: boolean): string | null {
+	const arg = slash ? PROBE : PROBE.slice(1);
+	const out = (asset as (f: string) => string)(arg);
+	return out.endsWith(arg) ? out.slice(0, out.length - arg.length) : null;
+}
+
+function kit_call(file: string): string {
 	const call = asset as (f: string) => string;
 	if (!file.startsWith('/')) return call(file);
 	if (wants_slash === null) {

@@ -10,8 +10,8 @@ import {
 	type Stale,
 	type Turn
 } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
-import type { Life, Run } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
+import type { Life, Run } from '@ogygia/machine';
 import { frameAddress, older_by, stands_at } from '../frame.ts';
 import { is_media_query, on_trigger, WAKE } from '../contract/trigger.ts';
 import { OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from '../wire-markup.ts';
@@ -192,7 +192,7 @@ const now_ms = clock.mono;
 type HydrateCore = typeof import('./hydrate-core.ts');
 let loaded_core: HydrateCore | null = null;
 const import_core = import_again(() => import('./hydrate-core.ts'));
-const hydrate_core = plain_flights({
+const hydrate_core = plainFlights({
 	name: 'hydrate core',
 	run: () =>
 		yield_task()

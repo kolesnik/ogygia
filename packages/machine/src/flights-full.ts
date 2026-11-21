@@ -119,6 +119,6 @@ function heard_move(
  *  `flights.keyed<Ask>()({ key: ['href'], run })`. */
 export const flights: Makers<{}, 'any'> = /* @__PURE__ */ makers<{}, 'any'>(Full, check_flights);
 
-/** @internal {@link flights} (or `flights.keyed<I>()`) for options its caller's build checked
- *  ({@link check_flights}, run on a literal). */
+/** `trustedFlights`: {@link flights} (or `flights.keyed<I>()`) for options its caller's build
+ *  checked (`checkFlights`, run on a literal). */
 export const trusted_flights: Makers<{}, 'any'> = /* @__PURE__ */ makers<{}, 'any'>(Full, null);

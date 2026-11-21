@@ -21,20 +21,20 @@ import {
 	type Stage
 } from '../src/index.ts';
 import {
-	compiled,
-	create,
-	type Def,
-	held,
-	life_of,
-	pass_queue,
-	plain_flights,
-	plain_queue,
-	root,
-	trusted_flights,
-	trusted_pass_queue,
-	trusted_plain_flights,
-	trusted_plain_queue
-} from '../src/internal.ts';
+	compiledRunDef,
+	createRun,
+	type RunDef,
+	heldBy,
+	lifeOf,
+	passQueue,
+	plainFlights,
+	plainQueue,
+	rootLife,
+	trustedFlights,
+	trustedPassQueue,
+	trustedPlainFlights,
+	trustedPlainQueue
+} from '../src/index.ts';
 import { KEYS_KEPT } from '../src/world.ts';
 import { MACHINE_ERRORS, machine_error, report } from '../src/messages.ts';
 import { backoffAfter, under_policy } from '../src/policy.ts';
@@ -954,10 +954,10 @@ function chain_masks(n: number): { names: string[]; masks: number[] } {
 bench(
 	'machine: a compiled definition of n states (a production build), its machines made and walked',
 	({ names, masks }) => {
-		const def = compiled('chain', names, 0, masks, [[1, 60_000, 0]]);
+		const def = compiledRunDef('chain', names, 0, masks, [[1, 60_000, 0]]);
 		let moved = 0;
 		for (let i = 0; i < 20; i++) {
-			const m = (create as (def: Def) => { go(to: string): boolean; stop(): void })(def);
+			const m = (createRun as (def: RunDef) => { go(to: string): boolean; stop(): void })(def);
 			for (let k = 1; k < names.length; k++) if (m.go(names[k]!)) moved++;
 			m.stop();
 		}
@@ -980,12 +980,12 @@ bench(
 		for (let i = 0; i < n; i++) {
 			const ref = { id: i };
 			const made = [
-				plain_flights({ run }),
-				trusted_plain_flights({ run }),
-				plain_flights.keyed<{ href: string }>()({ key: ['href'], run }),
-				trusted_plain_flights.keyed<{ href: string }>()({ key: [], run }),
+				plainFlights({ run }),
+				trustedPlainFlights({ run }),
+				plainFlights.keyed<{ href: string }>()({ key: ['href'], run }),
+				trustedPlainFlights.keyed<{ href: string }>()({ key: [], run }),
 				flights.keyed<{ ref: object; tag: string }>()({ key: ['ref', 'tag'], run }),
-				trusted_flights.keyed<{ ref: object; tag: string }>()({ key: ['ref', 'tag'], run })
+				trustedFlights.keyed<{ ref: object; tag: string }>()({ key: ['ref', 'tag'], run })
 			] as Array<{
 				get(input: unknown, o?: { signal?: AbortSignal }): Promise<unknown>;
 				[Symbol.dispose](): void;
@@ -1013,9 +1013,9 @@ bench(
 	"queue: the runtime's pass queues (checked and trusted), ranked jobs through two places",
 	async ({ n }) => {
 		let started = 0;
-		const owner = root();
+		const owner = rootLife();
 		const make = (checked: boolean) =>
-			(checked ? pass_queue : trusted_pass_queue)<number>({
+			(checked ? passQueue : trustedPassQueue)<number>({
 				max: 2,
 				owner,
 				priority: (job) => job % 3,
@@ -1037,7 +1037,7 @@ bench(
 	'scope: once listeners heard and dropped, lives capped by close_after, what each still holds',
 	async ({ n }) => {
 		const target = new EventTarget();
-		const top = root();
+		const top = rootLife();
 		let heard = 0;
 		let holding = 0;
 		for (let i = 0; i < n; i++) {
@@ -1045,12 +1045,12 @@ bench(
 			l.listen(target, 'ping', () => heard++, { once: true });
 			if (i % 2 === 0) l.listen(target, 'ping', () => heard++);
 			l.close_after(i % 3 === 0 ? 0 : 60_000);
-			holding += held(life_of(l));
+			holding += heldBy(lifeOf(l));
 		}
 		target.dispatchEvent(new Event('ping'));
 		target.dispatchEvent(new Event('ping'));
 		await new Promise((r) => setTimeout(r, 1));
-		holding += held(top);
+		holding += heldBy(top);
 		top.close();
 		return heard + holding;
 	},
@@ -1088,7 +1088,7 @@ bench(
 	async ({ n }) => {
 		let started = 0;
 		const make = (checked: boolean) =>
-			(checked ? plain_queue : trusted_plain_queue)<number>({
+			(checked ? plainQueue : trustedPlainQueue)<number>({
 				max: 2,
 				start: (_job, place) => {
 					started++;

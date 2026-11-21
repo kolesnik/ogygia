@@ -14,7 +14,7 @@ import type * as devalue from 'devalue';
 import { devalue_text } from './devalue-text.ts';
 import { transport as app_transport } from 'ogygia:region';
 import { create_remote_key } from 'ogygia:server';
-import { analyze } from '../seed-refs.ts';
+import { analyze, type MeasureMemo } from '../seed-refs.ts';
 import { SeedIndex } from '../seed-index.ts';
 import type { PageSnapshot } from '../page-seed-registry.ts';
 import type { RequestFacts } from '../plugin/facts.ts';
@@ -48,6 +48,9 @@ export interface SeedBag {
 	readonly seed_keys: SeedKeys | null;
 	readonly tail: DocumentTail;
 	readonly facts: RequestFacts;
+	/** the request's measure memo (seed-refs.ts): this step runs after Kit cleared its request
+	 *  store, where the installed reader finds no request */
+	readonly measure_memo: MeasureMemo;
 	deferred: Deferred[] | null;
 	defer_next_id: number;
 	seed_reducers: Record<string, (v: unknown) => unknown> | null;
@@ -103,7 +106,8 @@ export async function ship_page_seed(
 	scripts: string[]
 ): Promise<ShippedSeed | typeof STALE> {
 	const page_snap = bag.page!;
-	const index = SeedIndex.of(page_snap.data);
+	const memo = bag.measure_memo;
+	const index = SeedIndex.of(page_snap.data, memo);
 	const tail_html = bag.tail.render(index, detail, mark_attr(bag.request));
 	const keys = bag.seed_keys!;
 	if (keys !== 'all') for (const k of index.touched) keys.add(k);
@@ -111,8 +115,8 @@ export async function ship_page_seed(
 	let seed_data = shaped_data;
 	let seed_form = page_snap.form;
 	const { seed_reducers, seed_stringify } = seed_codecs(app_transport);
-	const data_shape = analyze(shaped_data);
-	const form_shape = analyze(page_snap.form ?? null);
+	const data_shape = analyze(shaped_data, memo);
+	const form_shape = analyze(page_snap.form ?? null, memo);
 	const has_pending = data_shape.thenable || form_shape.thenable;
 	if (has_pending) bag.facts.reads.visitor('streamed load (promise in page data)');
 	if (has_pending && event?.request.headers.get('sec-fetch-mode') === 'navigate') {
@@ -151,7 +155,10 @@ export async function ship_page_seed(
 					error: page_snap.error
 				},
 				seed_stringify,
-				!has_pending && data_shape.json && form_shape.json && analyze(page_snap.error ?? null).json
+				!has_pending &&
+					data_shape.json &&
+					form_shape.json &&
+					analyze(page_snap.error ?? null, memo).json
 			)
 		: null;
 	if (payload)

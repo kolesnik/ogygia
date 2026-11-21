@@ -1,5 +1,5 @@
-import type { Run } from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
+import type { Run } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
 import { connected_regions } from './connected.ts';
 import { OG_FP, OGYGIA_REGION_CSS } from '../wire-markup.ts';
 import { runtime_session } from './session.ts';
@@ -43,7 +43,7 @@ const sheets = new WeakMap<HTMLLinkElement, RegionSheet>();
 export function sheet_of(link: HTMLLinkElement): RegionSheet {
 	const known = sheets.get(link);
 	if (known !== undefined) return known;
-	const s = fsm.create(sheet_definition);
+	const s = fsm.createRun(sheet_definition);
 	sheets.set(link, s);
 	const visit = s.visit();
 	visit.listen(link, 'load', () => s.go('loaded'));

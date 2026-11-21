@@ -1,8 +1,8 @@
 import { OgygiaError, warn } from '../messages/lazy.ts';
 import { STALE, tasks } from '@ogygia/machine';
 import { kit_boot_said, kit_page_flights } from './kit-page-makers.ts';
-import * as life from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { code_url, import_code, type CodeUrl } from './code-origins.ts';
 
 const KIT_PAGE_KEY = Symbol.for('ogygia.kit-page');
@@ -35,7 +35,7 @@ export function kit_page_thread(signal?: AbortSignal): Promise<unknown> | null {
 }
 
 const pending = kit_page_flights((_: void, signal: AbortSignal) => {
-	const wait = life.root();
+	const wait = life.rootLife();
 	wait.listen(signal, 'abort', () => wait.close());
 	return new Promise<void>((resolve, reject) => {
 		const fail = (url: string, error: unknown) => {

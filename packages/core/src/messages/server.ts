@@ -418,6 +418,16 @@ export const SERVER_WARNINGS = {
 			Removing \`dataShake()\` makes every server island look the page up.
 		`
 	},
+	rule_asset_not_prefixed: {
+		text: (a: { detail: string }): string =>
+			`rule broken, an asset URL is the request's prefix and its path: ${a.detail}`,
+		details: (): string => prose`
+			Dev and e2e builds only (a rule ogygia checks on itself). Within one request, ogygia asks
+			Kit's \`asset()\` for the prefix it puts before a path once, then writes each of its URLs
+			as that prefix and the path. This Kit answered a path some other way, so a URL ogygia
+			wrote differs from Kit's own: please report it with your Kit version and \`paths\` config.
+		`
+	},
 	rule_kept_unkeyed_read: {
 		text: (a: { detail: string }): string =>
 			`rule broken, a kept render reads nothing its key leaves out: ${a.detail}`,

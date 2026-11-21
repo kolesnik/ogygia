@@ -1,5 +1,5 @@
 import type { Scope } from '@ogygia/machine';
-import * as fsm from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine';
 import { OG_LEN, OGYGIA_SLOT } from '../wire-markup.ts';
 
 const STREAM_DONE_SLOT = '__ogygia_done__';
@@ -63,7 +63,7 @@ export function batch_stream(
 	owner?: Scope
 ): ReadableStream<Uint8Array> {
 	const encoder = new TextEncoder();
-	const batch = fsm.create((batch_def ??= batch_definition()));
+	const batch = fsm.createRun((batch_def ??= batch_definition()));
 	owner?.defer(() => {
 		batch.move('streaming', 'cancelled');
 	});

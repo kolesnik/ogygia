@@ -1,7 +1,7 @@
 import { clock, type Place, type Queue } from '@ogygia/machine';
-import { plain_queue } from '@ogygia/machine/internal';
-import * as life from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import { plainQueue } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 
 export interface GateOptions {
 	/** The call answers within this long: the wait for a slot and the run together. */
@@ -16,7 +16,7 @@ const RUN_TIMEOUT = 'region render timeout';
 const WAIT_TIMEOUT = 'region render queue timeout';
 
 export class ConcurrencyGate {
-	/** The slots (@ogygia/machine/internal `plain_queue()`, first come first served): a freed slot
+	/** The slots (@ogygia/machine `plainQueue()`, first come first served): a freed slot
 	 *  is handed to the next call in the same step, and a call whose deadline came is passed over. */
 	readonly #slots: Queue<Waiter>;
 	readonly #limit: number;
@@ -25,7 +25,7 @@ export class ConcurrencyGate {
 	constructor(max: number) {
 		const limit = Math.max(1, max);
 		this.#limit = Number.isFinite(limit) ? Math.ceil(limit) : Number.MAX_SAFE_INTEGER;
-		this.#slots = plain_queue<Waiter>({
+		this.#slots = plainQueue<Waiter>({
 			name: 'render gate',
 			max: this.#limit,
 			start: (w, place) => w.enter(place),
@@ -38,7 +38,7 @@ export class ConcurrencyGate {
 		const { deadline_ms, signal } = options;
 		if (signal?.aborted) throw signal.reason;
 		const deadline = deadline_ms === undefined ? Infinity : clock.mono() + deadline_ms;
-		const call = life.root();
+		const call = life.rootLife();
 		try {
 			const slot = await this.#enter(deadline, signal, call);
 			if (signal?.aborted) {

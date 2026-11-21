@@ -1,7 +1,7 @@
 import { clock } from '@ogygia/machine';
 import type { HoleRefusal } from '../contract/runtime-hooks.ts';
 import { entry_location } from './entry-locations.ts';
-import { lru } from '@ogygia/machine/internal';
+import { lru } from '@ogygia/machine';
 
 /** Hoisted (hot paths — connectedCallback/hydrate run per region); shared with core's
  *  foreign-origin checks. */
