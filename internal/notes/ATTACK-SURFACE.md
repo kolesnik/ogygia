@@ -159,8 +159,8 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/core/src/events/sinks.ts` | `ingest_server_events` | `JSON.parse` | 1 |
 | `packages/core/src/head-owners.ts` | `adopt_owner_record` | `JSON.parse` | 1 |
 | `packages/core/src/hooks.ts` | `decode_pathname` | `decodeURIComponent` | 1 |
-| `packages/core/src/island-graph.ts` | `decode_island_graph` | `JSON.parse` | 1 |
-| `packages/core/src/island-graph.ts` | `decode_island_locations` | `JSON.parse` | 1 |
+| `packages/core/src/island-graph-read.ts` | `decode_island_graph` | `JSON.parse` | 1 |
+| `packages/core/src/island-graph-read.ts` | `decode_island_locations` | `JSON.parse` | 1 |
 | `packages/core/src/runtime/hole-facts.ts` | `parse_record` | `JSON.parse` | 1 |
 | `packages/core/src/runtime/kit-page-thread.svelte.ts` | `kit_boot` | `JSON.parse` | 1 |
 | `packages/core/src/runtime/page-defer.ts` | `(module)` | `devalue parse` | 1 |
