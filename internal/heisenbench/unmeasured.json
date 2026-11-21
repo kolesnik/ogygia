@@ -4885,6 +4885,22 @@
 			"reason": "a slot's maker: builds the request contexts' empty WeakMap, once per process, constant work"
 		},
 		{
+			"id": "packages/core/src/server/page-context.ts > install_page_context > set_ctx_recorder:0~ba498c",
+			"reason": "the drop-in setContext recorder (moved from hooks.ts, unmeasured there too): one map write by the live request, which a replay cannot hold; constant work; proven in packages/core/test/request-bag.test.ts"
+		},
+		{
+			"id": "packages/core/src/server/document-seeds.ts > seed_codecs > map:0~f11e5e",
+			"reason": "one app transport codec's encoder picked out (moved from hooks.ts): once per transport, the codecs are cached; proven in packages/core/test/app-transport-on-every-kit.test.ts"
+		},
+		{
+			"id": "packages/core/src/server/document-seeds.ts > remote_seed_script > map:0~f11e5e",
+			"reason": "one app transport codec's encoder picked out for the remote seed (moved from hooks.ts): constant work per codec; proven in packages/core/test/app-transport-on-every-kit.test.ts"
+		},
+		{
+			"id": "packages/core/src/seed-index.ts > SeedIndex > has",
+			"reason": "a WeakMap lookup (moved verbatim from seed-refs.ts), constant work; proven in packages/core/test/seed-refs.test.ts"
+		},
+		{
 			"id": "packages/core/src/hooks.ts > shared:0~4b3d66 > make",
 			"reason": "a slot's maker: builds the document asks' empty WeakMap, once per process, constant work"
 		},
