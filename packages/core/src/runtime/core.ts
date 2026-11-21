@@ -79,7 +79,8 @@ import {
 	region_hydrate_schedule,
 	region_schedule
 } from './region-attrs.ts';
-import { slots, type FrameOps, type LiveLink, type LiveTick, type WakeLink } from './slots.ts';
+import { slots, type LiveLink, type LiveTick, type WakeLink } from './slots.ts';
+import { frames, lakes } from 'ogygia:boot/feature-code';
 import { say_reload_needed } from './reload-needed.ts';
 import {
 	create_answer,
@@ -158,6 +159,12 @@ const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS_
 const RULES =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
+
+/** The frame store as this source types it: the virtual module's declaration types it from the
+ *  built package, whose answer brand (`VerifiedHtml`) is another type than the source's. Cast at
+ *  each call that hands one across, never bound to a name: an alias makes the app's build keep the
+ *  module as an object (test: apps/palaestra/e2e/lazy-chunks.spec.ts › the boot's files). */
+type Frames = typeof import('./frames.ts');
 
 const SSR_SNAPSHOT_MAX = 1 << 19;
 
@@ -568,10 +575,7 @@ class OgygiaRegion extends HTMLElement {
 				}
 			}
 		}
-		if (
-			is_frozen(this) &&
-			(!(HAS & F_LAKES) || (slots.lakes?.on_frozen_connect(this, this.#lake_arm()) ?? true))
-		)
+		if (is_frozen(this) && (!(HAS & F_LAKES) || lakes.on_frozen_connect(this, this.#lake_arm())))
 			return;
 		if (this.#region.kind === 'scheduled') return;
 		const boundary = this.parentElement && this.parentElement.closest('ogygia-region');
@@ -625,7 +629,7 @@ class OgygiaRegion extends HTMLElement {
 			if (pristine != null) mark_region_changed(this);
 		}
 		if (this.#ssr_html !== null) this.#watch();
-		if (!deferred && HAS & F_LAKES && slots.lakes?.wait_for_boundary(this, boundary)) return;
+		if (!deferred && HAS & F_LAKES && lakes.wait_for_boundary(this, boundary)) return;
 		this.#region.move('connected', 'scheduled', this.#region.data);
 		// A hole that had its answer, put back on the page: its schedule is spent (#336)
 		if (HAS & F_FRAMES && deferred && this.#answer.kind !== 'none') {
@@ -702,11 +706,11 @@ class OgygiaRegion extends HTMLElement {
 		const address = frameAddress(endpoint);
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'region.prefetch', ...dt_ids(this) });
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a warm ahead; the hole's own fetch asks again and says its failure
-		void slots.frames
-			?.ensure(address, this.#frame_fetcher(endpoint, false, 'ahead'), {
+		void (frames as unknown as Frames)
+			.ensure(address, this.#frame_fetcher(endpoint, false, 'ahead'), {
 				priority: PRIORITY.ahead
 			})
-			?.catch(() => {});
+			.catch(() => {});
 	}
 
 	/**
@@ -760,7 +764,7 @@ class OgygiaRegion extends HTMLElement {
 			revalidate,
 			priority,
 			signal,
-			renewed: (fresh) => slots.frames?.renew(address, fresh)
+			renewed: (fresh) => frames.renew(address, fresh)
 		});
 	}
 
@@ -906,7 +910,7 @@ class OgygiaRegion extends HTMLElement {
 	 */
 	#adopt_renewed() {
 		const address = this.#frame_address;
-		const fresh = address ? slots.frames?.renewal(address) : null;
+		const fresh = HAS & F_FRAMES && address ? frames.renewal(address) : null;
 		const current = this.getAttribute('endpoint');
 		if (!fresh || fresh === current || (current && !capability_expired(current))) return;
 		this.#minted_endpoint = fresh;
@@ -928,7 +932,7 @@ class OgygiaRegion extends HTMLElement {
 		});
 		const box = this.#box;
 		let replayed = false;
-		const off = slots.frames?.subscribe(address, (f) => {
+		const off = (frames as unknown as Frames).subscribe(address, (f) => {
 			replayed = true;
 			note_handed(this, address, f.v, () => this.#paint.kind === 'painting');
 			box.post((turn) => {
@@ -1029,8 +1033,8 @@ class OgygiaRegion extends HTMLElement {
 		use_sheets(this, sheets);
 		this.#shown = html;
 		if (HAS & F_LAKES) {
-			slots.lakes?.settle_in(frag);
-			slots.lakes?.mark_frozen_settled(this);
+			lakes.settle_in(frag);
+			lakes.mark_frozen_settled(this);
 		}
 		const morph = slots.morph;
 		if (!this.#app && region_hydrate_schedule(this)) {
@@ -1047,10 +1051,10 @@ class OgygiaRegion extends HTMLElement {
 		if (revalidate) this.setAttribute('data-revalidated', '');
 		else if (!is_awake(this)) this.setAttribute('data-hydrated', '');
 		if (HAS & F_LAKES)
-			slots.lakes?.after_html_swap(this, { revalidate }, () => this.#wake_waiting_regions());
+			lakes.after_html_swap(this, { revalidate }, () => this.#wake_waiting_regions());
 		if (holeAnswered && !revalidate && this.#fetch_started) {
 			const ep = this.getAttribute('endpoint');
-			const batch = ep ? slots.frames?.batch_times?.(ep) : undefined;
+			const batch = HAS & F_FRAMES && ep ? frames.batch_times(ep) : undefined;
 			holeAnswered({
 				el: this,
 				start: this.#fetch_started,
@@ -1093,8 +1097,6 @@ class OgygiaRegion extends HTMLElement {
 			}
 			return;
 		}
-		const frames = slots.frames;
-		if (!frames) return;
 		if (!this.#fetch_started) this.#fetch_started = clock.mono();
 		this.#bind(endpoint);
 		const address = frameAddress(endpoint);
@@ -1109,7 +1111,7 @@ class OgygiaRegion extends HTMLElement {
 				turn.wait(
 					this.#hole
 						.visit()
-						.task((signal) => this.#ensure_frame(frames, endpoint, address, revalidate, signal))
+						.task((signal) => this.#ensure_frame(endpoint, address, revalidate, signal))
 				)
 			);
 		} catch (err) {
@@ -1120,17 +1122,16 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	async #ensure_frame(
-		frames: FrameOps,
 		endpoint: string,
 		address: string,
 		revalidate: boolean,
 		signal: AbortSignal
 	): Promise<string | Stale> {
-		if (!revalidate && frames.join && !endpoint.includes('&ttl=') && !capability_expired(endpoint))
-			await frames.join(endpoint);
+		if (!revalidate && !endpoint.includes('&ttl=') && !capability_expired(endpoint))
+			await frames.join_batch(endpoint);
 		const cls = () => (this.#visitor ? 'user' : viewport_class(this));
 		const fetcher = this.#frame_fetcher(endpoint, revalidate, cls);
-		return frames.ensure(address, fetcher, {
+		return (frames as unknown as Frames).ensure(address, fetcher, {
 			force: revalidate,
 			signal,
 			priority: PRIORITY[cls()]
@@ -1248,7 +1249,7 @@ class OgygiaRegion extends HTMLElement {
 		}
 		this.#hole.go('failed');
 		if (HAS & F_LAKES)
-			slots.lakes?.after_fetch_exhausted(this, { revalidate }, () => this.#wake_waiting_regions());
+			lakes.after_fetch_exhausted(this, { revalidate }, () => this.#wake_waiting_regions());
 	}
 
 	#wake_waiting_regions() {
@@ -1387,8 +1388,7 @@ class OgygiaRegion extends HTMLElement {
 
 	async #apply_live(desc: LiveTick, turn: Turn): Promise<void> {
 		slots.live_link ??= OgygiaRegion.#live_link();
-		const frames = slots.frames;
-		if (desc.url && frames && !(desc.hydrate && desc.module))
+		if (HAS & F_FRAMES && desc.url && !(desc.hydrate && desc.module))
 			desc.written ??= { v: frames.ticket(frameAddress(desc.url)) };
 		if (slots.live_program === null)
 			try {
@@ -1433,7 +1433,7 @@ class OgygiaRegion extends HTMLElement {
 			},
 			region_fragment,
 			settle_in: (frag) => {
-				if (HAS & F_LAKES) slots.lakes?.settle_in(frag);
+				if (HAS & F_LAKES) lakes.settle_in(frag);
 			},
 			absorb_page_facts_now,
 			use_sheets,

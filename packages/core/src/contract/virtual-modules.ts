@@ -124,6 +124,15 @@ export interface RuntimeFlagsModule {
 	load_wire_codec: (() => Promise<{ install(): void }>) | null;
 }
 
+/** `ogygia:boot/feature-code`: the boot features' modules the region element calls directly, each
+ *  `null` where the build leaves the feature out (its bit is off in `HAS`, which the element tests
+ *  before every call). Only the boot imports it, so a feature's module, its state included, is in a
+ *  boot exactly when its bit is. */
+export interface FeatureCodeModule {
+	readonly lakes: typeof import('../runtime/lakes.ts');
+	readonly frames: typeof import('../runtime/frames.ts');
+}
+
 /** `ogygia:boot/hooks`: each runtime hook the app's client realms subscribe to, as the function the
  *  boot calls (it tells every realm that subscribes); every other hook `0`, so the call folds out. */
 export type HooksModule = { readonly [K in RuntimeHookName]: RuntimeHooks[K] | 0 } & {
@@ -252,6 +261,7 @@ export interface VirtualModules {
 	'ogygia:boot/runtime-entry': SideEffectModule;
 	'ogygia:boot/runtime-flags': RuntimeFlagsModule;
 	'ogygia:boot/hydrate-features': HydrateFeaturesModule;
+	'ogygia:boot/feature-code': FeatureCodeModule;
 	'ogygia:boot/hooks': HooksModule;
 	'ogygia:boot/hook-bits': HookBitsModule;
 	'ogygia:boot/devtools-meta': DevtoolsMetaModule;

@@ -3973,7 +3973,7 @@
 			"reason": "test seam: the predicate that drops every warm, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #fetch_region > fetch_hole:1~0557ca > renewed",
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #fetch_region > fetch_hole:1~5fb81c > renewed",
 			"reason": "browser only: a renewal's fresh capability handed to the frame store, constant work; proven in packages/core/test/browser/hole-renewal.test.ts"
 		},
 		{

@@ -12,6 +12,7 @@ import { client_realms_source, type ClientRealmFile } from './caps.ts';
 
 const HYPHEN = /-/g;
 const BACKSLASH = /\\/g;
+const JS_EXT = /\.js$/;
 
 /**
  * Runtime feature catalog — maps build-time marks → installable plugins.
@@ -342,6 +343,34 @@ export function generateRuntimeFlagsSource(
 		export const HAS = ${feature_word(features)};
 		export const load_wire_codec = ${load_wire_codec};
 	`}\n`;
+}
+
+/** The boot features whose module the region element calls directly (`ogygia:boot/feature-code`). */
+export const FEATURE_CODE: readonly FeatureId[] = ['lakes', 'frames'];
+
+/**
+ * Emit `ogygia:boot/feature-code`: each of {@link FEATURE_CODE}'s modules as a namespace where the
+ * build selects the feature, else `null`. The region element calls them under the feature's bit in
+ * `HAS` ({@link generateRuntimeFlagsSource}, the same marks), so the bundler binds each call to the
+ * function itself, and a build without the feature imports nothing of its module: no call, no state.
+ * `all` (dev / no marks): every one.
+ * @param runtimeDir Absolute directory containing the feature modules.
+ * @param ext the modules' extension (`.ts` where the dev server serves core's source)
+ */
+export function generateFeatureCodeSource(
+	marks: RuntimeMarks,
+	runtimeDir: string,
+	all = false,
+	ext = '.js'
+): string {
+	const features = all ? FEATURE_ORDER : resolveFeatures(marks);
+	const lines = FEATURE_CODE.map((id) => {
+		const file = FEATURES[id].module!.replace(JS_EXT, ext);
+		return features.includes(id)
+			? `export * as ${id} from ${JSON.stringify(runtime_path(runtimeDir, file))};`
+			: `export const ${id} = null;`;
+	});
+	return `${lines.join('\n')}\n`;
 }
 
 /** The server's feature word for `marks` (`all`: every feature), as
