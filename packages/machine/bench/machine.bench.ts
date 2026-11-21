@@ -940,25 +940,24 @@ bench(
 
 /** A chain of `n` states as a build compiles it (`compiled`'s masks): each state steps to the next
  *  and back to the first. */
-function chain_masks(n: number): { names: string[]; masks: number[] } {
+function chain_masks(n: number): { n: number; masks: number[] } {
 	const words = (n + 31) >>> 5;
-	const names = Array.from({ length: n }, (_, i) => `s${i}`);
 	const masks = Array.from({ length: n * words }, () => 0);
 	for (let k = 0; k < n; k++) {
 		const to = k + 1 < n ? [k + 1, 0] : [0];
 		for (const t of to) masks[k * words + (t >>> 5)] |= 1 << (t & 31);
 	}
-	return { names, masks };
+	return { n, masks };
 }
 
 bench(
 	'machine: a compiled definition of n states (a production build), its machines made and walked',
-	({ names, masks }) => {
-		const def = compiledRunDef('chain', names, 0, masks, [[1, 60_000, 0]]);
+	({ n, masks }) => {
+		const def = compiledRunDef('chain', n, 0, masks, [[1, 60_000, 0]]);
 		let moved = 0;
 		for (let i = 0; i < 20; i++) {
-			const m = (createRun as (def: RunDef) => { go(to: string): boolean; stop(): void })(def);
-			for (let k = 1; k < names.length; k++) if (m.go(names[k]!)) moved++;
+			const m = (createRun as (def: RunDef) => { go(to: number): boolean; stop(): void })(def);
+			for (let k = 1; k < n; k++) if (m.go(k)) moved++;
 			m.stop();
 		}
 		return moved;
