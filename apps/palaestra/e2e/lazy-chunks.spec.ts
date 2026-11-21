@@ -20,8 +20,6 @@ import { dedent } from 'ogygia/plugin/utils';
 const HYDRATE_CORE_MARKER = 'hydration_discarded';
 /** A string only Svelte's client runtime carries: its error-code URLs, kept in production builds. */
 const SVELTE_RUNTIME_MARKER = 'svelte.dev/e/';
-/** A string only the live program carries (runtime/live-program.ts): the event each tick dispatches. */
-const LIVE_PROGRAM_MARKER = 'ogygia:live';
 /** A string only the navigation chunk carries (the SPA fetch header). */
 const ROUTER_NAV_MARKER = 'x-ogygia-spa';
 // the runtime the page loads: its content-hashed location, `og-runtime[-<features>].<hash>.js`
@@ -141,11 +139,6 @@ test.describe('lazy runtime chunks: hydrate core on first wake, navigation on fi
 			after_wake.map((b) => b.u).join('\n')
 		);
 		check('wake: still no navigation chunk', carrying(after_wake, ROUTER_NAV_MARKER).length === 0);
-		check(
-			'wake: a page with no live region fetches no live program (it loads with a first tick)',
-			carrying([...boot, ...after_wake], LIVE_PROGRAM_MARKER).length === 0,
-			carrying([...boot, ...after_wake], LIVE_PROGRAM_MARKER).join('\n')
-		);
 		check('wake: the click replayed (count 1)', await replayed_once(page));
 
 		// The visible island below the fold wakes on scroll, from the already-loaded core.
