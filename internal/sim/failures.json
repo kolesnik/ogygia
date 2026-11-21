@@ -345,6 +345,18 @@
 			"name": "a server that ignores SIGTERM is killed after the grace time"
 		},
 		{
+			"site": "packages/tooling/src/e2e/downloads.ts > hear_downloads > observer:0",
+			"reason": "an e2e page's downloads are heard from its first byte, a full timeline or not; proved by hand: the observer never started turns the wake-gate spec red (no download heard)",
+			"test": "apps/palaestra/e2e/wake-gate.spec.ts",
+			"name": "load / visible / idle islands fetch nothing while DOMContentLoaded is held"
+		},
+		{
+			"site": "packages/tooling/src/e2e/downloads.ts > downloads > throw:0",
+			"reason": "a spec that reads downloads with no record made before its goto throws instead of reading nothing; proved by hand: the throw taken out turns the test red",
+			"test": "packages/tooling/test/e2e-downloads.test.ts",
+			"name": "a page with no record made before its goto throws, naming the call it lacks"
+		},
+		{
 			"site": "packages/tooling/src/vitest/downloads.ts > Downloads > observer:0",
 			"reason": "a download past a full resource timeline is still heard; proved by hand: the observer replaced by a read of the timeline turns the test red on Chromium, Firefox and WebKit (83487bc18)",
 			"test": "packages/core/test/browser/hydrate-visit.test.ts",
