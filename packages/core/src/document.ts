@@ -55,7 +55,7 @@ import {
 	page_declares_dev_hmr_script,
 	runtime_first
 } from './server/head-presence.ts';
-import { code_origins } from './plugin/hooks.ts';
+import { page_code_origins } from './server/page-code-origins.ts';
 import type { RegionValue } from './region.ts';
 
 export interface DocumentOptions {
@@ -210,9 +210,9 @@ export async function document(
 	// head content) — the same order the handle gives a Kit page (head-presence.ts `runtime_first`).
 	const head_html = early.length
 		? with_early_holes_meta_csp(
-				runtime_first(head.join(''), null, code_origins(), response_mark(mark_key))
+				runtime_first(head.join(''), null, page_code_origins(), response_mark(mark_key))
 			)
-		: runtime_first(head.join(''), null, code_origins(), response_mark(mark_key));
+		: runtime_first(head.join(''), null, page_code_origins(), response_mark(mark_key));
 	const html = `<!doctype html>\n<html lang="${escape_text(options.lang ?? 'en')}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${head_html}</head><body>${r.body}${page_context_script()}</body></html>`;
 
 	const headers = new Headers({ 'content-type': 'text/html; charset=utf-8' });

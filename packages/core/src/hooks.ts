@@ -98,7 +98,7 @@ import {
 	dedupe_head_links,
 	runtime_first
 } from './server/head-presence.ts';
-import { code_origins } from './plugin/hooks.ts';
+import { page_code_origins } from './server/page-code-origins.ts';
 import { locate, assemble, ogygia_script } from './server/document-assembly.ts';
 import { remote_seed_script, ship_page_seed, type ShippedSeed } from './server/document-seeds.ts';
 import { install_page_context, page_ctx_script } from './server/page-context.ts';
@@ -873,7 +873,9 @@ class OgygiaHandle {
 			const ordered =
 				head === null
 					? null
-					: with_early_csp(runtime_first(head, null, code_origins(event?.request), mark_of(bag)));
+					: with_early_csp(
+							runtime_first(head, null, page_code_origins(event?.request), mark_of(bag))
+						);
 			return assemble(
 				gate ? gate.html : html,
 				gate ? { head_end: spans.head_end, body_end: spans.body_end + gate.delta } : spans,
@@ -939,7 +941,7 @@ class OgygiaHandle {
 					: null;
 			// (with the code origins the plugins and this render named: runtime/code-origins.ts)
 			const ordered = with_early_csp(
-				runtime_first(probe, runtime_tag, code_origins(event?.request), mark_of(bag))
+				runtime_first(probe, runtime_tag, page_code_origins(event?.request), mark_of(bag))
 			);
 			if (ordered !== probe) head_out = ordered;
 			// The DEV bridge is NOT gated on the router — it carries `@vite/client`, and Vite's own

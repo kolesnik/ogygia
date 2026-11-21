@@ -35,7 +35,9 @@ vi.mock('ogygia:server/server-plugins', () => ({
 				})
 			}
 		}
-	]
+	],
+	plugin_count: 1,
+	measures: 0
 }));
 vi.mock('ogygia:server/server-manifest', () => ({
 	load_server_regions: async () => ({

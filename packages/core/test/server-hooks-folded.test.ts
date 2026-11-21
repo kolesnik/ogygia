@@ -22,7 +22,8 @@ vi.mock('ogygia:server/server-manifest', () => ({
 
 const { handle } = await import('../src/hooks.ts');
 const { mint_server_region } = await import('../src/server/region-endpoint.ts');
-const { code_origins, register_hooks } = await import('../src/plugin/hooks.ts');
+const { register_hooks } = await import('../src/plugin/hooks.ts');
+const { page_code_origins } = await import('../src/server/page-code-origins.ts');
 const { facts_of } = await import('../src/plugin/facts.ts');
 
 function event(url: string) {
@@ -84,7 +85,7 @@ describe('a server built without a plugin', () => {
 		(facts_of(request).codeOrigins ??= []).push('https://peer.example');
 		const leave = register_hooks({ codeOrigins: () => ['https://other.example'] });
 		try {
-			expect(code_origins(request)).toEqual([]);
+			expect(page_code_origins(request)).toEqual([]);
 		} finally {
 			leave();
 		}
