@@ -1,6 +1,8 @@
 /**
  * A HOLE'S RENDER notes its early start (./early-holes.ts): only the hole's render imports this, so
  * a server without holes holds none of it (apps/palaestra/e2e/server-size.ts SERVER_PROGRAMS).
+ *
+ * @packageDocumentation
  */
 import { get_request_event } from '#region-server';
 import { early_holes } from './context.ts';

@@ -179,7 +179,6 @@ export async function document(
 	// RESPONSE-MARK: the request's mark, so a handle writing into this response agrees (outside a
 	// request, the document's own)
 	const mark_key: object = live_event()?.request ?? {};
-	// (only where the build's runtime reads a page seed: the `page` feature, as the handle's)
 	const ask = HAS & F_PAGE && options.pageState ? read_seed_ask() : undefined;
 	if (HAS & F_PAGE && options.pageState && (!ask || ask.wanted)) {
 		const s = options.pageState;

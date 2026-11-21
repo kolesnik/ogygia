@@ -4,6 +4,8 @@
  * islands seed their `getContext` from (../context-registry.ts has the design). Only a build whose
  * word holds the `context` feature reaches this module (hooks.ts tests `HAS & F_CONTEXT` at each
  * use), so a server whose app provides no context carries none of it.
+ *
+ * @packageDocumentation
  */
 import { slot as shared } from '@ogygia/machine';
 import { live_event } from './live-event.ts';

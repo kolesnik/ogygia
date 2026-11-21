@@ -5,18 +5,9 @@ const REGION = 'ogygia-region';
 const supported = typeof MutationObserver !== 'undefined';
 const WATCHED: MutationObserverInit = { childList: true, characterData: true, subtree: true };
 
-/**
- * The sleeping regions and the one observer over them. A wake does not re-observe the others: the
- * region that woke stays observed (its records are ignored, as nothing still asleep holds them) until
- * the regions that woke since the last rebuild are as many as those asleep, so the observe calls of a
- * page's whole boot stay within twice its regions. The pending records are taken at every change of
- * who sleeps, so each record is judged against the regions asleep when it was made.
- */
 class SleepWatch {
 	readonly changed = new WeakSet<Element>();
-	/** Each sleeping region, with how many sleeps hold it. */
 	readonly #asleep = new Map<Element, number>();
-	/** Regions that woke since the last rebuild, still observed (at most: one that slept again counts too). */
 	#woken = 0;
 	#observer: MutationObserver | null = null;
 
@@ -31,7 +22,6 @@ class SleepWatch {
 		);
 	}
 
-	/** Pending records, judged now. */
 	take(): void {
 		if (this.#observer) this.note(this.#observer.takeRecords());
 	}
@@ -39,8 +29,6 @@ class SleepWatch {
 	note(records: MutationRecord[]): void {
 		const judged = this.#woken !== 0;
 		for (const r of records) {
-			// the outermost region around the change (no element above it can hide one), and whether a
-			// region still asleep holds the change (one that woke since the last rebuild is observed still)
 			let top: Element | null = null;
 			let held = !judged;
 			for (let n: Node | null = r.target; n; n = n.parentNode) {

@@ -92,9 +92,6 @@ type Store = {
 	world: World;
 	entries: Cache<string, Entry>;
 	flights: FrameFlights;
-	/** the machines of an address's answer and of its batch part, made with the store: the module
-	 *  does nothing as it loads, so a server that reaches it through code it never runs (a browser
-	 *  decode's write) carries none of it */
 	answers: ReturnType<typeof answer_definition>;
 	parts: ReturnType<typeof part_definition>;
 };

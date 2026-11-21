@@ -107,19 +107,18 @@ export type RunOf<D> = D extends Def<infer S, infer T> ? Run<S, T> : never;
 
 type Waiter = { kind: number; resolve: (value: State | Stale) => void };
 
-/** A state's name, typed when the machine's states are known. */
 type KindOf<S> = unknown extends S ? string : Kind<S>;
-/** A state as one value, typed when the machine's states are known. */
 type ValueOf<S> = unknown extends S ? State : StateOf<S>;
-/** A state's data, typed when the machine's states are known. */
 type DataOf<S> = unknown extends S ? object | undefined : S[keyof S] & object;
 
 /** @internal A running machine: its state's int, that state's data, and its visits so far
- *  (`S`, `T`: its types, for the typed calls). Its moves are its methods. A bare `Run` is any
- *  machine: its typed reads (`kind`, `now`, `data`) make it invariant in `S`, and only `any`
- *  arguments let every machine fit it. */
-// oxlint-disable-next-line typescript/no-explicit-any -- a bare `Run` takes every machine (see above)
-export class Run<S = any, T = any> {
+ *  (`S`, `T`: its types, for the typed calls). Its moves are its methods. */
+export class Run<
+	// oxlint-disable-next-line typescript/no-explicit-any -- a bare `Run` takes every machine: its typed reads make it invariant in `S`, so only `any` lets every machine fit it
+	S = any,
+	// oxlint-disable-next-line typescript/no-explicit-any -- the same for its steps
+	T = any
+> {
 	declare readonly _types?: [S, T];
 	declare _def: Def;
 	declare _state: number;
@@ -250,8 +249,6 @@ function illegal(def: Def, from: string, to: string): false {
 	return false;
 }
 
-/** A machine as the functions below work on it, its types set aside (and its moves by any name:
- *  the public `machine()`'s). */
 interface Bare {
 	_def: Def;
 	_state: number;
@@ -295,8 +292,6 @@ function enter(m: Bare, to: number, data: object | undefined): void {
 	if (l !== null) l.close();
 }
 
-/** `enter` while observers watch (dev and rules builds): told the move, before the old visit
- *  closes. */
 function enter_told(m: Bare, to: number, data: object | undefined): void {
 	const def = m._def;
 	if (DEV) checked_data(def, to, data);
@@ -338,8 +333,6 @@ function arm(m: Bare): void {
 		});
 		return;
 	}
-	// (the visit's own timer: leaving closes its life, which clears it, so it only ever fires in
-	// the visit that set it; and it never keeps a server process alive)
 	m.visit().later(timed_step, ms, m);
 }
 
@@ -463,8 +456,6 @@ export function define(
 	const words = (n + 31) >>> 5;
 	const masks: number[] = [];
 	for (let i = n * words; i > 0; i--) masks.push(0);
-	// (a production build skips a step naming no state, which dev refuses below: the move to it is
-	// then refused like any other)
 	for (let from = 0; from < n; from++) {
 		const row = next[from]!;
 		for (const to of steps[names[from]!]!) {

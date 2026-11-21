@@ -1,6 +1,8 @@
 /**
  * One flight of shared async work, as `flights()` runs it: its shared answer, who
  * still waits on it, how soon they need it, and its tries under a retry policy.
+ *
+ * @packageDocumentation
  */
 import { bad_option, report_thrown } from './messages.ts';
 import { under_policy, type Policy } from './policy.ts';

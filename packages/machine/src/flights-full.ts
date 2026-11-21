@@ -2,6 +2,8 @@
  * What `flights()` adds to the flights every maker makes (./flights.ts): a key of two fields or
  * more, spelled into one string; a `world` its answers are made in (and `touches`); a `weigh`.
  * Its own module, so a page whose flights need none of these (`plain_flights`) carries none of it.
+ *
+ * @packageDocumentation
  */
 import { bad_option } from './messages.ts';
 import { check_flights, Flown, makers, type FlightsOptions, type Makers } from './flights.ts';
@@ -52,7 +54,6 @@ function key_part(v: unknown): string {
 	}
 }
 
-/** The flights `flights()` makes (see ./flights.ts and its module comment). */
 class Full<I, V, K> extends Flown<I, V, K> {
 	_touches: ((answer: V) => Iterable<unknown>) | undefined;
 
@@ -70,8 +71,6 @@ class Full<I, V, K> extends Flown<I, V, K> {
 		}
 	}
 
-	/** A keyed flights' key of no field or of two or more: its key fields, in their order,
-	 *  spelled one way. */
 	override _spell(fields: readonly PropertyKey[], input: unknown): unknown {
 		const of = input as Record<PropertyKey, unknown>;
 		let key = '';

@@ -4,6 +4,8 @@
  * runtime feature that reads it (`page`, `remote-seeds`): hooks.ts tests `HAS & F_PAGE` /
  * `HAS & F_REMOTE_SEEDS` at every call, so a server whose runtime reads neither carries none of
  * this code, and never writes into a page what the page cannot revive (test/server-seed-word.test.ts).
+ *
+ * @packageDocumentation
  */
 import { STALE } from '@ogygia/machine';
 import type { RequestEvent } from '@sveltejs/kit';
@@ -68,9 +70,6 @@ type SeedCodecs = {
 const NO_TRANSPORT = {};
 const seed_codec_cache = new WeakMap<object, SeedCodecs>();
 
-/** The app's universal `transport` ENCODERS (custom types the app teaches Kit) with the
- *  DeferRef/SettledRef marker reducers, so a load's custom types round-trip into islands. Built
- *  once per app transport (the same object on every request), not per request. */
 function seed_codecs(
 	transport: Record<string, { encode: (v: unknown) => unknown }> | undefined
 ): SeedCodecs {
@@ -104,40 +103,17 @@ export async function ship_page_seed(
 	scripts: string[]
 ): Promise<ShippedSeed | typeof STALE> {
 	const page_snap = bag.page!;
-	// THE DOCUMENT TAIL (server/document-tail.ts): the regions' module-preload hints, then their
-	// props sidecars, rendered ONCE now that the seed ships, every island's sidecar relative to it
-	// (seed-refs.ts), whichever rendered first. The index is over the FULL `page.data`, whatever
-	// shaping keeps below: a reference path is structural (a top-level key, then keys and indices
-	// down), shaping keeps top-level keys whole, and staging / settling keep the shape too, so a
-	// path into the full tree resolves identically against the shipped seed, provided its key
-	// ships. The plan records the keys it referenced (`touched`) for exactly that.
 	const index = SeedIndex.of(page_snap.data);
 	const tail_html = bag.tail.render(index, detail, mark_attr(bag.request));
-	// SEED SHAPING: the slice of `page.data` the page's islands read (server/seed-shape.ts). A key
-	// no island's code reads but whose node an island's props point into ships too: a reference
-	// must have something to point at.
 	const keys = bag.seed_keys!;
 	if (keys !== 'all') for (const k of index.touched) keys.add(k);
 	const shaped_data = shape_page_data(page_snap.data, keys);
 	let seed_data = shaped_data;
 	let seed_form = page_snap.form;
 	const { seed_reducers, seed_stringify } = seed_codecs(app_transport);
-	// ONE walk of the seed tree (seed-refs.ts `analyze`, against the request's shared memo: the
-	// tail's index above already measured every node) answers both questions below: a streamed
-	// promise inside (stage or settle), JSON-exact (the native lane).
 	const data_shape = analyze(shaped_data);
 	const form_shape = analyze(page_snap.form ?? null);
-	// A load may return promises at any level (Kit streaming). csr=false can't hydrate the PAGE, so
-	// Kit's own resolve stream is dead there, but an ISLAND has a client:
-	//  - a real browser load (`Sec-Fetch-Mode: navigate`) can consume a stream: each promise is
-	//    STAGED to a marker (a pending Promise on the client) and a resolve `<script>` streams per
-	//    settle after the document (hooks.ts `stream_page_deferred`); the inline bootstrap defines
-	//    the resolve global before any resolve script runs;
-	//  - a programmatic fetch (the router, mode != navigate) can't run streamed scripts, so the
-	//    promises SETTLE here and the seed carries resolved values.
 	const has_pending = data_shape.thenable || form_shape.thenable;
-	// (a page with streaming promises is per-request BY INTENT, even where they settle into a
-	// complete document: a stored copy would keep one settle forever while browser loads stream)
 	if (has_pending) bag.facts.reads.visitor('streamed load (promise in page data)');
 	if (has_pending && event?.request.headers.get('sec-fetch-mode') === 'navigate') {
 		const staged_data = stage_deferred(shaped_data, 0);
@@ -145,7 +121,7 @@ export async function ship_page_seed(
 		seed_data = staged_data.staged;
 		seed_form = staged_form.staged;
 		bag.deferred = [...staged_data.deferred, ...staged_form.deferred];
-		bag.defer_next_id = staged_form.next_id; // real next id: never recomputed from the length
+		bag.defer_next_id = staged_form.next_id;
 		bag.seed_reducers = seed_reducers; // resolve scripts encode with the same transport + defer
 		scripts.push(`<script>${PAGE_DEFER_BOOTSTRAP}</script>`);
 	} else if (has_pending) {
@@ -159,7 +135,6 @@ export async function ship_page_seed(
 		[seed_data, seed_form] = settled as [typeof seed_data, typeof seed_form];
 	}
 
-	// The tail goes out after the defer bootstrap, before the seed.
 	if (tail_html) scripts.push(tail_html);
 
 	// THE LANE: a JSON-exact slice (the common CMS tree, no promise staged into it) goes out as
@@ -217,9 +192,6 @@ export async function remote_seed_script(
 	const implicit = state.remote?.implicit;
 	if (!implicit) return null;
 
-	// The bucketing (Kit parity: q / p / l / f, `create_remote_key` keys) and the skips (private
-	// remote, no region's client can call it (`wanted`), errored/pending, baked-region value) live
-	// in server/remote-seed-gate.ts, pure and unit-tested; this serializes what comes back.
 	const data = await collect_remote_seed(implicit, wanted, {
 		memo: (internals) => state.remote.data?.get(internals as never),
 		skip_value: (v) => has_baked_region(v),

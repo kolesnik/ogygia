@@ -72,8 +72,6 @@ class Stamped<K> implements World<K> {
 		}
 	}
 
-	/** `watch_world` on this world: a method, so a primitive that takes a world watches it with no
-	 *  import of this module (a page whose flights have no world carries none of it). */
 	_watch<O extends object>(owner: O, hear: Hear<K, O>): () => void {
 		const watchers = this._watchers;
 		const watcher: Watcher<K> = { owner: new WeakRef(owner), hear: hear as Hear<K, object> };

@@ -3,6 +3,8 @@
  * them (`POST`, a navigation's single flight), and a plugin's stitch of one hole into a stored page.
  * The handle (../hooks.ts) makes one only where the build's feature word holds the frames feature
  * (a region of the app streams HTML): a build without one carries none of this.
+ *
+ * @packageDocumentation
  */
 import { render } from 'svelte/server';
 import { clock } from '@ogygia/machine';
@@ -279,10 +281,6 @@ export class IslandsEndpoint {
 			// (and the page facts its islands read: they hydrate against what it rendered from)
 			return hole_head(out.head as string, base) + body + kit_page_facts_tail();
 		};
-		// One deadline for the hole, its wait for a slot and its render together (#195): it answers
-		// within the render policy's deadline. A render still running then is abandoned (it cannot be
-		// cancelled): its hole keeps the fallback and its slot goes to the next hole, so renders stuck
-		// on a hung upstream never hold every slot.
 		const render_gate = this.#render_gate;
 		try {
 			return await cached_render(
@@ -469,9 +467,7 @@ export class IslandsEndpoint {
 		 *  logged for the profiler as a hole request. A postrender stitch splices into a stored document
 		 *  and stays as it was. */
 		batch = false,
-		/** the batch's: aborts when its visitor left (a render not started yet never starts, and an
-		 *  answer finished after it is dropped). Never aborted on entry: a batch whose visitor left
-		 *  before its stream started calls no render (stream-regions.ts `batch_stream`). */
+		/** the batch's: aborts when its visitor left (nothing more is verified, loaded or rendered) */
 		signal?: AbortSignal,
 		/** the visitor a batch charges, per hole, as its GET would (PROBE-THEN-RENDER): a probe before
 		 *  the MAC, a render after it. Over budget: no parcel, and the hole fetches on its own. A

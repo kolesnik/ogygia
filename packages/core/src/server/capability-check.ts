@@ -2,6 +2,8 @@
  * THE ISLANDS ENDPOINT'S CHECKS of an asked region capability: its numbers' one spelling, and its
  * MAC. Minting lives in server/hmac.ts and server/endpoint.ts; only the endpoint checks, so a
  * server without holes holds none of this (apps/palaestra/e2e/server-size.ts SERVER_PROGRAMS).
+ *
+ * @packageDocumentation
  */
 import { REGION_CAPABILITY_VERSION } from './endpoint.ts';
 import { claim_fields, region_capability, type RegionClaim } from './hmac.ts';

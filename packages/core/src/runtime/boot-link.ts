@@ -52,14 +52,11 @@ import { OgygiaError, warn } from '../messages/core.ts';
 
 const no_region_hydrate: typeof client_region_hydrate = () => null;
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
-/** Without Kit pages no document of the app is Kit's: one that says so is refused. */
 const KIT_META = { document_has: (doc: ParentNode): boolean => kit_meta_of(doc) === true };
 const no_kit = (): boolean => false;
-/** A router read of a fetched page in a build whose word has no graph: nothing to read. */
 const no_graph: typeof register_island_graph = () => {};
 
 export function link_boot(): void {
-	// (in ./boot-link-index.ts's order: the lazy chunks read each by its number)
 	slots.boot ??= [
 		KIT_PAGES ? kit_hydrates_page : no_kit,
 		KIT_PAGES ? KitBoot : KIT_META,

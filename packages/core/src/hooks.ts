@@ -216,7 +216,6 @@ function bag_of(): RequestBag | undefined {
 	const request = live_event()?.request;
 	return request ? bags.get(request) : undefined;
 }
-// (the drop-in context root: only where the build's runtime reads it, server/page-context.ts)
 if (HAS & F_CONTEXT) install_page_context();
 const doc_asks = shared<WeakMap<Request, SeedKeys | null>>({
 	name: 'ogygia.document-asks',
@@ -253,8 +252,6 @@ set_page_recorder((snapshot, seed, remotes, entry) => {
 	// the answer carries those keys of the looked-up page (server/render-page.ts)
 	const event = live_event();
 	if (event && note_render_page_ask(event, seed)) return;
-	// (an ask of the page seed counts only where the build's runtime reads one: else no document
-	// ships a seed, and every sidecar carries its props whole)
 	const asks = HAS & F_PAGE && seed !== false;
 	const bag = bag_of();
 	if (!bag) {
@@ -431,9 +428,7 @@ class OgygiaHandle {
 	readonly #shared_address = say({ max: 1 });
 	/** The client build's handoff problem, said once while it lasts (production: dev reads none). */
 	readonly #handoff_said = say({ max: 2 });
-	/** The islands endpoint: none where no region of the app streams HTML (the build's word). */
 	readonly #islands: IslandsEndpoint | null;
-	/** a request for the endpoint a build without one got, said once */
 	readonly #unbuilt_said = say({ max: 1 });
 
 	#check_handoff(): void {
@@ -495,7 +490,6 @@ class OgygiaHandle {
 				: null;
 	}
 
-	/** A request for the islands endpoint on a build without one: said once, and a 404. */
 	#unbuilt(): Response {
 		this.#unbuilt_said.once('endpoint', () =>
 			console.error(new OgygiaError('region_endpoint_unbuilt'))
@@ -626,7 +620,6 @@ class OgygiaHandle {
 				page: null,
 				seed_keys: null,
 				seed_asks: request_stats_detailed() ? new Map() : null,
-				// (none to collect where the build's runtime reads no remote seed)
 				remotes_wanted: HAS & F_REMOTE_SEEDS ? new Set() : null,
 				tail: new DocumentTail(),
 				measure_memo: new Map(),
@@ -992,27 +985,16 @@ class OgygiaHandle {
 		// is reachable (Kit merges it locally in render.js, never on RequestState). PAGE-SEED-EVENT.
 		const page_snap = bag!.page!;
 		const detail = request_stats_detailed();
-		// SEED ONLY WHEN READ: the seed exists so islands can read `$page` through the shim. A region
-		// asks for it (`bag.seed_keys`) only when its client code reaches the `$app/state` /
-		// `$app/stores` shim (`islandReadsPage`, from the build's chunk closure; fail-open for an entry
-		// the handoff does not know, e.g. a foreign fragment's island), and only where the build's
-		// runtime reads a seed at all (the `page` feature: server/document-seeds.ts). No reader → no
-		// seed: a CMS page whose 20 islands take everything as props stops shipping its whole
-		// `page.data` again (674 KB on one measured page) and stops serializing it on the server, and
-		// every sidecar serializes self-contained.
 		let seed: ShippedSeed | null = null;
 		if (HAS & F_PAGE && bag!.seed_keys !== null) {
 			const shipped = await ship_page_seed(bag!, event, detail, scripts);
 			if (shipped === STALE) return html;
 			seed = shipped;
 		}
-		// THE DOCUMENT TAIL (server/document-tail.ts): the regions' module-preload hints, then their
-		// props sidecars, after the content, before the seeds (with a seed, written against it above).
 		const tail_html = seed
 			? seed.tail_html
 			: bag!.tail.render(null, detail, mark_attr(bag!.request));
 		if (!seed) {
-			// (a page with streaming promises is per-request BY INTENT, read by an island or not)
 			if (analyze(page_snap.data).thenable || analyze(page_snap.form ?? null).thenable)
 				bag!.facts.reads.visitor('streamed load (promise in page data)');
 			if (tail_html) scripts.push(tail_html);
@@ -1031,7 +1013,6 @@ class OgygiaHandle {
 				});
 		}
 
-		// (where the build's runtime reads one: server/document-seeds.ts)
 		if (HAS & F_REMOTE_SEEDS && state?.remote?.implicit) {
 			const remote_script = await remote_seed_script(state, bag!.remotes_wanted, bag!.request);
 			if (remote_script) {
@@ -1063,8 +1044,7 @@ class OgygiaHandle {
 			fnm_bytes = fnm_script.length;
 		}
 
-		// Drop-in `setContext` page root — emitted here (final chunk) so every `setContext` has run
-		// (where the build's runtime reads one: server/page-context.ts).
+		// Drop-in `setContext` page root — emitted here (final chunk) so every `setContext` has run.
 		const ctx_script = HAS & F_CONTEXT ? page_ctx_script(bag?.request) : '';
 		if (ctx_script) {
 			scripts.push(ctx_script);

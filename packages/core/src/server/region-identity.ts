@@ -2,6 +2,8 @@
  * A HELD REGION'S IDENTITY: the fingerprint a hole and a lake are known by on both legs. Only the
  * hole and lake renders import it, so a server without them holds none of it
  * (apps/palaestra/e2e/server-size.ts SERVER_PROGRAMS).
+ *
+ * @packageDocumentation
  */
 import { REF_WIRE_KEY, with_local_names } from '../ref.ts';
 import { fingerprint_of } from '../contract/hash.ts';

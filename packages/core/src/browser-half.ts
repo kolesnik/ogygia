@@ -4,6 +4,8 @@
  * as `#browser-half` (package.json `imports`): in the browser `browser-half.browser.ts`, the
  * runtime's own; anywhere else (a server, plain Node) this module, which does none of it and imports
  * nothing a plain Node process cannot.
+ *
+ * @packageDocumentation
  */
 import { OgygiaError } from './messages/server.ts';
 

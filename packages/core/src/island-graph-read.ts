@@ -3,6 +3,8 @@
  * a page's graph (runtime/island-graph-preload.ts), and the islands endpoint a hole's
  * (server/hole-graph.ts). A server without holes holds none of it
  * (apps/palaestra/e2e/server-size.ts SERVER_PROGRAMS).
+ *
+ * @packageDocumentation
  */
 import type { IslandGraphWire } from './island-graph.ts';
 

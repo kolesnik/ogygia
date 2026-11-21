@@ -251,7 +251,6 @@ export function paths(def: Def): string[][] {
 	return RULES ? paths_of(def) : drawn_off();
 }
 
-/** A definition's graph or paths asked for in a build that draws none. */
 function drawn_off(): never {
 	throw machine_error('machine_graph_off', {});
 }
@@ -275,7 +274,6 @@ function graph_of(def: Def): MachineGraph {
 	};
 }
 
-/** The states `from` steps to, as the definition links them (a step naming no state leads nowhere). */
 function next_of(def: Def, from: number): number[] {
 	const out: number[] = [];
 	for (const to of def.steps[def.names[from]!]!) {

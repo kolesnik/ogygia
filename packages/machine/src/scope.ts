@@ -526,10 +526,6 @@ function ended(): Life {
 	return l;
 }
 
-/**
- * The public `Scope`: a life with the methods an app calls beyond its own, so a scope is its own
- * life and the runtime's methods work on it as it is.
- */
 class Scoped extends Life implements Scope {
 	on(
 		target: ListenerTarget | Emitter,
@@ -540,12 +536,10 @@ class Scoped extends Life implements Scope {
 		return early(this, hear(this, target, type, listener, options));
 	}
 
-	/** `later`, with the function that cancels it sooner. */
 	timeout(fn: () => void, when: When): () => void {
 		return early(this, arm(this, fn, when));
 	}
 
-	/** Disposes `disposable` when it closes. Returns it. */
 	adopt<D extends Disposable | AsyncDisposable>(disposable: D): D {
 		const d = disposable as Partial<Disposable & AsyncDisposable>;
 		const open = !this._closed;

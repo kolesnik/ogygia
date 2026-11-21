@@ -403,11 +403,6 @@ export const note_lake_restore: (region: Element, held: number, found: number) =
 const lakes_paired = (): string | null =>
 	R.lakes_unpaired.length === 0 ? null : R.lakes_unpaired.join('; ');
 
-// ── every region on the page has its program in the build ──
-
-/** The build's feature word, as the boot handed it in (null: no boot yet, nothing to check). This
- *  module loads on the server too, where the boot realm (`ogygia:boot`) does not exist, so it never
- *  imports the word (packages/compiler/test/runtime-boot-svelte-free.test.ts). */
 let programs_word: number | null = null;
 
 /** The boot's feature word (`HAS`): the rule checks each region on the page has its program. */
@@ -418,8 +413,6 @@ export const watch_programs: (word: number) => void = $rules(function watch_prog
 	programs_word = word;
 });
 
-/** The first region on the page that needs a program the build's word left out: a live region the
- *  live program, a deferred one the hole program (./core.ts guards each on its bits). */
 function programs_shipped(): string | null {
 	const word = programs_word;
 	if (word === null || typeof document === 'undefined') return null;

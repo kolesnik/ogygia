@@ -2,6 +2,8 @@
  * The Kit page thread's makers (./kit-page-thread.svelte.ts), made in a plain module: the build's
  * macros never compile a runes file, and here they check the options at build (internal/macros
  * options pass), so the boot ships no option checks for them.
+ *
+ * @packageDocumentation
  */
 import { say, type Flights, type Stale } from '@ogygia/machine';
 import { plain_flights } from '@ogygia/machine/internal';

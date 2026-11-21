@@ -6,6 +6,7 @@
  * numbering from here, so they can never number a feature differently.
  *
  * @internal
+ * @packageDocumentation
  */
 
 /** A runtime feature's name (the compiler's `FeatureId`). */

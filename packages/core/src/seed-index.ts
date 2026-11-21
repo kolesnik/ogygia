@@ -3,6 +3,8 @@
  * seed's `page.data` indexed by identity and by structure, and each island's plan against it (which
  * of its props nodes cross as references). Only the page seed's step reaches it
  * (server/document-seeds.ts), so a server that never ships a page seed never carries it.
+ *
+ * @packageDocumentation
  */
 import { fnv1a } from './contract/hash.ts';
 import type { SeedPath } from './seed-ref-reviver.ts';

@@ -6,6 +6,7 @@
  * island's hydrate step, router-nav after a navigation's head merge), so no boot carries it.
  *
  * @internal
+ * @packageDocumentation
  */
 import type { RuntimeSession } from './session.ts';
 

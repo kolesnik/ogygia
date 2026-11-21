@@ -121,30 +121,6 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/core/src/server/kit-gate.ts > kit_gate",
-			"reason": "once per Kit-hydrated document: rewrites one expression in Kit's start script, linear in that script; kit-gate.test.ts runs it"
-		},
-		{
-			"id": "packages/core/src/server/html-scan.ts > kit_boot_script",
-			"reason": "once per Kit-hydrated document: finds Kit's start script with one backward tag walk from the end, linear in the tail it reads; kit-gate.test.ts runs it"
-		},
-		{
-			"id": "packages/core/src/server/html-scan.ts > kit_boot_script > before",
-			"reason": "the tag walk's stop test, constant work per tag; kit-gate.test.ts runs it"
-		},
-		{
-			"id": "packages/core/src/server/early-holes-csp.ts > inline_source",
-			"reason": "one sha256 of an inline script's text, once per script the gate adds (Kit's start script, the early holes script); early-holes-csp.test.ts runs it"
-		},
-		{
-			"id": "packages/core/src/server/early-holes-csp.ts > with_early_holes_csp > map:0~0495d5",
-			"reason": "one with_hash call per comma-separated policy in a CSP header, a handful at most; early-holes-csp.test.ts runs it"
-		},
-		{
-			"id": "packages/core/src/server/early-holes-csp.ts > with_hash > filter:0~82d7e5",
-			"reason": "the sources to add that a directive lacks, constant work per source (one or two hashes); early-holes-csp.test.ts runs it"
-		},
-		{
 			"id": "packages/rewrite/src/pass.ts > render_targets > map:0~ae0427",
 			"reason": "one null per target of a batch cancelled while it rendered, constant work per target; rewrite.test.ts's cancelled-request tests run it (the request's signal: not replayable)"
 		},
@@ -193,20 +169,8 @@
 			"reason": "the holes of one task sorted into batches: a DOM read and the frame store (not recorded), linear in the holes that joined; run by packages/core/test/browser/hole-batch.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/frame-store.ts > live",
-			"reason": "reads the hub's watcher count and the store's flights (module state by design: one store per document), constant work; run by packages/core/test/frame-store.test.ts"
-		},
-		{
 			"id": "packages/core/src/runtime/frame-store.ts > make_store",
 			"reason": "makes the document's one store (a scope, a cache, a flights, a world) once per document or reset, constant work; run by packages/core/test/frame-store.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/frame-store.ts > stamp",
-			"reason": "one bump and one read of the store's world (module state by design), constant work; run by packages/core/test/frame-store.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/frame-store.ts > store",
-			"reason": "the document's one store, made on first use (module state by design), constant work; run by packages/core/test/frame-store.test.ts"
 		},
 		{
 			"id": "packages/devtools/src/devtools/testing-engine.ts > settle_poll",
@@ -625,10 +589,6 @@
 			"reason": "browser only: the element a wake press landed on, with its address (one walk up to the region); proven in packages/core/test/browser/interaction-replay-claims.test.ts and apps/palaestra/e2e/dom-ownership.spec.ts (#2097)"
 		},
 		{
-			"id": "packages/core/src/runtime/interaction-replay.ts > now_at",
-			"reason": "browser only: the element itself when hydration kept it, else the one at its address (one contains, one walk down); proven in packages/core/test/browser/interaction-replay-claims.test.ts (#2097)"
-		},
-		{
 			"id": "packages/devtools/src/devtools/ui.ts > mount_launcher > onpointerdown",
 			"reason": "browser only, constant work: a pointer pressed on the launcher sets one flag; proven in packages/devtools/e2e/devtools.spec.ts (#2028)"
 		},
@@ -689,6 +649,10 @@
 			"reason": "the fallback store getter when the store module failed to load: a constant undefined"
 		},
 		{
+			"id": "packages/core/src/runtime/wire-classes.ts > map:0~e709bf",
+			"reason": "browser only, once per module load: one empty slot per transportable class the build names (a short fixed list)"
+		},
+		{
 			"id": "packages/core/src/runtime/wire-classes.ts > trusted_plain_flights:0",
 			"reason": "browser only: yields a task, then the dynamic import of a transportable class's chunk; its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
@@ -727,18 +691,6 @@
 		{
 			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #answered",
 			"reason": "browser only: the custom element's answer landing (two machine moves), constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #hydrate > turn > wait",
-			"reason": "browser only: one hydrate wait, the held turn's wait over a task of the visit's scope (constant work per wait); proven in packages/core/test/browser/region-left-mid-wake.test.ts and the core browser suite's every island wake"
-		},
-		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #hydrate > turn > wait > task:0~ae9e4a",
-			"reason": "browser only: hands the awaited work to the visit's task (returns it, no work of its own); proven in packages/core/test/browser/region-left-mid-wake.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #hydrate > turn > wait > then:0~6e1ddd",
-			"reason": "browser only: maps a wait's answer to STALE when the region left the page (one isConnected read); proven in packages/core/test/browser/region-left-mid-wake.test.ts"
 		},
 		{
 			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #paint_next",
@@ -1207,10 +1159,6 @@
 		{
 			"id": "packages/config/src/sim.ts > sim_params",
 			"reason": "the simulation harness: reads two knobs once per property, constant work; proven in packages/core/test/property-seeded.test.ts"
-		},
-		{
-			"id": "packages/config/src/vitest.ts > sim_define",
-			"reason": "test config: picks four knobs from the environment when a vitest config loads, constant work; proven in packages/core/test/property-seeded.test.ts"
 		},
 		{
 			"id": "packages/config/src/vitest.ts > browser_runs",
@@ -1741,10 +1689,6 @@
 			"reason": "the repo's unit-test config (private, not shipped), moved unchanged from packages/tooling: vitest runs it once per package test run"
 		},
 		{
-			"id": "packages/config/src/vitest.ts > stub_aliases",
-			"reason": "the repo's unit-test config: lists core's test stubs on disk once per test run"
-		},
-		{
 			"id": "packages/core/src/runtime/router-nav.ts > pages",
 			"reason": "browser only: the router's page flights (made once from the boot link; key, keep and weigh are one-liners over a fetched page); proven in packages/core/test/browser/page-flights.test.ts and prefetch-owner.test.ts"
 		},
@@ -2193,30 +2137,6 @@
 			"reason": "adds one island to the process-wide record, cleared past 1000 (not replayable), constant work"
 		},
 		{
-			"id": "packages/content/src/collection-base.ts > Collection > constructor > defer:0~2dc470",
-			"reason": "dev only: a collection's module ran again, so the old collection is disposed; one call, constant work of its own"
-		},
-		{
-			"id": "packages/machine/src/define.ts > defineRun",
-			"reason": "dev only: a module's new run ends the run before it and returns its wrapper (a function, not cloneable), constant work of its own"
-		},
-		{
-			"id": "packages/machine/src/define.ts > defineRun > <anonymous>~bc014d",
-			"reason": "dev only: the wrapper for one definer call (a function, not cloneable), constant work"
-		},
-		{
-			"id": "packages/machine/src/define.ts > defineRun > <anonymous>~bc014d > <anonymous>~90dfa6",
-			"reason": "dev only: runs one definer call under its module's run and puts the outer run back, constant work of its own"
-		},
-		{
-			"id": "packages/machine/src/define.ts > defining",
-			"reason": "reads the process-wide defining host on globalThis (hidden state), constant work"
-		},
-		{
-			"id": "packages/machine/src/define.ts > defining_host",
-			"reason": "reads or makes the process-wide defining host on globalThis (not cloneable), constant work"
-		},
-		{
 			"id": "packages/core/src/runtime/router-nav.ts > resolve_head_urls",
 			"reason": "browser only: a fetched page's parsed head (DOMParser), linear in its URL attributes (a few dozen); head-urls.test.ts runs it in three engines"
 		},
@@ -2281,10 +2201,6 @@
 			"reason": "a hole's cache key and the start of its read observation (a RequestEvent, not cloneable), constant work; run by packages/flags/test/hole-cache.test.ts through cached_render and the e2e hole suites"
 		},
 		{
-			"id": "packages/core/src/plugin/reads.ts > set_open_reads",
-			"reason": "installs the read-set reader once, at module load, constant work"
-		},
-		{
 			"id": "packages/core/src/server/render-page.ts > render_page > get data",
 			"reason": "notes a page.data read into the running render's read set and returns the data, constant work"
 		},
@@ -2341,10 +2257,6 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/devtools/src/profiler/regions-scan.ts > classify",
-			"reason": "moved from packages/rewrite/src/split-regions.ts (the profiler's own now): the gate on this base does not follow a file across packages; test/regions-scan.test.ts proves it"
-		},
-		{
 			"id": "packages/devtools/src/profiler/regions-scan.ts > scanRegions",
 			"reason": "moved from packages/rewrite/src/split-regions.ts (the profiler's own now): a generator, not replayable; test/regions-scan.test.ts proves it"
 		},
@@ -2363,10 +2275,6 @@
 		{
 			"id": "packages/rewrite/src/check.ts > check_event",
 			"reason": "builds a RequestEvent stand-in for .check() and .html(): not cloneable, constant work"
-		},
-		{
-			"id": "packages/rewrite/src/check.ts > count",
-			"reason": ".check()'s count of restored hosts: a test's entry, not a request path"
 		},
 		{
 			"id": "packages/rewrite/src/check.ts > splice",
@@ -2533,20 +2441,8 @@
 			"reason": "moved from packages/core/src/runtime/restore.ts with reshape (#607): never ran here, browser or closure state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
 		},
 		{
-			"id": "packages/rewrite/src/reversible.ts > check_script",
-			"reason": "moved from packages/core/src/server/reversible.ts with reshape (#607): never ran here, browser or closure state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
-		},
-		{
 			"id": "packages/rewrite/src/reversible.ts > map:0~1d7705",
 			"reason": "moved from packages/core/src/server/reversible.ts with reshape (#607): not replayable here, browser or closure state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
-		},
-		{
-			"id": "packages/rewrite/src/reversible.ts > remap",
-			"reason": "moved from packages/core/src/server/reversible.ts with reshape (#607): not cloneable here, browser or closure state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
-		},
-		{
-			"id": "packages/rewrite/src/reversible.ts > script_json",
-			"reason": "moved from packages/core/src/server/reversible.ts with reshape (#607): never ran here, browser or closure state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
 		},
 		{
 			"id": "packages/rewrite/src/reversible.ts > settle > find:0~49cf38",
@@ -2555,10 +2451,6 @@
 		{
 			"id": "packages/rewrite/src/reversible.ts > transformMarkup",
 			"reason": "moved from packages/core/src/server/reversible.ts with reshape (#607): not recorded here, browser or closure state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
-		},
-		{
-			"id": "packages/core/src/runtime/client-plugins.ts > client_region_hydrate",
-			"reason": "browser only: asks the client plugins that hook a region's hydrate (a DOM element: not replayable), linear in them (a handful), once per hydrate; nothing at all without one"
 		},
 		{
 			"id": "packages/rewrite/src/host-classes.ts > keep_host_classes",
@@ -2693,10 +2585,6 @@
 			"reason": "one Map read of the shown answer's version at an address, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/frame-store.ts > answer_definition",
-			"reason": "builds the stored-answer machine definition (plain data: three states, their steps), once per address entry; its moves are measured by the frame-store bench, the definition itself is not cloneable"
-		},
-		{
 			"id": "packages/core/src/server/region-endpoint.ts > hole_css",
 			"reason": "a map lookup and a handoff read (holeCss before the region rename, unmeasured on that base); its handoff read is region_css's, which the request benches run"
 		},
@@ -2739,10 +2627,6 @@
 		{
 			"id": "packages/devtools/src/profiler/report.ts > ogygia_findings > flatMap:0~283e13",
 			"reason": "the reasons of at most three listed barrels (constant work); proven in packages/devtools/test/profiler.test.ts"
-		},
-		{
-			"id": "packages/config/src/vitest.ts > exact",
-			"reason": "test config: one stub alias's pattern when a vitest config loads (before any test or bench), constant work; every node test job runs it"
 		},
 		{
 			"id": "packages/federation/src/messages.ts > FEDERATION_ERRORS > shared_state_not_plain > details",
@@ -2795,14 +2679,6 @@
 		{
 			"id": "packages/core/src/runtime/lakes.ts > revalidate_on",
 			"reason": "browser only: a stored page's swr lake or a cached lake revalidates on its schedule (an arm the build left out said), one schedule call, constant work; proven in packages/core/test/browser/lake-connect.test.ts"
-		},
-		{
-			"id": "packages/core/src/server/request-stats.ts > set_request_stats_sink",
-			"reason": "sets one module slot, once per profiler setup (constant work)"
-		},
-		{
-			"id": "packages/devtools/src/profiler/request-stats.ts > install_request_stats",
-			"reason": "sets core's stats sink, once per profiler setup (constant work)"
 		},
 		{
 			"id": "packages/devtools/src/profiler/request-stats.ts > request_stats_of",
@@ -3021,10 +2897,6 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/compiler/src/virtual/table.ts > virtual > family",
-			"reason": "a table constructor: called once per entry as core.ts loads, returns its argument with its kind"
-		},
-		{
 			"id": "packages/compiler/src/virtual/table.ts > virtual > request",
 			"reason": "a table constructor: called once per entry as core.ts loads, returns its argument with its kind"
 		},
@@ -3155,22 +3027,6 @@
 		{
 			"id": "packages/compiler/src/vite/paths.ts > runtime_inputs",
 			"reason": "build only: lists the runtime's files on disk (a directory read, not recorded), once per build leg"
-		},
-		{
-			"id": "packages/compiler/src/vite/paths.ts > scan_entry_pattern",
-			"reason": "dev only: one island file to an optimizeDeps pattern (a realpath and one replace), constant work per file"
-		},
-		{
-			"id": "packages/core/src/contract/core-files.ts > built",
-			"reason": "one path.join into core's dist, run as the module loads (never per request or per build)"
-		},
-		{
-			"id": "packages/core/src/contract/core-files.ts > id_dir",
-			"reason": "real_posix and one trailing slash, run as the module loads (CORE_ROOT_ID), constant work"
-		},
-		{
-			"id": "packages/core/src/contract/core-files.ts > real_posix",
-			"reason": "one realpath on the file system (not replayable) and one replace, constant work"
 		},
 		{
 			"id": "packages/compiler/src/messages.ts > BUILD_ERRORS > plugin_client_hook_unknown > text",
@@ -3933,28 +3789,8 @@
 			"reason": "a message's one line for the dev warning: a template over the rule's detail, printed once when the rule breaks"
 		},
 		{
-			"id": "packages/machine/src/queue.ts > Line > #expire",
-			"reason": "a timer's callback over the waiting jobs, linear in them; queue.test.ts runs it under fake timers (not replayable: it reads the clock)"
-		},
-		{
-			"id": "packages/machine/src/queue.ts > Line > #expire > leave_where:0~9dd123",
-			"reason": "the deadline test #leave_where applies, one comparison"
-		},
-		{
-			"id": "packages/machine/src/queue.ts > Line > #leave_where",
-			"reason": "the waiting jobs a deadline or the owner's close picks, linear in them; queue.test.ts runs it (not replayable: stale hooks with side effects)"
-		},
-		{
-			"id": "packages/machine/src/queue.ts > Line > constructor > defer:0~b785c2",
-			"reason": "the queue's owner closing: hands over to #leave_where, constant work"
-		},
-		{
 			"id": "packages/machine/src/queue.ts > Line > constructor > defer:0~b785c2 > leave_where:0~8b94d4",
 			"reason": "the owner's close picks every waiting job, constant work"
-		},
-		{
-			"id": "packages/machine/src/queue.ts > Line > get holding",
-			"reason": "a getter, one read"
 		},
 		{
 			"id": "packages/core/src/runtime/router.ts > SpaRouter > scan_preload_links > on_idle:1~4ff29d > once_on_screen:2~719a25",
@@ -4107,10 +3943,6 @@
 		{
 			"id": "packages/core/src/runtime/stale-deps.ts > confirm_and_reload",
 			"reason": "dev only, browser only, an error path: reads sessionStorage and fetches the entry once per stale tab (the network and the live tab, not recorded), constant work; proven in packages/core/test/browser/stale-deps.test.ts"
-		},
-		{
-			"id": "packages/compiler/src/vite/lazy-files.ts > dev_url",
-			"reason": "dev only: a module id to its /@fs/ URL, one replace, once per loader per transform (the plugin's build path is proven in packages/compiler/test/lazy-files.test.ts)"
 		},
 		{
 			"id": "packages/compiler/src/vite/lazy-files.ts > lazy_files",
@@ -4449,20 +4281,12 @@
 			"reason": "browser only: a set of holes grouped by endpoint path into batch POSTs over the frame store (not recorded), linear in the holes; run by packages/core/test/browser/hole-batch.test.ts and nav-batch-page.test.ts"
 		},
 		{
-			"id": "packages/core/src/markup-walk.ts > tags",
-			"reason": "a generator (not recorded): one pattern jump per tag, the tag itself read by read_tag (benched in packages/core/bench/markup.bench.ts, a scan of a whole document too); proven in packages/core/test/wire-markup.test.ts"
-		},
-		{
 			"id": "packages/postrender/src/server.ts > servable",
 			"reason": "a stored entry's build label against the build's own `$app/env` version and the wall clock (hidden state), two comparisons; run by packages/postrender/test/deploy.test.ts and handle.test.ts"
 		},
 		{
 			"id": "packages/core/src/frame.ts > mark_written",
 			"reason": "one WeakMap set beside a decoded region value (hidden state), constant work; run by packages/core/test/browser/region-orderings.test.ts and sim-region.test.ts"
-		},
-		{
-			"id": "packages/core/src/frame.ts > written_order",
-			"reason": "one WeakMap read of a decoded region value's write order (hidden state), constant work; run by packages/core/test/browser/region-orderings.test.ts and sim-region.test.ts"
 		},
 		{
 			"id": "packages/federation/src/messages.ts > FEDERATION_WARNINGS > federation_peer_answer_invalid > text",
@@ -4521,10 +4345,6 @@
 			"reason": "browser only, an error path: reads one header of a live Response (not cloneable) and parses it, constant work; proven in packages/core/test/browser/hole-rate-limited.test.ts (#959)"
 		},
 		{
-			"id": "packages/compiler/src/region/transform.ts > say_unparsed",
-			"reason": "the build warning for a host the parser cannot read, said once per file, constant work"
-		},
-		{
 			"id": "packages/compiler/src/region/transform.ts > warn_unparsed > once:1~087a4c",
 			"reason": "say(): one build warning per unparsed file, constant work"
 		},
@@ -4543,14 +4363,6 @@
 		{
 			"id": "packages/compiler/src/vite/package-files.ts > discover_package_files > inside",
 			"reason": "a closure over the package's real root (not replayable), one prefix compare; proven in packages/core/test/package-files.test.ts"
-		},
-		{
-			"id": "packages/core/src/context.ts > head_owner",
-			"reason": "one Svelte getContext read per region in the server render (hidden state: the component context), constant work; proven in apps/palaestra/e2e/head-owner-kept.spec.ts (#806)"
-		},
-		{
-			"id": "packages/core/src/context.ts > set_head_owner",
-			"reason": "one Svelte setContext write per outermost island in the server render (hidden state: the component context), constant work; proven in apps/palaestra/e2e/head-owner-kept.spec.ts (#806)"
 		},
 		{
 			"id": "packages/core/src/hooks.ts > set_ref_names_reader:0~1d7e63",
@@ -4761,10 +4573,6 @@
 			"reason": "reads location (hidden state), one URL parse; proven in packages/core/test/audit-fixes.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/html-sink.ts > is_same_origin_response",
-			"reason": "reads a live Response (not cloneable) and location, constant work; proven in packages/core/test/audit-fixes.test.ts"
-		},
-		{
 			"id": "packages/core/src/runtime/html-sink.ts > vouch_region_answer",
 			"reason": "reads a live Response (not cloneable), two origin checks; proven in packages/core/test/browser/batch-same-origin.test.ts"
 		},
@@ -4789,8 +4597,8 @@
 			"reason": "browser only: the browser's declarative shadow DOM attach over a parsed fragment (moved from parse-html.ts); proven in packages/core/test/browser/inert-parse.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/html-sink.ts > init_shadow_registries",
-			"reason": "browser only: gives inserted shadow roots the page's registry (moved from parse-html.ts); proven in packages/core/test/browser/inert-parse.test.ts"
+			"id": "packages/core/src/server/islands-endpoint.ts > say_bad_signature",
+			"reason": "dev only: one warning for a forged hole request, folded out of production builds; the refusal it rides with is benched (region_verify, packages/core/bench/region-capability.bench.ts)"
 		},
 		{
 			"id": "packages/core/src/server/islands-endpoint.ts > claim_of",
@@ -5065,10 +4873,6 @@
 			"reason": "browser only: a box-less target followed into is observed for swaps (one map entry, one observe), constant work; viewport-shared.test.ts runs it in three engines"
 		},
 		{
-			"id": "packages/core/src/runtime/viewport.ts > Tracker > #stop_swaps",
-			"reason": "browser only: a box-less target let go leaves the swap observer, which observes again the few targets left (box-less regions followed now); viewport-shared.test.ts runs it in three engines"
-		},
-		{
 			"id": "packages/core/src/runtime/viewport.ts > Tracker > #stop_swaps > micro:0~165f8c",
 			"reason": "browser only: hands the swap records not yet delivered to #swapped, constant work"
 		},
@@ -5093,14 +4897,6 @@
 			"reason": "browser only (DOM comments): runs only for a child of an element stamped data-og-html, a scan of its earlier siblings back to the nearest range mark or anchor; dom-ownership.test.ts runs it"
 		},
 		{
-			"id": "packages/core/src/runtime/html-ranges.ts > hash_without_mark",
-			"reason": "dev only: a fixed 12-step loop per marked {@html} range, once per hydrate; proven in packages/core/test/canary/svelte-hydration-markers.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/html-ranges.ts > unmark_html_ranges",
-			"reason": "browser only (DOM comments): one pass over the children of each data-og-html element of a region, once per hydrate; html-range.test.ts runs it"
-		},
-		{
 			"id": "packages/core/src/runtime/form-continuity.ts > url_of",
 			"reason": "browser only (document.baseURI): one URL parse per region attribute; proven in packages/core/test/browser/form-restore-region-identity.test.ts"
 		},
@@ -5115,10 +4911,6 @@
 		{
 			"id": "packages/core/src/messages/core.ts > WARNINGS > page_payload_unreadable > text",
 			"reason": "a message's one line, built once when the warning is said, constant work"
-		},
-		{
-			"id": "packages/core/src/runtime/frame-store.ts > part_definition",
-			"reason": "makes one three-state machine definition (data, not cloneable), constant work per promised part"
 		},
 		{
 			"id": "packages/core/src/runtime/page-defer.ts > settle > catch:0~a1b2d0",
@@ -5283,18 +5075,6 @@
 		{
 			"id": "packages/compiler/src/macros/dollar.ts > dollar_edits > find:0~5a7f30",
 			"reason": "was rewrite_dollar's (renamed, same work): one edit test while merging the import, measured by the dollar macros bench's module"
-		},
-		{
-			"id": "packages/compiler/src/macros/dollar.ts > dollar_edits > in_region",
-			"reason": "was rewrite_dollar's (renamed, same work): a few offset compares per mark"
-		},
-		{
-			"id": "packages/compiler/src/macros/dollar.ts > dollar_edits > in_region > some:0~558dc5",
-			"reason": "was rewrite_dollar's (renamed, same work): one offset compare"
-		},
-		{
-			"id": "packages/compiler/src/macros/dollar.ts > dollar_edits > some:0~9d1a3b",
-			"reason": "was rewrite_dollar's (renamed, same work): one prefix test per edit"
 		},
 		{
 			"id": "packages/compiler/src/macros/pipeline.ts > run_module_macros > apply > push:0~63cdc9",
@@ -5861,10 +5641,6 @@
 			"reason": "one preprocess then one Svelte compile per component, the compile's own cost; router-css-dev-preprocess.test.ts runs it through the compiler"
 		},
 		{
-			"id": "packages/compiler/src/link/own-reach.ts > pattern_keys",
-			"reason": "the keys of one destructuring pattern on a dynamic import, a handful, constant work per key; own-reach.test.ts runs it through the prescan"
-		},
-		{
 			"id": "packages/compiler/src/macros/dollar.ts > dollar_edits > refuse_at",
 			"reason": "builds one refusal error at one site, cold path; og-dollar.test.ts runs it"
 		},
@@ -6137,10 +5913,6 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/compiler/src/vite/options.ts > assert_known_options",
-			"reason": "config-time only: once per ogygia() call, over the handful of keys the app passed"
-		},
-		{
 			"id": "packages/compiler/src/vite/options.ts > assert_known_options > OgygiaError:1~cd3adc > filter:0~bd445f",
 			"reason": "builds the unknown-option message, once, as the build fails"
 		},
@@ -6151,22 +5923,6 @@
 		{
 			"id": "packages/compiler/src/messages.ts > BUILD_ERRORS > region_attribute_unknown > text",
 			"reason": "a message table entry: wording only"
-		},
-		{
-			"id": "packages/compiler/src/region/transform.ts > component_attribute_keys",
-			"reason": "builds an eight-name list, constant work"
-		},
-		{
-			"id": "packages/compiler/src/region/transform.ts > foreign_attribute",
-			"reason": "two lookups per attribute key, constant work"
-		},
-		{
-			"id": "packages/compiler/src/region/transform.ts > has_unknown_component_attribute",
-			"reason": "only for a host with no region key: one includes() and one linear regex pass over its .svelte import clauses; a bench would count the regex engine, not ours"
-		},
-		{
-			"id": "packages/compiler/src/region/transform.ts > refuse_unknown_attributes",
-			"reason": "once per attributed import a host already parses, over its few attribute keys"
 		},
 		{
 			"id": "packages/compiler/src/region/transform.ts > refuse_unknown_attributes > OgygiaError:1~5816b6 > map:0~86ff3f",
@@ -6185,24 +5941,12 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/core/src/server/kit-gate.ts > kit_start_ungated",
-			"reason": "dev only (the warning folds out of production); one bounded scan of the body's last 64 KB, the scan kit_gate's bench case already counts; kit-gate.test.ts and test/canary/kit-start-script.test.ts run it"
-		},
-		{
 			"id": "packages/core/src/server/kit-request-store.ts > KitRequestStore > static event",
 			"reason": "one read of Kit's AsyncLocalStorage store, constant work; its answer is the live request, hidden state no replay holds; kit-request-reads.test.ts and plugin-request-end.test.ts run it"
 		},
 		{
 			"id": "packages/core/src/server/kit-request-store.ts > KitRequestStore > static run",
 			"reason": "hands the call to Kit's with_request_store, constant work of its own; test/canary/kit-request-store.test.ts and plugin-request-end.test.ts run it"
-		},
-		{
-			"id": "packages/core/src/server/kit-request-store.ts > KitRequestStore > static state",
-			"reason": "one read of Kit's AsyncLocalStorage store, constant work; its answer is the live request's state, hidden state no replay holds; request-bag.test.ts runs it"
-		},
-		{
-			"id": "packages/core/src/server/live-event.ts > live_event",
-			"reason": "one call to Kit's getRequestEvent, constant work; its answer is the live request, hidden state no replay holds; kit-request-reads.test.ts runs it"
 		},
 		{
 			"id": "packages/devtools/src/devtools/highlight.ts > Highlighter > show > defer:0~248bad",
@@ -6327,10 +6071,6 @@
 		{
 			"id": "packages/core/src/snippet-render.ts > SnippetRender > static install",
 			"reason": "runs once per module load (hooks.ts, region.ts): one slot write, constant work; snippet.bench.ts and every freeze test run it"
-		},
-		{
-			"id": "packages/core/src/region-snippet.ts > install_snippet_renderer",
-			"reason": "one slot write when a renderer is installed, once per module load; snippet.bench.ts and every freeze test run it"
 		},
 		{
 			"id": "packages/core/src/region-snippet.ts > shared:0~ef144f > make",
@@ -6737,10 +6477,6 @@
 			"reason": "browser only: island code's read of whether Kit hydrates the document (the booted runtime's answer, else the document's probe), once per page; proven in packages/core/test/browser/kit-pages-off.test.ts and kit-pages-refused.test.ts"
 		},
 		{
-			"id": "packages/core/src/contract/features.ts > feature_word",
-			"reason": "build only: the compiler's runtime entry writes HAS with it, once per build, constant work per feature; proven in packages/compiler/test/virtual-core.test.ts"
-		},
-		{
 			"id": "packages/core/src/messages/core.ts > ERRORS > kit_page_unbuilt",
 			"reason": "a message table entry: wording only"
 		},
@@ -6929,10 +6665,6 @@
 			"reason": "one call forwarded to the handle's render budget, constant work; the budget is proven in packages/core/test/batch-render-budget.test.ts"
 		},
 		{
-			"id": "packages/compiler/src/link/runtime-entry.ts > generateServerFlagsSource",
-			"reason": "build-only: one module source per build, constant work; proven in packages/compiler/test/runtime-flags.test.ts"
-		},
-		{
 			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > region_endpoint_unbuilt > details",
 			"reason": "a message table entry: wording only"
 		},
@@ -6971,10 +6703,6 @@
 		{
 			"id": "packages/core/src/messages/core.ts > ERRORS > region_schedule_missing",
 			"reason": "a message table entry: wording only"
-		},
-		{
-			"id": "packages/core/src/server/stream-regions.ts > batch_definition",
-			"reason": "module setup made lazy: the batch stream's machine definition, once per process at the first batch; the stream is proven in packages/core/test/batch-stream-cancel.test.ts"
 		},
 		{
 			"id": "packages/core/src/browser-half.ts > import_entry",

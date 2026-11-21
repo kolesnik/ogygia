@@ -2,6 +2,8 @@
  * THE HANDLE'S HALF of server/shared-cache.ts: the `cache-control` a page's load sets, read into how
  * long shared caches keep the document. Only the handle's frames path imports it, so a server
  * without holes holds none of it (apps/palaestra/e2e/server-size.ts SERVER_PROGRAMS).
+ *
+ * @packageDocumentation
  */
 import { note_shared_lifetime } from './shared-cache.ts';
 
