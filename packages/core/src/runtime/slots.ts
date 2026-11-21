@@ -172,7 +172,6 @@ export type BootLink = [
 	regions_in_shadow: typeof import('./connected.ts').regions_in_shadow,
 	sheets_in_use: typeof import('./region-sheets.ts').sheets_in_use,
 	yield_task: typeof import('./schedule.ts').yield_task,
-	/** the lazy chunks' hooks the app's client realms subscribe to (`ogygia:boot/hooks`), `0` when none */
 	hooks: import('../contract/runtime-hooks.ts').LazyHooks | 0,
 	/** DOM ownership (./ownership.ts): which children Svelte's walk enters, and self-owned elements */
 	walk_enters: typeof import('./ownership.ts').walk_enters,

@@ -11,7 +11,6 @@ import { defineClient, type ClientPlugin, type PageGlobals } from '@ogygia/core/
 import { keep_host_classes, note_host_classes } from './host-classes.ts';
 import { report_restores } from './restore-report.ts';
 
-/** This realm's copy of the restorer, in: the page's restorer from now on, unless it has one. */
 function load_restorer(w: PageGlobals): Promise<void> {
 	return import('./restore.ts').then(
 		({ restore, restore_adopt }) => {
@@ -42,7 +41,7 @@ const client: ClientPlugin = defineClient({
 			return noted ? () => keep_host_classes(noted) : undefined;
 		},
 		answerParsed({ fragment }) {
-			// (the page's restorer, read now: the report wraps it at boot, or as it loads)
+			// (the page's restorer, read now: the report wraps it at boot)
 			const w = window as PageGlobals;
 			if (!w.__og_restore) {
 				return w.__og_restore_ready?.then(() => {

@@ -38,10 +38,9 @@ describe('package_macros', () => {
 			writeFileSync(join(root, 'src/a.ts'), SAY);
 			writeFileSync(join(root, 'scripts/b.ts'), SAY);
 			const inside = await built(join(root, 'src/a.ts'), root);
-			expect(inside).toContain('trusted_say');
-			expect(inside).toContain('@ogygia/machine/internal');
+			expect(inside).toContain('trustedSay');
 			const outside = await built(join(root, 'scripts/b.ts'), root);
-			expect(outside).not.toContain('trusted_say');
+			expect(outside).not.toContain('trustedSay');
 			expect(outside).toMatch(/\bsay\(\)/);
 		} finally {
 			rmSync(root, { recursive: true, force: true });

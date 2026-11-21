@@ -1,10 +1,3 @@
-/**
- * How the runtime tells the app's client realms a hook. The compiler knows which hooks the realms
- * subscribe to (each realm's `defineClient({ hooks })`, read from its file), and generates
- * `ogygia:boot/hooks`: a {@link told} function for each of those, `0` for every other one, so a
- * call nobody hears folds out of the build. The realms themselves are handed over at boot
- * ({@link Realms.set}, by ./client-plugins.ts), in the order the entry imported them.
- */
 import type { ClientPlugin } from '../plugin/client.ts';
 import type { RuntimeHookName, RuntimeHooks } from '../contract/runtime-hooks.ts';
 import { OgygiaError } from '../messages/core.ts';
@@ -17,7 +10,8 @@ export interface ClientRealm {
 
 type Payload<K extends RuntimeHookName> = Parameters<RuntimeHooks[K]>[0];
 
-/** The app's client realms, once the boot handed them over. */
+/** The app's client realms, once the boot handed them over (./client-plugins.ts), in the order the
+ *  entry imported them: the realms each {@link told} hook tells. */
 export class Realms {
 	static list: readonly ClientRealm[] = [];
 	static set(list: readonly ClientRealm[]): void {
@@ -48,7 +42,8 @@ export function isolated(
 	};
 }
 
-/** The hook `name`, told to every realm that subscribes, in realm order. A subscriber may answer
+/** The hook `name`, told to every realm that subscribes, in realm order: what the compiler's
+ *  `ogygia:boot/hooks` makes each hook the app's realms subscribe to (every other is `0`). A subscriber may answer
  *  with a function (`regionHydrate`'s after): the call returns one that runs them all. One may
  *  answer with a promise (`answerParsed`'s wait): the call returns one that settles when they all
  *  have, a rejection reported and waited past. Otherwise it returns nothing. */
