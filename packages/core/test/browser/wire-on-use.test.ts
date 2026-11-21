@@ -16,6 +16,11 @@ vi.mock('../_stubs/boot.hydrate-features.ts', async (real: () => Promise<object>
 	wire: null,
 	wire_on: false
 }));
+// (and so its boot loads the codec on use, as such a build's flags say)
+vi.mock('../_stubs/boot.runtime-flags.ts', async (real: () => Promise<object>) => ({
+	...(await real()),
+	load_wire_codec: () => import('../../src/live-transport.ts')
+}));
 
 const { bootDev } = await import('../../src/runtime/full.ts');
 const { wire_codec } = await import('../../src/runtime/wire-on-use.ts');

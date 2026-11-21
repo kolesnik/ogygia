@@ -49,10 +49,17 @@ import {
 	sequence_differs,
 	type IslandModule
 } from '../src/runtime/hydrate-core.ts';
+import { __heisenbench as interaction_private } from '../src/runtime/interaction.ts';
+import { HAS, set_feature_word } from '../test/_stubs/boot.runtime-flags.ts';
 import {
-	__heisenbench as interaction_private,
-	install as install_interaction
-} from '../src/runtime/interaction.ts';
+	F_FORMS,
+	F_FRAMES,
+	F_LAKES,
+	F_MORPH,
+	F_MPA_NAV,
+	F_ROUTER,
+	F_WIRE_CLASSES
+} from '../src/contract/features.ts';
 import { once_on_screen } from '../src/runtime/viewport.ts';
 import { flights } from '@ogygia/machine';
 import * as life from '@ogygia/machine';
@@ -70,6 +77,10 @@ import {
 	hydrate_turn,
 	register_region
 } from '../src/runtime/schedule.ts';
+
+// The build of these pages (islands, waking on load or on a visitor): no lakes, no morph, no router,
+// no form continuity, no transportable classes. Its boot's link and its element hold none of them.
+set_feature_word(HAS & ~F_LAKES & ~F_MORPH & ~F_ROUTER & ~F_MPA_NAV & ~F_FORMS & ~F_WIRE_CLASSES);
 
 const MOD = { default: island_module } as unknown as IslandModule;
 /** The page the scheduler's regions are on: their viewport snapshots are its. */
@@ -101,7 +112,11 @@ function boot_page({ page }: Booted): Promise<number> {
 		// (a wake that never comes fails the case instead of ending it early)
 		setTimeout(() => reject(new Error(`${hydrated} of ${expected} islands hydrated`)), 60_000);
 	});
-	boot([install_interaction]);
+	// (a boot that installs no feature of its own: the page's islands and their interaction alone)
+	const word = HAS;
+	set_feature_word(word & ~F_FRAMES);
+	boot();
+	set_feature_word(word);
 	for (const r of regions) if (r.touched) edit_while_asleep(r.el);
 	const tap = regions[0].el.querySelector('button')!;
 	tap.dispatchEvent(new Event('pointerdown', { bubbles: true }));
