@@ -75,9 +75,7 @@ export interface Measure {
 	readonly thenable: boolean;
 }
 
-// THE PACKED MEASURE: one number per node — `bytes * 16 + flags`. A CMS tree is thousands of
-// nodes; a measure object per node was a third of the walk's allocation and a GC line of its own.
-// The number is exact up to 2^49 bytes, which no seed reaches.
+/** Referenceable, in a packed measure (one number per node: `bytes * 16 + flags`). */
 export const F_REF = 1;
 const F_JSON = 2;
 const F_THENABLE = 4;
@@ -97,6 +95,7 @@ const IN_PROGRESS = -1;
 /** The smallest node a seed reference may replace: a reference costs ~30 bytes, so it must save more. */
 export const SEED_MIN_BYTES = 96;
 
+/** The byte estimate of a packed measure (exact up to 2^49 bytes, which no seed reaches). */
 export const bytes_of = (p: number): number => (p - (p & FLAGS)) / 16;
 
 function unpack(p: number): Measure {

@@ -185,8 +185,6 @@ export function deep_equal_plain(a: unknown, b: unknown): boolean {
 	return true;
 }
 
-/** Where a seed node sits: its parent node (`null`: the seed itself) and the key under it, and
- *  whether a reference may point at it. The path is materialised only when one is planned to it. */
 interface Place {
 	readonly parent: object | null;
 	readonly key: string | number;
