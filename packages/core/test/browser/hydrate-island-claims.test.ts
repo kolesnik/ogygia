@@ -4,9 +4,8 @@ import { afterEach, beforeAll, beforeEach, expect, inject, test, vi } from 'vite
 import { from_b64 } from './b64.ts';
 import type { Component } from 'svelte';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
-import { install as install_live } from '../../src/runtime/live.ts';
-import { install as install_lakes } from '../../src/runtime/lakes.ts';
 import { slots } from '../../src/runtime/slots.ts';
 import { hear, hear_none } from '../_hooks.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
@@ -55,10 +54,8 @@ function sidecar_after(region: Element, text: string): HTMLScriptElement {
 }
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
-	install_live();
-	install_lakes();
 	kit_page = runtime_session.kit_page;
 	saved = { ...slots };
 });

@@ -5,8 +5,8 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { region_fragment } from './_html.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document, seed_page_once } from '../../src/runtime/seeds.ts';
 import { boot_link } from '../../src/runtime/slots.ts';
@@ -20,8 +20,7 @@ const real_fetch = window.fetch;
 const home = location.href;
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.body.innerHTML = '<p>first</p>';
 	prepare_spa_document();
 	window.fetch = async () =>

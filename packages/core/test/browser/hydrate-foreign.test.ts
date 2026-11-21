@@ -6,8 +6,8 @@ import { from_b64 } from './b64.ts';
 import { flushSync, type Component } from 'svelte';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
-import { install as install_live } from '../../src/runtime/live.ts';
 import { current_region, foreign_hydrate } from '../../src/current-region.ts';
 import { slots } from '../../src/runtime/slots.ts';
 import { hydrate_island, hydrate_live, read_region_props } from '../../src/runtime/hydrate-core.ts';
@@ -55,9 +55,8 @@ function region_with(html: string, props: unknown = { obj: { a: 1 } }): HTMLElem
 }
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
-	install_live();
 });
 beforeEach(() => {
 	document.body.innerHTML = '';

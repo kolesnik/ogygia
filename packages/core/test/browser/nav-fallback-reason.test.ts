@@ -17,8 +17,7 @@ const home = location.href;
 
 beforeEach(async () => {
 	await history_room();
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.body.innerHTML = '<p>first</p>';
 	runtime_session.adopt_document_head();
 	prepare_spa_document();

@@ -4,6 +4,7 @@
 import { expect, test } from 'vitest';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { prepare_spa_document, seed_page_once } from '../../src/runtime/seeds.ts';
 import { boot_link } from '../../src/runtime/slots.ts';
 import { L_LOAD_DEVALUE } from '../../src/runtime/boot-link-index.ts';
@@ -13,7 +14,7 @@ import { PAGE_DEFER_BOOTSTRAP, PAGE_DEFER_GLOBAL } from '../../src/page-defer.ts
 import { mark_live_head, TEST_MARK } from './_response-mark.ts';
 
 test('a streamed value that arrived before the runtime settles the promise its seed revives', async () => {
-	link_boot();
+	init(link_boot());
 	await boot_link()[L_LOAD_DEVALUE]();
 	prepare_spa_document();
 	// oxlint-disable-next-line no-eval -- the bootstrap is an inline script's text: run it as the browser does

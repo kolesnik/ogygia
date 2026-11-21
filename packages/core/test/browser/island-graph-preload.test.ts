@@ -17,6 +17,7 @@ import { from_b64 } from './b64.ts';
 import { boot_link, slots } from '../../src/runtime/slots.ts';
 import { L_REGISTER_ISLAND_GRAPH } from '../../src/runtime/boot-link-index.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { warm_island_module } from '../../src/runtime/island-warm.ts';
 
 const ALL = HAS;
@@ -119,7 +120,7 @@ describe('a build whose word has no graph (no island code of the app can load: F
 	/** The boot link a boot of the current word makes. */
 	const relink = () => {
 		slots.boot = null;
-		link_boot();
+		init(link_boot());
 		return boot_link();
 	};
 

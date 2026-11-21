@@ -19,7 +19,7 @@ import {
 	sheet_loaded
 } from './_in-head.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 
@@ -39,8 +39,7 @@ const next_page = () =>
 	getComputedStyle(document.documentElement).getPropertyValue('--og-next-page');
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.body.innerHTML = '<p>first</p>';
 	prepare_spa_document();
 	window.fetch = async () =>

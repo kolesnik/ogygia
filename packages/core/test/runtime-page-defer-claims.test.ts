@@ -8,6 +8,7 @@ import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { parse, stringify } from 'devalue';
 import { DeferRef, defer_reducer } from '../src/server/page-stream.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
+import { init } from '../src/runtime/lazy-link.ts';
 import { load_devalue } from '../src/runtime/devalue-lane.ts';
 import { slots } from '../src/runtime/slots.ts';
 import { L_WITH_DEVALUE } from '../src/runtime/boot-link-index.ts';
@@ -28,7 +29,7 @@ const resolve = (id: number, ok: boolean, value: unknown) =>
 	(g[PAGE_DEFER_GLOBAL] as (i: number, o: boolean, e: string) => void)(id, ok, stringify(value));
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
 });
 

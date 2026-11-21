@@ -39,6 +39,7 @@ import { RuntimeSession } from '../src/runtime/session.ts';
 import { mark_head, record_island_head } from '../src/runtime/head-copies.ts';
 import island_module from '../test/_stubs/island-module.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
+import { init } from '../src/runtime/lazy-link.ts';
 import { __heisenbench as core_private, boot } from '../src/runtime/core.ts';
 import { import_entry, note_entry_location } from '../src/runtime/entry-locations.ts';
 import {
@@ -150,7 +151,7 @@ bench('region element: a page boots and wakes as it grows', boot_page, {
 
 /** Every island of the page, each hydrated against the server copy it connected with. */
 function hydrate_all(regions: PageRegion[]): number {
-	link_boot();
+	init(link_boot());
 	let n = 0;
 	for (const r of regions)
 		if (hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, r.touched)) n++;
@@ -160,7 +161,7 @@ function hydrate_all(regions: PageRegion[]): number {
 bench(
 	'hydrate_island: the header island (a large props config, edited while it slept)',
 	({ regions }) => {
-		link_boot();
+		init(link_boot());
 		const r = regions[0];
 		return hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, true) !== null;
 	},
@@ -199,7 +200,7 @@ function mismatched_grid(cards: number): { r: PageRegion } {
 bench(
 	'hydrate_island: a grid island Svelte re-renders, as its root cards grow',
 	({ r }) => {
-		link_boot();
+		init(link_boot());
 		return hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, false) !== null;
 	},
 	{
@@ -223,7 +224,7 @@ function ab_edited(rows: number): { region: Element; want: Element } {
 bench(
 	'drift check and repair: an edited block island as its rows grow',
 	({ region, want }) => {
-		link_boot();
+		init(link_boot());
 		if (!sequence_differs(region, want)) return false;
 		hydrate_core.repair_markup(region as HTMLElement, want);
 		return sequence_differs(region, want);

@@ -4,7 +4,7 @@
 // is never swapped in (runtime/router-nav.ts `navigate`).
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { page_state } from '../../src/shims/page-store.svelte.ts';
@@ -28,8 +28,7 @@ function landed(html: string, url: string): Response {
 }
 
 beforeEach(async () => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	const marker = document.createElement('meta');
 	marker.name = 'ogygia-router';
 	document.head.append(marker);

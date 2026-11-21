@@ -4,6 +4,7 @@
 import { expect, test } from 'vitest';
 import { STALE } from '@ogygia/machine';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { slots } from '../../src/runtime/slots.ts';
 import * as index from '../../src/runtime/boot-link-index.ts';
 import { kit_hydrates_page } from '../../src/runtime/kit-boot.ts';
@@ -50,7 +51,7 @@ import {
 } from '../../src/runtime/devalue-lane.ts';
 import { OgygiaError, warn } from '../../src/messages/core.ts';
 
-link_boot();
+init(link_boot());
 const link = slots.boot!;
 
 test('each place in the boot link holds the helper its number names', () => {

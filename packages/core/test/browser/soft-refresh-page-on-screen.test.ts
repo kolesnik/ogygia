@@ -9,7 +9,7 @@ import { commands } from 'vitest/browser';
 import { it_with_network_routes } from './_browsers.ts';
 import { end_time_hold, hold_time, in_head, release_download, release_time } from './_in-head.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { page_state } from '../../src/shims/page-store.svelte.ts';
@@ -33,8 +33,7 @@ const page = (title: string, who: string, extra = '') =>
 const asked: string[] = [];
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	const marker = document.createElement('meta');
 	marker.name = 'ogygia-router';
 	document.head.append(marker);

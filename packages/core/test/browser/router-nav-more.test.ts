@@ -8,8 +8,8 @@ import { it_with_network_routes } from './_browsers.ts';
 import { history_room } from './_history-budget.ts';
 import { in_head } from './_in-head.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { connected_regions } from '../../src/runtime/connected.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
 import { hold_scroll } from '../../src/runtime/router-nav.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
@@ -75,8 +75,7 @@ let handed: string[];
 
 beforeEach(async () => {
 	await history_room();
-	link_boot();
-	install_morph();
+	init(link_boot());
 	pages = {};
 	fetched.length = 0;
 	handed = [];

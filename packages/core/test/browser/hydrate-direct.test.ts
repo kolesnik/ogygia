@@ -8,8 +8,8 @@ import { beforeAll, beforeEach, expect, inject, test } from 'vitest';
 import { from_b64 } from './b64.ts';
 import type { Component } from 'svelte';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
-import { install as install_live } from '../../src/runtime/live.ts';
 import { hydrate_island, hydrate_live } from '../../src/runtime/hydrate-core.ts';
 import Counter from './fixtures/Counter.svelte';
 import Label from './fixtures/Label.svelte';
@@ -20,9 +20,8 @@ const decode = (key: Key) => from_b64(inject(key));
 const as_module = (c: unknown) => ({ default: c as Component<Record<string, unknown>> });
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
-	install_live();
 });
 
 beforeEach(() => {

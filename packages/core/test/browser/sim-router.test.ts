@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, vi } from 'vitest';
 import { fc, simulate } from '@ogygia/config/sim';
 import { it_with_history_unthrottled } from './_browsers.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 
@@ -30,8 +30,7 @@ const page_html = (path: string, n: number) =>
 	`<!doctype html><html><head><meta name="ogygia-router" content="plain"><title>${path}</title></head><body><main data-page="${path}" data-n="${n}">${path}</main></body></html>`;
 
 beforeAll(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	window.reportError = () => {};
 });
 afterAll(() => {

@@ -5,7 +5,7 @@
 // the app's globals, so the same page looked different reached by a click than by a load.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
@@ -36,8 +36,7 @@ const sheets = () =>
 	);
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.head.insertAdjacentHTML('afterbegin', GLOBAL);
 	runtime_session.adopt_document_head();
 	document.body.innerHTML = '<p>first</p>';

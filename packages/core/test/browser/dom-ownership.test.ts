@@ -10,14 +10,14 @@ import { expect, test, afterEach } from 'vitest';
 import { lifeOf } from '@ogygia/machine';
 import { repair_if_drifted, sequence_differs } from '../../src/runtime/hydrate-core.ts';
 import { parse_region_html } from './_html.ts';
-import { install as install_morph, morph_children } from '../../src/runtime/morph.ts';
+import { morph_children } from '../../src/runtime/morph.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { owner_of } from '../../src/runtime/ownership.ts';
 import { watch_region, region_changed } from '../../src/runtime/drift-watch.ts';
 import { scope } from '@ogygia/machine';
 
-link_boot();
-install_morph();
+init(link_boot());
 
 afterEach(() => {
 	document.body.innerHTML = '';

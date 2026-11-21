@@ -6,6 +6,7 @@
 // it fetches nothing: its page would be the one from before the mutation.
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import {
 	BACKGROUND_WINDOW,
 	LoadSlot,
@@ -21,7 +22,7 @@ const priorities: (string | undefined)[] = [];
 beforeEach(() => {
 	reset_load_scheduler();
 	reset_document_painted();
-	link_boot();
+	init(link_boot());
 	asked.length = 0;
 	priorities.length = 0;
 	window.fetch = async (input, init) => {

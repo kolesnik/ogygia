@@ -8,9 +8,7 @@ const { morph_children, install: install_morph } = await import('../../src/runti
 const { reconcile_body } = await import('../../src/runtime/reconcile.ts');
 const { link_boot } = await import('../../src/runtime/boot-link.ts');
 const { snapshot, clear, configure } = await import('../../src/events/bus.ts');
-
-install_morph();
-link_boot();
+init(link_boot());
 
 test('each region’s fate under a navigation is one nav.reconcile event', () => {
 	configure({ active: true, cap: 4096 });

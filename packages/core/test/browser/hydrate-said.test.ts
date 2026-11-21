@@ -29,7 +29,7 @@ const events = (name: string) =>
 		});
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
 });
 beforeEach(() => {
