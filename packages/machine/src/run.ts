@@ -130,7 +130,7 @@ export class Run<
 > {
 	declare readonly _types?: [S, T];
 	declare _def: Def;
-	declare _state: number;
+	declare _k: number;
 	/** The data the state it is in was entered with, not copied (`undefined`: none): a read that
 	 *  makes no object, for a machine whose states all carry the same kind of data. */
 	declare data: DataOf<S>;
@@ -147,7 +147,7 @@ export class Run<
 	constructor(def: Def, data: object | undefined) {
 		const s = def.initial;
 		this._def = def;
-		this._state = s;
+		this._k = s;
 		this.data = data as DataOf<S>;
 		if (DEV) checked_data(def, s, data);
 		if (def.after[s]) arm(this);
@@ -156,13 +156,13 @@ export class Run<
 	/** The state it is in, as one value: `{ kind, ...data }`, the same value through the visit, a
 	 *  new one every visit (what an observer is given). */
 	get now(): ValueOf<S> {
-		return (this._now ?? (this._now = made(this._def.keys[this._state]!, this.data))) as ValueOf<S>;
+		return (this._now ?? (this._now = made(this._def.keys[this._k]!, this.data))) as ValueOf<S>;
 	}
 
 	/** The name of the state it is in (a compiled machine's: its int, as its call sites were
 	 *  compiled to read it). */
 	get kind(): KindOf<S> {
-		return this._def.keys[this._state] as KindOf<S>;
+		return this._def.keys[this._k] as KindOf<S>;
 	}
 
 	/** The life of the visit it is in now (made on first need): closed by the move that leaves the
@@ -180,8 +180,8 @@ export class Run<
 	): boolean;
 	go(to: Key, data?: object): boolean {
 		if (this._stopped) return false;
-		const t = this._def.next[this._state]![to];
-		if (t === undefined) return illegal(this._def, this._def.keys[this._state]!, to);
+		const t = this._def.next[this._k]![to];
+		if (t === undefined) return illegal(this._def, this._def.keys[this._k]!, to);
 		enter(this, t, data);
 		return true;
 	}
@@ -196,7 +196,7 @@ export class Run<
 	move(from: Key, to: Key, data?: object): boolean {
 		if (this._stopped) return false;
 		const def = this._def;
-		const s = this._state;
+		const s = this._k;
 		if (def.keys[s] === from) {
 			const t = def.next[s]![to];
 			if (t === undefined) return illegal(def, from, to);
@@ -223,8 +223,8 @@ export class Run<
 			return Promise.resolve(STALE);
 		}
 		if (this._stopped) return Promise.resolve(STALE);
-		if (this._state === k) return Promise.resolve(value_of(this));
-		if (!has(reach_of(def), def.words, this._state, k)) return Promise.resolve(STALE);
+		if (this._k === k) return Promise.resolve(value_of(this));
+		if (!has(reach_of(def), def.words, this._k, k)) return Promise.resolve(STALE);
 		return new Promise((resolve) => (this._waiters ??= []).push({ kind: k, resolve }));
 	}
 
@@ -264,7 +264,7 @@ function illegal(def: Def, from: Key, to: Key): false {
 
 interface Bare {
 	_def: Def;
-	_state: number;
+	_k: number;
 	data: object | undefined;
 	_now: State | null;
 	epoch: number;
@@ -277,7 +277,7 @@ interface Bare {
 }
 
 function value_of(m: Bare): State {
-	return m._now ?? (m._now = made(m._def.keys[m._state]!, m.data));
+	return m._now ?? (m._now = made(m._def.keys[m._k]!, m.data));
 }
 
 /** A state's value: its kind (a compiled machine's: its int) and the data it was entered with
@@ -292,7 +292,7 @@ function enter(m: Bare, to: number, data: object | undefined): void {
 	if (RULES && observers.size !== 0) return enter_told(m, to, data);
 	const def = m._def;
 	if (DEV) checked_data(def, to, data);
-	m._state = to;
+	m._k = to;
 	m.data = data;
 	m._now = def.copies ? made(def.keys[to]!, data) : null;
 	m.epoch++;
@@ -310,7 +310,7 @@ function enter_told(m: Bare, to: number, data: object | undefined): void {
 	const def = m._def;
 	if (DEV) checked_data(def, to, data);
 	const prev = value_of(m);
-	m._state = to;
+	m._k = to;
 	m.data = data;
 	m._now = def.copies ? made(def.keys[to]!, data) : null;
 	m.epoch++;
@@ -329,12 +329,12 @@ function enter_told(m: Bare, to: number, data: object | undefined): void {
  */
 function arm(m: Bare): void {
 	const def = m._def;
-	const timed = def.after[m._state]!;
+	const timed = def.after[m._k]!;
 	let ms: unknown;
 	try {
 		ms = typeof timed.ms === 'function' ? timed.ms(value_of(m)) : timed.ms;
 	} catch (error) {
-		report('machine_timeout_failed', { name: def.name, state: label(def, m._state) }, error);
+		report('machine_timeout_failed', { name: def.name, state: label(def, m._k) }, error);
 		return;
 	}
 	// (a made time that is not one a timer can hold would be clamped to 1 ms: the state would end
@@ -342,7 +342,7 @@ function arm(m: Bare): void {
 	if (!is_time(ms)) {
 		report('machine_timeout_not_a_time', {
 			name: def.name,
-			state: label(def, m._state),
+			state: label(def, m._k),
 			ms: String(ms)
 		});
 		return;
@@ -352,8 +352,8 @@ function arm(m: Bare): void {
 
 function timed_step(m: Bare): void {
 	const def = m._def;
-	const timed = def.after[m._state]!;
-	const from = m._state;
+	const timed = def.after[m._k]!;
+	const from = m._k;
 	try {
 		enter(m, timed.to, timed.data === undefined ? undefined : timed.data(value_of(m)));
 	} catch (error) {
@@ -368,7 +368,7 @@ function timed_step(m: Bare): void {
 function settle(m: Bare): void {
 	const waiters = m._waiters as Waiter[];
 	const def = m._def;
-	const at = m._state;
+	const at = m._k;
 	let reach: number[] | null = null;
 	let kept = 0;
 	for (let i = 0; i < waiters.length; i++) {

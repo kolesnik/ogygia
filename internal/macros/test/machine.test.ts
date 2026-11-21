@@ -194,7 +194,7 @@ describe('call sites', () => {
 	});
 
 	test('a state read is compared or switched on by int, through a const, a now and a StateOf too', () => {
-		const kind = '[RULES ? "kind" : "_state"]';
+		const kind = '[RULES ? "kind" : "_k"]';
 		expect(code).toContain(
 			`this.#hole?.${kind} === ${at('fetching', 2)} || ${at('retrying', 3)} !== this.#hole${kind}`
 		);

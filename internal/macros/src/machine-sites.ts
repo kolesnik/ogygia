@@ -6,7 +6,7 @@
  *   this.#hole.go('armed')              → this.#hole.go(RULES ? 'armed' : 1)
  *   hole.move('fetching', 'retrying')   → hole.move(RULES ? 'fetching' : 2, RULES ? 'retrying' : 3)
  *   sheet.wait('loaded')                → sheet.wait(RULES ? 'loaded' : 1)
- *   this.#hole.kind === 'fetching'      → this.#hole[RULES ? 'kind' : '_state'] === (RULES ? 'fetching' : 2)
+ *   this.#hole.kind === 'fetching'      → this.#hole[RULES ? 'kind' : '_k'] === (RULES ? 'fetching' : 2)
  *   switch (s.kind) { case 'live': … }  → switch (s.kind) { case (RULES ? 'live' : 3): … }
  *
  * A machine's own `kind` (not its `now`'s) is read from the field the getter reads: a compiled
@@ -183,7 +183,7 @@ export function compile_sites(c: Compiler): void {
 						e.s.overwrite(
 							n.object.end,
 							n.end,
-							`${n.optional ? '?.' : ''}[${rules} ? "kind" : "_state"]`
+							`${n.optional ? '?.' : ''}[${rules} ? "kind" : "_k"]`
 						);
 				}
 			}
