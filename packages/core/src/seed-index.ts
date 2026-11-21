@@ -186,10 +186,12 @@ export function deep_equal_plain(a: unknown, b: unknown): boolean {
 }
 
 interface Place {
+	readonly node: object;
 	readonly parent: object | null;
 	readonly key: string | number;
 	readonly ref: boolean;
 	path: SeedPath | null;
+	next: Place | null;
 }
 
 const EMPTY_NODES: readonly object[] = [];
@@ -219,11 +221,14 @@ export class SeedIndex implements SeedRecorder {
 	readonly min: number;
 	#memo: MeasureMemo | null = null;
 	readonly #at = new Map<object, Place>();
-	readonly #by_bytes = new Map<number, object[]>();
 	#count = 0;
+	/** Size buckets for structure matching: each byte estimate's referenceable nodes, in the walk's
+	 *  order, as a chain of their places (no array grows with a bucket). */
+	readonly #buckets = new Map<number, { first: Place; last: Place }>();
 	readonly #hashes = new StructureHashes();
-	/** Per size bucket: how many of its nodes are hashed (in bucket order), and each hash's nodes. */
-	readonly #by_hash = new Map<number, { done: number; nodes: Map<number, object[]> }>();
+	/** Per size bucket: the first of its places not hashed yet (in bucket order), and each hash's
+	 *  nodes. */
+	readonly #by_hash = new Map<number, { next: Place | null; nodes: Map<number, object[]> }>();
 
 	/** The index of `data`, cached per `data` object: one index per request, however many islands
 	 *  ask. `memo`: the request's measure memo, when the caller holds it (seed-refs.ts `analysis`). */
@@ -243,7 +248,7 @@ export class SeedIndex implements SeedRecorder {
 				this.#descend(data, null, '', memo.nodes);
 			if (memo.seed === null && min_bytes === SEED_MIN_BYTES) {
 				memo.seed = this;
-				memo.seed_sizes = this.#by_bytes;
+				memo.seed_sizes = this.#buckets;
 			}
 		}
 		this.size = this.#count;
@@ -262,13 +267,14 @@ export class SeedIndex implements SeedRecorder {
 
 	#place(v: object, parent: object | null, key: string | number, p: number): void {
 		const ref = (p & F_REF) !== 0;
-		this.#at.set(v, { parent, key, ref, path: parent === null ? [] : null });
+		const at: Place = { node: v, parent, key, ref, path: parent === null ? [] : null, next: null };
+		this.#at.set(v, at);
 		if (!ref) return;
 		this.#count++;
 		const b = bytes_of(p);
-		const bucket = this.#by_bytes.get(b);
-		if (bucket) bucket.push(v);
-		else this.#by_bytes.set(b, [v]);
+		const bucket = this.#buckets.get(b);
+		if (bucket === undefined) this.#buckets.set(b, { first: at, last: at });
+		else bucket.last = bucket.last.next = at;
 	}
 
 	#descend(
@@ -339,7 +345,7 @@ export class SeedIndex implements SeedRecorder {
 				const p = nodes.get(v) ?? measure(v, memo);
 				const bytes = bytes_of(p);
 				if (bytes < min_bytes || (prune && (p & F_SEED) === 0)) return;
-				if (p & F_REF && this.candidates(bytes).length) {
+				if (p & F_REF && this.#buckets.has(bytes)) {
 					const cand = this.match(bytes, v);
 					if (cand && deep_equal_plain(cand, v)) return hit(v, this.path(cand)!);
 				}
@@ -372,7 +378,10 @@ export class SeedIndex implements SeedRecorder {
 	/** The seed nodes with exactly this byte estimate — the only ones a props node of that size can
 	 *  be a clone of, in the walk's order. */
 	candidates(bytes: number): readonly object[] {
-		return this.#by_bytes.get(bytes) ?? EMPTY_NODES;
+		const out: object[] = [];
+		for (let at = this.#buckets.get(bytes)?.first ?? null; at !== null; at = at.next)
+			out.push(at.node);
+		return out;
 	}
 
 	/**
@@ -383,15 +392,16 @@ export class SeedIndex implements SeedRecorder {
 	 * of its hash.
 	 */
 	match(bytes: number, v: object): object | undefined {
-		const bucket = this.candidates(bytes);
-		if (bucket.length === 0) return undefined;
+		const bucket = this.#buckets.get(bytes);
+		if (bucket === undefined) return undefined;
 		const h = this.#hashes.of(v);
 		if (h === -1) return undefined;
 		let at = this.#by_hash.get(bytes);
-		if (at === undefined) this.#by_hash.set(bytes, (at = { done: 0, nodes: new Map() }));
+		if (at === undefined) this.#by_hash.set(bytes, (at = { next: bucket.first, nodes: new Map() }));
 		for (const node of at.nodes.get(h) ?? EMPTY_NODES) if (same_structure(node, v)) return node;
-		while (at.done < bucket.length) {
-			const node = bucket[at.done++]!;
+		while (at.next !== null) {
+			const node = at.next.node;
+			at.next = at.next.next;
 			const own = this.#hashes.of(node);
 			if (own === -1) continue;
 			const same = at.nodes.get(own);

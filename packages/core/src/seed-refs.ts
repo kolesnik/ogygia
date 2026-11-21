@@ -143,14 +143,18 @@ export interface SeedRecorder {
  * measured even after one disqualifies the parent: a clean sibling deeper in the tree must still
  * get its own entry. Strings never enter the memo. A node already in the memo — from this root or
  * from any other root measured with the same memo — is a lookup. `rec`: the seed's walk, told
- * where each node it meets sits (`parent`, `key`: where `v` was met).
+ * where each node it meets sits (its parent, `null` for the root, and its key there).
  */
-export function measure(
+export function measure(v: unknown, memo: MeasureMemo, rec: SeedRecorder | null = null): number {
+	return measure_at(v, memo, rec, null, '');
+}
+
+function measure_at(
 	v: unknown,
 	memo: MeasureMemo,
-	rec: SeedRecorder | null = null,
-	parent: object | null = null,
-	key: string | number = ''
+	rec: SeedRecorder | null,
+	parent: object | null,
+	key: string | number
 ): number {
 	switch (typeof v) {
 		case 'string':
@@ -188,8 +192,7 @@ export function measure(
 	}
 	let bytes = 0;
 	let lanes = F_REF | F_JSON; // and-accumulated: one disqualified child clears the lane
-	let thenable = 0; // or-accumulated
-	let reach = 0;
+	let any = 0; // or-accumulated
 	// The in-progress mark (the cycle detector) is written only when a child is an object that could
 	// lead back here — a leaf-only node (most of a CMS tree: a row, a link, a tag list) writes the
 	// memo once, not twice.
@@ -205,11 +208,10 @@ export function measure(
 				nodes.set(v, IN_PROGRESS);
 				marked = true;
 			}
-			const p = measure(c, memo, rec, v, i);
+			const p = measure_at(c, memo, rec, v, i);
 			bytes += bytes_of(p) + 1;
 			lanes &= p;
-			thenable |= p & F_THENABLE;
-			reach |= p & F_SEED;
+			any |= p;
 		}
 	} else {
 		for (const key in v) {
@@ -230,19 +232,18 @@ export function measure(
 				nodes.set(v, IN_PROGRESS);
 				marked = true;
 			}
-			const p = measure(c, memo, rec, v, key);
+			const p = measure_at(c, memo, rec, v, key);
 			bytes += bytes_of(p) + key.length + 3;
 			lanes &= p;
-			thenable |= p & F_THENABLE;
-			reach |= p & F_SEED;
+			any |= p;
 		}
 	}
 	let seed = 0;
 	if (bytes >= SEED_MIN_BYTES) {
 		const sizes = rec === null ? memo.seed_sizes : null;
-		if (sizes === null || reach !== 0 || (lanes & F_REF && sizes.has(bytes))) seed = F_SEED;
+		if (sizes === null || any & F_SEED || (lanes & F_REF && sizes.has(bytes))) seed = F_SEED;
 	}
-	const result = bytes * 16 + (lanes & (F_REF | F_JSON)) + thenable + seed;
+	const result = bytes * 16 + (lanes & (F_REF | F_JSON)) + (any & F_THENABLE) + seed;
 	nodes.set(v, result);
 	if (rec !== null && bytes >= rec.min) rec.measured(v, parent, key, result);
 	return result;
