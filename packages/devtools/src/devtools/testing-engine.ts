@@ -322,6 +322,9 @@ async function settle_poll(steps: Scope, quiet: number, until: number): Promise<
 		if (!started.size && performance.now() - last >= quiet && document.readyState === 'complete')
 			return true;
 		if (performance.now() > until) return false;
-		await steps.task(() => new Promise<void>((r) => steps.timeout(r, 50)));
+		$await(
+			steps.task(() => new Promise<void>((r) => steps.timeout(r, 50))),
+			false
+		);
 	}
 }

@@ -10,13 +10,19 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { MACRO_ROOTS, core_compile } from '../../../packages/core/macros.config.ts';
+import { MACRO_ROOTS as CORE_ROOTS, core_compile } from '../../../packages/core/macros.config.ts';
+import { macro_packages } from '../../../packages/config/src/macro-packages.ts';
 
 const REPO = fileURLToPath(new URL('../../../', import.meta.url));
 const MODE = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
 const MIRROR = join(REPO, '.heisenbench', 'macros', MODE);
 const MIRROR_DIR = MIRROR + sep;
 const SVELTE_RE = /\.svelte\.[cm]?ts$/;
+/** The sources their builds compile with the macros: core's, and each package's that runs them. */
+const MACRO_ROOTS: readonly string[] = [
+	...CORE_ROOTS,
+	...macro_packages().map((dir) => join(dir, 'src') + sep)
+];
 
 const compiled = new Map<string, string | null>();
 

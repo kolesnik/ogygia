@@ -2919,12 +2919,6 @@
 			"name": "a source that never answers holds no request: past its deadline the flags fall to their native rule, and it is said"
 		},
 		{
-			"site": "packages/flags/src/index.ts > ask_source > throw:0",
-			"reason": "`throw new DOMException( `the flag source did not answer within ${SOUR…`: proved: the throw removed turns the test red, twice",
-			"test": "packages/flags/test/source-failed.test.ts",
-			"name": "a source that never answers holds no request: past its deadline the flags fall to their native rule, and it is said"
-		},
-		{
 			"site": "packages/flags/src/index.ts > ask_source > catch:0",
 			"reason": "`catch (error) { set_prime(c, { kind: 'resolved', map: {} }); // sourc…`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/flags/test/flags.test.ts",
@@ -5841,6 +5835,12 @@
 			"why": "the wait between reads is a task of `waits`, this call's own root life: nothing else holds it, and it closes only in the call's finally, after the loop. So while the loop awaits it, the task cannot settle STALE; it is a task so the timer has an owner that ends with the call.",
 			"by": "packages/core/src/runtime/entry-locations.ts",
 			"name": "recover_location"
+		},
+		{
+			"site": "packages/devtools/src/devtools/testing-engine.ts > settle_poll > stale:0",
+			"why": "the poll's wait is a task of `steps`, its caller `settled`'s own root scope: nothing else holds it, and it closes only in settled's finally, after the poll returns. So while the poll awaits it, the task cannot settle STALE; it is a task so the timer has an owner that ends with the call.",
+			"by": "packages/devtools/src/devtools/testing-engine.ts",
+			"name": "settled"
 		}
 	],
 	"equivalent": [
@@ -5851,6 +5851,10 @@
 		{
 			"site": "packages/router/src/stream.ts > stream_document > start > stale:0",
 			"why": "the owner's task is STALE only when the owner closed (rest.next()'s answer is an iterator result, never STALE). Without the check, STALE.done is undefined, so `n.value.slot` throws, and the catch returns at once because the owner is closed: the same early end, with no tail and no close, as the check's return."
+		},
+		{
+			"site": "packages/devtools/src/profiler/index.ts > Profiler > wait_for_background > stale:0",
+			"why": "the wait is STALE when its deadline closes it or its request ends. The await is the try block's last statement: without the check the call goes on to the finally, as the check's return does, and the finally is all that follows. Nothing anyone can see differs."
 		},
 		{
 			"site": "packages/cli/src/perf/cli.ts > sleep > .catch:0",
