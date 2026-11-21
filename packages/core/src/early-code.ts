@@ -8,12 +8,14 @@
  * its first content, it adds a low-priority `modulepreload` per file, so the code downloads beside
  * the rest of the HTML instead of after it.
  *
- * Only where nothing could be hurt by it: a page that marks a critical resource
- * (`fetchpriority="high"`: the LCP hero the load scheduler's gate waits for, ./runtime/load-scheduler.ts)
- * gets no early start. The server leaves the block out when the document's markup marks one
- * (./server/html-scan.ts `marks_critical`), so such a page pays no byte for it, and the script
- * stands down when the document holds one when it runs (one the markup scan could not see). Then
- * the runtime's own gate decides, as before.
+ * Only where nothing could be hurt by it. A page with a deferred hole gets none: the early code
+ * shares the link with the rest of the HTML, so the parse ends later, and a hole's content (visible
+ * content the runtime inserts after the parse) would come later with it. A page that marks a
+ * critical resource (`fetchpriority="high"`: the LCP hero the load scheduler's gate waits for,
+ * ./runtime/load-scheduler.ts) gets none either: the server leaves the block out when the
+ * document's markup marks one (./server/html-scan.ts `marks_critical`), so such a page pays no byte
+ * for it, and the script stands down when the document holds one when it runs (one the markup scan
+ * could not see). Then the runtime's own gate decides, as before.
  *
  * It stands in for the runtime only until the runtime is up: when first paint comes after the
  * runtime defined `<ogygia-region>`, the runtime's own wake owns the downloads, and the script adds

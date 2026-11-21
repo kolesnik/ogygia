@@ -829,6 +829,7 @@ class OgygiaHandle {
 			head !== null &&
 			spans.body_end !== -1 &&
 			bag?.tail.wakes_at_load &&
+			bag.tail.hole_rows().length === 0 &&
 			!marks_critical(html, spans.body_end)
 		)
 			csp_sources.push(EARLY_CODE_SOURCE);
