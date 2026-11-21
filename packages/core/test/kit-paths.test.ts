@@ -142,6 +142,37 @@ describe('kit_asset within one request', () => {
 		expect(seen).toEqual(['/_app/a.js', '/_app/a.js']);
 	});
 
+	it("a URL made from the prefix that Kit's asset() answers otherwise breaks rule_asset_not_prefixed", async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.stubGlobal('__OGYGIA_KIT_MAJOR__', 2);
+		let base = '/base';
+		vi.doMock('$app/paths', () => ({ asset: (f: string) => base + f }));
+		const paths = await import('../src/kit-paths.ts');
+		const rules = await import('../src/server/rules.ts');
+		rules.install_server_rules();
+		const request = {};
+		paths.set_asset_request_reader(() => request, rules.note_kit_asset);
+		const tick = () => new Promise((r) => setTimeout(r, 5));
+		expect(paths.kit_asset('/_app/a.js')).toBe('/base/_app/a.js');
+		await tick();
+		expect(rules.server_rules.broken()).toEqual([]);
+		// (Kit's answer moves within the request: the prefix asked once no longer is Kit's)
+		base = '/moved';
+		expect(paths.kit_asset('/_app/b.js')).toBe('/base/_app/b.js');
+		await tick();
+		expect(rules.server_rules.broken()).toEqual([
+			{
+				code: 'rule_asset_not_prefixed',
+				detail: "/_app/b.js: /base/_app/b.js, Kit's /moved/_app/b.js"
+			}
+		]);
+		expect(warn.mock.calls.some((c) => String(c[0]).includes('rule_asset_not_prefixed'))).toBe(
+			true
+		);
+		paths.set_asset_request_reader(null);
+		warn.mockRestore();
+	});
+
 	it("with rules on, each URL made from the prefix is checked against Kit's own", async () => {
 		const seen: string[] = [];
 		let base = '/base';

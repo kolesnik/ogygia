@@ -327,8 +327,9 @@ function hole_event(url: string) {
 		locals: {}
 	} as never;
 }
+/** The table of a built server holding the hole's region, its module loaded (settles once it is). */
+const hole_region = () => set_server_regions({ [HOLE_ID]: async () => ({ default: HoleCards }) });
 function hole_requests(n: number) {
-	set_server_regions({ [HOLE_ID]: async () => ({ default: HoleCards }) });
 	const h = handle();
 	const urls = Array.from({ length: n }, (_, i) =>
 		really_signed(mint_server_region(HOLE_ID, { n: 8, tag: `t${i}` }))
@@ -348,5 +349,11 @@ bench(
 		}
 		return bytes;
 	},
-	{ setup: () => hole_requests(20), scale: (_ctx, k) => hole_requests(20 * k) }
+	{
+		setup: async () => {
+			await hole_region();
+			return hole_requests(20);
+		},
+		scale: (_ctx, k) => hole_requests(20 * k)
+	}
 );
