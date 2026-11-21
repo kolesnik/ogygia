@@ -5,6 +5,7 @@
 
 import { compiler_boundary } from './rules/compiler-boundary.ts';
 import { dispose_by_close } from './rules/dispose-by-close.ts';
+import { downloads_heard } from './rules/downloads-heard.ts';
 import { fake_timers_whole } from './rules/fake-timers-whole.ts';
 import { html_sink } from './rules/html-sink.ts';
 import { markup_from_vocabulary } from './rules/markup-from-vocabulary.ts';
@@ -42,6 +43,7 @@ export default {
 		'dispose-by-close': dispose_by_close,
 		'tests-read-source': tests_read_source,
 		'fake-timers-whole': fake_timers_whole,
+		'downloads-heard': downloads_heard,
 		'prefer-class-for-state': prefer_class_for_state,
 		'runes-as-fields': runes_as_fields,
 		ports

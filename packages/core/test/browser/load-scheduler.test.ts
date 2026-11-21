@@ -204,6 +204,7 @@ test('a critical preload that already arrived (its timing entry is in) is not wa
 	const href = new URL('/test/browser/fixtures/entry-current.ts?t=critical-arrived', location.href)
 		.href;
 	await fetch(href);
+	// oxlint-disable-next-line ogygia/downloads-heard -- the runtime reads this timeline (load-scheduler.ts pending_critical): the case is that it holds the entry
 	await expect.poll(() => performance.getEntriesByName(href).length).toBeGreaterThan(0);
 	const link = document.createElement('link');
 	link.rel = 'preload';

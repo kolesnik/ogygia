@@ -58,6 +58,7 @@
 		"ogygia/ports": "error",
 		"ogygia/tests-read-source": "error",
 		"ogygia/fake-timers-whole": "error",
+		"ogygia/downloads-heard": "error",
 		"ogygia/prefer-class-for-state": "warn"
 	},
 	"overrides": [

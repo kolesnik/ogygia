@@ -2,6 +2,7 @@
 // each entry's chunks; `preload_island_graph(entry)` inserts one modulepreload per chunk not yet
 // linked — only for that entry, only when called. End to end (the gate, a real build): e2e/wake-gate.
 import { afterEach, beforeEach, describe, expect, inject, test } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import {
 	preload_island_graph,
 	register_island_graph,
@@ -19,6 +20,7 @@ import { link_boot } from '../../src/runtime/boot-link.ts';
 import { warm_island_module } from '../../src/runtime/island-warm.ts';
 
 const ALL = HAS;
+const downloads = new Downloads();
 
 const ours = () =>
 	[...document.head.querySelectorAll(`link[${GRAPH_PRELOAD_ATTR}]`)].map(
@@ -139,9 +141,8 @@ describe('a build whose word has no graph (no island code of the app can load: F
 	});
 
 	test('a warm preloads no graph without the bit, and its graph with it', async () => {
-		const requested = (part: string) =>
-			performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
-		performance.clearResourceTimings();
+		const requested = (part: string) => downloads.named(part);
+		downloads.forget();
 		const off = '/test/browser/fixtures/no-such-island.ts?t=graph-off';
 		const on = '/test/browser/fixtures/no-such-island.ts?t=graph-on';
 		register_island_graph(
