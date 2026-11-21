@@ -31,7 +31,9 @@ export interface Finding {
 const git = (cwd: string, args: string[]) =>
 	execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 1 << 28 });
 
-/** Each package source file the change touches, with the lines it adds (1-based, in the new file). */
+/** Each package source file the change touches, with the lines it adds (1-based, in the new file).
+ *  A line the change only moves (its text, trimmed, is one the same diff removes) is not added:
+ *  each removed line answers for one added line. */
 export function added_lines(root: string, base: string): Map<string, Set<number>> {
 	// what HEAD adds since it left `base` (as `base...HEAD`), not what `base` gained since
 	const from = git(root, ['merge-base', base, 'HEAD']).trim();
@@ -40,16 +42,37 @@ export function added_lines(root: string, base: string): Map<string, Set<number>
 		.filter((f) => SOURCE_RE.test(f) && !f.endsWith('.d.ts'));
 	const added = new Map<string, Set<number>>();
 	if (files.length === 0) return added;
+	const rows = git(root, ['diff', '-M', '-U0', '--no-color', from, 'HEAD']).split('\n');
+	const removed = new Map<string, number>();
+	for (const row of rows)
+		if (row.startsWith('-') && !row.startsWith('--- ')) {
+			const text = row.slice(1).trim();
+			removed.set(text, (removed.get(text) ?? 0) + 1);
+		}
 	let file = '';
-	for (const row of git(root, ['diff', '-M', '-U0', '--no-color', from, 'HEAD']).split('\n')) {
-		if (row.startsWith('+++ ')) file = row.slice(4).replace(/^b\//, '');
+	let at = 0;
+	for (const row of rows) {
+		if (row.startsWith('+++ ')) {
+			file = row.slice(4).replace(/^b\//, '');
+			continue;
+		}
 		const hunk = HUNK_RE.exec(row);
-		if (!hunk || !files.includes(file)) continue;
-		const start = Number(hunk[1]);
-		const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
+		if (hunk) {
+			at = Number(hunk[1]);
+			continue;
+		}
+		if (!row.startsWith('+')) continue;
+		const line = at++;
+		if (!files.includes(file)) continue;
+		const text = row.slice(1).trim();
+		const moved = removed.get(text) ?? 0;
+		if (moved > 0) {
+			removed.set(text, moved - 1);
+			continue;
+		}
 		let lines = added.get(file);
 		if (!lines) added.set(file, (lines = new Set()));
-		for (let i = 0; i < count; i++) lines.add(start + i);
+		lines.add(line);
 	}
 	return added;
 }

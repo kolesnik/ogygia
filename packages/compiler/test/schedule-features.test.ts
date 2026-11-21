@@ -1,7 +1,7 @@
 // THE SCHEDULE FEATURES (link/runtime-entry.ts `idle`, `visible`, `media`): each arm of the region
 // element's trigger interpreter ships only when some region of the app is scheduled on it, a wake,
 // a hole's fetch or prefetch, or a lake's revalidation. A schedule the marks cannot see (a held
-// region's runtime options, a peer's regions, a client plugin's) keeps every arm. A region that asks
+// region's runtime options, a peer's regions) keeps every arm. A region that asks
 // for an arm its build left out runs on load and says so (core test/browser/schedules-missing.test.ts).
 import { afterEach, describe, expect, test } from 'vitest';
 import fs from 'node:fs';
@@ -59,8 +59,7 @@ describe('each arm ships with a region scheduled on it', () => {
 describe('a schedule the marks cannot see keeps every arm', () => {
 	test.each<[string, Partial<RuntimeMarks>]>([
 		["a held region (region()'s options are runtime values)", { hydrate: ['load'], live: true }],
-		["a peer's regions (federation)", { hydrate: ['load'], foreign: true }],
-		["a client plugin's", { hydrate: ['load'], clientPlugins: true }]
+		["a peer's regions (federation)", { hydrate: ['load'], foreign: true }]
 	])('%s', (_, m) => {
 		expect(arms_of(m)).toEqual([...ARMS]);
 	});
@@ -85,7 +84,11 @@ afterEach(() => {
 });
 
 /** The marks a prescan of `page` (a csr=false route) records. */
-function marks_for(page: string, extra: Record<string, string> = {}): RuntimeMarks {
+function marks_for(
+	page: string,
+	extra: Record<string, string> = {},
+	init: object = {}
+): RuntimeMarks {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'og-schedule-'));
 	roots.push(root);
 	const files: Record<string, string> = {
@@ -128,7 +131,8 @@ function marks_for(page: string, extra: Record<string, string> = {}): RuntimeMar
 				presets: {},
 				import_keys: normalize_import_keys(undefined),
 				resolve_alias: [],
-				pkg_root: '/nowhere/ogygia'
+				pkg_root: '/nowhere/ogygia',
+				...init
 			})
 		)
 	);
@@ -191,5 +195,35 @@ describe('the prescan records every schedule a region is on', () => {
 		);
 		expect(m.live).toBe(true);
 		expect(arms_of(m)).toEqual([...ARMS]);
+	});
+});
+
+// A PLUGIN puts regions this build never compiled into a page only by saying so
+// (`b.foreignHydrate()`, the `foreign` mark). Its browser half alone cannot: it boots and is told
+// the runtime's moments (core plugin/client.ts), so it hides no schedule and wakes no island.
+describe("a plugin's browser half hides no schedule", () => {
+	const client = { client_plugins: [{ name: '@x/plugin', module: '/x/plugin/client.js' }] };
+	const on = (wake: string) =>
+		page(`\timport Part from '$lib/Part.svelte' with { wake: '${wake}' };`, '<Part />');
+
+	test('load islands with a client plugin ship no arm', () => {
+		expect(arms_of(marks_for(on('load'), {}, client))).toEqual([]);
+	});
+
+	test("a client plugin keeps the arms of the app's own schedules", () => {
+		expect(arms_of(marks_for(on('idle'), {}, client))).toEqual(['idle']);
+		expect(arms_of(marks_for(on('(min-width: 600px)'), {}, client))).toEqual(['media']);
+	});
+
+	test('lakes with a client plugin read no island graph', () => {
+		const m = marks_for(on('none'), {}, client);
+		expect(m.lakes).toBe(true);
+		expect(resolveFeatures(m)).not.toContain('graph');
+	});
+
+	test('a plugin that places regions (b.foreignHydrate) keeps every arm and the graph', () => {
+		const m = marks_for(on('none'), {}, { ...client, foreign_hydrate: true });
+		expect(arms_of(m)).toEqual([...ARMS]);
+		expect(resolveFeatures(m)).toContain('graph');
 	});
 });

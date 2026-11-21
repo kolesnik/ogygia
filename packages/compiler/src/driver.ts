@@ -835,9 +835,7 @@ export class Compiler implements CoreApp {
 		}
 
 		runtime_marks.foreign = ctx.foreign_hydrate;
-		runtime_marks.clientPlugins = ctx.client_plugins.length > 0;
-		runtime_marks.page =
-			program.island_reads_page || runtime_marks.foreign || ctx.client_plugins.length > 0;
+		runtime_marks.page = program.island_reads_page || runtime_marks.foreign;
 		runtime_marks.complete = true;
 		return {
 			feature_hash: createHash('sha256')

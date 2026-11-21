@@ -27,9 +27,6 @@ export type RuntimeMarks = {
 	prefetch?: string[];
 	/** A lake's `remount.revalidate` schedules (a cached lake fetched again). */
 	revalidate?: string[];
-	/** The app has client plugins: their browser halves can put regions into a page that no mark
-	 *  saw, so every schedule's arm is in. */
-	clientPlugins?: boolean;
 	persist?: boolean;
 	persistKeys?: string[];
 	router?: boolean;
@@ -45,8 +42,8 @@ export type RuntimeMarks = {
 	context?: boolean;
 	/** Island code can reach Kit's page world: `$app/state` / `$app/stores` / `$app/navigation`
 	 *  (anything under `$app/` but `environment` and `paths`), or code the driver's island-closure walk
-	 *  cannot follow (a package, an unresolvable import), or a client plugin / federation that hands
-	 *  the runtime islands the walk never saw. Gates the page seed and the MPA navigation handle. */
+	 *  cannot follow (a package, an unresolvable import), or federation, which hands the runtime
+	 *  islands the walk never saw. Gates the page seed and the MPA navigation handle. */
 	page?: boolean;
 	/** The page can carry regions this build never compiled (federation: a peer's fragment brings its
 	 *  own islands, holes and lakes, at run time). Their kinds are unknown here, so every feature a
@@ -93,7 +90,7 @@ function schedules(m: RuntimeMarks): string[] {
 }
 
 function schedules_unseen(m: RuntimeMarks): boolean {
-	return m.foreign === true || m.live === true || m.clientPlugins === true;
+	return m.foreign === true || m.live === true;
 }
 
 export const FEATURES: Record<FeatureId, FeatureDef> = {
@@ -194,11 +191,7 @@ export const FEATURES: Record<FeatureId, FeatureDef> = {
 	graph: {
 		deps: [],
 		phase: 'element',
-		detect: (m) =>
-			m.foreign === true ||
-			m.live === true ||
-			m.clientPlugins === true ||
-			(m.hydrate || []).some((w) => w !== 'none')
+		detect: (m) => schedules_unseen(m) || (m.hydrate || []).some((w) => w !== 'none')
 	},
 	media: {
 		deps: [],

@@ -14,16 +14,18 @@ export function install(): void {
 
 const loaders = wire_loaders;
 const paths = Object.keys(loaders);
-const imports = new Map<string, () => Promise<unknown>>();
+const imports: ReadonlyMap<string, { load?: () => Promise<unknown> }> = new Map(
+	paths.map((p) => [p, {}])
+);
 const loads = plain_flights({
 	name: 'wire class',
 	run: (path: string) => {
-		let import_class = imports.get(path);
-		if (!import_class) {
+		const slot = imports.get(path)!;
+		if (!slot.load) {
 			const [load, file, base] = loaders[path]!;
-			imports.set(path, (import_class = import_again(load, undefined, file, base)));
+			slot.load = import_again(load, undefined, file, base);
 		}
-		return yield_task().then(import_class);
+		return yield_task().then(slot.load);
 	},
 	retry: download
 });

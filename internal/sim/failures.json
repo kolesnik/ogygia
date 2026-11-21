@@ -255,6 +255,12 @@
 	],
 	"covered": [
 		{
+			"site": "packages/core/src/runtime/island-warm.ts > warm_key > catch:0",
+			"reason": "a fetched page's module link whose href no URL parser takes is its own key, so the router's warmed-module ask answers no instead of throwing out of the swap; proved by hand: the catch made to rethrow turns the test red",
+			"test": "packages/core/test/browser/island-warm-key.test.ts",
+			"name": "a module link whose href no URL parser takes was never warmed, and asking does not throw"
+		},
+		{
 			"site": "packages/core/src/runtime/morph.ts > copy_attribute > catch:0",
 			"reason": "an attribute name an older engine's setAttribute refuses is set from a clone of the parsed attribute; proved by hand: the catch made to rethrow turns the tests red",
 			"test": "packages/core/test/browser/morph-attribute-names.test.ts",
@@ -6015,7 +6021,6 @@
 		"packages/core/src/runtime/interaction.ts > wake > stale:1",
 		"packages/core/src/runtime/interaction.ts > replay_ahead > reject:0",
 		"packages/core/src/runtime/island-graph-preload.ts > absolute > catch:0",
-		"packages/core/src/runtime/island-warm.ts > warm_key > catch:0",
 		"packages/core/src/runtime/kit-page-thread.svelte.ts > page_applied > catch:0",
 		"packages/core/src/runtime/load-scheduler.ts > preload_urls > catch:0",
 		"packages/core/src/runtime/morph.ts > carry_shadows > catch:0",

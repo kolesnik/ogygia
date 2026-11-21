@@ -82,6 +82,10 @@ const MAX_REGION_BODY = 2_000_000;
 
 const MAX_BATCH_BODY = 512 * 1024;
 
+const say_bad_signature: (id: string) => void = $dev(function say_bad_signature(id: string): void {
+	warn('endpoint_bad_signature', { id });
+});
+
 /** The abandoned renders already told (one render's timeout reaches every call that joined it). */
 const told_abandoned = new WeakSet<Error>();
 
@@ -630,7 +634,7 @@ export class IslandsEndpoint {
 			// Verify (session-bound) before consulting the manifest — bad MAC never distinguishes
 			// unknown vs known id.
 			if (!this.#verify_region_mac(cap, event)) {
-				if (import.meta.env.DEV) warn('endpoint_bad_signature', { id });
+				say_bad_signature(id);
 				return region_denied('sig');
 			}
 		}
