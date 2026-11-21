@@ -605,6 +605,42 @@
 			"reason": "browser only: the dynamic import of the interaction replay chunk; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
+			"id": "packages/core/src/runtime/interaction.ts > trustedPlainFlights:0~7fc0d4 > run",
+			"reason": "browser only, once per page: the interaction replay chunk's import, handed the boot's link; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts and packages/core/test/browser/interaction-delegated.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/interaction.ts > arm > warm",
+			"reason": "browser only: an interaction island's first gesture warms its module, one attribute read and one warm call, constant work; proven in packages/core/test/browser/interaction-delegated.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/router.ts > trustedPlainFlights:0~80d6fd > run",
+			"reason": "browser only, once per page: the router's navigation chunk's import, handed the boot's link; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > get #hole",
+			"reason": "browser only: a hole region's machine, made on first read (one ??=), constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/wire-on-use.ts > wire_codec",
+			"reason": "browser only: one module field read (the codec this boot installed, or null), constant work; proven in packages/core/test/browser/boot-link-index.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/boot-link.ts > linked",
+			"reason": "browser only, once per lazy chunk import: hands the chunk the boot's link (one init call), constant work; proven in packages/core/test/lazy-link.test.ts and packages/core/test/browser/boot-link-index.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/reconcile.ts > morph_sync_attributes",
+			"reason": "once per navigation: one read of the boot's link (its state is the link, hidden from a replay), constant work; proven in packages/core/test/lazy-link.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/runtime-entry.ts > filter:0~464ca2",
+			"reason": "module constant: FEATURE_CODE, the boot-phase features with a module, filtered once when the compiler loads; proven in packages/compiler/test/runtime-flags.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/runtime-entry.ts > filter:0~ac4406",
+			"reason": "module constant: HYDRATE_CODE, the hydrate-phase features, filtered once when the compiler loads; proven in packages/compiler/test/runtime-flags.test.ts"
+		},
+		{
 			"id": "packages/core/src/runtime/form-continuity.ts > close_restore",
 			"reason": "browser only: ends the open form restore window (one machine move), constant work; proven in apps/palaestra/e2e/continuity.spec.ts"
 		},
