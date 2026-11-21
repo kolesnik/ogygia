@@ -89,16 +89,9 @@ import {
 	region_response
 } from './server/region-response.ts';
 import { F_CONTEXT, F_FRAMES, F_PAGE, F_REMOTE_SEEDS } from './contract/features.ts';
-import {
-	page_declares_router_meta,
-	page_declares_runtime_script,
-	page_declares_dev_hmr_script,
-	page_declares_speculation_rules,
-	dedupe_head_links,
-	runtime_first
-} from './server/head-presence.ts';
+import { HeadTags } from './server/head-presence.ts';
 import { code_origins } from './plugin/hooks.ts';
-import { locate, assemble, ogygia_script } from './server/document-assembly.ts';
+import { assemble, ogygia_script } from './server/document-assembly.ts';
 import { remote_seed_script, ship_page_seed, type ShippedSeed } from './server/document-seeds.ts';
 import { install_page_context, page_ctx_script } from './server/page-context.ts';
 import { error_route_is_csr_true, route_is_csr_true } from './context.ts';
@@ -114,7 +107,7 @@ import { html_has_kit_bootstrap } from './server/html-scan.ts';
 import { RateLimiter, is_shared_address } from './server/rate-limit.ts';
 import { analyze, set_measure_memo_reader, type MeasureMemo } from './seed-refs.ts';
 import { OGYGIA_DEV_HMR, OGYGIA_DEVTOOLS_BOOT, OGYGIA_SPECULATE } from './wire-markup.ts';
-import { body_end, head_end } from './markup-walk.ts';
+import { body_end, head_end, read_head } from './markup-walk.ts';
 import { stream_page_deferred, type Deferred } from './server/page-stream.ts';
 import { escape_amp_quot, escape_script_text } from './escape.ts';
 import {
@@ -796,8 +789,11 @@ class OgygiaHandle {
 		// decide everything below, each found with one bounded scan (server/document-assembly.ts):
 		// `</head>` from the front, `</body>` from the back. The chunk is assembled ONCE at the end.
 		const t_start = clock.mono();
-		const spans = locate(html);
-		const head = spans.head_end === -1 ? null : html.slice(0, spans.head_end);
+		const read = read_head(html);
+		const spans = { head_end: read.end, body_end: body_end(html) };
+		const head = read.end === -1 ? null : html.slice(0, read.end);
+		// (the head's tags, read by the walk that found its end: every question below is asked of them)
+		const head_tags = head === null ? null : new HeadTags(head, read);
 		// THE EARLY START (early-holes.ts): the requests of this page's `load` holes start during the
 		// parse, from one data block and one constant script in the chunk that carries `</head>`. A
 		// policy that would block the script gets its hash: a <meta> one here, a header after `resolve`.
@@ -833,7 +829,7 @@ class OgygiaHandle {
 						? `<script type="module" ${OGYGIA_DEVTOOLS_BOOT} src="${devtools_boot_url}"></script>`
 						: '';
 				head_inject = `${CSR_META}${early_head}${devtools_boot}`;
-				if (bag) bag.kit_with_runtime = page_declares_runtime_script(head);
+				if (bag) bag.kit_with_runtime = head_tags!.declares_runtime_script();
 			}
 			// THE TAIL STILL SHIPS. The regions INSIDE A LAKE are ogygia's on this page too (their real
 			// `<ogygia-region>` is emitted, the runtime boots for them), and like on any page their props
@@ -870,9 +866,11 @@ class OgygiaHandle {
 			)
 				warn('kit_start_ungated', { path: event?.url.pathname ?? '/' });
 			const ordered =
-				head === null
+				head_tags === null
 					? null
-					: with_early_csp(runtime_first(head, null, code_origins(event?.request), mark_of(bag)));
+					: with_early_csp(
+							head_tags.runtime_first(null, code_origins(event?.request), mark_of(bag))
+						);
 			return assemble(
 				gate ? gate.html : html,
 				gate ? { head_end: spans.head_end, body_end: spans.body_end + gate.delta } : spans,
@@ -904,24 +902,23 @@ class OgygiaHandle {
 		// (the route fact for the runtime and the router: a csr=false document says so, and the
 		// browser reads one meta instead of probing every inline script for Kit's bootstrap)
 		let head_inject = '';
-		if (head !== null) {
+		if (head_tags !== null) {
 			// Dedupe the region-emitted modulepreload hints (each island instance emits its own dep
 			// block, so shared deps repeat) and the stylesheet links (a layout's real-wrapper island is
 			// linked by Kit from the client graph AND by Region.svelte from the render — 16 doubled
 			// sheets on one measured page). Same href → one tag; first occurrence wins.
-			const deduped = dedupe_head_links(head);
-			if (deduped !== head) head_out = deduped;
-			const probe = head_out ?? head;
+			const probe = head_tags.deduped();
+			if (probe !== head_tags) head_out = probe.html;
 			// MPA mode (`router: false`): no SPA machinery ships — the browser owns navigation, so the
 			// handle injects static Speculation Rules instead. Chromium prerenders likely next pages,
 			// Firefox prefetches them, everything else ignores the JSON. Presence-checked so a page
 			// authoring its own rules wins; per-link opt-out via `data-ogygia-speculate="off"`.
 			const speculation =
-				!router_enabled && !page_declares_speculation_rules(probe)
+				!router_enabled && !probe.declares_speculation_rules()
 					? `<script type="speculationrules" ${OGYGIA_SPECULATE}>${this.#speculation_rules}</script>`
 					: '';
 			const router_meta =
-				router_enabled && !page_declares_router_meta(probe)
+				router_enabled && !probe.declares_router_meta()
 					? `<meta name="ogygia-router" content="${view_transitions ? 'vt' : 'plain'}">`
 					: '';
 			// The runtime bootstrap goes FIRST in `<head>` (head-presence.ts `runtime_first`): the one
@@ -932,14 +929,14 @@ class OgygiaHandle {
 			const runtime_tag =
 				(router_enabled || (!!event && !!facts_of(event.request).codeOrigins?.length)) &&
 				runtime_url &&
-				!page_declares_runtime_script(probe)
+				!probe.declares_runtime_script()
 					? runtime_bootstrap(kit_asset)
 					: null;
 			// (with the code origins the plugins and this render named: runtime/code-origins.ts)
 			const ordered = with_early_csp(
-				runtime_first(probe, runtime_tag, code_origins(event?.request), mark_of(bag))
+				probe.runtime_first(runtime_tag, code_origins(event?.request), mark_of(bag))
 			);
-			if (ordered !== probe) head_out = ordered;
+			if (ordered !== probe.html) head_out = ordered;
 			// The DEV bridge is NOT gated on the router — it carries `@vite/client`, and Vite's own
 			// full-reload recovery must reach EVERY csr=false page. A dep re-optimization rotates the
 			// optimizer's browserHash, so a tab loaded under the old hash dynamic-imports island deps
@@ -949,7 +946,7 @@ class OgygiaHandle {
 			// skips) kept a poisoned tab after a re-optimize until a manual reload, reporting only
 			// "hydration failed". `dev_hmr_url` is empty outside `vite serve`, so this stays dev-only.
 			let dev_hmr = '';
-			if (dev_hmr_url && !page_declares_dev_hmr_script(probe)) {
+			if (dev_hmr_url && !probe.declares_dev_hmr_script()) {
 				// The page's sub-app scope (its route id's first segment) for the dev CSS bridge:
 				// a changed stylesheet joins this page only when the plugin derives the same scope
 				// among its owners — two route-group sub-apps never paint each other in dev.

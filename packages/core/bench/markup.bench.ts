@@ -6,6 +6,7 @@ import { bench } from '@bench/heisenbench/bench';
 import { assemble, locate } from '../src/server/document-assembly.ts';
 import {
 	dedupe_head_links,
+	HeadTags,
 	page_declares_dev_hmr_script,
 	page_declares_router_meta,
 	page_declares_runtime_script,
@@ -17,7 +18,7 @@ import { absolutize_hole_html } from '../src/server/hole-urls.ts';
 import { hole_head } from '../src/server/hole-graph.ts';
 import { island_graph_script } from '../src/server/document-tail.ts';
 import { region_css_tags } from '../src/server/html-scan.ts';
-import { markup_tokens, next_tag, read_tag, tags, text_of } from '../src/wire-markup.ts';
+import { markup_tokens, next_tag, read_head, read_tag, tags, text_of } from '../src/wire-markup.ts';
 import { attr_changes } from '../src/contract/markup-text.ts';
 import { document, head, hole_answer } from './fixtures.ts';
 import { attr, decode_text, html, trusted_html } from '../src/html.ts';
@@ -46,6 +47,24 @@ bench(
 		scale: (_ctx, k) => ({
 			h: head(40 * k).replace('<title>', '<meta name="ogygia-router" content="vt"><title>')
 		})
+	}
+);
+
+bench(
+	"head: the page transform's head, one read (its end, the dedupe, the presence checks, the runtime placement)",
+	({ html }) => {
+		const read = read_head(html);
+		const probe = new HeadTags(html.slice(0, read.end), read).deduped();
+		const meta = probe.declares_router_meta();
+		const runtime = probe.declares_runtime_script();
+		return (
+			probe.runtime_first(runtime ? null : '<script data-ogygia-runtime></script>', [], 'm1')
+				.length + +meta
+		);
+	},
+	{
+		setup: () => ({ html: `${head(40)}<body><p>x</p></body>` }),
+		scale: (_ctx, k) => ({ html: `${head(40 * k)}<body><p>x</p></body>` })
 	}
 );
 
