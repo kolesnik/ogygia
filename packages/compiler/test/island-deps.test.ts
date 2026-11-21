@@ -187,6 +187,49 @@ describe('collectIslandDepModulepreloads', () => {
 		]);
 	});
 
+	test('the first wake’s code: the chunk that bundles the hydrate core (by its exact id) and its static imports, less what the runtime already imports', () => {
+		const rt = '_app/immutable/og-runtime.abcdef123456.js';
+		const CORE = '/repo/packages/core/dist/runtime/hydrate-core.js';
+		const bundle = {
+			[rt]: {
+				type: 'chunk',
+				fileName: rt,
+				imports: ['_app/immutable/chunks/shared.js'],
+				dynamicImports: ['_app/immutable/chunks/hc.js']
+			},
+			'_app/immutable/chunks/shared.js': {
+				type: 'chunk',
+				fileName: '_app/immutable/chunks/shared.js',
+				imports: []
+			},
+			'_app/immutable/chunks/svelte.js': {
+				type: 'chunk',
+				fileName: '_app/immutable/chunks/svelte.js',
+				imports: ['_app/immutable/chunks/shared.js']
+			},
+			'_app/immutable/chunks/look-alike.js': {
+				type: 'chunk',
+				fileName: '_app/immutable/chunks/look-alike.js',
+				imports: [],
+				moduleIds: ['/elsewhere/runtime/hydrate-core.js']
+			},
+			'_app/immutable/chunks/hc.js': {
+				type: 'chunk',
+				fileName: '_app/immutable/chunks/hc.js',
+				imports: ['_app/immutable/chunks/svelte.js', '_app/immutable/chunks/shared.js'],
+				moduleIds: [CORE, '/repo/packages/core/dist/runtime/hydrate-features.js']
+			}
+		};
+		const wake = (core: string | null) =>
+			collectIslandDepModulepreloads(bundle, [], null, null, null, rt, null, core).wake;
+		expect(wake(CORE)).toEqual([
+			'/_app/immutable/chunks/hc.js',
+			'/_app/immutable/chunks/svelte.js'
+		]);
+		expect(wake('/repo/packages/core/dist/runtime/hydrate-core.jsx')).toEqual([]);
+		expect(wake(null)).toEqual([]);
+	});
+
 	test('only a chunk named like a facade is an island entry', () => {
 		const bundle = {
 			'_app/immutable/og-region.abc123.js': { type: 'chunk', imports: [] },

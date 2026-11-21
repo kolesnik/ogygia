@@ -85,7 +85,8 @@ const TRAILING_SLASH_RE = /\/+$/;
  * @param hydrate_core The hydrate core's module id (`<runtime dir>/hydrate-core.js`, real path).
  *   The chunk that bundles it and that chunk's static imports are `wake`: what the runtime's first
  *   island wake imports, which a page whose islands wake at load can start early. Matched exactly.
- *   Absent → `wake` is empty.
+ *   The runtime's own static imports are left out (the runtime's bootstrap preloads them). Absent →
+ *   `wake` is empty.
  * @internal Exported for unit tests.
  */
 export function collectIslandDepModulepreloads(
@@ -319,10 +320,16 @@ export function collectIslandDepModulepreloads(
 	const wake: string[] = [];
 	if (hydrate_core) {
 		const core_id = norm(hydrate_core);
+		const boot = new Set(
+			runtime_file
+				? js[entries?.runtime ?? `/${norm(runtime_file).replace(LEADING_SLASH, '')}`]
+				: []
+		);
 		for (const [key, chunk] of Object.entries(bundle)) {
 			if (chunk.type !== 'chunk' || !chunk.moduleIds?.some((id) => norm(id) === core_id)) continue;
 			const file = norm(chunk.fileName || key).replace(LEADING_SLASH, '');
-			wake.push(`/${file}`, ...new Set(walk(file, new Set([file]), [])));
+			for (const href of [`/${file}`, ...new Set(walk(file, new Set([file]), []))])
+				if (!boot.has(href)) wake.push(href);
 			break;
 		}
 	}
