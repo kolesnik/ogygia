@@ -42,6 +42,7 @@
  * (./seed-index.ts, reached only from the page seed's step), the resolver on the client, and the
  * unit tests exercise both ends against a real devalue round trip.
  */
+import { BROWSER } from 'esm-env';
 
 // The client half (tag + reviver) is a leaf of its own: seed-ref-reviver.ts says why.
 export {
@@ -180,7 +181,7 @@ function measure_at(
 	if (cached !== undefined) {
 		// An ancestor still being walked: a cycle — opaque to the parent (never a lane, never a ref).
 		if (cached === IN_PROGRESS) return P_OPAQUE;
-		if (rec !== null && bytes_of(cached) >= rec.min) rec.known(v, parent, key);
+		if (!BROWSER && rec !== null && bytes_of(cached) >= rec.min) rec.known(v, parent, key);
 		return cached;
 	}
 	// A plain-looking object carrying a SYMBOL key is a branded value (a held region, an og.$ fn
@@ -240,12 +241,12 @@ function measure_at(
 	}
 	let seed = 0;
 	if (bytes >= SEED_MIN_BYTES) {
-		const sizes = rec === null ? memo.seed_sizes : null;
+		const sizes = BROWSER || rec !== null ? null : memo.seed_sizes;
 		if (sizes === null || any & F_SEED || (lanes & F_REF && sizes.has(bytes))) seed = F_SEED;
 	}
 	const result = bytes * 16 + (lanes & (F_REF | F_JSON)) + (any & F_THENABLE) + seed;
 	nodes.set(v, result);
-	if (rec !== null && bytes >= rec.min) rec.measured(v, parent, key, result);
+	if (!BROWSER && rec !== null && bytes >= rec.min) rec.measured(v, parent, key, result);
 	return result;
 }
 
