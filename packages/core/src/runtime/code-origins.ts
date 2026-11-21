@@ -1,5 +1,6 @@
 import { OgygiaError } from '../messages/core.ts';
 import { OG_ORIGINS, OGYGIA_RUNTIME } from '../wire-markup.ts';
+import { resolved_urls } from './resolved-url.ts';
 
 /** The runtime script's attribute naming the extra origins (space-separated). */
 export const CODE_ORIGINS_ATTR: typeof OG_ORIGINS = OG_ORIGINS;
@@ -11,13 +12,8 @@ export type CodeUrl = string & { readonly [CODE_URL]: true };
 let origins: ReadonlySet<string> | null = null;
 
 function origin_of(url: string, base?: string): string | null {
-	try {
-		const u = new URL(url, base ?? location.href);
-		return u.protocol === 'https:' || u.protocol === 'http:' ? u.origin : null;
-		// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: no origin
-	} catch {
-		return null;
-	}
+	const u = resolved_urls.resolve(url, base);
+	return u !== null && (u.protocol === 'https:' || u.protocol === 'http:') ? u.origin : null;
 }
 
 /** The allowed origins, read on the first ask (the runtime asks at boot: ./core.ts). */
@@ -72,14 +68,9 @@ const LOCATION_FILE = /\/og-region\.([\w-]+)\.[\w-]+\.js$/;
  * that identity. Both absolute.
  */
 export function is_location_of(identity: string, location: string): boolean {
-	let id: URL, loc: URL;
-	try {
-		id = new URL(identity);
-		loc = new URL(location);
-		// oxlint-disable-next-line ogygia/no-silent-failures -- not URLs: neither is the other's location
-	} catch {
-		return false;
-	}
+	const id = resolved_urls.resolve(identity, null);
+	const loc = resolved_urls.resolve(location, null);
+	if (id === null || loc === null) return false;
 	if (id.origin !== loc.origin || code_url(loc.href) === null) return false;
 	const iid = IDENTITY_FILE.exec(id.pathname)?.[1];
 	return iid !== undefined && LOCATION_FILE.exec(loc.pathname)?.[1] === iid;

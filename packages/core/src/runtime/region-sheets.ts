@@ -3,6 +3,7 @@ import * as fsm from '@ogygia/machine';
 import { connected_regions } from './connected.ts';
 import { OG_FP, OGYGIA_REGION_CSS } from '../wire-markup.ts';
 import { runtime_session } from './session.ts';
+import { resolved_urls } from './resolved-url.ts';
 
 type SheetStates = {
 	loading: {};
@@ -76,10 +77,12 @@ export function note_code_sheets<T>(url: string, loading: Promise<T>): Promise<T
 	if (typeof document === 'undefined') return loading;
 	const before = new Set<Element>(document.head.children);
 	return loading.then((module) => {
+		const file = resolved_urls.resolve(url, document.baseURI);
+		if (file === null) return module;
 		let dir: string;
 		try {
-			dir = new URL('.', new URL(url, document.baseURI)).href;
-			// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL, so no folder of its own to own sheets in
+			dir = new URL('.', file.href).href;
+			// oxlint-disable-next-line ogygia/no-silent-failures -- not a base URL (data:, blob:), so no folder of its own to own sheets in
 		} catch {
 			return module;
 		}
