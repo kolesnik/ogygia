@@ -2241,10 +2241,6 @@
 			"reason": "a rule's message wording (dev and e2e only), constant text; said in packages/core/test/server-rules.test.ts"
 		},
 		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #hole_cache",
-			"reason": "a hole's cache key and the start of its read observation (a RequestEvent, not cloneable), constant work; run by packages/flags/test/hole-cache.test.ts through cached_render and the e2e hole suites"
-		},
-		{
 			"id": "packages/core/src/server/render-page.ts > render_page > get data",
 			"reason": "notes a page.data read into the running render's read set and returns the data, constant work"
 		},
@@ -4369,10 +4365,6 @@
 			"reason": "one typeof check per tag (an inline callback, not replayable on its own), constant work; run by packages/federation/test/thaw-notice-shape.test.ts"
 		},
 		{
-			"id": "packages/core/src/server/answer-context.ts > hole_answer_context",
-			"reason": "one hole answer's render context: Kit's context Map (live request objects, not cloneable), copied once with the nested mark when the hole wakes, constant work; proven in packages/core/test/woken-hole-capability.test.ts"
-		},
-		{
 			"id": "packages/core/src/server/region-response.ts > over_budget",
 			"reason": "an error path: one 429 Response per refused request (a Response, not cloneable), constant work; proven in packages/core/test/batch-render-budget.test.ts (#959)"
 		},
@@ -4645,10 +4637,6 @@
 			"reason": "dev only: one warning for a forged hole request, folded out of production builds; the refusal it rides with is benched (region_verify, packages/core/bench/region-capability.bench.ts)"
 		},
 		{
-			"id": "packages/core/src/server/islands-endpoint.ts > claim_of",
-			"reason": "copies five fields of a parsed capability into the claim it signs, constant work; the handle runs only inside a Kit server build, and the signing it feeds is benched (packages/core/bench/region-capability.bench.ts)"
-		},
-		{
 			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #capability_parcel",
 			"reason": "one batched hole's steps (precheck, verify, charge, render) on a Kit request event nothing can clone; the handle runs only inside a Kit server build, its moves are benched (packages/core/bench/region-capability.bench.ts `region_request`) and its order is proven in packages/core/test/region-request-order.test.ts and the e2e hole suites"
 		},
@@ -4679,10 +4667,6 @@
 		{
 			"id": "packages/devtools/src/profiler/key-check.ts > random_id",
 			"reason": "random bytes (hidden state, not replayable) and a base64url of them, constant work; proven in packages/devtools/test/profiler-login-guard.test.ts"
-		},
-		{
-			"id": "packages/core/src/hooks.ts > OgygiaHandle > #render_over",
-			"reason": "one render-budget charge and, when it is spent, one address check (a handle instance, not cloneable), constant work; proven in packages/core/test/rate-limit-shared-address.test.ts and batch-render-budget.test.ts (#894)"
 		},
 		{
 			"id": "packages/core/src/hooks.ts > OgygiaHandle > #render_over > once:1~9fd48d",
@@ -5857,6 +5841,22 @@
 			"reason": "dev and rules builds only: a broken rule's details, built once per break; constant work"
 		},
 		{
+			"id": "packages/core/src/server/rules.ts > install_server_rules > add:1~b95e97",
+			"reason": "dev and e2e builds only: the asset-prefix rule joins its list of breaks (hidden state), linear in the breaks seen (at most 10); proven in packages/core/test/kit-paths.test.ts"
+		},
+		{
+			"id": "packages/core/src/server/rules.ts > note_kit_asset",
+			"reason": "dev and e2e builds only: one string comparison per asset URL, and a break pushed (at most 10) when Kit's answer differs; constant work; proven in packages/core/test/kit-paths.test.ts"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_WARNINGS > rule_asset_not_prefixed > text",
+			"reason": "dev and rules builds only: a broken rule's text, built once per break; constant work"
+		},
+		{
+			"id": "packages/core/src/messages/server.ts > SERVER_WARNINGS > rule_asset_not_prefixed > details",
+			"reason": "dev and rules builds only: a broken rule's details, built once per break; constant work"
+		},
+		{
 			"id": "packages/core/src/runtime/rules.ts > no_unshipped_read",
 			"reason": "browser, dev and rules builds only: the rule's check, a join of at most 10 noted reads; proven in packages/core/test/browser/seed-unshipped.test.ts"
 		},
@@ -6637,10 +6637,6 @@
 			"reason": "browser only: the wire feature's chunk, loaded on first use (a dynamic import, not recorded); its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/server/region-request.ts > create_region_request",
-			"reason": "one machine made per hole request (fsm.create of the region request definition), constant work; the region_request case of packages/core/bench/region-capability.bench.ts counts that create"
-		},
-		{
 			"id": "packages/machine/src/cache.ts > check_cache",
 			"reason": "build only: the options pass (internal/macros) runs it on a cache's literal options, once per call site per build; proven in internal/macros/test/options.test.ts and packages/machine/test/cache.test.ts"
 		},
@@ -6699,14 +6695,6 @@
 		{
 			"id": "packages/core/src/hooks.ts > OgygiaHandle > #unbuilt > once:1~6cf78c",
 			"reason": "an error path: prints the coded line once per handle; proven in packages/core/test/endpoint-unbuilt.test.ts"
-		},
-		{
-			"id": "packages/core/src/hooks.ts > OgygiaHandle > constructor > IslandsEndpoint:0~e289a8 > pass",
-			"reason": "one call forwarded to html_pass on a Kit request event nothing can clone, constant work; the endpoint runs only inside a Kit server build (packages/core/test/endpoint-unbuilt.test.ts and the e2e hole suites)"
-		},
-		{
-			"id": "packages/core/src/hooks.ts > OgygiaHandle > constructor > IslandsEndpoint:0~e289a8 > render_over",
-			"reason": "one call forwarded to the handle's render budget, constant work; the budget is proven in packages/core/test/batch-render-budget.test.ts"
 		},
 		{
 			"id": "packages/core/src/messages/server.ts > SERVER_ERRORS > region_endpoint_unbuilt > details",
@@ -6769,10 +6757,6 @@
 			"reason": "once per handle (with the frames feature): stores its host and takes the process's render gate, constant work; proven in packages/core/test/endpoint-unbuilt.test.ts"
 		},
 		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_region",
-			"reason": "moved unchanged from hooks.ts OgygiaHandle (2f38e19c6): one hole GET on a Kit request event nothing can clone; its steps are benched (packages/core/bench/region-capability.bench.ts region_request) and its order proven in packages/core/test/region-request-order.test.ts"
-		},
-		{
 			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_batch",
 			"reason": "moved unchanged from hooks.ts OgygiaHandle: one batch POST on a Kit request event nothing can clone; the stream is benched (packages/core/bench/server.bench.ts batch stream) and the body cap proven in packages/core/test/batch-body-cap.test.ts"
 		},
@@ -6789,34 +6773,6 @@
 			"reason": "moved unchanged from hooks.ts: a plugin's stitch of one hole, on a Kit request event nothing can clone; proven in packages/core/test/endpoint-unbuilt.test.ts"
 		},
 		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #render_component",
-			"reason": "moved unchanged from hooks.ts: one hole's render under the gate and the cache, on a Kit request event nothing can clone; the cache and the gate are benched (packages/core/bench/server.bench.ts render cache) and the throw is proven in packages/core/test/hole-throw-said.test.ts"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #render_component > cached_render:0~8b211e",
-			"reason": "moved unchanged from hooks.ts: the cached render's body under the gate, constant work around the render; benched (packages/core/bench/server.bench.ts render cache)"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #render_component > cached_render:0~8b211e > run:0~98a8d5",
-			"reason": "moved unchanged from hooks.ts: times a render in its gate slot, constant work; benched (packages/core/bench/server.bench.ts render cache)"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #render_component > render_body",
-			"reason": "moved unchanged from hooks.ts: Svelte's render of the hole's component plus its head, the component's own work; proven in packages/core/test/endpoint-unbuilt.test.ts and the e2e hole suites"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #capability_precheck",
-			"reason": "moved unchanged from hooks.ts: the shape checks before any HMAC, each linear in a bounded field; its parts are benched (packages/core/bench/region-capability.bench.ts) and proven in packages/core/test/capability-canonical-numbers.test.ts"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #decode_region_props",
-			"reason": "moved unchanged from hooks.ts: devalue's parse of the signed props, linear in them; proven in packages/core/test/hole-props-decode-said.test.ts"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #region_session",
-			"reason": "moved unchanged from hooks.ts: one cookie read on a Kit request event nothing can clone, constant work"
-		},
-		{
 			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #render_capability",
 			"reason": "moved unchanged from hooks.ts: one batched or stitched hole's request machine around its parcel, constant work; the machine is benched (packages/core/bench/region-capability.bench.ts region_request)"
 		},
@@ -6825,36 +6781,8 @@
 			"reason": "moved unchanged from hooks.ts: an expired anonymous hole's re-sign, once per renewal; verify and sign are benched (packages/core/bench/region-capability.bench.ts) and the renewal proven in packages/core/test/older-build-capability.test.ts"
 		},
 		{
-			"id": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > #verify_region_mac",
-			"reason": "moved unchanged from hooks.ts: region_verify on a Kit request event nothing can clone; region_verify is benched (packages/core/bench/region-capability.bench.ts)"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > capability_of",
-			"reason": "moved unchanged from hooks.ts: nine URLSearchParams reads, constant work; proven in packages/core/test/property-capability-url.test.ts"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > capability_target",
-			"reason": "moved unchanged from hooks.ts: two own-property reads of the build's manifest, constant work; proven in packages/core/test/older-build-capability.test.ts"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > foreign_key",
-			"reason": "moved unchanged from hooks.ts: one compare with the signing key's fingerprint, constant work"
-		},
-		{
-			"id": "packages/core/src/server/islands-endpoint.ts > region_css_links",
-			"reason": "moved unchanged from hooks.ts: one link tag per stylesheet of a hole's component, linear in them; proven by the e2e hole suites"
-		},
-		{
-			"id": "packages/core/src/server/region-response.ts > client_ip",
-			"reason": "moved unchanged from hooks.ts: the platform's address of a Kit request event nothing can clone, constant work; proven in packages/core/test/batch-render-budget.test.ts"
-		},
-		{
 			"id": "packages/core/src/server/region-response.ts > region_denied",
 			"reason": "moved unchanged from hooks.ts: an error path, one 403 Response (not cloneable), constant work; proven in packages/core/test/older-build-capability.test.ts"
-		},
-		{
-			"id": "packages/core/src/server/region-response.ts > region_response",
-			"reason": "moved unchanged from hooks.ts: one Response with the region headers (not cloneable), constant work; proven in packages/core/test/endpoint-unbuilt.test.ts"
 		},
 		{
 			"id": "packages/compiler/src/driver.ts > Compiler > server_word",
