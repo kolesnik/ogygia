@@ -1,4 +1,4 @@
-import { stringify } from 'devalue';
+import { devalue_text } from './devalue-text.ts';
 import { noop, type Scope } from '@ogygia/machine';
 import { PAGE_DEFER_GLOBAL, PAGE_DEFER_KEY, PAGE_SETTLED_KEY } from '../page-defer.ts';
 import { escape_script_text } from '../escape.ts';
@@ -230,9 +230,9 @@ export function resolve_script(
 	let ok = settled.ok;
 	let encoded: string;
 	try {
-		encoded = stringify(ok ? settled.value : normalize_error(settled.value), reducers);
+		encoded = devalue_text(ok ? settled.value : normalize_error(settled.value), reducers);
 	} catch {
-		encoded = stringify({ message: 'ogygia: streamed value is not serializable' });
+		encoded = devalue_text({ message: 'ogygia: streamed value is not serializable' }, {});
 		ok = false;
 	}
 	const json = escape_script_text(JSON.stringify(encoded));

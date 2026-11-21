@@ -22,7 +22,7 @@
  * Server-only (it renders): call it from a handle / endpoint / server module.
  */
 import { render } from 'svelte/server';
-import { stringify } from 'devalue';
+import { devalue_text } from './server/devalue-text.ts';
 import type { Component } from 'svelte';
 import Region from './Region.svelte';
 import { PageSeed } from './server/page-seed.ts';
@@ -195,7 +195,7 @@ export async function document(
 				form: s.form,
 				error: s.error
 			},
-			(v: unknown) => stringify(v, page_seed_reducers),
+			(v: unknown) => devalue_text(v, page_seed_reducers),
 			// (form/error absent → serialized as null, which is JSON)
 			analyze(data).json && analyze(s.form ?? null).json && analyze(s.error ?? null).json
 		);

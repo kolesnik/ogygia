@@ -18,7 +18,7 @@ import { building } from '$app/env';
 import { capability_query, islands_endpoint, MAX_REGION_PROPS_LEN } from './endpoint.ts';
 import { capability_lifetime, type CapabilityLifetime } from './capability-lifetime.ts';
 import { encode_region_props } from './region-props.ts';
-import { stringify } from 'devalue';
+import { devalue_text } from './devalue-text.ts';
 import { record_server_event } from '../events/server-registry.ts';
 import { KNOWN_COPIES_CAP, KNOWN_HEADER_CAP } from '../contract/known-copies.ts';
 import { document_counts } from './document-counts.ts';
@@ -189,7 +189,7 @@ export function mint_server_region(
 	ensure_prop_kinds();
 	// (decoded fresh at the endpoint, never by id: place form keeps the address the same per render)
 	const payload = B64Url.encode(
-		placed(stringify(props, { [REF_WIRE_KEY]: ref_reducer(PROP_FAMILIES) }))
+		placed(devalue_text(props, { [REF_WIRE_KEY]: ref_reducer(PROP_FAMILIES) }))
 	);
 	if (payload.length > MAX_REGION_PROPS_LEN) {
 		throw new OgygiaError('hole_props_too_large', {
