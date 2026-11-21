@@ -33,6 +33,14 @@ bench(
 	}
 );
 
+/** A head that holds each tag the presence checks look for: the router meta, a dev bridge and the
+ *  page's own speculation rules (the runtime is head()'s own). */
+const presence_head = (islands: number): string =>
+	head(islands).replace(
+		'<title>',
+		'<meta name="ogygia-router" content="vt"><script type="module" data-ogygia-dev-hmr src="/@id/hmr.js"></script><script type="speculationrules">{}</script><title>'
+	);
+
 bench(
 	'head: the presence checks (router meta, runtime, dev bridge, speculation rules)',
 	({ h }) =>
@@ -41,12 +49,8 @@ bench(
 		+page_declares_dev_hmr_script(h) +
 		+page_declares_speculation_rules(h),
 	{
-		setup: () => ({
-			h: head(40).replace('<title>', '<meta name="ogygia-router" content="vt"><title>')
-		}),
-		scale: (_ctx, k) => ({
-			h: head(40 * k).replace('<title>', '<meta name="ogygia-router" content="vt"><title>')
-		})
+		setup: () => ({ h: presence_head(40) }),
+		scale: (_ctx, k) => ({ h: presence_head(40 * k) })
 	}
 );
 
