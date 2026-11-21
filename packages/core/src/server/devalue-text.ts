@@ -6,6 +6,8 @@
  * devalue-lane island's serialize. Any other value hands the whole value to
  * devalue, whose reducers answer what this pass already asked them (each reducer runs once per
  * value), so the text and the reducers' effects are devalue's.
+ *
+ * @packageDocumentation
  */
 import { stringify } from 'devalue';
 
@@ -17,22 +19,17 @@ const POSITIVE_INFINITY = -4;
 const NEGATIVE_INFINITY = -5;
 const NEGATIVE_ZERO = -6;
 
-/** A character devalue writes as an escape (a surrogate, paired or not, it writes raw). */
 // oxlint-disable-next-line no-control-regex -- devalue escapes every control character
 const ESCAPED_RE = /[\u0000-\u001f"\\<\u2028\u2029]/;
 const OBJECT_PROTO_NAMES = Object.getOwnPropertyNames(Object.prototype).sort().join('\0');
 
-/** A value this pass leaves to devalue. */
 class Unwritten {}
 const UNWRITTEN = new Unwritten();
 
-/** A string as devalue quotes it (utils.js `stringify_string`): as it is when nothing in it is
- *  escaped, the common case, found by one native scan. */
 function quote(s: string): string {
 	return ESCAPED_RE.test(s) ? quote_escaped(s) : `"${s}"`;
 }
 
-/** The escape devalue writes for a character code, or null when it writes the character itself. */
 function escape_of(c: number): string | null {
 	if (c === 34) return '\\"';
 	if (c === 60) return '\\u003C';
@@ -48,7 +45,6 @@ function escape_of(c: number): string | null {
 	return `\\u${c.toString(16).padStart(4, '0')}`;
 }
 
-/** devalue's quoting of a string that holds an escape: the runs between escapes copied whole. */
 function quote_escaped(s: string): string {
 	let out = '';
 	let last = 0;
@@ -63,7 +59,6 @@ function quote_escaped(s: string): string {
 	return `"${last === 0 ? s : `${out}${s.slice(last)}`}"`;
 }
 
-/** devalue's plain object (utils.js `is_plain_object`), without symbol keys. */
 function is_plain(o: object): boolean {
 	const proto = Object.getPrototypeOf(o) as object | null;
 	if (
@@ -83,7 +78,6 @@ function is_plain(o: object): boolean {
 /** devalue's text of `value` with `reducers`, as `stringify(value, reducers)` writes it. */
 export function devalue_text(value: unknown, reducers: Reducers): string {
 	const custom = Object.getOwnPropertyNames(reducers).map((key) => ({ key, fn: reducers[key]! }));
-	/** what the reducers said of each value this pass offered them, by its index */
 	const claims: ({ key: string; value: unknown } | null)[] = [];
 	const indexes = new Map<unknown, number>();
 	const out: string[] = [];
@@ -168,7 +162,6 @@ export function devalue_text(value: unknown, reducers: Reducers): string {
 	} catch (e) {
 		if (e !== UNWRITTEN) throw e;
 	}
-	// (devalue writes it whole; a value this pass offered the reducers gets their first answer)
 	const answered: Reducers = {};
 	for (const { key, fn } of custom)
 		answered[key] = (v) => {
