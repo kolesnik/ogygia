@@ -130,7 +130,10 @@
 			"rules": { "no-restricted-imports": "off" }
 		},
 		{
-			"files": ["packages/core/test/wire-markup.test.ts"],
+			"files": [
+				"packages/core/test/wire-markup.test.ts",
+				"packages/core/test/instruments-node-load.test.ts"
+			],
 			"rules": { "ogygia/tests-read-source": "off" }
 		}
 	],
