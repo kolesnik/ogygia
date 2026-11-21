@@ -1,6 +1,10 @@
 {
 	"exempt": [
 		{
+			"id": "packages/core/src/runtime/resolved-url.ts > ResolvedUrls > forget",
+			"reason": "a test seam: forgets every parse, constant work (a bench's setup calls it, outside the window)"
+		},
+		{
 			"id": "packages/core/src/shims/kit-remote/remote-cache.ts > LeftEntry > bequeath",
 			"reason": "constant work: one count added, one property defined and one teardown, once per left entry a new reader replaces; proven in packages/core/test/remote-cache-holders.test.ts (#2041)"
 		},
