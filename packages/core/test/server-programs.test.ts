@@ -1,15 +1,15 @@
 // THE SERVER'S PROGRAMS: a server build carries a region's render only where the build's feature
 // word (`ogygia:server/runtime-flags`, the browser's `HAS`) holds its program, so a server never
 // writes into a page what the page's runtime cannot revive. Every kind of region the grid knows is
-// rendered with each program left out of the word: a kind that needs it is refused with a code, a
-// kind that does not renders exactly as with every program in.
+// rendered with each program left out of the word: a kind that needs it renders its waiting UI as
+// static HTML (nothing the runtime revives) and says `region_program_unbuilt`, the page stays up; a
+// kind that does not renders exactly as with every program in, and says nothing.
 import './_region-grid-devtools.ts';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
 	cases_of,
 	KINDS,
 	PLACES,
-	rejected_code,
 	type GridCase,
 	type Place
 } from './_region-grid.ts';
@@ -63,34 +63,74 @@ const AT_PLACES = PLACES.filter(
 	(p) => (p.at === 'page' || p.at === 'island') && p.env === 'prod' && p.page === 'ok'
 );
 
+/** The markup by which the page's runtime revives a region of each program: a hole's fetch (a
+ *  shell's `render="defer"`, a frozen hole's element), a lake's element, a held region's updates. */
+const REVIVED: Readonly<Record<string, RegExp>> = {
+	hole: /render="defer"|<ogygia-region entry="hole-/,
+	lake: /<ogygia-region entry="lake-a"/,
+	live: /<ogygia-region live/
+};
+
+/** The HTML of the waiting UI a case renders in its region's place when its program is not built:
+ *  a hole's fallback, a held region's placeholder or else its children; a lake has none. Only a
+ *  text snippet's (a snippet holding a region renders that region). */
+function waiting_html(c: GridCase): string | null {
+	if (c.kind === 'lake') return null;
+	if (c.kind === 'hole') return c.values.fallback === 'text' ? '<p>wait</p>' : null;
+	if (c.values.placeholder === 'text') return '<p>wait</p>';
+	if (c.values.placeholder === 'none' && c.values.children === 'text') return '<p>kid</p>';
+	return null;
+}
+
+/** What the render said on the console as an error, each call's arguments as text. */
+function errors_said(spy: { mock: { calls: unknown[][] } }): string[] {
+	return spy.mock.calls.map((args) =>
+		args.map((a) => String((a as Error)?.message ?? a)).join(' ')
+	);
+}
+
 describe('a region whose program the build left out', () => {
 	for (const [program, bit] of PROGRAMS)
-		test(`without the ${program} program: its regions are refused with a code, the rest render as with it`, () => {
+		test(`without the ${program} program: its regions render their waiting UI as static HTML and say a code, the rest render as with it`, () => {
 			vi.stubEnv('DEV', false);
 			const wrong: string[] = [];
-			let refused = 0;
+			let fell_back = 0;
 			for (const place of AT_PLACES)
 				for (const c of SAMPLE) {
 					const { needs, out: full } = full_render(c, place);
 					set_server_word(ALL & ~bit);
+					const said = vi.spyOn(console, 'error').mockImplementation(() => {});
 					const out = server_out(c, place);
+					const errors = errors_said(said);
+					said.mockRestore();
 					const name = `${c.name} at=${place.at} kit=${place.kit} csr=${place.csr}`;
+					const unbuilt = errors.filter((e) => e.includes('region_program_unbuilt'));
 					if (needs.has(program)) {
-						refused++;
-						if (rejected_code(out.thrown) !== 'region_program_unbuilt')
-							wrong.push(`${name}: not refused (${out.thrown ?? 'rendered'})`);
+						fell_back++;
+						if (out.thrown) wrong.push(`${name}: threw (${out.thrown})`);
+						else if (REVIVED[program].test(out.body))
+							wrong.push(`${name}: wrote markup the runtime revives: ${out.body}`);
+						else if (waiting_html(c) !== null && !out.body.includes(waiting_html(c)!))
+							wrong.push(`${name}: its waiting UI is missing: ${out.body}`);
+						else if (!unbuilt.some((e) => e.includes(`program=${program}`)))
+							wrong.push(`${name}: said no region_program_unbuilt (${errors.join(' | ')})`);
 					} else if (out.text !== full.text) wrong.push(`${name}: rendered otherwise`);
+					else if (unbuilt.length > 0) wrong.push(`${name}: said region_program_unbuilt`);
 				}
 			expect(wrong.slice(0, 10)).toEqual([]);
-			expect(refused).toBeGreaterThan(0);
-		});
+			expect(fell_back).toBeGreaterThan(0);
+		}, 60_000);
 
-	test('the refusal names the region and its program', () => {
+	test('the code names the region and its program, and the page renders', () => {
 		set_server_word(ALL & ~F_FRAMES);
-		const hole = cases_of('hole')[0];
+		const said = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const hole = cases_of('hole').find((c) => c.values.fallback === 'text')!;
 		const out = server_out(hole, AT_PLACES[0]);
-		expect(out.thrown).toMatch(/region_program_unbuilt/);
-		expect(out.thrown).toMatch(/entry=hole-a/);
-		expect(out.thrown).toMatch(/program=hole/);
+		const errors = errors_said(said);
+		expect(out.thrown).toBeNull();
+		expect(out.body).toContain('<p>wait</p>');
+		expect(errors.filter((e) => e.includes('region_program_unbuilt'))).toHaveLength(1);
+		expect(errors.join(' ')).toMatch(/entry=hole-a/);
+		expect(errors.join(' ')).toMatch(/program=hole/);
 	});
 });
