@@ -1,5 +1,5 @@
 import { on_schedule, TRIGGER_MISSING } from '../contract/trigger.ts';
-import { say_schedule_missing } from './schedule-said.ts';
+import { say_trigger } from './schedule-said.ts';
 import { clock } from '@ogygia/machine';
 import * as fsm from '@ogygia/machine/internal';
 import { lru, type Lru } from '@ogygia/machine/internal';
@@ -250,7 +250,7 @@ function remember(
  *  once and says so. */
 function revalidate_on(el: HTMLElement, when: string, arm: LakeArm): void {
 	if (on_schedule(when, arm, arm.fetch_revalidate) === TRIGGER_MISSING) {
-		say_schedule_missing(el, when);
+		say_trigger(el, when, TRIGGER_MISSING);
 	}
 }
 

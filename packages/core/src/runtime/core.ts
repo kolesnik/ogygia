@@ -13,7 +13,7 @@ import {
 import { plain_flights } from '@ogygia/machine/internal';
 import type { Life, Run } from '@ogygia/machine/internal';
 import { frameAddress, older_by, stands_at } from '../frame.ts';
-import { is_media_query, on_trigger, TRIGGER_MISSING, WAKE } from '../contract/trigger.ts';
+import { is_media_query, on_trigger, WAKE } from '../contract/trigger.ts';
 import { OG_FP, OG_HOLE, OG_KEPT, OG_STATIC, OGYGIA_REGION_CSS } from '../wire-markup.ts';
 import { import_again, is_failed_import, on_file_load, on_reload_needed } from './import-again.ts';
 import { browser_offline, no_response } from './network.ts';
@@ -114,7 +114,7 @@ import {
 import { on_idle } from './arm-idle.ts';
 import { on_visible } from './arm-visible.ts';
 import { on_media } from './arm-media.ts';
-import { region_label, say_schedule_missing } from './schedule-said.ts';
+import { say_trigger } from './schedule-said.ts';
 import {
 	note_code_sheets,
 	sheet_of,
@@ -833,8 +833,7 @@ class OgygiaRegion extends HTMLElement {
 			},
 			fire
 		);
-		if (said === TRIGGER_MISSING) say_schedule_missing(this, when);
-		else if (said) warn('region_wake_unknown', { region: region_label(this), value: when });
+		if (said) say_trigger(this, when, said);
 	}
 
 	/**

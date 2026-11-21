@@ -6969,12 +6969,8 @@
 			"reason": "the browser's stand-in: does nothing (the server's word gates what the server writes), constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/schedule-said.ts > say_schedule_missing",
-			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw): never on a bench path, where every arm is in; proven in packages/core/test/browser/schedules-missing.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/schedule-said.ts > region_label",
-			"reason": "a message argument: two attribute reads, constant work, only when a region is said (unknown or missing schedule)"
+			"id": "packages/core/src/runtime/schedule-said.ts > say_trigger",
+			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw) or on no trigger: never on a bench path, where every schedule is a keyword its arm holds; two attribute reads and one message, constant work; proven in packages/core/test/browser/schedules-missing.test.ts and wake-unknown-trigger.test.ts"
 		},
 		{
 			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #arm > on_trigger:2~f418cb > media",
