@@ -160,11 +160,7 @@ const RULES =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 
-/** The frame store as this source types it: the virtual module's declaration types it from the
- *  built package, whose answer brand (`VerifiedHtml`) is another type than the source's. Cast at
- *  each call that hands one across, never bound to a name: an alias makes the app's build keep the
- *  module as an object (test: apps/palaestra/e2e/lazy-chunks.spec.ts › the boot's files). */
-type Frames = typeof import('./frames.ts');
+type SourceFrames = typeof import('./frames.ts');
 
 const SSR_SNAPSHOT_MAX = 1 << 19;
 
@@ -706,7 +702,7 @@ class OgygiaRegion extends HTMLElement {
 		const address = frameAddress(endpoint);
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'region.prefetch', ...dt_ids(this) });
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a warm ahead; the hole's own fetch asks again and says its failure
-		void (frames as unknown as Frames)
+		void (frames as unknown as SourceFrames)
 			.ensure(address, this.#frame_fetcher(endpoint, false, 'ahead'), {
 				priority: PRIORITY.ahead
 			})
@@ -932,7 +928,8 @@ class OgygiaRegion extends HTMLElement {
 		});
 		const box = this.#box;
 		let replayed = false;
-		const off = (frames as unknown as Frames).subscribe(address, (f) => {
+		// @why the app's build keeps a namespace import bound to a const as an object, one more boot file (test: apps/palaestra/e2e/lazy-chunks.spec.ts › boot fetches neither; the first wake fetches the hydrate core, the first hover the navigation)
+		const off = (frames as unknown as SourceFrames).subscribe(address, (f) => {
 			replayed = true;
 			note_handed(this, address, f.v, () => this.#paint.kind === 'painting');
 			box.post((turn) => {
@@ -1131,7 +1128,7 @@ class OgygiaRegion extends HTMLElement {
 			await frames.join_batch(endpoint);
 		const cls = () => (this.#visitor ? 'user' : viewport_class(this));
 		const fetcher = this.#frame_fetcher(endpoint, revalidate, cls);
-		return (frames as unknown as Frames).ensure(address, fetcher, {
+		return (frames as unknown as SourceFrames).ensure(address, fetcher, {
 			force: revalidate,
 			signal,
 			priority: PRIORITY[cls()]
