@@ -96,6 +96,19 @@ bench(
 );
 
 bench(
+	'seed index: the seed walked after the islands that hold its blocks were measured',
+	({ data }) => {
+		const memo = new MeasureMemo();
+		for (const block of data.catalog.blocks) measure({ block }, memo);
+		const index = new SeedIndex(data, 96, memo);
+		let count = 0;
+		for (const b of data.catalog.blocks) count += index.plan({ block: b }).count;
+		return count;
+	},
+	{ setup: () => ({ data: page_tree() }), scale: (_ctx, k) => ({ data: page_of(20 * k) }) }
+);
+
+bench(
 	'seed refs: twenty islands pass clones, matched by structure',
 	({ data, props }) => {
 		const index = new SeedIndex(data, 96);
