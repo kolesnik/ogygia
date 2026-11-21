@@ -189,3 +189,23 @@ test('a comment moved into another file is not added; one written beside it is',
 		r.done();
 	}
 });
+
+test('a moved comment after characters of more than one byte is matched whole too', () => {
+	const B = 'packages/demo/src/b.ts';
+	const before = dedent`
+		export const a = '— → é — → é';
+		// an old narration of the helper
+		export function helper() {}
+	`;
+	const after_b = dedent`
+		export const b = '— → é — → é';
+		// an old narration of the helper
+		export const z = 1;
+	`;
+	const r = repo({ [A]: before, [B]: 'export const b = 2;' }, { [A]: ONE, [B]: after_b });
+	try {
+		assert.deepEqual(new_comment_findings(r.dir, r.base), []);
+	} finally {
+		r.done();
+	}
+});
