@@ -853,8 +853,16 @@
 			"reason": "browser only: an early flight's end schedules its address's linger (one cache set), constant work; proven in packages/core/test/browser/early-holes.test.ts"
 		},
 		{
-			"id": "packages/core/src/early-hole-note.ts > note_early_hole",
-			"reason": "server render: one Set add per load hole under the request (getRequestEvent, not recorded), constant work; proven in apps/palaestra/e2e/hole-early-start.spec.ts and server-islands.spec.ts"
+			"id": "packages/core/src/server/cache-control.ts > note_cache_control",
+			"reason": "the handle's note of the cache-control a load set: one header parse and one WeakMap set per page request (a Request, not cloneable), constant work"
+		},
+		{
+			"id": "packages/core/src/server/shared-cache.ts > note_shared_lifetime",
+			"reason": "one WeakMap set per page request (a Request, not cloneable), constant work"
+		},
+		{
+			"id": "packages/core/src/server/devalue-text.ts > devalue_text > <anonymous>~ff4f1a",
+			"reason": "the reducer devalue is handed when this pass leaves a value to it: one Map lookup per value devalue asks about; devalue_text is benched (packages/core/bench/serialize.bench.ts), and devalue's text and reducer calls are checked byte for byte by devalue-text.test.ts"
 		},
 		{
 			"id": "packages/core/src/server/early-holes-csp.ts > add_early_holes_csp",
@@ -5735,10 +5743,6 @@
 		{
 			"id": "packages/core/src/runtime/lakes.ts > lake_key",
 			"reason": "browser only: one pass over the page's frozen regions to rank a lake among those sharing its identity, linear in frozen regions (a handful per page); lake-restore-count.test.ts runs it"
-		},
-		{
-			"id": "packages/core/src/server/region-identity.ts > lake_identity",
-			"reason": "one hole_identity fingerprint of a lake's props per lake render, measured with hole_identity's own bench; lake-identity.test.ts runs it"
 		},
 		{
 			"id": "packages/compiler/src/messages.ts > BUILD_ERRORS > page_reads_claimed > text",
