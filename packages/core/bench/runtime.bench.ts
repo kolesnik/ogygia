@@ -42,6 +42,10 @@ import { block, header } from './fixtures.ts';
 import { stamp_region_keys } from '../src/runtime/reconcile.ts';
 import { ids_released, record_region_id } from '../src/runtime/region-ids.ts';
 import { RemoteCache } from '../src/shims/kit-remote/remote-cache.ts';
+import { boot_client_plugins, type ClientRealm } from '../src/runtime/client-plugins.ts';
+import { told } from '../src/runtime/hook-told.ts';
+import { client_region_mount } from '../src/runtime/region-hooks.ts';
+import { subscribe_realms } from '../test/_hooks.ts';
 
 bench(
 	'concurrency gate: hole renders through a gate of four (some slow, some past their time)',
@@ -529,4 +533,94 @@ bench(
 		return hit;
 	},
 	{ setup: () => ({ n: 400 }), scale: (_ctx, k) => ({ n: 400 * k }) }
+);
+
+/** The app's client realms, as the boot hands them over, each subscribed to the hooks it names. */
+function boot_realms(realms: readonly ClientRealm[]): void {
+	subscribe_realms(realms);
+	boot_client_plugins(realms, false);
+}
+
+/** `n` regions of a page, each with its entry and its own file. */
+function mounted_regions(n: number): Element[] {
+	const page = el(
+		`<main>${Array.from(
+			{ length: n },
+			(_, i) =>
+				`<ogygia-region entry="/src/blocks/b${i % 12}.svelte" src="/_app/immutable/og-region.b${i % 12}.js"></ogygia-region>`
+		).join('')}</main>`
+	) as unknown as ParentNode;
+	return [...page.querySelectorAll('ogygia-region')];
+}
+
+/** What the realms heard of each mount: the number of its URLs. */
+const heard_mounts: number[] = [];
+
+bench(
+	"regionMount: a page's regions told to the app's two realms, each with its files as full URLs",
+	({ regions }) => {
+		let urls = 0;
+		for (const region of regions) client_region_mount(region);
+		for (const e of heard_mounts.splice(0)) urls += e;
+		return urls;
+	},
+	{
+		setup: () => {
+			Object.defineProperty(document, 'baseURI', {
+				value: 'https://shop.example.test/catalog',
+				configurable: true
+			});
+			boot_realms([
+				{
+					name: 'devtools',
+					client: { hooks: { regionMount: (e) => void heard_mounts.push(e.urls.length) } }
+				},
+				{ name: 'analytics', client: { hooks: { regionMount: () => void heard_mounts.push(0) } } }
+			]);
+			return { regions: mounted_regions(40) };
+		},
+		scale: (_ctx, k) => ({ regions: mounted_regions(40 * k) })
+	}
+);
+
+bench(
+	"told: a hook's answers from the app's realms (an after, a promise, a rejection, a throw)",
+	async ({ n }) => {
+		const hydrate = told('regionHydrate');
+		const parsed = told('answerParsed');
+		const target = el('<ogygia-region entry="/src/a.svelte"></ogygia-region>');
+		const fragment = frag('<p>an answer</p>');
+		const waits: unknown[] = [];
+		for (let i = 0; i < n; i++) {
+			const after = hydrate({ el: target as unknown as Element });
+			if (typeof after === 'function') after();
+			waits.push(parsed({ fragment: fragment as unknown as DocumentFragment }));
+		}
+		await Promise.all(waits);
+		return waits.length;
+	},
+	{
+		setup: () => {
+			boot_realms([
+				{ name: 'timing', client: { hooks: { regionHydrate: () => () => {} } } },
+				{
+					name: 'sanitizer',
+					client: { hooks: { answerParsed: () => Promise.resolve() } }
+				},
+				{
+					name: 'flaky',
+					client: {
+						hooks: {
+							answerParsed: () => Promise.reject(new Error('a subscriber that rejects')),
+							regionHydrate: () => {
+								throw new Error('a subscriber that throws');
+							}
+						}
+					}
+				}
+			]);
+			return { n: 40 };
+		},
+		scale: (_ctx, k) => ({ n: 40 * k })
+	}
 );
