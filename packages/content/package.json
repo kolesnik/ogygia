@@ -126,7 +126,6 @@
 		"mdsvex": "catalog:"
 	},
 	"devDependencies": {
-		"ogygia-internal-macros": "workspace:*",
 		"@ogygia/compiler": "workspace:*",
 		"@ogygia/config": "workspace:*",
 		"@ogygia/core": "workspace:*",
@@ -138,6 +137,7 @@
 		"@typescript/native": "catalog:tsgo",
 		"@vitest/browser": "catalog:",
 		"@vitest/browser-playwright": "catalog:",
+		"ogygia-internal-macros": "workspace:*",
 		"shiki": "catalog:",
 		"svelte": "catalog:",
 		"svelte-check": "catalog:",
