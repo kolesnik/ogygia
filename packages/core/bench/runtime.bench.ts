@@ -7,6 +7,7 @@
 // hydrate.bench.ts. The rest of the browser-only runtime (the router's navigation, the frame and lake
 // stores, interaction replay) needs more of a real document and waits for Heisenbench's browser
 // coverage.
+import './timeline.ts';
 import { el, frag } from '../test/_stubs/dom.ts';
 import { bench } from '@bench/heisenbench/bench';
 import { fingerprint_of, fnv1a, signature_of } from '../src/contract/hash.ts';

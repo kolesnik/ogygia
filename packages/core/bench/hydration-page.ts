@@ -9,11 +9,13 @@
  *   was observed (a browser reports after layout); an element is in view when the page put it in
  *   `in_view`.
  * - `addEventListener`, `location`: what the runtime's modules touch at load.
+ * - `PerformanceObserver`: the page's resource timeline, on the bench's loop (./timeline.ts).
  *
  * And the page: a CMS document of a header, a list of blocks and a footer, every region
  * with its props sidecar in the keyed tail at the end of the body, as the server renders it.
  * Setup only: nothing here runs inside a measured window, except the stand-ins' own callbacks.
  */
+import './timeline.ts';
 import { DomElement, document, el, frag, type DomNode } from '../test/_stubs/dom.ts';
 import { encode_island_graph } from '../src/island-graph.ts';
 import { OGYGIA_GRAPH as ISLAND_GRAPH_ATTR } from '../src/wire-markup.ts';

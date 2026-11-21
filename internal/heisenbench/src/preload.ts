@@ -67,6 +67,8 @@ function counted(): boolean {
 const BENCH_FILE_RE = /\.bench\.[cm]?ts(?:\?|$)/;
 /** ogygia's process slots (`slot()`, @ogygia/machine: `globalThis[Symbol.for('ogygia.…')]`). */
 const SLOT_PREFIX = 'ogygia.';
+/** Node's own globals a bench file replaced, as it found them (packages/core/bench/world.ts). */
+const REPLACED = Symbol.for('ogygia.bench-world.replaced');
 
 /** The world each bench file of a run loads in: Node's own, as in a run of that file alone. */
 class BenchWorld {
@@ -80,17 +82,21 @@ class BenchWorld {
 	 * every global the earlier files installed since the run's first one loaded is taken off: the
 	 * browser a hydration bench installs (a server file after it reads no `window`: esm-env's
 	 * BROWSER, the `typeof window` checks), and ogygia's process slots (the readers a server bench
-	 * installed). The copies of one file keep what their file installed, as in a run of it alone,
-	 * so each case counts as it does there.
+	 * installed); and a global Node has that the file replaced (bench/world.ts) is Node's again.
+	 * The copies of one file keep what their file installed, as in a run of it alone, so each case
+	 * counts as it does there.
 	 */
 	static load(url: string): void {
 		const q = url.indexOf('?');
 		const file = q === -1 ? url : url.slice(0, q);
 		const g = globalThis as unknown as Record<string | symbol, unknown>;
 		if (BenchWorld.#own === null) BenchWorld.#own = new Set(Reflect.ownKeys(g));
-		else if (file !== BenchWorld.#file)
+		else if (file !== BenchWorld.#file) {
+			const replaced = g[REPLACED] as Map<string, PropertyDescriptor> | undefined;
+			for (const [name, own] of replaced ?? []) Object.defineProperty(g, name, own);
 			for (const key of Reflect.ownKeys(g))
 				if (!BenchWorld.#own.has(key) && BenchWorld.#installed(key)) delete g[key];
+		}
 		BenchWorld.#file = file;
 	}
 
