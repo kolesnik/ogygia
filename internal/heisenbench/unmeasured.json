@@ -6685,8 +6685,12 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/core/src/region-server.browser.ts > need_program",
-			"reason": "the browser's stand-in: does nothing (the server's word gates what the server writes), constant work"
+			"id": "packages/core/src/region-server.browser.ts > say_unbuilt",
+			"reason": "the browser's stand-in: does nothing (the server says the code), constant work"
+		},
+		{
+			"id": "packages/core/src/server/programs.ts > say_unbuilt",
+			"reason": "runs only for a region whose program the build left out (a build that missed a region): one console.error, never on a page every program renders"
 		},
 		{
 			"id": "packages/core/src/runtime/schedule-said.ts > say_trigger",

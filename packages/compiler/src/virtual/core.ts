@@ -6,7 +6,8 @@ import {
 	generateHydrateFeaturesSource,
 	generateRuntimeEntrySource,
 	generateRuntimeFlagsSource,
-	generateServerFlagsSource
+	generateServerFlagsSource,
+	generateProgramsSource
 } from '../link/runtime-entry.ts';
 import { island_deps_module } from '../link/island-deps.ts';
 import { router_css_module } from '../link/router-css.ts';
@@ -49,6 +50,7 @@ import {
 	type RouteConfigModule,
 	type RuntimeFlagsModule,
 	type ServerFlagsModule,
+	type ProgramsModule,
 	type ServerPluginsModule,
 	type ServerRegionsModule,
 	type ServerManifestModule,
@@ -193,11 +195,23 @@ export const runtime_flags: Family<RuntimeFlagsModule> = virtual.family({
 export const server_flags: Family<ServerFlagsModule> = virtual.family({
 	realm: 'server',
 	id: 'runtime-flags',
-	exports: { HAS: 'HAS', HAS_FRAMES: 'HAS_FRAMES', HAS_LAKES: 'HAS_LAKES', HAS_LIVE: 'HAS_LIVE' },
+	exports: { HAS: 'HAS' },
 	load(app: CoreApp) {
 		if (!app.ctx.is_build) return generateServerFlagsSource({}, true);
 		app.prescan();
 		return generateServerFlagsSource(app.program.runtime_marks);
+	}
+});
+
+/** A region's three programs, on both legs (link/runtime-entry.ts `generateProgramsSource`). */
+export const programs: Family<ProgramsModule> = virtual.family({
+	realm: 'region',
+	id: 'programs',
+	exports: { HAS_FRAMES: 'HAS_FRAMES', HAS_LAKES: 'HAS_LAKES', HAS_LIVE: 'HAS_LIVE' },
+	load(app: CoreApp) {
+		if (!app.ctx.is_build) return generateProgramsSource({}, true);
+		app.prescan();
+		return generateProgramsSource(app.program.runtime_marks);
 	}
 });
 
@@ -702,6 +716,7 @@ export const CORE_VIRTUALS: readonly Entry<CoreApp>[] = [
 	runtime_entry,
 	runtime_flags,
 	server_flags,
+	programs,
 	devtools_meta,
 	transport,
 	transportables,

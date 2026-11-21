@@ -43,16 +43,18 @@ export const SERVER_ERRORS = {
 	region_program_unbuilt: {
 		text: (a: { entry: string; program: 'hole' | 'lake' | 'live' }): string => prose`
 			region ${a.entry} needs the ${a.program} program, which this build left out: the server
-			refuses to render it.
+			rendered its waiting UI in its place.
 		`,
 		details: (): string => prose`
 			The build reads the app's regions and ships only the programs they need, on the server
 			and in the browser alike: a deferred region's render and fetch (the hole program), a
 			lake's (the lake program), a held region's updates (the live program). The server was
 			asked to render a region that needs one, and the build saw none that did, so the page's
-			runtime could not revive it. A region the build never read (a package that does not
-			declare its regions) does this; else it is an ogygia bug: please report it with the page
-			that shows it.
+			runtime could not revive it. The page still renders: the region shows its waiting UI (a
+			deferred region's fallback, a held region's placeholder or children; a lake shows
+			nothing) as plain HTML, and nothing loads or updates it. A region the build never read (a
+			package that does not declare its regions) does this; else it is an ogygia bug: please
+			report it with the page that shows it.
 		`
 	},
 	browser_only_on_server: {

@@ -349,13 +349,22 @@ export function generateRuntimeFlagsSource(
  * hole's render and endpoint, a lake's, a live region's) is written against it, so a server only
  * writes into a page what the page's runtime can revive. The marks only grow while a build runs and
  * the server leg reads them first, so its word never holds a feature the browser's lacks.
- * `HAS_FRAMES`, `HAS_LAKES`, `HAS_LIVE`: three of its bits as booleans, for a component the
- * browser's island code shares (Region.svelte), which may not import the runtime's numbering.
  */
 export function generateServerFlagsSource(marks: RuntimeMarks, all = false): string {
+	return `export const HAS = ${feature_word(all ? FEATURE_ORDER : resolveFeatures(marks))};\n`;
+}
+
+/**
+ * Emit `ogygia:region/programs`: the three programs a region's render writes for, as booleans, on
+ * each leg from the same marks as its word ({@link generateRuntimeFlagsSource},
+ * {@link generateServerFlagsSource}). `HAS_FRAMES` (a hole's fetch, a deferred region's),
+ * `HAS_LAKES`, `HAS_LIVE` (a held region's updates). Region.svelte reads them in both realms, so a
+ * region whose program the build left out renders its waiting UI on the server and in the browser
+ * alike (a hydration that agrees), and the browser's island code drops the branches they switch off.
+ */
+export function generateProgramsSource(marks: RuntimeMarks, all = false): string {
 	const word = feature_word(all ? FEATURE_ORDER : resolveFeatures(marks));
 	return `${dedent`
-		export const HAS = ${word};
 		export const HAS_FRAMES = ${(word & F_FRAMES) !== 0};
 		export const HAS_LAKES = ${(word & F_LAKES) !== 0};
 		export const HAS_LIVE = ${(word & F_LIVE) !== 0};

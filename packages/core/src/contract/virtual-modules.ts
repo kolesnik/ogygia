@@ -127,11 +127,14 @@ export interface ServerFlagsModule {
 	/** the build's feature word, the browser's `HAS` (./features.ts): the server writes into a page
 	 *  only what the page's runtime can revive */
 	HAS: number;
-	/** the word's frames bit (a region streams HTML: holes, held regions) */
+}
+
+export interface ProgramsModule {
+	/** the build's frames bit, on each leg (a region streams HTML: holes, held regions) */
 	HAS_FRAMES: boolean;
-	/** the word's lakes bit */
+	/** the build's lakes bit */
 	HAS_LAKES: boolean;
-	/** the word's live bit (a held region's updates) */
+	/** the build's live bit (a held region's updates) */
 	HAS_LIVE: boolean;
 }
 
@@ -236,6 +239,7 @@ export interface VirtualModules {
 	'ogygia:region/transportables': TransportablesModule;
 	'ogygia:region/kit-transport': KitTransportModule;
 	'ogygia:region/transportables-eager': SideEffectModule;
+	'ogygia:region/programs': ProgramsModule;
 	'ogygia:dev/hmr': SideEffectModule;
 	'ogygia:dev/devtools-boot': SideEffectModule;
 	'ogygia:server/runtime-flags': ServerFlagsModule;

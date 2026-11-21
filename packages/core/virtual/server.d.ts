@@ -40,9 +40,6 @@ export const runtime_url: import('../dist/contract/virtual-modules.js').VirtualM
 export const build_key: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_key'];
 export const build_had_secret: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_had_secret'];
 export const HAS: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-flags']['HAS'];
-export const HAS_FRAMES: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-flags']['HAS_FRAMES'];
-export const HAS_LAKES: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-flags']['HAS_LAKES'];
-export const HAS_LIVE: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-flags']['HAS_LIVE'];
 export const load_server_regions: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['load_server_regions'];
 export const region_url: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['region_url'];
 export const region_name: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['region_name'];

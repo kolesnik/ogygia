@@ -8,6 +8,7 @@ import {
 	FEATURE_ORDER,
 	generateRuntimeFlagsSource,
 	generateServerFlagsSource,
+	generateProgramsSource,
 	resolveFeatures,
 	type RuntimeMarks
 } from '../src/link/runtime-entry.ts';
@@ -76,17 +77,17 @@ describe('runtime flags', () => {
 		expect(flag({ complete: true, hydrate: ['load'] }, true)).toBe(true);
 	});
 
-	it("the server's word is the browser's, for the same marks", () => {
+	it("the server's word is the browser's, and a region's three programs are its bits, for the same marks", () => {
 		const server_word = (marks: RuntimeMarks, all = false) => {
 			const src = generateServerFlagsSource(marks, all);
 			const word = Number(/^export const HAS = (\d+);$/m.exec(src)![1]);
-			// (its three programs, as booleans, are the word's bits)
+			const programs = generateProgramsSource(marks, all);
 			for (const [name, bit] of [
 				['HAS_FRAMES', F_FRAMES],
 				['HAS_LAKES', F_LAKES],
 				['HAS_LIVE', F_LIVE]
 			] as const)
-				expect(src, name).toContain(`export const ${name} = ${(word & bit) !== 0};`);
+				expect(programs, name).toContain(`export const ${name} = ${(word & bit) !== 0};`);
 			return word;
 		};
 		const cases: RuntimeMarks[] = [

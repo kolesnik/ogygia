@@ -6,25 +6,19 @@
 // kind that does not renders exactly as with every program in, and says nothing.
 import './_region-grid-devtools.ts';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import {
-	cases_of,
-	KINDS,
-	PLACES,
-	type GridCase,
-	type Place
-} from './_region-grid.ts';
+import { cases_of, KINDS, PLACES, type GridCase, type Place } from './_region-grid.ts';
 import { server_out, type ServerOut } from './_region-grid-server.ts';
 import { HAS, set_server_word } from './_stubs/server.runtime-flags.ts';
 import { F_FRAMES, F_LAKES, F_LIVE } from '../src/contract/features.ts';
 
 const arms_seen: string[] = [];
-vi.mock('../src/server/programs.ts', async (real) => {
-	const mod = await real<typeof import('../src/server/programs.ts')>();
+vi.mock('../src/region-programs.ts', async (real) => {
+	const mod = await real<typeof import('../src/region-programs.ts')>();
 	return {
 		...mod,
-		need_program: (arm: Parameters<typeof mod.need_program>[0], entry: string) => {
+		unbuilt_program: (arm: Parameters<typeof mod.unbuilt_program>[0]) => {
 			arms_seen.push(arm);
-			mod.need_program(arm, entry);
+			return mod.unbuilt_program(arm);
 		}
 	};
 });
@@ -82,11 +76,9 @@ function waiting_html(c: GridCase): string | null {
 	return null;
 }
 
-/** What the render said on the console as an error, each call's arguments as text. */
-function errors_said(spy: { mock: { calls: unknown[][] } }): string[] {
-	return spy.mock.calls.map((args) =>
-		args.map((a) => String((a as Error)?.message ?? a)).join(' ')
-	);
+/** What the render said on the console (the grid keeps it), each call's arguments as text. */
+function said(out: ServerOut): string[] {
+	return JSON.parse(out.parts.said) as string[];
 }
 
 describe('a region whose program the build left out', () => {
@@ -99,10 +91,8 @@ describe('a region whose program the build left out', () => {
 				for (const c of SAMPLE) {
 					const { needs, out: full } = full_render(c, place);
 					set_server_word(ALL & ~bit);
-					const said = vi.spyOn(console, 'error').mockImplementation(() => {});
 					const out = server_out(c, place);
-					const errors = errors_said(said);
-					said.mockRestore();
+					const errors = said(out);
 					const name = `${c.name} at=${place.at} kit=${place.kit} csr=${place.csr}`;
 					const unbuilt = errors.filter((e) => e.includes('region_program_unbuilt'));
 					if (needs.has(program)) {
@@ -123,14 +113,27 @@ describe('a region whose program the build left out', () => {
 
 	test('the code names the region and its program, and the page renders', () => {
 		set_server_word(ALL & ~F_FRAMES);
-		const said = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const hole = cases_of('hole').find((c) => c.values.fallback === 'text')!;
 		const out = server_out(hole, AT_PLACES[0]);
-		const errors = errors_said(said);
+		const errors = said(out);
 		expect(out.thrown).toBeNull();
 		expect(out.body).toContain('<p>wait</p>');
 		expect(errors.filter((e) => e.includes('region_program_unbuilt'))).toHaveLength(1);
 		expect(errors.join(' ')).toMatch(/entry=hole-a/);
 		expect(errors.join(' ')).toMatch(/program=hole/);
+	});
+
+	test('a held region says it once per render, and each render says it again', () => {
+		set_server_word(ALL & ~F_LIVE);
+		const held = cases_of('deferred').find(
+			(c) => c.values.html !== 'none' && c.values.placeholder === 'text'
+		)!;
+		for (let render = 0; render < 2; render++) {
+			const out = server_out(held, AT_PLACES[0]);
+			expect(out.body).toContain('<p>wait</p>');
+			expect(said(out).filter((e) => /region_program_unbuilt.*program=live/.test(e))).toHaveLength(
+				1
+			);
+		}
 	});
 });

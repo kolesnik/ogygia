@@ -2,7 +2,7 @@
 // name, as the generated one does (src/virtual/core.ts). It imports each entry by its own
 // id, so a suite's `vi.mock('ogygia:server/<id>')` reaches what the realm module exports.
 // test/virtual-table.test.ts checks it exports every name the table gives the realm.
-export { HAS, HAS_FRAMES, HAS_LAKES, HAS_LIVE } from 'ogygia:server/runtime-flags';
+export { HAS } from 'ogygia:server/runtime-flags';
 export { runtime_url } from 'ogygia:server/runtime-url';
 export { devtools_boot_url } from 'ogygia:server/devtools-boot-url';
 export {
