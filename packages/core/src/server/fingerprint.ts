@@ -29,7 +29,7 @@ const one_shot: typeof node_crypto.hash | undefined =
 
 export function region_fingerprint(entry: string, canonical: string): string {
 	if (one_shot !== undefined && canonical.length <= ONE_SHOT_MAX)
-		return one_shot('sha1', entry + ' ' + canonical, 'hex').slice(0, 16);
+		return one_shot('sha1', `${entry} ${canonical}`, 'hex').slice(0, 16);
 	return node_crypto
 		.createHash('sha1')
 		.update(entry)
