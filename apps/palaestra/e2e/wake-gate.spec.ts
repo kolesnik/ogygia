@@ -85,9 +85,30 @@ test.describe('wake gate: island wakes start after DOMContentLoaded and a painte
 		const served = await (await page.request.get('/wake-gate')).text();
 		check('the HTML hints no island code', ![...served.matchAll(ISLAND_HINT_G_RE)].length);
 		const graph_links = await page.evaluate(
-			() => document.querySelectorAll('link[data-ogygia-graph-preload]').length
+			() =>
+				document.querySelectorAll(
+					'link[data-ogygia-graph-preload]:not([data-ogygia-graph-preload="early"])'
+				).length
 		);
 		check('held: the runtime linked no island graph', graph_links === 0, String(graph_links));
+		const early_links = await page.evaluate(() => {
+			const data = document.getElementById('ogygia-early-code');
+			const own = new Set(
+				(JSON.parse(data?.textContent || '[]') as string[]).map(
+					(h) => new URL(h, document.baseURI).href
+				)
+			);
+			return [
+				...document.querySelectorAll<HTMLLinkElement>(
+					'link[rel="modulepreload"][data-ogygia-graph-preload="early"]'
+				)
+			].filter((l) => !own.has(l.href) || l.getAttribute('fetchpriority') !== 'low').length;
+		});
+		check(
+			"held: every early link is the early start's own low-priority one",
+			early_links === 0,
+			String(early_links)
+		);
 		check(
 			'held: DOMContentLoaded has not fired',
 			await page.evaluate(
@@ -142,9 +163,11 @@ test.describe('wake gate: island wakes start after DOMContentLoaded and a painte
 		);
 		// The woken islands' graphs were linked; the sleeping interaction island's own chunks were not.
 		const linked = await page.evaluate(() =>
-			[...document.querySelectorAll('link[data-ogygia-graph-preload]')].map(
-				(l) => (l as HTMLLinkElement).href
-			)
+			[
+				...document.querySelectorAll(
+					'link[data-ogygia-graph-preload]:not([data-ogygia-graph-preload="early"])'
+				)
+			].map((l) => (l as HTMLLinkElement).href)
 		);
 		const graph = await page.evaluate(() => {
 			const s = document.querySelector('script[data-ogygia-graph]');
