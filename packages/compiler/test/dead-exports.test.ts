@@ -116,6 +116,37 @@ describe('what goes', () => {
 		expect(report.dropped.get('chunks/base.js')).toEqual(['t']);
 	});
 
+	it('an import loses only the names the cut code alone read; a default and a namespace import stay as written', async () => {
+		const mixed = chunk(
+			'chunks/mixed.js',
+			`${dedent`
+				import def, { a as one, b as two } from "./dep.js";
+				import * as ns from "./other.js";
+				function used() {
+					return def + one + ns.x;
+				}
+				function dead() {
+					return two;
+				}
+				export { used as n, dead as t };
+			`}\n`
+		);
+		await drop_dead_exports(
+			[entry('index.js', 'import { n } from "./chunks/mixed.js";\n'), mixed],
+			reshake
+		);
+		expect(mixed.code).toBe(
+			`${dedent`
+				import def, { a as one } from "./dep.js";
+				import * as ns from "./other.js";
+				function used() {
+					return def + one + ns.x;
+				}
+				export { used as n };
+			`}\n`
+		);
+	});
+
 	it('the map still sends each kept byte to the module that wrote it', async () => {
 		const map = new MagicString(SHARED).generateMap({
 			hires: true,

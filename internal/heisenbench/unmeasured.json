@@ -6815,6 +6815,182 @@
 		{
 			"id": "packages/core/src/server/region-response.ts > region_response",
 			"reason": "moved unchanged from hooks.ts: one Response with the region headers (not cloneable), constant work; proven in packages/core/test/endpoint-unbuilt.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/driver.ts > Compiler > server_word",
+			"reason": "constant work: one field read, once per server build; proven in packages/compiler/test/virtual-core.test.ts and emit-gate.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > bundler_reshake",
+			"reason": "async, handed the bundler's re-shake function (not replayable); once per server build, one re-bundle per chunk with dead exports per round; proven in packages/compiler/test/dead-exports.test.ts and packages/compiler/test/dead-exports-build.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > <anonymous>~493f44",
+			"reason": "async, handed the bundler's re-shake function (not replayable); once per server build, one re-bundle per chunk with dead exports per round; proven in packages/compiler/test/dead-exports.test.ts and packages/compiler/test/dead-exports-build.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > <anonymous>~493f44 > every:0~aa047d",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > <anonymous>~493f44 > rolldown:0~bf5344 > external",
+			"reason": "a plugin hook rolldown calls (closure, not replayable): one string compare per import; packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > <anonymous>~493f44 > rolldown:0~bf5344 > load",
+			"reason": "a plugin hook rolldown calls (closure, not replayable): one compare, once per re-bundle; packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > <anonymous>~493f44 > rolldown:0~bf5344 > resolveId",
+			"reason": "a plugin hook rolldown calls (closure, not replayable): one compare per import; packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > declared > flatMap:0~00bbf9",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > drop_dead_exports",
+			"reason": "async, handed the bundler's re-shake function (not replayable); once per server build, one re-bundle per chunk with dead exports per round; proven in packages/compiler/test/dead-exports.test.ts and packages/compiler/test/dead-exports-build.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > drop_dead_exports > every:0~8b6353",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > drop_dead_exports > map:0~5181eb",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > drop_dead_exports > some:0~6673d7",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > drop_emptied_module_headers",
+			"reason": "writes into a MagicString (hidden state); one pass over a chunk's line comments, once per changed chunk; proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > drop_emptied_module_headers > forEach:0~a68ea8",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > file_name_in_text > some:0~77256c",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > import_text > filter:0~953618",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > import_text > filter:0~a534aa",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > import_text > filter:0~dd6a8c",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > import_text > slice",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > map:0~098a74",
+			"reason": "builds the 64-entry base64 table once at module load"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > mapped_source_offsets > flush",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > mapped_source_offsets > sort:0~0af0c1",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > names_in > walk:1~8b1372 > enter",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > outside_names > walk:1~afa715 > enter",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > read_chunk > demand",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > read_chunk > map:0~67362e",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > read_chunk > walk:1~d8a176 > enter",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk",
+			"reason": "async, handed the bundler's re-shake function (not replayable); once per server build, one re-bundle per chunk with dead exports per round; proven in packages/compiler/test/dead-exports.test.ts and packages/compiler/test/dead-exports-build.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_server_bundle",
+			"reason": "async, handed the bundler's re-shake function (not replayable); once per server build, one re-bundle per chunk with dead exports per round; proven in packages/compiler/test/dead-exports.test.ts and packages/compiler/test/dead-exports-build.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > vite_own_rolldown",
+			"reason": "resolves Vite's own rolldown from disk, no input; once per server build"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > filter:0~11bfda",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > filter:0~8dc74d",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > filter:0~dc00b3",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > forEach:0~003370",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > forEach:0~cbada9",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > map:0~3761d7",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > map:0~c42af9",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > map:0~cc6457",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > map:0~dbbb7e",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > remapping:1~ae0427",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > some:0~1a2faf",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/link/dead-exports.ts > shake_chunk > some:0~982626",
+			"reason": "a callback over one chunk's statements, specifiers or names (closure, not replayable); the pass runs once per server build, linear in the bundle (plain-islands 0.3 s, palaestra 0.4 s); proven in packages/compiler/test/dead-exports.test.ts"
+		},
+		{
+			"id": "packages/compiler/src/messages.ts > WARNED > server_exports_kept > details",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/compiler/src/messages.ts > WARNED > server_exports_kept > text",
+			"reason": "a message table entry: wording only"
 		}
 	]
 }
