@@ -4133,6 +4133,10 @@
 			"reason": "browser only: says once per page that a reload is needed (a dependency's failure no URL fixes), constant work; proven in packages/core/test/import-again.test.ts"
 		},
 		{
+			"id": "packages/core/src/runtime/import-again.ts > downloaded",
+			"reason": "browser only: whether the download record or the page's timeline holds a URL (a Map read, one timeline query: the timeline is the browser's, not replayable), once per critical preload link while the load scheduler waits; proven in packages/core/test/import-again.test.ts and packages/core/test/browser/load-scheduler.test.ts"
+		},
+		{
 			"id": "packages/core/src/messages/core.ts > WARNINGS > rule_markup_known > details",
 			"reason": "dev and e2e only: one rule's message text, constant work"
 		},
@@ -4851,6 +4855,10 @@
 		{
 			"id": "packages/core/src/seed-index.ts > SeedIndex > has",
 			"reason": "a WeakMap lookup (moved verbatim from seed-refs.ts), constant work; proven in packages/core/test/seed-refs.test.ts"
+		},
+		{
+			"id": "packages/core/src/seed-index.ts > SeedIndex > candidates",
+			"reason": "no runtime caller: the seed walk's oracle test reads a size bucket's nodes to compare the index with the old walk's (match() is what a request runs, measured by request.bench.ts); proven in packages/core/test/seed-walk-oracle.test.ts"
 		},
 		{
 			"id": "packages/core/src/hooks.ts > shared:0~4b3d66 > make",
