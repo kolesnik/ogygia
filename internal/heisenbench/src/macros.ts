@@ -1,7 +1,7 @@
 /**
- * Core's macros for a bench run. Heisenbench reads TypeScript from disk itself, so a core file with
- * macros is compiled (by `core_compile`, the config core's build and tests share) into a mirror of
- * the repository under `.heisenbench/macros/<mode>/`, and imports of it resolve to the mirror;
+ * The macros for a bench run. Heisenbench reads TypeScript from disk itself, so a file with macros
+ * is compiled as its package's build compiles it (`core_compile`, the config core's build and tests
+ * share; a plugin package's `package_options`) into a mirror of the repository under `.heisenbench/macros/<mode>/`, and imports of it resolve to the mirror;
  * imports from the mirror resolve as from the source file. With `NODE_ENV=production` the mirror is
  * what an app's production build runs (`prod`); otherwise core's dist (`dev`). `unmirror`
  * (./unmirror.ts) names a report's mirror paths as the source files they compile.
@@ -16,19 +16,37 @@ import {
 	core_compile
 } from '../../../packages/core/macros.config.ts';
 import { macro_packages } from '../../../packages/config/src/macro-packages.ts';
+import { compile_file, package_options } from '../../macros/src/plugin.ts';
 
 const REPO = fileURLToPath(new URL('../../../', import.meta.url));
 const MODE = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
 const MIRROR = join(REPO, '.heisenbench', 'macros', MODE);
 const MIRROR_DIR = MIRROR + sep;
 const SVELTE_RE = /\.svelte\.[cm]?ts$/;
-/** The sources their builds compile with the macros: core's, and each package's that runs them;
- *  and core's benches, whose calls on core's machines compile as core's own do. */
-const MACRO_ROOTS: readonly string[] = [
-	...CORE_ROOTS,
-	...CORE_BENCH_ROOTS,
-	...macro_packages().map((dir) => join(dir, 'src') + sep)
+
+type Compile = (code: string, file: string) => ReturnType<typeof core_compile>;
+
+/** The sources their builds compile with the macros, each as its own build compiles it: core's
+ *  (and core's benches, whose calls on core's machines compile as core's own do), and each
+ *  package's that runs them. */
+const MACRO_ROOTS: ReadonlyArray<{ readonly root: string; readonly compile: Compile }> = [
+	...[...CORE_ROOTS, ...CORE_BENCH_ROOTS].map((root) => ({
+		root,
+		compile: (code: string, file: string) => core_compile(code, file, MODE)
+	})),
+	...macro_packages().map((dir) => {
+		const options = { ...package_options(dir), mode: MODE } as const;
+		return {
+			root: join(dir, 'src') + sep,
+			compile: (code: string, file: string) => compile_file(options, code, file)
+		};
+	})
 ];
+
+/** How `file`'s build compiles it with the macros; null when no build does. */
+function compiler_of(file: string): Compile | null {
+	return MACRO_ROOTS.find((r) => file.startsWith(r.root))?.compile ?? null;
+}
 
 const compiled = new Map<string, string | null>();
 
@@ -37,14 +55,13 @@ export function mirrored(file: string): string | null {
 	const known = compiled.get(file);
 	if (known !== undefined) return known;
 	let out: string | null = null;
-	if (
-		file.endsWith('.ts') &&
-		!file.endsWith('.d.ts') &&
-		!SVELTE_RE.test(file) &&
-		MACRO_ROOTS.some((root) => file.startsWith(root))
-	) {
+	const compile =
+		file.endsWith('.ts') && !file.endsWith('.d.ts') && !SVELTE_RE.test(file)
+			? compiler_of(file)
+			: null;
+	if (compile !== null) {
 		const code = readFileSync(file, 'utf8');
-		const result = core_compile(code, file, MODE);
+		const result = compile(code, file);
 		if (result !== null && result.code !== code) {
 			out = join(MIRROR, relative(REPO, file));
 			mkdirSync(dirname(out), { recursive: true });
@@ -101,12 +118,13 @@ export function compile_as_run(root: string, files: readonly string[]): string[]
 	for (const f of files) {
 		const file = join(REPO, f);
 		if (SVELTE_RE.test(file) || !file.endsWith('.ts') || file.endsWith('.d.ts')) continue;
-		if (!MACRO_ROOTS.some((r) => file.startsWith(r))) continue;
+		const compile = compiler_of(file);
+		if (compile === null) continue;
 		const at = join(root, f);
 		const code = readFileSync(at, 'utf8');
 		let result: ReturnType<typeof core_compile>;
 		try {
-			result = core_compile(code, file, MODE);
+			result = compile(code, file);
 		} catch (error) {
 			kept.push(`${f}: ${(error as Error).message.split('\n')[0]}`);
 			continue;

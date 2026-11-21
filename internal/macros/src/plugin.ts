@@ -41,13 +41,35 @@ export function specifier(file: string, target: string): string {
  *  dist keeps the gates for each app's build to fold, and ships no check the build already made
  *  (an option bag read at build). `root`: the package's folder (its config's `import.meta.url`). */
 export function package_macros(root: string | URL): ReturnType<typeof macroPlugin<CompileResult>> {
+	return ogygia_macros(package_options(root));
+}
+
+/** The options a plugin package's own build (`package_macros`) runs the macros with: no types, so
+ *  its machines' call sites keep their names. `root`: the package's folder. */
+export function package_options(root: string | URL): MacroOptions {
 	// (the folder as the bundler names its files: a symlinked folder, its real path)
 	const dir = realpathSync(typeof root === 'string' ? root : fileURLToPath(root));
-	return ogygia_macros({
+	return {
 		mode: 'dev',
 		runtime: join(dir, 'src'),
 		root: dir,
 		roots: [join(dir, 'src')]
+	};
+}
+
+/** One file compiled as a build with `options` compiles it, for a tool that reads files itself
+ *  (Heisenbench's mirror); null when it has no macro. */
+export function compile_file(
+	options: MacroOptions,
+	code: string,
+	file: string
+): CompileResult | null {
+	return compile(code, relative(options.root ?? process.cwd(), file), {
+		mode: options.mode ?? 'dev',
+		runtime: specifier(file, options.runtime),
+		path: file,
+		reference: specifier(file, options.reference ?? options.runtime),
+		types: typeof options.types === 'string' ? new MachineTypes(options.types) : options.types
 	});
 }
 
@@ -55,23 +77,17 @@ export function package_macros(root: string | URL): ReturnType<typeof macroPlugi
 export function ogygia_macros(
 	options: MacroOptions
 ): ReturnType<typeof macroPlugin<CompileResult>> {
-	const mode = options.mode ?? 'dev';
-	const root = options.root ?? process.cwd();
 	const roots = options.roots?.map((r) => (r.endsWith(sep) ? r : r + sep));
-	const types = typeof options.types === 'string' ? new MachineTypes(options.types) : options.types;
+	const read: MacroOptions = {
+		...options,
+		types: typeof options.types === 'string' ? new MachineTypes(options.types) : options.types
+	};
 	return macroPlugin<CompileResult>({
 		name: 'ogygia-macros',
 		skip: (file) =>
 			notSource(file) ||
 			file === options.runtime ||
 			(roots !== undefined && !roots.some((r) => file.startsWith(r))),
-		compile: (code, file) =>
-			compile(code, relative(root, file), {
-				mode,
-				runtime: specifier(file, options.runtime),
-				path: file,
-				reference: specifier(file, options.reference ?? options.runtime),
-				types
-			})
+		compile: (code, file) => compile_file(read, code, file)
 	});
 }
