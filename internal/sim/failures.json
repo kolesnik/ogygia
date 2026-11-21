@@ -345,6 +345,12 @@
 			"name": "a server that ignores SIGTERM is killed after the grace time"
 		},
 		{
+			"site": "packages/tooling/src/vitest/downloads.ts > Downloads > observer:0",
+			"reason": "a download past a full resource timeline is still heard; proved by hand: the observer replaced by a read of the timeline turns the test red on Chromium, Firefox and WebKit (83487bc18)",
+			"test": "packages/core/test/browser/hydrate-visit.test.ts",
+			"name": "a region put back while its island loads mounts it once"
+		},
+		{
 			"site": "packages/cli/src/mcp.ts > parse_marks > catch:0",
 			"reason": "a file Svelte cannot parse is left out of a scan, and the other files are still scanned; proved by hand: the catch made to rethrow turns the test red, twice",
 			"test": "packages/cli/test/mcp-scan.test.ts",
