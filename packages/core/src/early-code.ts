@@ -46,12 +46,11 @@ export function start_early_code(id: string, width: number, attr: string, mark: 
 	const types =
 		typeof PerformanceObserver === 'function' && PerformanceObserver.supportedEntryTypes;
 	if (!data || !types || !types.includes('paint') || document.visibilityState === 'hidden') return;
-	const up = (): boolean => !!customElements.get('ogygia-region');
 	// oxlint-disable-next-line ogygia/owned-effects -- an inline script's one paint observer (no imports, so no scope): its first paint disconnects it
 	const observer = new PerformanceObserver((list) => {
 		if (!list.getEntriesByName('first-contentful-paint').length) return;
 		observer.disconnect();
-		if (up() || document.querySelector('[fetchpriority="high" i]')) return;
+		if (document.querySelector('[fetchpriority="high" i]')) return;
 		const linked = new Set<string>();
 		for (const l of document.querySelectorAll<HTMLLinkElement>('link[rel="modulepreload"]'))
 			linked.add(l.href);
@@ -64,7 +63,7 @@ export function start_early_code(id: string, width: number, attr: string, mark: 
 		}
 		let next = 0;
 		const start = (): void => {
-			if (next >= files.length || up()) return;
+			if (next >= files.length || customElements.get('ogygia-region')) return;
 			const link = document.createElement('link');
 			link.rel = 'modulepreload';
 			link.setAttribute('fetchpriority', 'low');
