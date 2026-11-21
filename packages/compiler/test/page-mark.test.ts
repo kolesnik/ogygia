@@ -163,16 +163,16 @@ describe('page mark', () => {
 		expect(marks.page).toBe(true);
 	});
 
-	test('a federated or plugin-woken island is a reader the walk never saw', () => {
+	test('a federated island is a reader the walk never saw', () => {
 		const island = script(`\timport { untrack } from 'svelte';`);
 		expect(marks_for(island, {}, { foreign_hydrate: true }).page).toBe(true);
-		expect(
-			marks_for(
-				island,
-				{},
-				{ client_plugins: [{ name: '@x/plugin', module: '/x/plugin/client.js' }] }
-			).page
-		).toBe(true);
+	});
+
+	test("a plugin's browser half wakes no island, so it is no reader", () => {
+		const island = script(`\timport { untrack } from 'svelte';`);
+		const client = { client_plugins: [{ name: '@x/plugin', module: '/x/plugin/client.js' }] };
+		expect(marks_for(island, {}, client).page).toBe(false);
+		expect(marks_for(island, {}, { ...client, foreign_hydrate: true }).page).toBe(true);
 	});
 });
 
