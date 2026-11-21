@@ -6,6 +6,9 @@ export type Program = {
 	feature: FeatureName | FeatureName[] | null;
 	/** Held exactly in an app with pages Kit hydrates (`__OGYGIA_KIT_PAGES__`), not by a feature. */
 	kit?: true;
+	/** Held exactly in an app that lists this plugin's browser realm (a file the profile names,
+	 *  ending so), not by a feature. */
+	client?: string;
 	modules: string[];
 	strings?: string[];
 	/** `hydrate`: the program rides the hydrate core (a hydrate-phase feature), so its modules are
@@ -80,5 +83,12 @@ export const PROGRAMS: readonly Program[] = [
 	// the island graph's reader: only where some island's code can load
 	{ name: 'island graph', feature: 'graph', modules: ['packages/core/dist/island-graph-read.js'] },
 	// the probe for a page Kit hydrates (its boot script), with ogygia's regions on it: mixed mode
-	{ name: 'kit probe', feature: null, kit: true, modules: [], strings: ['__sveltekit_'] }
+	{ name: 'kit probe', feature: null, kit: true, modules: [], strings: ['__sveltekit_'] },
+	// @ogygia/rewrite's browser realm: only where the app lists the plugin
+	{
+		name: 'rewrite realm',
+		feature: null,
+		client: 'rewrite/dist/client.js',
+		modules: ['packages/rewrite/dist/client.js', 'packages/rewrite/dist/host-classes.js']
+	}
 ];

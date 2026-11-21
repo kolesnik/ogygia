@@ -2301,6 +2301,9 @@ importers:
       happy-dom:
         specifier: catalog:sim
         version: 21.0.4
+      ogygia-internal-macros:
+        specifier: workspace:*
+        version: link:../../internal/macros
       rolldown:
         specifier: 'catalog:'
         version: 1.2.16

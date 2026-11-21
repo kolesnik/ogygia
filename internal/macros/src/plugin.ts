@@ -4,7 +4,9 @@
  *
  * @packageDocumentation
  */
-import { dirname, isAbsolute, relative, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { macroPlugin, notSource } from 'ogygia-internal-compilerkit';
 import { compile, type CompileResult, type Mode } from './compile.ts';
 
@@ -27,6 +29,20 @@ export function specifier(file: string, target: string): string {
 	if (!isAbsolute(target)) return target;
 	const rel = relative(dirname(file), target).split(sep).join('/');
 	return rel.startsWith('.') ? rel : `./${rel}`;
+}
+
+/** ogygia's macros over one package's own source (`<root>/src`), as its tsdown build runs them: the
+ *  dist keeps the gates for each app's build to fold, and ships no check the build already made
+ *  (an option bag read at build). `root`: the package's folder (its config's `import.meta.url`). */
+export function package_macros(root: string | URL): ReturnType<typeof macroPlugin<CompileResult>> {
+	// (the folder as the bundler names its files: a symlinked folder, its real path)
+	const dir = realpathSync(typeof root === 'string' ? root : fileURLToPath(root));
+	return ogygia_macros({
+		mode: 'dev',
+		runtime: join(dir, 'src'),
+		root: dir,
+		roots: [join(dir, 'src')]
+	});
 }
 
 /** ogygia's macros, as a build plugin. */

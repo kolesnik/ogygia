@@ -92,6 +92,8 @@ const hooks_contract = (
 const HOOK_CONSTANTS: Record<string, string> = hooks_contract.RUNTIME_HOOK_CONSTANTS ?? {};
 const HOOK_NAMES: readonly string[] =
 	hooks_contract.RUNTIME_HOOK_NAMES ?? Object.keys(HOOK_CONSTANTS);
+// @ogygia/rewrite's browser realm, as an app installs it (its build)
+const REWRITE_CLIENT = join(CORE, '../rewrite/dist/client.js');
 // A client realm that subscribes to every hook, each a call the bundler cannot drop: the kitchen
 // sink's plugin, the most hook code a boot can carry
 const EVERY_HOOK_CLIENT = join(mkdtempSync(join(tmpdir(), 'ogygia-size-client-')), 'client.mjs');
@@ -185,6 +187,13 @@ const PROFILES: Array<{
 		budget: 25_100
 	},
 	{
+		name: 'Rewrite',
+		blurb: 'load-hydrated islands, with @ogygia/rewrite',
+		marks: { complete: true, hydrate: ['load'], forms: false },
+		budget: 24_700,
+		clients: [REWRITE_CLIENT]
+	},
+	{
 		name: 'Everything',
 		blurb: 'kitchen sink, with the profiler beacon and a client plugin',
 		budget: 39_700,
@@ -215,6 +224,8 @@ type Row = {
 	features: string[];
 	/** It has pages Kit hydrates. */
 	kit: boolean;
+	/** Its plugins' browser realms (files). */
+	clients: string[];
 	boot: Size;
 	total: Size;
 	lazy: Array<{ name: string } & Size>;
@@ -418,7 +429,14 @@ for (const p of PROFILES) {
 		p.name
 	);
 	boot_codes.set(p.name, boot_code);
-	rows.push({ name: p.name, blurb: p.blurb, features: resolveFeatures(p.marks), kit, ...m });
+	rows.push({
+		name: p.name,
+		blurb: p.blurb,
+		features: resolveFeatures(p.marks),
+		kit,
+		clients: p.clients ?? [],
+		...m
+	});
 }
 
 // The leak gate (PROGRAMS), on this checkout's runtime; another checkout's (`--core`, the base
@@ -428,8 +446,12 @@ if (!arg('--core')) {
 	for (const r of rows)
 		for (const p of PROGRAMS) {
 			const needs = p.feature === null ? [] : [p.feature].flat();
-			const held = p.kit ? r.kit : needs.length > 0 && needs.every((f) => r.features.includes(f));
-			const selects = p.kit ? 'Kit pages' : needs.join(' + ');
+			const held = p.client
+				? r.clients.some((c) => c.endsWith(p.client!))
+				: p.kit
+					? r.kit
+					: needs.length > 0 && needs.every((f) => r.features.includes(f));
+			const selects = p.client ? p.client : p.kit ? 'Kit pages' : needs.join(' + ');
 			for (const mod of p.modules) {
 				if (p.phase === 'hydrate') {
 					if (mod in r.modules)
@@ -446,7 +468,7 @@ if (!arg('--core')) {
 					leaks.push(`${r.name}: selects ${selects}, but its boot lacks ${mod} (${p.name})`);
 				else if (!held && mod in r.modules)
 					leaks.push(`${r.name}: its boot holds ${mod} (${p.name}), which its marks never run`);
-				else if (p.feature === null && !r.lazy_modules.includes(mod))
+				else if (p.feature === null && !p.client && !r.lazy_modules.includes(mod))
 					leaks.push(`${r.name}: no lazy chunk holds ${mod} (${p.name})`);
 			}
 			const code = boot_codes.get(r.name) ?? '';

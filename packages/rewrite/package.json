@@ -25,15 +25,15 @@
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"default": "./src/index.ts"
+			"default": "./dist/index.js"
 		},
 		"./vite": {
 			"types": "./dist/vite.d.ts",
-			"default": "./src/vite.ts"
+			"default": "./dist/vite.js"
 		},
 		"./internal/messages": {
 			"types": "./dist/messages.d.ts",
-			"default": "./src/messages.ts"
+			"default": "./dist/messages.js"
 		}
 	},
 	"publishConfig": {
@@ -75,6 +75,7 @@
 		"@vitest/browser": "catalog:",
 		"@vitest/browser-playwright": "catalog:",
 		"happy-dom": "catalog:sim",
+		"ogygia-internal-macros": "workspace:*",
 		"rolldown": "catalog:",
 		"svelte": "catalog:",
 		"tsdown": "catalog:",
