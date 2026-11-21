@@ -2,6 +2,8 @@
  * What `flights()` adds to the flights every maker makes (./flights.ts): a key of two fields or
  * more, spelled into one string; a `world` its answers are made in (and `touches`); a `weigh`.
  * Its own module, so a page whose flights need none of these (`plain_flights`) carries none of it.
+ *
+ * @packageDocumentation
  */
 import { bad_option } from './messages.ts';
 import { check_flights, Flown, makers, type FlightsOptions, type Makers } from './flights.ts';

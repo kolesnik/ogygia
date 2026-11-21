@@ -3,6 +3,8 @@
  * them (`POST`, a navigation's single flight), and a plugin's stitch of one hole into a stored page.
  * The handle (../hooks.ts) makes one only where the build's feature word holds the frames feature
  * (a region of the app streams HTML): a build without one carries none of this.
+ *
+ * @packageDocumentation
  */
 import { render } from 'svelte/server';
 import { clock } from '@ogygia/machine';

@@ -4,6 +4,8 @@
  * runtime feature that reads it (`page`, `remote-seeds`): hooks.ts tests `HAS & F_PAGE` /
  * `HAS & F_REMOTE_SEEDS` at every call, so a server whose runtime reads neither carries none of
  * this code, and never writes into a page what the page cannot revive (test/server-seed-word.test.ts).
+ *
+ * @packageDocumentation
  */
 import { STALE } from '@ogygia/machine';
 import type { RequestEvent } from '@sveltejs/kit';

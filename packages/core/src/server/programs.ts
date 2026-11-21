@@ -2,6 +2,8 @@
  * THE SERVER'S PROGRAMS: what a region's server render needs of the build's feature word (`HAS`,
  * the browser's word, `ogygia:server/runtime-flags`). A render the word leaves out is refused with a
  * code, so the server never writes into a page what the page's runtime cannot revive.
+ *
+ * @packageDocumentation
  */
 import { HAS } from 'ogygia:server';
 import { F_FRAMES, F_LAKES, F_LIVE } from '../contract/features.ts';

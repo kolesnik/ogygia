@@ -1,6 +1,8 @@
 /**
  * THE REGION ANSWERS' SHAPE: the headers every answer of the islands endpoint carries, and the
  * refusals the handle, the endpoint and the plugins' signed holes answer with.
+ *
+ * @packageDocumentation
  */
 import type { RequestEvent } from '@sveltejs/kit';
 import { signing_key } from './signing-key.ts';

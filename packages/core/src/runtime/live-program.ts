@@ -6,6 +6,7 @@
  * `slots.live_link` (./slots.ts `LiveLink`), set by the element before its first tick.
  *
  * @internal
+ * @packageDocumentation
  */
 import { STALE, type Turn } from '@ogygia/machine';
 import { OG_BAKED } from '../wire-markup.ts';
