@@ -3,7 +3,7 @@
 // re-slots its children, a header that re-renders, a layout that moves a node. The old run is out
 // of its visit and must touch nothing of the new one: the island mounts ONCE, and the old run's
 // failure is not the new visit's (no failed state, no error said for it, no report).
-import { afterEach, expect, inject, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, inject, test, vi } from 'vitest';
 import { from_b64 } from './b64.ts';
 import { bootDev } from '../../src/runtime/full.ts';
 
@@ -14,7 +14,16 @@ const island = (entry: string) =>
 
 const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 
+/** The size a browser gives a page's resource timeline. */
+const RESOURCE_BUFFER = 250;
+
+beforeEach(() => {
+	// @why a full resource timeline drops each new entry (the frame of a dev run that loads one module per source file fills its 250 before a test starts) (test: hydrate-visit › a region put back while its island loads mounts it once)
+	performance.setResourceTimingBufferSize(performance.getEntriesByType('resource').length);
+});
+
 afterEach(() => {
+	performance.setResourceTimingBufferSize(RESOURCE_BUFFER);
 	vi.restoreAllMocks();
 	document.body.innerHTML = '';
 	// @why the browser keeps 250 resource entries and drops the rest; a dev run loads each source module as one (test: hydrate-visit › an old run’s failure leaves the new visit alone)
