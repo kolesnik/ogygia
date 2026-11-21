@@ -610,18 +610,18 @@ export type PlainKeyedFlights<I> = <
 ) => Flights<I, Fresh<Awaited<V>>, Pick<I, F>>;
 
 /**
- * @internal `flights()` for ogygia's runtime when no world, weigh, `touches` or key of two fields
- * or more is given (a type error, and refused by its checks): the same flights, so a page whose
- * flights need none of those carries none of their code. The build checks a call's options and
- * makes it {@link trusted_plain_flights} (internal/macros options pass).
+ * `plainFlights`: `flights()` when no world, weigh, `touches` or key of two fields or more is
+ * given (a type error, and refused by its checks): the same flights, so a page whose flights need
+ * none of those carries none of their code. ogygia's build checks a call's options and makes it
+ * `trustedPlainFlights` (internal/macros options pass).
  */
 export const plain_flights: Makers<Plain, 'one'> = /* @__PURE__ */ makers<Plain, 'one'>(
 	Flown,
 	check_plain_flights
 );
 
-/** @internal {@link plain_flights} for options its caller's build checked
- *  ({@link check_plain_flights}, run on a literal). */
+/** `trustedPlainFlights`: `plainFlights` for options its caller's build checked
+ *  (`checkPlainFlights`, run on a literal). */
 export const trusted_plain_flights: Makers<Plain, 'one'> = /* @__PURE__ */ makers<Plain, 'one'>(
 	Flown,
 	null

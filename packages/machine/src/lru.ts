@@ -1,6 +1,6 @@
 /**
- * @internal A cache of at most `max` values, the least recently used first out: `cache()` with
- * none of `keep`, `weigh`, `onEvict`, `pinned` or `world`, for ogygia's own runtime. Each value
+ * A cache of at most `max` values, the least recently used first out: `cache()` with
+ * none of `keep`, `weigh`, `onEvict`, `pinned` or `world`. Each value
  * weighs 1 and stays until `max` or its owner lets it go, so it carries no ages, weights, timer
  * or notices. It behaves as `cache()` does with those options (test: lru.test.ts).
  *
@@ -126,9 +126,9 @@ class Bounded<K, V> implements Lru<K, V> {
 	}
 }
 
-/** @internal A bounded cache of `max` values, least recently used out first (see the module): its
- *  max refused as `cache()` refuses it. The build checks a call's options and makes it
- *  {@link trusted_lru} (internal/macros options pass). */
+/** A bounded cache of `max` values, least recently used out first (see the module): its max
+ *  refused as `cache()` refuses it. ogygia's build checks a call's options and makes it
+ *  `trustedLru` (internal/macros options pass). */
 export function lru<K, V>(o: LruOptions): Lru<K, V> {
 	const refused = refused_max(o as { max: number });
 	if (refused !== null) {
@@ -138,7 +138,8 @@ export function lru<K, V>(o: LruOptions): Lru<K, V> {
 	return new Bounded<K, V>(o, refused !== null);
 }
 
-/** @internal {@link lru} for options its caller's build checked (`check_cache`, run on a literal). */
+/** `trustedLru`: {@link lru} for options its caller's build checked (`checkCache`, run on a
+ *  literal). */
 export function trusted_lru<K, V>(o: LruOptions): Lru<K, V> {
 	return new Bounded<K, V>(o, false);
 }

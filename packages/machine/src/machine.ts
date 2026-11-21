@@ -241,12 +241,12 @@ function define(config: Parameters<typeof define_run>[0]): object {
 	});
 }
 
-/** @internal A runtime definition's graph, in dev and rules builds (`machine_graph_off` in any other). */
+/** A runtime definition's graph, in dev and rules builds (`machine_graph_off` in any other). */
 export function graph(def: Def): MachineGraph {
 	return RULES ? graph_of(def) : drawn_off();
 }
 
-/** @internal A runtime definition's paths, in dev and rules builds, as `Definition.paths`. */
+/** A runtime definition's paths, in dev and rules builds, as `Definition.paths`. */
 export function paths(def: Def): string[][] {
 	return RULES ? paths_of(def) : drawn_off();
 }

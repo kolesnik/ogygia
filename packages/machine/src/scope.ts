@@ -149,7 +149,7 @@ const BUBBLE: EventListenerOptions = { capture: false };
 const CAPTURE: EventListenerOptions = { capture: true };
 
 /**
- * @internal What a scope is, as ogygia's own runtime holds it: plain fields and the methods its
+ * `Life`: what a scope is, as ogygia's own runtime holds it: plain fields and the methods its
  * runtime calls, which hold a listener, a timer or a cleanup with no handle and no closure. A
  * public `Scope` is one of these with the methods an app calls (`Scoped`); an app never holds a
  * bare one.
@@ -495,12 +495,12 @@ function arm<A>(l: Life, fn: (a?: A) => void, when: When, a?: A): number {
 	return (i = put(l, timed ? TIMER : CALL, held, null, null));
 }
 
-/** @internal A new life, its own root (as `new Life(label)`). */
+/** `rootLife`: a new life, its own root (as `new Life(label)`). */
 export function root(label: string | null = null): Life {
 	return new Life(label);
 }
 
-/** @internal What `l` still holds: live listeners, timers and cleanups, and open children. */
+/** `heldBy`: what `l` still holds: live listeners, timers and cleanups, and open children. */
 export function held(l: Life): number {
 	if (l._closed) return 0;
 	let n = 0;
@@ -516,7 +516,7 @@ export function held(l: Life): number {
 	return n;
 }
 
-/** @internal A life closed for good: what a stale view, or the scope of an owner that ended,
+/** `ENDED_LIFE`: a life closed for good: what a stale view, or the scope of an owner that ended,
  *  works on. */
 export const ENDED: Life = /* @__PURE__ */ ended();
 
@@ -596,7 +596,7 @@ function closed_scope(): Scoped {
 	return s;
 }
 
-/** @internal The life of an owner: a public scope is its own life. */
+/** `lifeOf`: the life of an owner: a public scope is its own life. */
 export function life_of(s: Scope | Life): Life {
 	return s as Life;
 }
