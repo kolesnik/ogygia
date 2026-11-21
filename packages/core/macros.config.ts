@@ -4,7 +4,12 @@
  */
 import { fileURLToPath } from 'node:url';
 import { relative } from 'node:path';
-import { compile, type CompileResult, type Mode } from 'ogygia-internal-macros/compile';
+import {
+	compile,
+	compile_machine_sites,
+	type CompileResult,
+	type Mode
+} from 'ogygia-internal-macros/compile';
 import { MachineTypes, ogygia_macros, specifier } from 'ogygia-internal-macros/plugin';
 
 const here = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
@@ -32,17 +37,25 @@ export function core_macros(): ReturnType<typeof ogygia_macros> {
 	});
 }
 
+/** Core's benches: they drive core's machines, so their call sites compile as core's do. */
+export const MACRO_BENCH_ROOTS: ReadonlyArray<string> = [here('./bench/')];
+
 let types: MachineTypes | null = null;
 
 /** One core file compiled as the build compiles it (`mode` `prod` for what an app's production
  *  build runs), for a tool that reads files itself (Heisenbench's mirror); null when it has no
- *  macro. Every call shares one reading of core's types. */
+ *  macro. A bench file compiles its machines' call sites only. Every call shares one reading of
+ *  the types of core and its benches (bench/tsconfig.json holds both). */
 export function core_compile(code: string, file: string, mode: Mode): CompileResult | null {
-	return compile(code, relative(ROOT, file), {
+	const options = {
 		mode,
 		runtime: specifier(file, MACRO_RUNTIME),
 		reference: specifier(file, MACRO_RUNTIME),
 		path: file,
-		types: (types ??= new MachineTypes(MACRO_TYPES))
-	});
+		types: (types ??= new MachineTypes(here('./bench/tsconfig.json')))
+	};
+	const at = relative(ROOT, file);
+	return MACRO_BENCH_ROOTS.some((r) => file.startsWith(r))
+		? compile_machine_sites(code, at, options)
+		: compile(code, at, options);
 }

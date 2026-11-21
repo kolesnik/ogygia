@@ -16,7 +16,7 @@ const read = rt.define({
 
 test('the stage machine a production build carries is define’s reading of its steps', () => {
 	const made = rt.compiled(...STAGE_COMPILED);
-	expect([made.name, made.size, made.initial, [...made.masks]]).toEqual([
+	expect([made.name, made.keys.length, made.initial, [...made.masks]]).toEqual([
 		read.name,
 		read.names!.length,
 		read.initial,

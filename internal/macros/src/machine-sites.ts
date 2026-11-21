@@ -6,8 +6,11 @@
  *   this.#hole.go('armed')              → this.#hole.go(RULES ? 'armed' : 1)
  *   hole.move('fetching', 'retrying')   → hole.move(RULES ? 'fetching' : 2, RULES ? 'retrying' : 3)
  *   sheet.wait('loaded')                → sheet.wait(RULES ? 'loaded' : 1)
- *   this.#hole.kind === 'fetching'      → this.#hole.kind === (RULES ? 'fetching' : 2)
+ *   this.#hole.kind === 'fetching'      → this.#hole[RULES ? 'kind' : '_state'] === (RULES ? 'fetching' : 2)
  *   switch (s.kind) { case 'live': … }  → switch (s.kind) { case (RULES ? 'live' : 3): … }
+ *
+ * A machine's own `kind` (not its `now`'s) is read from the field the getter reads: a compiled
+ * machine's state key is its int, so a production build reads the int with no call.
  *
  * Which machine a site belongs to comes from types (./machine-types.ts). A machine's state (`kind`
  * of the machine, of its `now`, of a state's value) is read only to be compared with a state
@@ -60,7 +63,7 @@ export function compile_sites(c: Compiler): void {
 	const kept = new Map<string, Kept[]>();
 	const refs: Array<{ node: N; parent: N; owner: Scope | null }> = [];
 
-	const machine_of = (site: N, span: N): MachineAt | null => {
+	const site_of = (site: N, span: N): { of: 'run' | 'state'; machine: MachineAt } | null => {
 		const at = types.site(path, code, span.start, span.end);
 		if (at === null) return null;
 		if ('refused' in at)
@@ -68,7 +71,7 @@ export function compile_sites(c: Compiler): void {
 				site,
 				`the build cannot tell which machine this is (${at.refused}): a production build moves a $machine machine by its states' ints, so its type must name its definition.`
 			);
-		return at.machine;
+		return at;
 	};
 
 	/** Writes the state `node` names (a literal, or a `?:` of them) as its int too. */
@@ -173,8 +176,16 @@ export function compile_sites(c: Compiler): void {
 				n.property.type === 'Identifier' &&
 				n.property.name === 'kind'
 			) {
-				const m = machine_of(n, n);
-				if (m !== null) read(n, ctx.path, m, scope);
+				const at = site_of(n, n);
+				if (at !== null) {
+					read(n, ctx.path, at.machine, scope);
+					if (at.of === 'run')
+						e.s.overwrite(
+							n.object.end,
+							n.end,
+							`${n.optional ? '?.' : ''}[${rules} ? "kind" : "_state"]`
+						);
+				}
 			}
 			if (
 				n.type === 'CallExpression' &&
@@ -183,16 +194,15 @@ export function compile_sites(c: Compiler): void {
 				n.callee.property.type === 'Identifier' &&
 				Object.hasOwn(STATE_ARGS, n.callee.property.name)
 			) {
-				const m = machine_of(n, n);
-				if (m !== null)
+				const at = site_of(n, n);
+				if (at !== null)
 					for (let i = 0; i < STATE_ARGS[n.callee.property.name as string]!; i++)
-						state(n.arguments[i], m, n);
+						state(n.arguments[i], at.machine, n);
 			}
 			ctx.next(scope);
 		}
 	});
 
-	// a const that keeps a state: every use of it is a compare or a switch
 	for (const { node, parent, owner } of refs) {
 		const list = kept.get(node.name as string);
 		const k = list?.find((x) => x.owner.find_owner(node.name) === owner);

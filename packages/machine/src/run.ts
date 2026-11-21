@@ -2,17 +2,17 @@
  * The machine runtime, as plain data and a record whose methods are its moves: what `machine()`
  * is built on, and what ogygia's own runtime calls (`runDef`, `compiledRunDef`, `createRun`).
  *
- * - A definition (`Def`) is its states as ints (`size` of them), each state's steps as a bitmask of
- *   the states it may go to (`masks`, `words` words of 32 bits per state: one for a machine of 32
- *   states or fewer), and the states each one reaches in one or more steps as the same kind of
- *   mask (made on the first `wait`).
- * - A definition the build compiled (`compiledRunDef`, what `$machine` writes for a production
- *   build) has no names: its call sites were compiled to its states' ints, so its machines (`Run`)
- *   move by int (a move tests one bit) and their `kind` is an int. A definition read at runtime
- *   (`runDef`, `machine()`) keeps its names, and its machines (`Named`) move by name: each state's
- *   steps as a record of name to int (`next`), so a move is one lookup.
+ * - A definition (`Def`) is its states as ints, each state's steps as a bitmask of the states it may
+ *   go to (`masks`, `words` words of 32 bits per state: one for a machine of 32 states or fewer),
+ *   and the states each one reaches in one or more steps as the same kind of mask (made on the
+ *   first `wait`). A call site names a state by its key (`keys`): a move reads its steps by key
+ *   (`next`: each state's steps as a table of key to int, built from the masks with the
+ *   definition), so a move is one lookup.
+ * - A state's key is its name, or, in a definition the build compiled (`compiledRunDef`, what
+ *   `$machine` writes for a production build), its int: its call sites were compiled to its
+ *   states' ints, so it carries no names (`names` is null) and its machines' `kind` is an int.
  * - A machine (`Run`) is its state's int, the data that state was entered with, and a count of its
- *   visits (`epoch`): a move tests one bit and writes a few fields, and makes no object. The state
+ *   visits (`epoch`): a move looks up its step and writes a few fields, and makes no object. The state
  *   as one value (`now`) is made only when something reads it, once per visit, so `m.now === mine`
  *   still tells two visits apart; `m.epoch` does the same with no object at all.
  * - A visit's life (its scope) is made on first need and closed by the move that leaves it.
@@ -80,22 +80,21 @@ export interface Def<S = unknown, T = unknown, I = unknown> {
 	/** Its types, for the typed calls (never set). */
 	readonly _types?: [S, T, I];
 	readonly name: string;
-	/** How many states it has: a state's int is 0 to `size - 1`. */
-	readonly size: number;
 	/** The state names, in the order the definition wrote them (a state's int is its index), or
-	 *  `null`: a definition the build compiled, whose machines move by int. */
+	 *  `null`: a definition the build compiled, which has none. */
 	readonly names: readonly string[] | null;
-	/** Each name's int (null-prototype: a state named like an `Object.prototype` key is itself;
-	 *  empty when it has no names). */
-	readonly ids: Readonly<Record<string, number>>;
+	/** Each state's key, by int: its name, or a compiled definition's int itself. */
+	readonly keys: readonly Key[];
+	/** Each key's int (named: null-prototype, so a state named like an `Object.prototype` key is
+	 *  itself). */
+	readonly ids: Readonly<Record<Key, number>>;
 	readonly initial: number;
 	/** Words of 32 bits in one state's mask. */
 	readonly words: number;
 	/** Each state's steps: bit `to & 31` of `masks[from * words + (to >>> 5)]`. */
 	readonly masks: readonly number[];
-	/** Each state's steps by name: the int of each state it may go to (null-prototype records,
-	 *  the same steps as `masks`; none when it has no names). */
-	readonly next: readonly Readonly<Record<string, number>>[];
+	/** Each state's steps by key: the int of each state it may go to (the same steps as `masks`). */
+	readonly next: readonly Readonly<Record<Key, number>>[];
 	/** The steps as written, by name (frozen): what `steps`, `graph()` and a lost `move` read
 	 *  (empty when it has no names). */
 	readonly steps: Readonly<Record<string, readonly string[]>>;
@@ -108,9 +107,9 @@ export interface Def<S = unknown, T = unknown, I = unknown> {
 	copies: boolean;
 	/** What a visit's life is made as (the public `machine()`'s: a `Scope`, its own life). */
 	life: new (label: string | null) => Life;
-	/** What its machines are: `Run` (by int) without names, `Named` with them. */
-	readonly make: new (def: Def, data: object | undefined) => Run;
 }
+
+type Key = string | number;
 
 /** The machines a definition makes: `RunOf<typeof def>`. */
 export type RunOf<D> = D extends Def<infer S, infer T> ? Run<S, T> : never;
@@ -157,13 +156,13 @@ export class Run<
 	/** The state it is in, as one value: `{ kind, ...data }`, the same value through the visit, a
 	 *  new one every visit (what an observer is given). */
 	get now(): ValueOf<S> {
-		return (this._now ?? (this._now = made(this.kind, this.data))) as ValueOf<S>;
+		return (this._now ?? (this._now = made(this._def.keys[this._state]!, this.data))) as ValueOf<S>;
 	}
 
 	/** The name of the state it is in (a compiled machine's: its int, as its call sites were
 	 *  compiled to read it). */
 	get kind(): KindOf<S> {
-		return this._state as unknown as KindOf<S>;
+		return this._def.keys[this._state] as KindOf<S>;
 	}
 
 	/** The life of the visit it is in now (made on first need): closed by the move that leaves the
@@ -181,10 +180,8 @@ export class Run<
 	): boolean;
 	go(to: Key, data?: object): boolean {
 		if (this._stopped) return false;
-		const def = this._def;
-		const t = int_of(def, to, 'go()');
-		if (!has(def.masks, def.words, this._state, t))
-			return illegal(def, label(def, this._state), label(def, t));
+		const t = this._def.next[this._state]![to];
+		if (t === undefined) return illegal(this._def, this._def.keys[this._state]!, to);
 		enter(this, t, data);
 		return true;
 	}
@@ -199,18 +196,36 @@ export class Run<
 	move(from: Key, to: Key, data?: object): boolean {
 		if (this._stopped) return false;
 		const def = this._def;
-		const f = int_of(def, from, 'move()');
-		const t = int_of(def, to, 'move()');
-		if (!has(def.masks, def.words, f, t)) return illegal(def, label(def, f), label(def, t));
-		if (this._state !== f) return false;
-		enter(this, t, data);
-		return true;
+		const s = this._state;
+		if (def.keys[s] === from) {
+			const t = def.next[s]![to];
+			if (t === undefined) return illegal(def, from, to);
+			enter(this, t, data);
+			return true;
+		}
+		const f = def.ids[from];
+		if (f === undefined || def.next[f]![to] === undefined) return illegal(def, from, to);
+		return false;
 	}
 
 	/** The next time it is in `name` (see `Machine.wait`). */
 	wait<S, K extends Kind<S>>(this: Run<S>, name: K): Promise<StateIn<S, K> | Stale>;
 	wait(name: Key): Promise<State | Stale> {
-		return waited(this, int_of(this._def, name, 'wait()'));
+		const def = this._def;
+		const k = def.ids[name];
+		if (k === undefined) {
+			if (DEV)
+				throw machine_error('machine_unknown_state', {
+					name: def.name,
+					state: String(name),
+					where: 'wait()'
+				});
+			return Promise.resolve(STALE);
+		}
+		if (this._stopped) return Promise.resolve(STALE);
+		if (this._state === k) return Promise.resolve(value_of(this));
+		if (!has(reach_of(def), def.words, this._state, k)) return Promise.resolve(STALE);
+		return new Promise((resolve) => (this._waiters ??= []).push({ kind: k, resolve }));
 	}
 
 	/** Ends it (see `Machine.stop`). Safe twice. */
@@ -227,85 +242,8 @@ export class Run<
 	}
 }
 
-/**
- * A machine of a definition with names (`runDef`, `machine()`): its moves and waits name their
- * states, and its `kind` is a name.
- */
-export class Named<
-	// oxlint-disable-next-line typescript/no-explicit-any -- as Run's: a bare `Named` takes every machine
-	S = any,
-	// oxlint-disable-next-line typescript/no-explicit-any -- the same for its steps
-	T = any
-> extends Run<S, T> {
-	override get kind(): KindOf<S> {
-		return this._def.names![this._state] as KindOf<S>;
-	}
-
-	override go(to: Key, data?: object): boolean {
-		if (this._stopped) return false;
-		const def = this._def;
-		const t = def.next[this._state]![to];
-		if (t === undefined) return illegal(def, def.names![this._state]!, String(to));
-		enter(this, t, data);
-		return true;
-	}
-
-	override move(from: Key, to: Key, data?: object): boolean {
-		if (this._stopped) return false;
-		const def = this._def;
-		const s = this._state;
-		if (def.names![s] === from) {
-			const t = def.next[s]![to];
-			if (t === undefined) return illegal(def, from, String(to));
-			enter(this, t, data);
-			return true;
-		}
-		const f = def.ids[from];
-		if (f === undefined || def.next[f]![to] === undefined)
-			return illegal(def, String(from), String(to));
-		return false;
-	}
-
-	override wait<S, K extends Kind<S>>(this: Run<S>, name: K): Promise<StateIn<S, K> | Stale>;
-	override wait(name: Key): Promise<State | Stale> {
-		const def = this._def;
-		const k = def.ids[name];
-		if (k === undefined) {
-			if (DEV)
-				throw machine_error('machine_unknown_state', {
-					name: def.name,
-					state: String(name),
-					where: 'wait()'
-				});
-			return Promise.resolve(STALE);
-		}
-		return waited(this, k);
-	}
-}
-
-/** A state as a call site names it: its int (a compiled machine's), or its name. */
-type Key = number | string;
-
-/** The int a compiled machine's call site gave; in dev, refused when it is not one of its
- *  states (a site that names a state where the build gave it an int: compiled by hand, or not by
- *  the build). */
-function int_of(def: Def, k: Key, where: string): number {
-	if (DEV && !(typeof k === 'number' && k >>> 0 === k && k < def.size))
-		throw machine_error('machine_unknown_state', { name: def.name, state: String(k), where });
-	return k as number;
-}
-
-/** A state as messages say it: its name, or its int when the definition has no names. */
 function label(def: Def, k: number): string {
-	return def.names === null ? String(k) : def.names[k]!;
-}
-
-function waited(m: Run, k: number): Promise<State | Stale> {
-	if (m._stopped) return Promise.resolve(STALE);
-	if (m._state === k) return Promise.resolve(value_of(m));
-	const def = m._def;
-	if (!has(reach_of(def), def.words, m._state, k)) return Promise.resolve(STALE);
-	return new Promise((resolve) => (m._waiters ??= []).push({ kind: k, resolve }));
+	return String(def.keys[k]);
 }
 
 function checked_data(def: Def, state: number, data: object | undefined): void {
@@ -317,8 +255,8 @@ function has(masks: readonly number[], words: number, from: number, to: number):
 	return ((masks[from * words + (to >>> 5)]! >>> (to & 31)) & 1) === 1;
 }
 
-function illegal(def: Def, from: string, to: string): false {
-	const args = { name: def.name, from, to };
+function illegal(def: Def, from: Key, to: Key): false {
+	const args = { name: def.name, from: String(from), to: String(to) };
 	if (DEV) throw machine_error('machine_illegal_move', args);
 	warn_once('machine_illegal_move', args);
 	return false;
@@ -334,13 +272,12 @@ interface Bare {
 	_life: Life | null;
 	_waiters: Waiter[] | null;
 	readonly now: State;
-	readonly kind: Key;
 	visit(): Life;
 	go(to: Key, data?: object): boolean;
 }
 
 function value_of(m: Bare): State {
-	return m.now;
+	return m._now ?? (m._now = made(m._def.keys[m._state]!, m.data));
 }
 
 /** A state's value: its kind (a compiled machine's: its int) and the data it was entered with
@@ -357,7 +294,7 @@ function enter(m: Bare, to: number, data: object | undefined): void {
 	if (DEV) checked_data(def, to, data);
 	m._state = to;
 	m.data = data;
-	m._now = def.copies ? made(m.kind, data) : null;
+	m._now = def.copies ? made(def.keys[to]!, data) : null;
 	m.epoch++;
 	// detached before anything runs, so a cleanup that moves the machine again starts clean
 	const l = m._life;
@@ -375,7 +312,7 @@ function enter_told(m: Bare, to: number, data: object | undefined): void {
 	const prev = value_of(m);
 	m._state = to;
 	m.data = data;
-	m._now = def.copies ? made(m.kind, data) : null;
+	m._now = def.copies ? made(def.keys[to]!, data) : null;
 	m.epoch++;
 	const l = m._life;
 	m._life = null;
@@ -416,11 +353,15 @@ function arm(m: Bare): void {
 function timed_step(m: Bare): void {
 	const def = m._def;
 	const timed = def.after[m._state]!;
-	const from = label(def, m._state);
+	const from = m._state;
 	try {
 		enter(m, timed.to, timed.data === undefined ? undefined : timed.data(value_of(m)));
 	} catch (error) {
-		report('machine_timed_step_failed', { name: def.name, from, to: label(def, timed.to) }, error);
+		report(
+			'machine_timed_step_failed',
+			{ name: def.name, from: label(def, from), to: label(def, timed.to) },
+			error
+		);
 	}
 }
 
@@ -444,7 +385,7 @@ function settle(m: Bare): void {
 export function reach_of(def: Def): number[] {
 	if (def.reach !== null) return def.reach;
 	const { masks, words } = def;
-	const n = def.size;
+	const n = def.keys.length;
 	const reach = masks.slice();
 	for (let changed = true; changed;) {
 		changed = false;
@@ -544,8 +485,8 @@ export function define(
 	}
 	const def: Def = {
 		name,
-		size: n,
 		names: Object.freeze(names),
+		keys: names,
 		ids: Object.freeze(ids),
 		initial,
 		words,
@@ -555,8 +496,7 @@ export function define(
 		after,
 		reach: null,
 		copies,
-		life,
-		make: Named
+		life
 	};
 	if (DEV) check(def, names);
 	// each state's own timeout: refused in every build when it is not one of the state's steps, or
@@ -588,10 +528,6 @@ export function define(
 const NO_STEPS: Readonly<Record<string, readonly string[]>> = /* @__PURE__ */ Object.freeze(
 	Object.create(null) as Record<string, readonly string[]>
 );
-const NO_IDS: Readonly<Record<string, number>> = /* @__PURE__ */ Object.freeze(
-	Object.create(null) as Record<string, number>
-);
-const NO_NEXT: readonly Readonly<Record<string, number>>[] = /* @__PURE__ */ Object.freeze([]);
 
 /** A state's own timeout as the build writes it: `[state, ms, to, data]`. */
 export type CompiledTimeout = readonly [
@@ -604,9 +540,10 @@ export type CompiledTimeout = readonly [
 /**
  * `compiledRunDef`: a definition the build already read and checked (`$machine`, internal/macros): its
  * number of states, its initial state's int, each state's steps as masks (`runDef`'s layout) and
- * its timeouts, and no names: its call sites were compiled to its states' ints, so its machines
- * move by int and their `kind` is an int. What a production build runs in place of `runDef`, which
- * dev and rules builds keep (its checks, `graph()`, `paths()` and the observers read names).
+ * its timeouts, and no names: its call sites were compiled to its states' ints, so each state's
+ * key is its int, its machines move by int and their `kind` is an int. What a production build
+ * runs in place of `runDef`, which dev and rules builds keep (its checks, `graph()`, `paths()` and
+ * the observers read names).
  */
 export function compiled(
 	name: string,
@@ -615,24 +552,36 @@ export function compiled(
 	masks: readonly number[],
 	timed?: readonly CompiledTimeout[]
 ): Def {
+	const words = (size + 31) >>> 5;
+	const keys: number[] = [];
+	const ids: Record<Key, number> = Object.create(null);
 	const after: (Timed | null)[] = [];
-	for (let k = 0; k < size; k++) after.push(null);
+	const next: Record<Key, number>[] = [];
+	for (let k = 0; k < size; k++) {
+		keys.push(k);
+		ids[k] = k;
+		after.push(null);
+		const row: Record<Key, number> = Object.create(null);
+		for (let i = 0; i < words; i++)
+			for (let bits = masks[k * words + i]!, t = i << 5; bits !== 0; bits >>>= 1, t++)
+				if ((bits & 1) === 1) row[t] = t;
+		next.push(row);
+	}
 	if (timed !== undefined) for (const [k, ms, to, data] of timed) after[k] = { ms, to, data };
 	return {
 		name,
-		size,
 		names: null,
-		ids: NO_IDS,
+		keys,
+		ids,
 		initial,
-		words: (size + 31) >>> 5,
+		words,
 		masks,
-		next: NO_NEXT,
+		next,
 		steps: NO_STEPS,
 		after,
 		reach: null,
 		copies: false,
-		life: Life,
-		make: Run
+		life: Life
 	};
 }
 
@@ -642,7 +591,7 @@ export function create<S extends Shape<S>, T extends Steps<S>, I extends Kind<S>
 	...data: DataArgs<S[I]>
 ): Run<S, T>;
 export function create(def: Def, data?: object): Run {
-	return new def.make(def, data);
+	return new Run(def, data);
 }
 
 /** `runDefinition`: defines a machine for ogygia's own runtime, as `machine()` does (the same `Config`,

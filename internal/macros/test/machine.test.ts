@@ -124,7 +124,7 @@ describe('the output', () => {
 		const read = rt.runDef(config);
 		const made = rt.compiledRunDef('hole', 5, 0, [6, 5, 25, 7, 7], [[3, 250, 2]]);
 		expect(made.names).toBe(null);
-		expect(made.size).toBe(read.names!.length);
+		expect([...made.keys]).toEqual(read.names!.map((_, k) => k));
 		expect(made.initial).toBe(read.initial);
 		expect(made.words).toBe(read.words);
 		expect([...made.masks]).toEqual([...read.masks]);
@@ -194,9 +194,11 @@ describe('call sites', () => {
 	});
 
 	test('a state read is compared or switched on by int, through a const, a now and a StateOf too', () => {
+		const kind = '[RULES ? "kind" : "_state"]';
 		expect(code).toContain(
-			`this.#hole?.kind === ${at('fetching', 2)} || ${at('retrying', 3)} !== this.#hole.kind`
+			`this.#hole?.${kind} === ${at('fetching', 2)} || ${at('retrying', 3)} !== this.#hole${kind}`
 		);
+		expect(code).toContain(`const kind = this.#hole${kind};`);
 		expect(code).toContain(`s.kind === ${at('fetching', 2)} ? s.tries : 0`);
 		expect(code).toContain(`case ${at('idle', 0)}: return 'rest'; case ${at('armed', 1)}:`);
 		expect(code).toContain(`kind === ${at('idle', 0)} || kind === ${at('armed', 1)}`);

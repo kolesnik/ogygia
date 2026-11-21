@@ -64,7 +64,7 @@ const HOT = defineMacro<Compiler, Scope>({
 });
 
 /** `$machine<S>()({ … })` (./machine-pass.ts). */
-const MACHINE = defineMacro<Compiler, Scope>({
+export const MACHINE: Macro<Compiler, Scope> = defineMacro<Compiler, Scope>({
 	names: ['$machine'],
 	helpers: dedent`
 		import type { Config, Kind, RunDef, Shape, Steps } from '@ogygia/machine';

@@ -14,6 +14,7 @@ import {
 	vocabulary,
 	walkPasses,
 	type Binding,
+	type Macro,
 	type Mode,
 	type N,
 	type Pass
@@ -81,14 +82,20 @@ export class Compiler {
 		return WORDS.mayUse(code);
 	}
 
-	constructor(code: string, file: string, options: CompileOptions) {
+	/** `macros`: the macros whose passes run (default every one). */
+	constructor(
+		code: string,
+		file: string,
+		options: CompileOptions,
+		macros: ReadonlyArray<Macro<Compiler, Scope>> = MACROS
+	) {
 		this.options = options;
 		this.report = new Report(code, file);
 		this.program = parse(code, this.report);
 		this.uses = WORDS.usedIn(this.program);
 		this.tracker = new Tracker(this.program, this.report, []);
 		this.emitter = new Emitter(code, this.report, this.tracker.taken);
-		this.#passes = MACROS.map((m) => m.pass(this));
+		this.#passes = macros.map((m) => m.pass(this));
 	}
 
 	readonly #scope_at = (node: N, scope: Scope): Scope => this.tracker.scopeAt(node, scope);

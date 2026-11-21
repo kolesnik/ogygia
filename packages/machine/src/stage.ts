@@ -54,8 +54,6 @@ export const STAGE_COMPILED: Parameters<typeof rt.compiled> = ['stage', 5, 0, [1
 const RULES: boolean =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
 
-/** Each state as a call site names it: its name in dev and rules builds, its int in a production
- *  one (as `$machine` compiles a site). */
 const BUILDING = (RULES ? 'building' : 0) as 'building';
 const BUILT = (RULES ? 'built' : 1) as 'built';
 const COMMITTING = (RULES ? 'committing' : 2) as 'committing';

@@ -23,7 +23,7 @@
  */
 import { machine_error, warn_once } from './messages.ts';
 import { noop } from './noop.ts';
-import { define as define_run, heard, made, Named, RULES, watch_moves, type Def } from './run.ts';
+import { define as define_run, heard, made, RULES, Run, watch_moves, type Def } from './run.ts';
 import { CLOSED, SCOPED, type Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
@@ -205,7 +205,7 @@ export { heard };
  * A machine as `machine()` hands it out: the runtime record, whose methods are `Machine`'s; each
  * visit's life is a public scope, the same through the visit.
  */
-class Running extends Named {
+class Running extends Run {
 	get scope(): Scope {
 		const life = this._life as unknown as Scope | null;
 		if (life !== null) return life;
@@ -255,7 +255,6 @@ function drawn_off(): never {
 	throw machine_error('machine_graph_off', {});
 }
 
-/** A definition's state names: a compiled one has none to draw (as a production build). */
 function names_of(def: Def): readonly string[] {
 	return def.names ?? drawn_off();
 }
