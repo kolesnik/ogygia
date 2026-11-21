@@ -17,6 +17,7 @@ import { hear, hear_none } from '../_hooks.ts';
 import { L_IS_WARMED_MODULE, L_SOFT, L_YIELD_TASK } from '../../src/runtime/boot-link-index.ts';
 import { scope } from '@ogygia/machine';
 import { patch } from '../_patch.ts';
+import type { PageGlobals } from '../../src/page-globals.ts';
 
 declare module 'vitest/browser' {
 	interface BrowserCommands {
@@ -853,4 +854,32 @@ test('after the swap, the kit remotes the page left are let go', async () => {
 		slots.remoteSeeds = remote;
 	}
 	expect(released).toBe(1);
+});
+
+test('a navigation called off while it waits for the page’s restorer swaps nothing in', async () => {
+	const page = globalThis as PageGlobals;
+	let release!: () => void;
+	page.__og_restore_ready = new Promise<void>((r) => (release = r));
+	pages['/rn-restorer-older'] = { body: '<p id="rn-older">older</p>' };
+	pages['/rn-restorer-newer'] = { body: '<p id="rn-newer">newer</p>' };
+	const seen: string[] = [];
+	const watch = new MutationObserver(() => {
+		if (document.getElementById('rn-older')) seen.push('older');
+	});
+	watch.observe(document.body, { childList: true, subtree: true });
+	try {
+		void r.navigate(new URL('/rn-restorer-older', location.href));
+		await expect.poll(() => fetched.includes('/rn-restorer-older')).toBe(true);
+		const newer = r.navigate(new URL('/rn-restorer-newer', location.href));
+		await expect.poll(() => fetched.includes('/rn-restorer-newer')).toBe(true);
+		release();
+		await newer;
+		await expect.poll(() => r.nav.now.kind).toBe('idle');
+		expect(document.getElementById('rn-newer')).not.toBe(null);
+		expect(seen).toEqual([]);
+		expect(location.pathname).toBe('/rn-restorer-newer');
+	} finally {
+		watch.disconnect();
+		delete page.__og_restore_ready;
+	}
 });

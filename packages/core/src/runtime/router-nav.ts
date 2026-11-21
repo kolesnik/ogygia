@@ -663,7 +663,9 @@ export async function navigate(
 		const this_build = next_build === null ? null : build_of(document);
 		if (this_build !== null && next_build !== this_build) return null;
 		if (doc.querySelector('meta[name="ogygia-first-load"]')) return null;
-		(globalThis as PageGlobals).__og_restore?.(doc);
+		const globals = globalThis as PageGlobals;
+		if (!globals.__og_restore && globals.__og_restore_ready) await globals.__og_restore_ready;
+		globals.__og_restore?.(doc);
 
 		const prefer_reduced_motion =
 			typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

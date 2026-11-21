@@ -65,13 +65,13 @@ test('a throwing subscriber is reported once and never stops the ones after it',
 	expect(codes()[0]).toContain('navigated');
 });
 
-test("a subscriber's rejected promise is reported, never awaited", async () => {
+test("a subscriber's rejected promise is reported, and the call's wait settles past it", async () => {
 	const lone: ClientRealm = {
 		name: 'lone',
 		client: { hooks: { navigated: (async () => Promise.reject(new Error('later'))) as () => void } }
 	};
 	boot_client_plugins([lone], false);
-	expect(navigated({ ...nav })).toBeUndefined();
+	await expect(navigated({ ...nav })).resolves.toBeUndefined();
 	await vi.waitFor(() => expect(codes()).toHaveLength(1));
 	expect(codes()[0]).toContain('client_hook_failed');
 	expect(codes()[0]).toContain('`lone`');
@@ -169,4 +169,40 @@ test('a hook no realm subscribes to tells nobody and gives back nothing', () => 
 	expect(booted).toBe(1);
 	expect(navigated({ ...nav })).toBeUndefined();
 	expect(codes()).toEqual([]);
+});
+
+test('subscribers that answer with a promise: the call waits for every one, a rejection reported and waited past', async () => {
+	const order: string[] = [];
+	let release!: () => void;
+	boot_client_plugins(
+		[
+			{
+				name: 'slow',
+				client: {
+					hooks: {
+						answerParsed: () =>
+							new Promise<void>((r) => (release = r)).then(() => void order.push('slow'))
+					}
+				}
+			},
+			{
+				name: 'broken',
+				client: { hooks: { answerParsed: () => Promise.reject(new Error('no')) } }
+			},
+			{ name: 'sync', client: { hooks: { answerParsed: () => void order.push('sync') } } }
+		],
+		false
+	);
+	const answer_parsed = told('answerParsed');
+	const wait = answer_parsed({ fragment: {} as DocumentFragment });
+	expect(wait).toBeInstanceOf(Promise);
+	expect(order).toEqual(['sync']);
+	let settled = false;
+	void wait!.then(() => (settled = true));
+	await Promise.resolve();
+	expect(settled).toBe(false);
+	release();
+	await wait;
+	expect(order).toEqual(['sync', 'slow']);
+	expect(codes()).toEqual([expect.stringContaining('client_hook_failed')]);
 });

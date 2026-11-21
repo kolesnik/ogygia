@@ -49,17 +49,23 @@ export function isolated(
 }
 
 /** The hook `name`, told to every realm that subscribes, in realm order. A subscriber may answer
- *  with a function (`regionHydrate`'s after): the call returns one that runs them all, or nothing. */
+ *  with a function (`regionHydrate`'s after): the call returns one that runs them all. One may
+ *  answer with a promise (`answerParsed`'s wait): the call returns one that settles when they all
+ *  have, a rejection reported and waited past. Otherwise it returns nothing. */
 export function told<K extends RuntimeHookName>(name: K): RuntimeHooks[K] {
 	const call = isolated(name);
 	return ((e: Payload<K>) => {
 		if (import.meta.env.DEV) Object.freeze(e);
 		let afters: { plugin: string; f: () => unknown }[] | undefined;
+		let waits: Promise<unknown>[] | undefined;
 		for (const { name: plugin, client } of Realms.list) {
 			const f = client.hooks?.[name] as ((e: Payload<K>) => unknown) | undefined;
 			if (!f) continue;
 			const out = call(plugin, () => f(e));
 			if (typeof out === 'function') (afters ??= []).push({ plugin, f: out as () => unknown });
+			else if (typeof (out as PromiseLike<unknown> | undefined)?.then === 'function')
+				// oxlint-disable-next-line ogygia/no-silent-failures -- isolated() reported the rejection (client_hook_failed); the answer goes on without that subscriber
+				(waits ??= []).push(Promise.resolve(out).then(noop, noop));
 		}
 		if (afters) {
 			const all = afters;
@@ -67,5 +73,8 @@ export function told<K extends RuntimeHookName>(name: K): RuntimeHooks[K] {
 				for (const a of all) call(a.plugin, a.f);
 			};
 		}
+		if (waits) return Promise.all(waits).then(noop);
 	}) as RuntimeHooks[K];
 }
+
+function noop(): void {}

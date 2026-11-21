@@ -170,8 +170,9 @@ export interface RegionHydrateEvent {
 	readonly el: Element;
 }
 
-/** A region answer (a hole, a lake remount, a router swap) was parsed: `fragment` is inert, and
- *  nothing has read it yet. */
+/** A region answer (a hole, a lake remount, a live region's tick) was parsed: `fragment` is inert,
+ *  and nothing has read it yet. A subscriber may answer with a promise: nothing reads the fragment
+ *  (the region's own copy of its markup, its placement) until it settles. */
 export interface AnswerParsedEvent {
 	readonly fragment: DocumentFragment;
 }
@@ -188,7 +189,7 @@ export interface RuntimeHooks {
 	regionMount(e: RegionMountEvent): void;
 	regionUnmount(e: RegionUnmountEvent): void;
 	regionHydrate(e: RegionHydrateEvent): (() => void) | void;
-	answerParsed(e: AnswerParsedEvent): void;
+	answerParsed(e: AnswerParsedEvent): void | Promise<void>;
 	answerPlaced(e: AnswerPlacedEvent): void;
 	regionHydrated(e: RegionHydratedEvent): void;
 	regionFailed(e: RegionFailedEvent): void;

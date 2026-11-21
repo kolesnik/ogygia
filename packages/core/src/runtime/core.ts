@@ -424,14 +424,21 @@ export function region_fragment(html: VerifiedHtml): {
 				)
 				.then(() => undefined)
 		: Promise.resolve();
-	if (answerParsed) answerParsed({ fragment: frag });
-	for (const el of frag.querySelectorAll('ogygia-region')) {
-		if (el.getAttribute('entry') && !is_deferred(el) && !is_frozen(el)) {
-			(el as unknown as PristineHost)[PRISTINE_SSR] = el.innerHTML;
+	const parsed = answerParsed
+		? (answerParsed({ fragment: frag }) as Promise<void> | undefined)
+		: undefined;
+	const keep_pristine = () => {
+		for (const el of frag.querySelectorAll('ogygia-region')) {
+			if (el.getAttribute('entry') && !is_deferred(el) && !is_frozen(el)) {
+				(el as unknown as PristineHost)[PRISTINE_SSR] = el.innerHTML;
+			}
 		}
+	};
+	if (!parsed) {
+		keep_pristine();
+		return { frag, ready, sheets };
 	}
-
-	return { frag, ready, sheets };
+	return { frag, ready: Promise.all([ready, parsed]).then(keep_pristine), sheets };
 }
 
 /** TEST: the pristine server markup {@link region_fragment} stashed on a nested island, if any. */

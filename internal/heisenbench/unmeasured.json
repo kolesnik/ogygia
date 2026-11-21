@@ -2373,6 +2373,50 @@
 			"reason": ".check(): a test's entry, not a request path (check.ts)"
 		},
 		{
+			"id": "packages/rewrite/src/messages.ts > REWRITE_ERRORS > restorer_unloaded > details",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/rewrite/src/messages.ts > REWRITE_ERRORS > restorer_unloaded > text",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer",
+			"reason": "browser only: one dynamic import of the realm's restorer at boot, where the document carried none; proven in packages/rewrite/test/browser/client-restorer.test.ts"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer > then:0~eb0d99",
+			"reason": "browser only: the restorer in, two assignments"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer > then:1~7cde2f",
+			"reason": "browser only: the restorer's failed load, said once (packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts)"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer > then:1~7cde2f > then:0~b8a5d8",
+			"reason": "browser only: prints the coded error, once"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer > then:1~7cde2f > then:1~01da59",
+			"reason": "browser only: prints the error alone, once (the wording chunk lost too)"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > defineClient:0~0364ba > boot > report",
+			"reason": "browser only: one call of the restore report at boot, or once the realm's restorer is in"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > defineClient:0~0364ba > hooks > answerParsed > then:0~a9247d",
+			"reason": "browser only: one restore of an answer that waited for the realm's restorer; the restore itself is measured (packages/rewrite/bench/restore.bench.ts)"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > region_fragment > keep_pristine",
+			"reason": "browser only: a nested island's copy of its markup, one innerHTML read per island of an answer, as before (the same loop, now after an answer's wait)"
+		},
+		{
+			"id": "packages/core/src/runtime/hook-told.ts > noop",
+			"reason": "the empty function a settled wait ends in"
+		},
+		{
 			"id": "packages/rewrite/src/messages.ts > REWRITE_ERRORS > restore_markup_broken > details",
 			"reason": "a message table entry: wording only"
 		},

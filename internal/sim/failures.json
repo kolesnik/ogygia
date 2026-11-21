@@ -2451,10 +2451,40 @@
 			"name": "a file no URL parser takes is left out, and the mount is still told"
 		},
 		{
+			"site": "packages/core/src/runtime/hook-told.ts > told > reject:0",
+			"reason": "a subscriber's rejected wait is waited past (isolated() reported it), so an answer goes on without that subscriber; proved by hand: the rejection let through turns the test red",
+			"test": "packages/core/test/runtime-hooks-compose.test.ts",
+			"name": "subscribers that answer with a promise: the call waits for every one, a rejection reported and waited past"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > import:0",
+			"reason": "the realm's restorer chunk that does not download: the page says it and the answers waiting go on; proved by hand: the rejection rethrown turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > reject:0",
+			"reason": "the restorer's failed load is handled: said, and the wait settles; proved by hand: the rejection rethrown turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > import:1",
+			"reason": "the wording chunk lost too: the error itself is printed; proved by hand: that fallback emptied turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > reject:1",
+			"reason": "the wording chunk's failed load prints the error alone; proved by hand: that fallback emptied turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
 			"site": "packages/core/src/runtime/hook-told.ts > isolated > .catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the .catch handler made to rethrow turns the test red",
 			"test": "packages/core/test/runtime-hooks-compose.test.ts",
-			"name": "a subscriber's rejected promise is reported, never awaited"
+			"name": "a subscriber's rejected promise is reported, and the call's wait settles past it"
 		},
 		{
 			"site": "packages/core/src/runtime/hook-told.ts > isolated > catch:0",

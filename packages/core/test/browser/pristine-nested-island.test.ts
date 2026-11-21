@@ -68,3 +68,29 @@ test('a DEFERRED nested region is NOT stamped (it fetches its own answer)', () =
 	);
 	expect(pristine_ssr_of(frag.querySelector('ogygia-region')!)).toBeUndefined();
 });
+
+test('an answerParsed pass that answers with a promise holds the answer: the copy is taken once it settles', async () => {
+	let release!: () => void;
+	hear({
+		answerParsed: ({ fragment }) =>
+			new Promise<void>((r) => (release = r)).then(() => {
+				for (const el of fragment.querySelectorAll('[data-reshaped]')) el.textContent = 'restored';
+			})
+	});
+	try {
+		const { frag, ready } = region_fragment(
+			'<ogygia-region entry="/x.js" wake="load"><span data-reshaped>moved</span></ogygia-region>'
+		);
+		const region = frag.querySelector('ogygia-region')!;
+		let settled = false;
+		void ready.then(() => (settled = true));
+		await Promise.resolve();
+		expect(settled).toBe(false);
+		expect(pristine_ssr_of(region)).toBeUndefined();
+		release();
+		await ready;
+		expect(pristine_ssr_of(region)).toContain('restored');
+	} finally {
+		hear_none();
+	}
+});
