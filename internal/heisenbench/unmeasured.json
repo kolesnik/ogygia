@@ -1405,11 +1405,11 @@
 			"reason": "browser only: the wait for Kit to apply its page (a global accessor and a Svelte effect root), once per wait; proven in packages/core/test/browser/kit-page-thread.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~3b1a67 > one",
+			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~ff6299 > one",
 			"reason": "browser only: a critical resource's load or error event, once per resource per document; proven in packages/core/test/browser/load-scheduler.test.ts and load-scheduler-critical-error.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~3b1a67 > later:0~301398",
+			"id": "packages/core/src/runtime/load-scheduler.ts > LoadScheduler > #until_critical > then:0~ff6299 > later:0~301398",
 			"reason": "browser only: the critical wait's cap (2.5 s), once per document; proven in packages/core/test/browser/load-scheduler.test.ts"
 		},
 		{
@@ -2193,11 +2193,11 @@
 			"reason": "browser only: makes a link's download machine and its load/error listeners (a live link element, not cloneable), constant work; proven in packages/core/test/browser/region-sheet-failed.test.ts (#274)"
 		},
 		{
-			"id": "packages/core/src/runtime/region-sheets.ts > sheet_of > listen:2~3181a7",
+			"id": "packages/core/src/runtime/region-sheets.ts > sheet_of > listen:2~a22597",
 			"reason": "browser only: a link's error moves its machine to failed, constant work; proven in packages/core/test/browser/region-sheet-failed.test.ts (#274)"
 		},
 		{
-			"id": "packages/core/src/runtime/region-sheets.ts > sheet_of > listen:2~456322",
+			"id": "packages/core/src/runtime/region-sheets.ts > sheet_of > listen:2~276a46",
 			"reason": "browser only: a link's load moves its machine to loaded, constant work; proven in packages/core/test/browser/region-sheet-failed.test.ts (#274)"
 		},
 		{
@@ -4005,7 +4005,7 @@
 			"reason": "browser only, an error path: an island whose code failed offline waits for the window's online event (a live element and window, not cloneable), constant work; proven in packages/core/test/browser/hole-offline.test.ts (#891)"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #wake_online > listen:2~9cda26",
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #wake_online > listen:2~2afd24",
 			"reason": "browser only: the online listener, one machine step and one wake, constant work; proven in packages/core/test/browser/hole-offline.test.ts (#891)"
 		},
 		{
@@ -4117,19 +4117,19 @@
 			"reason": "a live Vite transform hook (its this.resolve is the plugin context, not recorded); returns at once for a module without import_again or a file token; proven in packages/compiler/test/lazy-files.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/import-again.ts > import_again > next > catch:0~df975d",
+			"id": "packages/core/src/runtime/import-again.ts > import_again > next > catch:0~878965",
 			"reason": "browser only: a failed retry's import (an Error: not replayable): starts the wait for its verdict, constant work of its own; proven in packages/core/test/import-again.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/import-again.ts > import_again > next > catch:0~df975d > wait",
+			"id": "packages/core/src/runtime/import-again.ts > import_again > next > catch:0~878965 > wait",
 			"reason": "browser only: holds (or clears) the verdict on the loader's failed state (machine state: not replayable), one state move; proven in packages/core/test/import-again.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/import-again.ts > import_again > next > catch:0~df975d > then:0~ef5058",
+			"id": "packages/core/src/runtime/import-again.ts > import_again > next > catch:0~878965 > then:0~85ee5e",
 			"reason": "browser only: the retry's verdict once its timing entry lands (the loader's machine state: not replayable), one state move; proven in packages/core/test/import-again.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/import-again.ts > import_again > next > catch:0~df975d > then:0~ef5058 > once:1~b3964f",
+			"id": "packages/core/src/runtime/import-again.ts > import_again > next > catch:0~878965 > then:0~85ee5e > once:1~b3964f",
 			"reason": "browser only: says once per page that a reload is needed (a dependency's failure no URL fixes), constant work; proven in packages/core/test/import-again.test.ts"
 		},
 		{
@@ -4949,12 +4949,8 @@
 			"reason": "closes the bar's scope (its timers), constant work; proven in packages/devtools/test/profiler-fake-progress.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #teardown > note_left:1~6e248e",
-			"reason": "browser only, dev and e2e builds: the rule's reader of the element's busy machines, handed over at its teardown, constant work; proven in packages/core/test/browser/rules.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #machines",
-			"reason": "browser only, dev and e2e builds: reads the element's four machines' states for the rule on a region that left, constant work; proven in packages/core/test/browser/rules.test.ts and packages/core/test/browser/paint-left-mid-wait.test.ts"
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #teardown > note_left:1~de840c",
+			"reason": "browser only, dev and e2e builds: the rule's reader of the element's busy machines, handed over at its teardown: reads the element's four machines' states for the rule on a region that left, constant work; proven in packages/core/test/browser/rules.test.ts and packages/core/test/browser/paint-left-mid-wait.test.ts"
 		},
 		{
 			"id": "packages/core/src/runtime/rules.ts > note_left",
