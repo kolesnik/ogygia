@@ -86,7 +86,8 @@ describe('what each mode and leg is told', () => {
 		expect(build).toMatch(
 			/^export const HAS = \d+;\nexport const load_wire_codec = \(\) => import\(/
 		);
-		const frames = (flags: string) => (Number(/HAS = (\d+);/.exec(flags)![1]) & F_FRAMES) !== 0;
+		const frames = (flags: string | null) =>
+			(Number(/HAS = (\d+);/.exec(flags ?? '')![1]) & F_FRAMES) !== 0;
 		expect(frames(dev)).toBe(true);
 		expect(frames(build)).toBe(false);
 	});
