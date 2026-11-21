@@ -1,13 +1,12 @@
 import { expect, test } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import { life_of } from '@ogygia/machine/internal';
 import { scope } from '@ogygia/machine';
 import { arm_interaction } from '../../src/runtime/interaction.ts';
 import { critical_settled } from '../../src/runtime/load-scheduler.ts';
 
-const replay_requests = () =>
-	performance
-		.getEntriesByType('resource')
-		.filter((r) => r.name.includes('/src/runtime/interaction-replay.ts'));
+const downloads = new Downloads();
+const replay_requests = () => downloads.named('/src/runtime/interaction-replay.ts');
 
 const arm = (id: string) => {
 	document.body.innerHTML = `<ogygia-region id="${id}" wake="interaction" entry="/x.js"><button>go</button></ogygia-region>`;

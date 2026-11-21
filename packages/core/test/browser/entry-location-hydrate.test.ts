@@ -2,7 +2,8 @@
 // the stable name) and its location (`src`, the content-hashed file). The runtime must import the
 // location — the identity is only a key — and, when the location is gone (a page that outlived its
 // build), wake from the identity fetched fresh. The SSR HTML is the Counter island from setup.ts.
-import { expect, inject, onTestFinished, test } from 'vitest';
+import { expect, inject, test } from 'vitest';
+import { Downloads, timeline_full } from '@ogygia/tooling/vitest/downloads';
 import { from_b64 } from './b64.ts';
 import { page } from 'vitest/browser';
 import { bootDev } from '../../src/runtime/full.ts';
@@ -11,8 +12,8 @@ import { bootDev } from '../../src/runtime/full.ts';
 const COUNTER = '/test/browser/fixtures/immutable/og-region.000000000aa5.Cur.js';
 const HYDRATED = 'ogygia-region[data-hydrated]';
 const counter_html = () => from_b64(inject('counter_ssr_b64'));
-const requested = (part: string) =>
-	performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
+const downloads = new Downloads();
+const requested = (part: string) => downloads.named(part);
 
 /** The Counter island's SSR with its identity and location set as given. */
 function mount(entry: string, src: string | null) {
@@ -25,9 +26,7 @@ function mount(entry: string, src: string | null) {
 }
 
 test('the identity is only a key: a stale stable name that 404s, the island wakes from its location', async () => {
-	// @why a full resource timeline drops each new entry (the frame of a dev run that loads one module per source file fills its 250 before a test starts) (test: entry-location-hydrate › the identity is only a key: a stale stable name that 404s, the island wakes from its location)
-	performance.setResourceTimingBufferSize(performance.getEntriesByType('resource').length);
-	onTestFinished(() => performance.setResourceTimingBufferSize(250));
+	timeline_full();
 	mount('/test/browser/fixtures/ogygia/og-region.000000000aa5.js', COUNTER);
 	bootDev();
 	await expect

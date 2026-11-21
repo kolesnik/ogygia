@@ -5,6 +5,7 @@
 //
 // Its own file: the map is read once per document, and module state is shared by a file's tests.
 import { expect, test } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import { observe } from '@ogygia/machine';
 import {
 	entry_location,
@@ -15,8 +16,8 @@ import {
 
 const DIR = '/test/browser/fixtures/';
 const abs = (u: string) => new URL(u, location.href).href;
-const requested = (part: string) =>
-	performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
+const downloads = new Downloads();
+const requested = (part: string) => downloads.named(part);
 
 // the runtime's script, as the server writes it (server/document-tail.ts `runtime_bootstrap_tags`),
 // its map RELATIVE to the page (Kit's default `paths.relative`)

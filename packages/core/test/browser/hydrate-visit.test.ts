@@ -3,7 +3,8 @@
 // re-slots its children, a header that re-renders, a layout that moves a node. The old run is out
 // of its visit and must touch nothing of the new one: the island mounts ONCE, and the old run's
 // failure is not the new visit's (no failed state, no error said for it, no report).
-import { afterEach, beforeEach, expect, inject, onTestFinished, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, inject, test, vi } from 'vitest';
+import { Downloads, timeline_full } from '@ogygia/tooling/vitest/downloads';
 import { from_b64 } from './b64.ts';
 import { bootDev } from '../../src/runtime/full.ts';
 
@@ -13,17 +14,11 @@ const island = (entry: string) =>
 	from_b64(inject('counter_ssr_b64')).replace(/entry="[^"]*"/, `entry="${entry}"`);
 
 const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
+const downloads = new Downloads();
 
-/** The size a browser gives a page's resource timeline. */
-const RESOURCE_BUFFER = 250;
-
-beforeEach(() => {
-	// @why a full resource timeline drops each new entry (the frame of a dev run that loads one module per source file fills its 250 before a test starts) (test: hydrate-visit › a region put back while its island loads mounts it once)
-	performance.setResourceTimingBufferSize(performance.getEntriesByType('resource').length);
-});
+beforeEach(() => timeline_full());
 
 afterEach(() => {
-	performance.setResourceTimingBufferSize(RESOURCE_BUFFER);
 	vi.restoreAllMocks();
 	document.body.innerHTML = '';
 });
@@ -38,34 +33,12 @@ async function out_and_back(el: Element, while_out?: () => void): Promise<void> 
 	parent.insertBefore(el, spot);
 }
 
-/** The downloads the page makes from now until the test ends, each heard as it lands: an observer
- *  hears every one, the timeline full or not, and none from before. */
-class Downloads {
-	#names: string[] = [];
-	#observer = new PerformanceObserver((list) => {
-		for (const entry of list.getEntries()) this.#names.push(entry.name);
-	});
-
-	constructor() {
-		this.#observer.observe({ type: 'resource' });
-		onTestFinished(() => this.#observer.disconnect());
-	}
-
-	/** Its module is on its way: a download whose URL holds `name` landed. */
-	async loading(name: string): Promise<void> {
-		await expect
-			.poll(() => this.#names.some((n) => n.includes(name)), { timeout: 5_000 })
-			.toBe(true);
-	}
-}
-
 test('a region put back while its island loads mounts it once', async () => {
 	document.body.innerHTML = island(`${SLOW}?once`);
 	const el = document.querySelector<HTMLElement>('ogygia-region')!;
 	const ssr_button = el.querySelector('button')!;
 	let hydrated = 0;
 	el.addEventListener('ogygia:hydrated', () => hydrated++);
-	const downloads = new Downloads();
 	bootDev();
 	await downloads.loading('slow-entry.ts?import&once');
 	await out_and_back(el);
@@ -89,7 +62,6 @@ test('an old run’s failure leaves the new visit alone', async () => {
 	});
 	let hydrated = 0;
 	el.addEventListener('ogygia:hydrated', () => hydrated++);
-	const downloads = new Downloads();
 	bootDev();
 	await downloads.loading('slow-fail-entry.ts');
 	await out_and_back(el, () => el.setAttribute('entry', `${SLOW}?fresh`));

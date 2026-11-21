@@ -4,6 +4,7 @@
 // not mark the next answer a refresh; every schedule a region arms is disarmed when it leaves; and a
 // visitor's wake that failed is told so.
 import { afterEach, beforeEach, expect, inject, test, vi } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import { from_b64 } from './b64.ts';
 import { observe } from '@ogygia/machine';
 import { bootDev } from '../../src/runtime/full.ts';
@@ -17,10 +18,9 @@ const ep = (id: string, props = 'W3t9XQ') =>
 	`/__ogygia__?id=${id}&props=${props}&exp=9999999999&sig=stub`;
 
 const real_fetch = window.fetch;
+const downloads = new Downloads();
 beforeEach(() => {
 	document.body.innerHTML = '';
-	// @why the browser keeps 250 resource entries and drops the rest; a dev run loads each source module as one (test: hole-lifecycle › a region taken out while its island loads and put back wakes once, and stops catching clicks once awake)
-	performance.clearResourceTimings();
 });
 afterEach(() => {
 	window.fetch = real_fetch;
@@ -354,12 +354,7 @@ test('a region taken out while its island loads and put back wakes once, and sto
 	const el = document.querySelector<HTMLElement>('ogygia-region')!;
 	bootDev();
 	// its module is on its way (it takes 400 ms)
-	await expect
-		.poll(
-			() => performance.getEntriesByType('resource').some((r) => r.name.includes('slow-entry')),
-			{ timeout: 5_000 }
-		)
-		.toBe(true);
+	await downloads.loading('slow-entry');
 	el.remove();
 	await tick(10); // out past its task: torn down
 	document.body.append(el); // put back while the module still loads: it arms again

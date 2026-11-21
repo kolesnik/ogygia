@@ -2,6 +2,7 @@
 // an island's code at a low priority. When the visitor then needs it (it wakes on screen, or they
 // reach for it), the load it joins is raised to their priority, never left at the guess's.
 import { afterEach, beforeEach, expect, test } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import {
 	preload_island_graph,
 	reset_island_graph
@@ -22,8 +23,8 @@ const priorities = () =>
 	[...document.head.querySelectorAll(`link[${GRAPH_PRELOAD_ATTR}]`)].map(
 		(l) => l.getAttribute('fetchpriority') ?? 'auto'
 	);
-const requested = (part: string) =>
-	performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
+const downloads = new Downloads();
+const requested = (part: string) => downloads.named(part);
 
 let host: HTMLElement;
 beforeEach(() => {

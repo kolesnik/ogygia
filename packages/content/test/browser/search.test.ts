@@ -3,12 +3,14 @@
 // the sheet opening was the intent.
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import Search from '../../src/site/components/Search.svelte';
 import SearchBaseHost from './fixtures/SearchBaseHost.svelte';
 import type { SearchHit } from '../../src/site/search.ts';
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r(undefined)));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const downloads = new Downloads();
 
 async function until<T>(read: () => T | null | undefined): Promise<T> {
 	for (let i = 0; i < 200; i++) {
@@ -57,10 +59,7 @@ describe('Search', () => {
 			'/docs/search'
 		);
 		await sleep(300);
-		const loaded = performance
-			.getEntriesByType('resource')
-			.some((r) => r.name.includes('SearchPalette.svelte'));
-		expect(loaded).toBe(false);
+		expect(downloads.named('SearchPalette.svelte')).toHaveLength(0);
 	});
 
 	it('opens the palette on Ctrl+K', async () => {
