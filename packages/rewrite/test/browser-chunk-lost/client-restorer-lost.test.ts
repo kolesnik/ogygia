@@ -2,8 +2,13 @@
 // can (the error itself), the wait for the restorer settles instead of holding every answer, and an
 // answer goes in as it came.
 import { expect, test, vi } from 'vitest';
+import { server } from 'vitest/browser';
 import type { PageGlobals } from '@ogygia/core/plugin/client';
 import client from '../../src/client.ts';
+
+// @why WebKit's failed dynamic import names no file ("Importing a module script failed."); Chromium's and Firefox's name it (test: this file › a restorer that does not load is said)
+const SAID =
+	server.browser === 'webkit' ? /^TypeError: Importing a module script failed\.$/ : /restore\.ts/;
 
 test('a restorer that does not load is said, and the answers waiting for it go on', async () => {
 	const printed = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -16,7 +21,7 @@ test('a restorer that does not load is said, and the answers waiting for it go o
 	await wait;
 	await w.__og_restore_ready;
 	await vi.waitFor(() => expect(printed).toHaveBeenCalledTimes(1));
-	expect(String(printed.mock.calls[0][0])).toContain('restore.ts');
+	expect(String(printed.mock.calls[0][0])).toMatch(SAID);
 	expect(w.__og_restore).toBeUndefined();
 	expect(tpl.content.firstElementChild!.outerHTML).toBe('<p>as it came</p>');
 });
