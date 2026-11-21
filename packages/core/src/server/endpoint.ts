@@ -138,9 +138,6 @@ export const REGION_ID_RE: RegExp = /^[0-9a-f]{12}$/;
  */
 export const REGION_TTL_RE: RegExp = /^(|0|[1-9][0-9]{0,6})$/;
 
-// The per-request gates: every hole request runs them before its HMAC (the anchored patterns above
-// stay the documented shape). Digits are char loops; hex is its length, then one charset pattern.
-
 /** {@link REGION_ID_RE}: exactly 12 lowercase hex chars. */
 export function is_region_id(s: string): boolean {
 	return is_lower_hex(s, 12);

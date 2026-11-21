@@ -80,9 +80,6 @@ function normalize_route_id(id: string): string {
 	return `/${segs.join('/')}`;
 }
 
-/** In the browser: the booted runtime's answer, cached once per page (runtime/kit-boot.ts), else the
- *  document's own (a page no runtime booted on, or one an older runtime runs): its probe, or, in a
- *  build whose routes Kit hydrates none of, its server's csr meta alone. */
 function kit_hydrates_document(): boolean {
 	return kit_answer() ?? (KIT_PAGES ? KitBoot.document_has(document) : !!kit_meta_of(document));
 }

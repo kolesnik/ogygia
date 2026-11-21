@@ -46,11 +46,8 @@ const LAKE = $machine<{ open: {}; waited: {}; settling: {}; settled: {} }>()({
 });
 type LakeMachine = fsm.RunOf<typeof LAKE>;
 
-/** What one page visit keeps of its lakes. */
 type VisitLakes = {
-	/** Its lakes' cached server DOM, for an `{#if}` remount. */
 	readonly cache: Lru<string, LakeCacheEntry>;
-	/** The lake ids whose first connect on this page ran. */
 	readonly initialized: Set<string>;
 };
 
@@ -246,8 +243,6 @@ function remember(
 	});
 }
 
-/** Revalidates `el`'s lake on its schedule `when`; a schedule whose arm the build left out runs at
- *  once and says so. */
 function revalidate_on(el: HTMLElement, when: string, arm: LakeArm): void {
 	if (on_schedule(when, arm, arm.fetch_revalidate) === TRIGGER_MISSING) {
 		say_trigger(el, when, TRIGGER_MISSING);

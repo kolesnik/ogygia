@@ -302,7 +302,6 @@ function say_island_failed(entry: string | null, err: unknown): void {
 		console.error(new OgygiaError('island_hydrate_failed', { entry }), err);
 	}
 }
-/** A region needs a program its build's word left out (`HAS`): it keeps the server's HTML. */
 function say_program_missing(entry: string, program: 'hole' | 'live'): void {
 	console.error(new OgygiaError('region_program_missing', { entry, program }));
 }

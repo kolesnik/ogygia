@@ -38,7 +38,6 @@ export type BatchAnswer = { slot: string; html: string } | null;
 
 type BatchStates = { streaming: {}; ended: {}; cancelled: {} };
 const batch_steps = { streaming: ['ended', 'cancelled'], ended: [], cancelled: [] } as const;
-/** The batch's machine, made with the first batch: a server that streams none never makes it. */
 function batch_definition() {
 	return $machine<BatchStates>()({
 		name: 'batch stream',

@@ -6,8 +6,6 @@ import { runtime_session } from './session.ts';
 import { KIT_HYDRATES_KEY, KitBoot, kit_meta_of } from '../wire-markup.ts';
 import { OgygiaError } from '../messages/core.ts';
 
-/** Kit may hydrate a document the app serves (the build's define, from its routes: compiler kit.ts
- *  `kit_may_hydrate`); false only where the build proved every route csr=false. Unbuilt: true. */
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 const no_kit = (): boolean => false;
 

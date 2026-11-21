@@ -24,8 +24,6 @@ const HOOK_REGION_MOUNT: boolean =
 const HOOK_REGION_UNMOUNT: boolean =
 	typeof __OGYGIA_HOOK_REGION_UNMOUNT__ !== 'undefined' ? __OGYGIA_HOOK_REGION_UNMOUNT__ : true;
 
-/** What a live region's program keeps between its ticks: the frame it painted last, and whether
- *  its first HTML is in. Kept for the element's life, across its moves, as the element did. */
 class LiveState {
 	painted: FrameOrder | null = null;
 	ready = false;

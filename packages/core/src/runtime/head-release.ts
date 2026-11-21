@@ -4,6 +4,7 @@
  * through the boot link), so no boot carries this code.
  *
  * @internal
+ * @packageDocumentation
  */
 import { head_owners } from '../head-owners.ts';
 import { OG_OWNER } from '../wire-markup.ts';

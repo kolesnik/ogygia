@@ -154,7 +154,6 @@ export type NavOps = {
  */
 export type BootLink = [
 	kit_hydrates_page: typeof import('./kit-boot.ts').kit_hydrates_page,
-	/** does Kit hydrate a fetched document; without the kit-pages feature, its server's meta alone */
 	KitBoot: { document_has(doc: ParentNode): boolean },
 	ABSOLUTE_URL_SCHEME: RegExp,
 	register_island_graph: typeof import('./island-graph-preload.ts').register_island_graph,
@@ -171,8 +170,6 @@ export type BootLink = [
 	vouch_page_html: typeof import('./html-sink.ts').vouch_page_html,
 	runtime_session: typeof import('./session.ts').runtime_session,
 	regions_in_shadow: typeof import('./connected.ts').regions_in_shadow,
-	/** the head nodes the regions on the page use, and the islands they are: what a navigation's
-	 *  release of the head nodes its merge left keeps (./head-release.ts) */
 	sheets_in_use: typeof import('./region-sheets.ts').sheets_in_use,
 	yield_task: typeof import('./schedule.ts').yield_task,
 	/** the `regionHydrate` subscribers around Svelte's hydrate over server markup (./client-plugins.ts) */
@@ -205,8 +202,6 @@ export type BootLink = [
 	STALE: typeof import('@ogygia/machine').STALE,
 	/** the page's soft refresh (./soft-refresh.ts): `invalidateAll`, with the router or without it */
 	soft: import('./soft-refresh.ts').SoftRefresh,
-	/** a region's attributes as the hydrate core reads them (./region-attrs.ts); the truncation
-	 *  check is dev's alone (null in a production build) */
 	is_deferred: typeof import('./region-attrs.ts').is_deferred,
 	ours_on_kit_document: typeof import('./region-attrs.ts').ours_on_kit_document,
 	region_ssr_truncated: typeof import('./region-attrs.ts').region_ssr_truncated | null
