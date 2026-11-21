@@ -22,7 +22,10 @@ export const NAV_HANDLE_KEY: unique symbol = Symbol.for('ogygia.nav');
 const load_refresh = plainFlights({
 	name: 'soft refresh',
 	run: import_again(
-		() => import('./router-nav.ts').then(({ init, invalidate_all }) => linked({ init, invalidate_all })),
+		() =>
+			import('./router-nav.ts').then(({ init, invalidate_all }) =>
+				linked({ init, invalidate_all })
+			),
 		(url) =>
 			Promise.resolve()
 				.then(() => import_code<typeof import('./router-nav.ts')>(code_url_or_refuse(url)))

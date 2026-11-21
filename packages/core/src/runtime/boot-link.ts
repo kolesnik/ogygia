@@ -62,15 +62,9 @@ import { fetch_priority_of, PRIORITY } from './load-class.ts';
 import { load_devalue, devalue, with_devalue, needs_devalue } from './devalue-lane.ts';
 import { OgygiaError, warn } from '../messages/core.ts';
 import { wire_codec } from './wire-on-use.ts';
-import type { Life } from '@ogygia/machine';
-import type { FrameOrder } from '../frame.ts';
-import type { StoredFrame } from './frame-store.ts';
-import type { VerifiedHtml } from './html-sink.ts';
 
 type Lakes = typeof import('./lakes.ts');
 type Forms = typeof import('./form-continuity.ts');
-/** The frame store as its source types it (the virtual module's d.ts types it from dist, whose
- *  `VerifiedHtml` brand is another type). */
 type SourceFrames = typeof import('./frames.ts');
 
 export type BootLink = [
@@ -125,40 +119,21 @@ export type BootLink = [
 	is_deferred: typeof import('./region-attrs.ts').is_deferred,
 	ours_on_kit_document: typeof import('./region-attrs.ts').ours_on_kit_document,
 	region_ssr_truncated: typeof import('./region-attrs.ts').region_ssr_truncated | null,
-	/** the morph feature (./morph.ts): a live morph or the hydration repair, and its attribute sync */
 	morph: typeof import('./morph.ts').morph_children | null,
 	sync_attributes: typeof import('./morph.ts').sync_attributes | null,
-	/** the lakes feature (./lakes.ts): the lakes an island's hydrate adopts in place, and settling */
 	lake_hold: Lakes['hold'] | null,
 	lake_release: Lakes['release'] | null,
 	lake_settle_in: Lakes['settle_in'] | null,
-	/** form continuity (./form-continuity.ts), across a navigation */
 	forms_snapshot: Forms['snapshot_forms'] | null,
 	forms_restore: Forms['arm_form_restore'] | null,
-	/** the client frame store (./frames.ts), as the live program and the navigation reach it */
-	frames_subscribe: ((a: string, cb: (f: StoredFrame) => void) => () => void) | null,
-	/** The frame applied at an address, if any. */
-	frames_peek: ((a: string) => (FrameOrder & { html: VerifiedHtml }) | null) | null,
-	/** The next request ticket: where an answer arriving now stands at the address. */
-	frames_ticket: ((a: string) => number) | null,
-	/**
-	 * SINGLE-FLIGHT NAVIGATION: batch a page's signed deferred endpoints into the store as one
-	 * streamed response. On the link (not a static router import) so an app with `router` but no
-	 * deferred/live/lake region (no `frames` feature) never bundles the frame store; without it no
-	 * `render="defer"` hole needs batching. `visit`: the scope of the page the holes are for
-	 * (./session.ts `PageVisit`); the batch stops when it ends. Grouped as the page's first holes are
-	 * (frame-nav.ts `send_batches`, #987), naming `page`, the page they are for, as their referrer
-	 * (#995).
-	 */
-	frames_stream: ((endpoints: string[], visit: Life, page: string) => Promise<unknown>) | null,
-	/** the router feature is in this runtime (`1`), so a page seed is the router's to keep (./seeds.ts) */
-	router: 0 | 1,
-	/** the router's history and scroll helpers for its navigation chunk (./router.ts, ./fragment.ts) */
+	frames_subscribe: SourceFrames['subscribe'] | null,
+	frames_peek: SourceFrames['peek'] | null,
+	frames_ticket: SourceFrames['ticket'] | null,
+	frames_stream: SourceFrames['stream'] | null,
+	router_on: 0 | 1,
 	jump_to_hash: typeof import('./router.ts').jump_to_hash | null,
 	fragment_target: typeof import('./fragment.ts').fragment_target | null,
-	/** interaction's address resolver for its replay chunk (./interaction.ts) */
 	resolve_address: typeof import('./interaction.ts').resolve_address | null,
-	/** the wire codec the boot loaded on use, once installed (./wire-on-use.ts) */
 	wire_codec: typeof import('./wire-on-use.ts').wire_codec
 ];
 

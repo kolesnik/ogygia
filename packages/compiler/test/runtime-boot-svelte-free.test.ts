@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { dedent } from '@ogygia/core/contract';
 import {
 	FEATURES,
 	generateHydrateFeaturesSource,
@@ -255,7 +256,10 @@ describe('the compiler splits features into two static phases', () => {
 		expect(plain.code).toContain('export const page_on = false;');
 		const no_remote = generateRemoteSeedsSource({ complete: true, remoteSeeds: false }, '/rt');
 		expect(no_remote).toBe(
-			'export const remote_seeds = null;\nexport const remote_seeds_on = false;\n'
+			`${dedent`
+			export const remote_seeds = null;
+			export const remote_seeds_on = false;
+		`}\n`
 		);
 	});
 });

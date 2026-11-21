@@ -247,7 +247,12 @@ export const remote_seeds: Family<RemoteSeedsModule> = virtual.family({
 		const { ctx, program } = app;
 		if (!ctx.is_build) {
 			const rt = dev_runtime_of(ctx.runtime_dir);
-			return generateRemoteSeedsSource({}, rt?.dir ?? ctx.runtime_dir, true, rt?.ts ? '.ts' : '.js');
+			return generateRemoteSeedsSource(
+				{},
+				rt?.dir ?? ctx.runtime_dir,
+				true,
+				rt?.ts ? '.ts' : '.js'
+			);
 		}
 		app.prescan();
 		return generateRemoteSeedsSource(program.runtime_marks, ctx.runtime_dir);

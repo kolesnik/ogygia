@@ -9,7 +9,11 @@ import { bootDev } from '../../src/runtime/full.ts';
 import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
 import { F_LAKES } from '../../src/contract/features.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { L_LAKE_HOLD, L_LAKE_RELEASE, L_LAKE_SETTLE_IN } from '../../src/runtime/boot-link-index.ts';
+import {
+	L_LAKE_HOLD,
+	L_LAKE_RELEASE,
+	L_LAKE_SETTLE_IN
+} from '../../src/runtime/boot-link-index.ts';
 import { errors_during } from './_logged-errors.ts';
 
 const ALL = HAS;

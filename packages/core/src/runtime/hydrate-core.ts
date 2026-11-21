@@ -58,8 +58,6 @@ import {
 
 export { init } from './lazy-link.ts';
 
-/** The hydrate-phase features as their source types them (the virtual module's d.ts types them from
- *  dist, whose brands are other types). */
 type SourceLive = typeof import('./live.ts');
 type WireCodec = { resolve(ref: never, remember: boolean): unknown };
 
@@ -800,7 +798,9 @@ export function hydrate_live(
 			const options = provided_ctx ? { context: provided_ctx } : undefined;
 			out = foreign_hydrate_call(region, entry, mod, props, true, options);
 		} else {
-			const pushed = new (live as unknown as SourceLive).PushableProps(prop_guard.wrap(props, entry));
+			const pushed = new (live as unknown as SourceLive).PushableProps(
+				prop_guard.wrap(props, entry)
+			);
 			const app = hydrate(mod.default, {
 				target: region,
 				props: pushed.props,

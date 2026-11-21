@@ -15,7 +15,14 @@ export function install(): void {
 	adopt_early_holes(runtime_session.visit.scope);
 }
 
-/** A navigation's batch of the page's deferred endpoints (./boot-link.ts `frames_stream`). */
+/**
+ * SINGLE-FLIGHT NAVIGATION: batch a page's signed deferred endpoints into the store as one streamed
+ * response (the navigation reaches it on the boot's link, ./boot-link.ts `frames_stream`, so an app
+ * with `router` but no deferred/live/lake region never bundles the frame store). `visit`: the scope
+ * of the page the holes are for (./session.ts `PageVisit`); the batch stops when it ends. Grouped as
+ * the page's first holes are (frame-nav.ts `send_batches`, #987), naming `page`, the page they are
+ * for, as their referrer (#995).
+ */
 export function stream(endpoints: string[], visit: Life, page: string): Promise<unknown> {
 	return send_batches(endpoints, 'nav', visit, page);
 }

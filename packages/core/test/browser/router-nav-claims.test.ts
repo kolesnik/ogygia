@@ -809,7 +809,9 @@ test('form continuity: the page left is read before the swap, the next page is g
 	const link = link_boot();
 	const forms = [link[L_FORMS_SNAPSHOT], link[L_FORMS_RESTORE]] as const;
 	link[L_FORMS_SNAPSHOT] = (root, key) =>
-		void calls.push(`snapshot ${key} ${(root as Element).querySelector('#next') ? 'next' : 'first'}`);
+		void calls.push(
+			`snapshot ${key} ${(root as Element).querySelector('#next') ? 'next' : 'first'}`
+		);
 	link[L_FORMS_RESTORE] = (key) =>
 		void calls.push(`restore ${key} ${document.getElementById('next') ? 'next' : 'first'}`);
 	history.replaceState(null, '', '/rn-forms-left');

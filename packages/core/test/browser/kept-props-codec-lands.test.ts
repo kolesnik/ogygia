@@ -12,7 +12,7 @@ vi.mock('../_stubs/boot.hydrate-features.ts', async (real: () => Promise<object>
 }));
 // the moment the codec installs (its on-use load, ogygia:boot/runtime-flags `load_wire_codec`), which
 // the test takes to bring newer props in
-const installing = vi.hoisted(() => ({ then: null as (() => void) | null }));
+const installing = vi.hoisted(() => ({ hook: null as (() => void) | null }));
 vi.mock('../_stubs/boot.runtime-flags.ts', async (real: () => Promise<object>) => ({
 	...(await real()),
 	load_wire_codec: () =>
@@ -20,7 +20,7 @@ vi.mock('../_stubs/boot.runtime-flags.ts', async (real: () => Promise<object>) =
 			...codec,
 			install(): void {
 				codec.install();
-				installing.then?.();
+				installing.hook?.();
 			}
 		}))
 }));
@@ -52,7 +52,7 @@ test('a kept island’s newer props that arrive as the wire codec installs win o
 		.toBe(true);
 	const live = document.querySelector('ogygia-region') as Kept;
 	const newer = twin_of(kept(body, { text: 'newer' }));
-	installing.then = () => live.absorbKeptProps(newer);
+	installing.hook = () => live.absorbKeptProps(newer);
 
 	live.absorbKeptProps(twin_of(kept(body, { text: 'older', extra: writable(7) })));
 	await expect.poll(() => wire_codec(), { timeout: 10_000 }).toBeTruthy();

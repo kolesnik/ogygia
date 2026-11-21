@@ -2565,10 +2565,16 @@
 			"name": "falls back to a macrotask when postTask throws (older invalid-priority impl)"
 		},
 		{
-			"site": "packages/core/src/runtime/slots.ts > linked > throw:0",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/core/test/slots-linked.test.ts",
-			"name": "a lazy chunk that runs before its boot linked it says so loudly, by its code and the link"
+			"site": "packages/core/src/runtime/lazy-link.ts > boot_link > throw:0",
+			"reason": "a test reaches its recovery path; the throw removed turns the test red",
+			"test": "packages/core/test/lazy-link.test.ts",
+			"name": "a lazy chunk that runs before the boot handed it its link says so loudly, by its code and the link"
+		},
+		{
+			"site": "packages/core/src/runtime/reconcile.ts > morph_sync_attributes > throw:0",
+			"reason": "a test reaches its recovery path; the throw removed turns the test red",
+			"test": "packages/core/test/lazy-link.test.ts",
+			"name": "a navigation that needs morph’s attribute sync in a build without morph says so loudly"
 		},
 		{
 			"site": "packages/core/src/script.ts > script > throw:1",

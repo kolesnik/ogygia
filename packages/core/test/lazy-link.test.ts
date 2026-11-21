@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { boot_link, boot_link_or_null, init } from '../src/runtime/lazy-link.ts';
+import { L_SYNC_ATTRIBUTES } from '../src/runtime/boot-link-index.ts';
+import { morph_sync_attributes } from '../src/runtime/reconcile.ts';
 
 it('a lazy chunk that runs before the boot handed it its link says so loudly, by its code and the link', () => {
 	// (this file's module graph: no boot handed it a link)
@@ -13,6 +15,18 @@ it('the lazy link holds what the boot hands it, the same list', () => {
 	init(link);
 	expect(boot_link()).toBe(link);
 	expect(boot_link_or_null()).toBe(link);
+});
+
+it('a navigation that needs morph’s attribute sync in a build without morph says so loudly', () => {
+	const link: unknown[] = [];
+	link[L_SYNC_ATTRIBUTES] = null;
+	init(link as unknown as Parameters<typeof init>[0]);
+	expect(() => morph_sync_attributes()).toThrow(
+		'[ogygia] https://ogygiajs.dev/e/slot_not_linked?name=sync_attributes'
+	);
+	const sync = () => {};
+	link[L_SYNC_ATTRIBUTES] = sync;
+	expect(morph_sync_attributes()).toBe(sync);
 });
 
 it('the lazy link imports no value: every lazy chunk and island code reach it', () => {

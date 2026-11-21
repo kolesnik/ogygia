@@ -1,7 +1,7 @@
 // Morph unit tests. Runs in vitest's `node` env against a tiny DOM shim (`./_stubs/dom.ts`) — the
 // repo ships no jsdom/happy-dom on purpose. The shim import MUST come first: it installs
 // `globalThis.Node` / `globalThis.document`, which `morph.ts` reads at module load.
-import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { document, el, frag, DomElement, NS_SVG, type DomNode } from './_stubs/dom.ts';
 import {
 	morph_children as dom_morph_children,

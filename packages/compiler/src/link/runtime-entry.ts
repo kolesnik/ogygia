@@ -286,10 +286,6 @@ export const HYDRATE_CODE: readonly FeatureId[] = FEATURE_ORDER.filter(
 	(id) => FEATURES[id].phase === 'hydrate' && id !== 'remote-seeds'
 );
 
-/** `ids`' modules, each as a namespace where the build selects the feature, else `null` (a hyphen
- *  in an id is an underscore in its name). `on`: each also as a boolean, `<name>_on`, which code
- *  outside the boot tests in place of `HAS` (a namespace tested as a value would be built as an
- *  object; a boolean is inlined into every chunk that reads it). */
 function feature_modules(
 	ids: readonly FeatureId[],
 	marks: RuntimeMarks,
@@ -314,9 +310,11 @@ function feature_modules(
 
 /**
  * Emit the HYDRATE-phase feature module (`ogygia:boot/hydrate-features`): {@link HYDRATE_CODE}'s
- * modules, each `null` where the build leaves the feature out. The hydrate core imports it
- * statically, so these features ride its one existing `import()`, sized by the same marks as the
- * boot. `all` (dev / no marks): every one.
+ * modules, each `null` where the build leaves the feature out (a hyphen in an id is an underscore
+ * in its name), and each as a boolean, `<name>_on`, which the hydrate core tests in place of `HAS`
+ * (a namespace tested as a value is built as an object; a boolean is inlined into every chunk that
+ * reads it). The hydrate core imports it statically, so these features ride its one existing
+ * `import()`, sized by the same marks as the boot. `all` (dev / no marks): every one.
  * @param runtimeDir Absolute directory containing the feature modules.
  * @param ext the modules' extension (`.ts` where the dev server serves core's source)
  */

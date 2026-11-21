@@ -1402,8 +1402,6 @@ class OgygiaRegion extends HTMLElement {
 		return core.apply_live?.(this, desc, turn, live);
 	}
 
-	/** What the hydrate core's wakes and the live program reach of the element (made on first need,
-	 *  then the same record): handed in with each call. */
 	static #wake_given: WakeLink | null = null;
 	static #live_given: LiveLink | null = null;
 

@@ -24,10 +24,14 @@ type Features = {
 };
 
 /** TEST: the hydrate core reads `value` for feature `name` from here on; `null`: a build without it. */
-export function set_hydrate_feature<K extends keyof Features>(name: K, value: Features[K] | null): void {
+export function set_hydrate_feature<K extends keyof Features>(
+	name: K,
+	value: Features[K] | null
+): void {
 	const on = value !== null;
 	if (name === 'page') [page, page_on] = [(value as typeof seeds) ?? seeds, on];
-	else if (name === 'wire') [wire, wire_on] = [(value as typeof live_transport) ?? live_transport, on];
+	else if (name === 'wire')
+		[wire, wire_on] = [(value as typeof live_transport) ?? live_transport, on];
 	else if (name === 'live') [live, live_on] = [(value as typeof live_feature) ?? live_feature, on];
 	else [context, context_on] = [(value as typeof context_feature) ?? context_feature, on];
 }
