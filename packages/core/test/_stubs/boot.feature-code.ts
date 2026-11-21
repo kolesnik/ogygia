@@ -4,3 +4,4 @@
 // the bit, as the build does.
 export * as lakes from '../../src/runtime/lakes.ts';
 export * as frames from '../../src/runtime/frames.ts';
+export * as live_load from '../../src/runtime/live-load.ts';

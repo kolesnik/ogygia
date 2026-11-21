@@ -42,7 +42,7 @@ export const PROGRAMS: readonly Program[] = [
 	},
 	// the region element's hole program: fetch, apply, revalidate, retry (its revalidated mark)
 	{ name: 'hole program', feature: 'frames', modules: [], strings: ['data-revalidated'] },
-	// the live program, a held region's ticks: the live feature's, in the hydrate core
+	// the live program, a held region's ticks: the live feature's, its own lazy chunk (a first tick's)
 	{
 		name: 'live program',
 		feature: 'live',
