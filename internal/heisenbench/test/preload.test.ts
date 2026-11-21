@@ -73,6 +73,18 @@ test("each bench file of a run loads in Node's own world: a browser an earlier f
 	assert.match(said, /^ok\s+a later file loads in Node's own world/m);
 });
 
+test('a bench file that joins a process slot as it loads counts the same on every run', () => {
+	const said = bench_run(['world-slot.bench.ts']);
+	assert.doesNotMatch(said, /UNSTABLE|FAILED/);
+	assert.match(said, /^ok\s+a slot joined at load holds this copy alone/m);
+	const owners = fileURLToPath(
+		new URL('../../../packages/federation/bench/owners.bench.ts', import.meta.url)
+	);
+	const thaw = bench_run([owners], '--filter', 'federation deploy thaw: checks');
+	assert.doesNotMatch(thaw, /UNSTABLE|FAILED/);
+	assert.match(thaw, /^ok\s+federation deploy thaw: checks/m);
+});
+
 test("core's bench cases that hear the page's downloads count the same on every run", () => {
 	const runtime = fileURLToPath(
 		new URL('../../../packages/core/bench/runtime.bench.ts', import.meta.url)
