@@ -117,13 +117,18 @@ function files(dir: string): string[] {
 
 /**
  * Every machine the packages define, by name, read from their source: `machine<S>()({ ... })`,
- * core's `$machine<S>()({ ... })` and the runtime's `definition<S>()({ ... })` with a literal name,
+ * core's `$machine<S>()({ ... })` and the runtime's `runDefinition<S>()({ ... })` (`definition` inside the machine package) with a literal name,
  * and each `flights({ name })` (its entries' steps, from flights' own `ENTRY_STEPS`).
  */
 /** The calls a machine definition is made by. */
-const DEFINERS: ReadonlySet<string> = new Set(['machine', '$machine', 'definition']);
+const DEFINERS: ReadonlySet<string> = new Set([
+	'machine',
+	'$machine',
+	'definition',
+	'runDefinition'
+]);
 /** What makes a flights: the public maker, and the runtime's plain one (no world or weigh). */
-const FLIGHTS_MAKERS: ReadonlySet<string> = new Set(['flights', 'plain_flights']);
+const FLIGHTS_MAKERS: ReadonlySet<string> = new Set(['flights', 'plainFlights']);
 
 export function universe(root: string): Map<string, MachineDef> {
 	const out = new Map<string, MachineDef>();
@@ -143,7 +148,9 @@ export function universe(root: string): Map<string, MachineDef> {
 			if (
 				!source.includes('machine<') &&
 				!source.includes('definition<') &&
-				!source.includes('flights')
+				!source.includes('Definition<') &&
+				!source.includes('flights') &&
+				!source.includes('Flights')
 			)
 				continue;
 			const ast = parseAst(source, { lang: 'ts' }) as unknown as Node;
@@ -204,7 +211,7 @@ export function universe(root: string): Map<string, MachineDef> {
 					return;
 				}
 				// flights({ name }), flights.keyed<I>()({ name }), link().flights.keyed<I>()({ name }),
-				// plain_flights({ name }), plain_flights.keyed<I>()({ name }) (@ogygia/machine/internal)
+				// plainFlights({ name }), plainFlights.keyed<I>()({ name })
 				const names_flights = (n: unknown): boolean =>
 					(is(n, 'Identifier') && FLIGHTS_MAKERS.has(n.name as string)) ||
 					(is(n, 'MemberExpression') &&

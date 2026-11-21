@@ -1,13 +1,13 @@
 /**
  * `$machine`: a definition read and checked at build. A production build carries it as data
- * (`compiled`), dev and rules builds keep `define`; the two drive the same, move for move.
+ * (`compiledRunDef`), dev and rules builds keep `runDef`; the two drive the same, move for move.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { STALE } from '@ogygia/machine';
-import * as rt from '@ogygia/machine/internal';
+import * as rt from '@ogygia/machine';
 import { rolldown } from 'rolldown';
 import { describe, expect, test } from 'vitest';
 import { ogygia_macros } from '../src/plugin.ts';
@@ -45,11 +45,11 @@ const HOLE = [
 describe('the output', () => {
 	test('production reads the definition as data; dev and rules builds run define on it', () => {
 		const code = out(...HOLE)!;
-		expect(code).toContain("import { define, compiled } from '@ogygia/machine/internal'");
+		expect(code).toContain("import { runDef, compiledRunDef } from '@ogygia/machine'");
 		expect(code).toContain(
-			`compiled("hole", ["idle","armed","fetching","retrying","failed"], 0, [6, 5, 25, 7, 7], [[3, WAIT, 2], [4, (s) => 10, 0]])`
+			`compiledRunDef("hole", ["idle","armed","fetching","retrying","failed"], 0, [6, 5, 25, 7, 7], [[3, WAIT, 2], [4, (s) => 10, 0]])`
 		);
-		expect(code).toMatch(/\(RULES\w* \? define\(\{/);
+		expect(code).toMatch(/\(RULES\w* \? runDef\(\{/);
 	});
 
 	test('the data is define’s own: names, initial, masks and timeouts alike', () => {
@@ -65,8 +65,8 @@ describe('the output', () => {
 			},
 			after: { retrying: { ms: 250, to: 'fetching' } }
 		};
-		const read = rt.define(config);
-		const made = rt.compiled(
+		const read = rt.runDef(config);
+		const made = rt.compiledRunDef(
 			'hole',
 			['idle', 'armed', 'fetching', 'retrying', 'failed'],
 			0,
@@ -96,11 +96,11 @@ describe('the output', () => {
 			...rows,
 			`} });`
 		)!;
-		const masks = /compiled\("m", \[[^\]]*\], 0, \[([^\]]*)\]\)/
+		const masks = /compiledRunDef\("m", \[[^\]]*\], 0, \[([^\]]*)\]\)/
 			.exec(code)![1]!
 			.split(', ')
 			.map(Number);
-		const read = rt.define({
+		const read = rt.runDef({
 			name: 'm',
 			initial: 's0',
 			steps: Object.fromEntries(names.map((n, i) => [n, tos(i)]))
@@ -146,9 +146,9 @@ describe('reference and compiled drive the same', () => {
 		const dir = mkdtempSync(join(fileURLToPath(new URL('.', import.meta.url)), '.run-'));
 		try {
 			const code = out(
-				`import * as rt from '@ogygia/machine/internal';`,
+				`import * as rt from '@ogygia/machine';`,
 				...HOLE.map((r) => r.replace('$machine<S>()', '$machine<any>()')),
-				`export const reference = rt.define({ name: 'hole', initial: 'idle', steps, after: { retrying: { ms: WAIT, to: 'fetching' }, failed: { ms: (s) => 10, to: 'idle' } } });`
+				`export const reference = rt.runDef({ name: 'hole', initial: 'idle', steps, after: { retrying: { ms: WAIT, to: 'fetching' }, failed: { ms: (s) => 10, to: 'idle' } } });`
 			)!;
 			const file = join(dir, 'm.mjs');
 			// (the prod branch: the build's own data)
@@ -157,14 +157,14 @@ describe('reference and compiled drive the same', () => {
 				stripTypeScriptTypes(code.replace(/\(RULES\w* \?/, '(false ?'), { mode: 'strip' })
 			);
 			const { hole: compiled_def, reference } = (await import(pathToFileURL(file).href)) as {
-				hole: rt.Def;
-				reference: rt.Def;
+				hole: rt.RunDef;
+				reference: rt.RunDef;
 			};
 			const all = ['idle', 'armed', 'fetching', 'retrying', 'failed', 'gone'];
 			let seed = 7;
 			const next = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) % all.length;
 			for (let run = 0; run < 50; run++) {
-				const make = rt.create as unknown as (def: rt.Def) => rt.Run;
+				const make = rt.createRun as unknown as (def: rt.RunDef) => rt.Run;
 				const a = make(compiled_def);
 				const b = make(reference);
 				const waits: Promise<unknown>[][] = [[], []];

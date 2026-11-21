@@ -1,13 +1,12 @@
 /**
- * Option bags checked at build. A call of `flights`, `flights.keyed<I>()`, `cache`, `queue`, `say`
- * or `policy` imported from `@ogygia/machine` (or `plain_flights`, `pass_queue`, `plain_queue` or
- * `lru` from `@ogygia/machine/internal`) whose options the build can read is checked here by the
- * machine's own
- * checks (`check_*` of `@ogygia/machine/internal`, the ones the public makers run), so a bad option
- * fails the build with the code it would throw at runtime (`machine_bad_option`). The call then
- * makes its value without checking again:
+ * Option bags checked at build. A call of `flights`, `flights.keyed<I>()`, `cache`, `queue`, `say`,
+ * `policy`, `plainFlights`, `passQueue`, `plainQueue` or `lru` imported from `@ogygia/machine`
+ * whose options the build can read is checked here by the machine's own checks (`checkFlights`,
+ * `checkQueue` and the rest: the ones the makers run), so a bad option fails the build with the
+ * code it would throw at runtime (`machine_bad_option`). The call then makes its value without
+ * checking again:
  *
- *   flights({ name: 'x', run })        →  trusted_flights({ name: 'x', run })
+ *   flights({ name: 'x', run })        →  trustedFlights({ name: 'x', run })
  *   policy({ attempts: 2, backoff: 0 }) →  the policy itself, as frozen data
  *
  * so production ships no option checks for ogygia's own calls. The build reads literals, a module's
@@ -20,52 +19,41 @@
 import { code, parseSync, type N, type Pass, type Visit } from 'ogygia-internal-compilerkit';
 import { fileCache, relativeImports } from 'ogygia-internal-compilerkit/modules';
 import type { Scope } from 'periscopic';
-import { policy, MachineError, type Policy } from '@ogygia/machine';
 import {
-	check_cache,
-	check_flights,
-	check_plain_flights,
-	check_plain_queue,
-	check_queue,
-	check_say
-} from '@ogygia/machine/internal';
+	checkCache,
+	checkFlights,
+	checkPlainFlights,
+	checkPlainQueue,
+	checkQueue,
+	checkSay,
+	policy,
+	MachineError,
+	type Policy
+} from '@ogygia/machine';
 import type { Compiler } from './compiler.ts';
 
-/** Where the unchecked makers live. */
-export const TRUSTED_RUNTIME = '@ogygia/machine/internal';
+/** Where the makers and their unchecked halves live. */
+export const RUNTIME = '@ogygia/machine';
 
 /** The makers whose options the build checks, by their name in `@ogygia/machine`. */
 const MAKERS: ReadonlyMap<string, { check: (o: never) => void; trusted: string | null }> = new Map<
 	string,
 	{ check: (o: never) => void; trusted: string | null }
 >([
-	['flights', { check: (o: never) => check_flights(o), trusted: 'trusted_flights' }],
-	['flights.keyed', { check: (o: never) => check_flights(o, true), trusted: 'trusted_flights' }],
-	['cache', { check: (o: never) => check_cache(o), trusted: 'trusted_cache' }],
-	['queue', { check: (o: never) => check_queue(o), trusted: 'trusted_queue' }],
-	['say', { check: (o: never) => check_say(o), trusted: 'trusted_say' }],
+	['flights', { check: (o: never) => checkFlights(o), trusted: 'trustedFlights' }],
+	['flights.keyed', { check: (o: never) => checkFlights(o, true), trusted: 'trustedFlights' }],
+	['cache', { check: (o: never) => checkCache(o), trusted: 'trustedCache' }],
+	['queue', { check: (o: never) => checkQueue(o), trusted: 'trustedQueue' }],
+	['say', { check: (o: never) => checkSay(o), trusted: 'trustedSay' }],
 	['policy', { check: (o: never) => void policy(o), trusted: null }],
-	// the runtime's lean makers (`@ogygia/machine/internal`): the same checks, the lean trusted maker
+	['plainFlights', { check: (o: never) => checkPlainFlights(o), trusted: 'trustedPlainFlights' }],
 	[
-		'plain_flights',
-		{ check: (o: never) => check_plain_flights(o), trusted: 'trusted_plain_flights' }
+		'plainFlights.keyed',
+		{ check: (o: never) => checkPlainFlights(o, true), trusted: 'trustedPlainFlights' }
 	],
-	[
-		'plain_flights.keyed',
-		{ check: (o: never) => check_plain_flights(o, true), trusted: 'trusted_plain_flights' }
-	],
-	['pass_queue', { check: (o: never) => check_queue(o), trusted: 'trusted_pass_queue' }],
-	['plain_queue', { check: (o: never) => check_plain_queue(o), trusted: 'trusted_plain_queue' }],
-	['lru', { check: (o: never) => check_cache(o), trusted: 'trusted_lru' }]
-]);
-
-/** The makers of `@ogygia/machine/internal` the build checks (the rest of MAKERS are
- *  `@ogygia/machine`'s). */
-const INTERNAL_MAKERS: ReadonlySet<string> = new Set([
-	'plain_flights',
-	'pass_queue',
-	'plain_queue',
-	'lru'
+	['passQueue', { check: (o: never) => checkQueue(o), trusted: 'trustedPassQueue' }],
+	['plainQueue', { check: (o: never) => checkPlainQueue(o), trusted: 'trustedPlainQueue' }],
+	['lru', { check: (o: never) => checkCache(o), trusted: 'trustedLru' }]
 ]);
 
 /** Options whose check is their type alone (a function; a policy): one the build cannot read takes
@@ -80,9 +68,8 @@ const TYPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
 /** Whether `code` may call a maker the build checks (so the file is compiled). */
 export function calls_makers(code: string): boolean {
 	return (
-		(code.includes("'@ogygia/machine'") && /\b(?:flights|cache|queue|say|policy)\b/.test(code)) ||
-		(code.includes("'@ogygia/machine/internal'") &&
-			/\b(?:plain_flights|pass_queue|plain_queue|lru)\b/.test(code))
+		code.includes("'@ogygia/machine'") &&
+		/\b(?:flights|cache|queue|say|policy|plainFlights|passQueue|plainQueue|lru)\b/.test(code)
 	);
 }
 
@@ -111,12 +98,11 @@ export class OptionsPass implements Pass<Scope> {
 		for (const statement of this.#c.program.body as Array<N>) {
 			if (statement.type !== 'ImportDeclaration' || statement.importKind === 'type') continue;
 			const from = statement.source.value;
-			if (from !== '@ogygia/machine' && from !== TRUSTED_RUNTIME) continue;
+			if (from !== RUNTIME) continue;
 			for (const s of statement.specifiers as Array<N>) {
 				if (s.type !== 'ImportSpecifier' || s.importKind === 'type') continue;
 				const name = s.imported.name ?? s.imported.value;
-				if (MAKERS.has(name) && INTERNAL_MAKERS.has(name) === (from === TRUSTED_RUNTIME))
-					this.#imports.set(s.local.name, name);
+				if (MAKERS.has(name)) this.#imports.set(s.local.name, name);
 			}
 		}
 	}
@@ -150,7 +136,7 @@ export class OptionsPass implements Pass<Scope> {
 			e.rewrite(node, code`${policy_data(policy(options as Partial<Policy>))}`);
 			return true;
 		}
-		e.rewrite(node.callee, code`${e.imported(TRUSTED_RUNTIME, maker.trusted!)}`);
+		e.rewrite(node.callee, code`${e.imported(RUNTIME, maker.trusted!)}`);
 		v.next();
 		return true;
 	}
@@ -171,7 +157,7 @@ export class OptionsPass implements Pass<Scope> {
 		const of = keyed.object;
 		if (of?.type === 'Identifier') {
 			const maker = this.#imports.get(of.name);
-			if ((maker !== 'flights' && maker !== 'plain_flights') || scope.find_owner(of.name) !== top)
+			if ((maker !== 'flights' && maker !== 'plainFlights') || scope.find_owner(of.name) !== top)
 				return null;
 			return `${maker}.keyed`;
 		}

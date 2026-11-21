@@ -16,7 +16,7 @@ const RUN_TIMEOUT = 'region render timeout';
 const WAIT_TIMEOUT = 'region render queue timeout';
 
 export class ConcurrencyGate {
-	/** The slots (@ogygia/machine/internal `plain_queue()`, first come first served): a freed slot
+	/** The slots (@ogygia/machine `plainQueue()`, first come first served): a freed slot
 	 *  is handed to the next call in the same step, and a call whose deadline came is passed over. */
 	readonly #slots: Queue<Waiter>;
 	readonly #limit: number;

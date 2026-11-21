@@ -639,7 +639,7 @@ export function check_plain_flights(o: AnyFlightsOptions, keyed = false): void {
 	)
 		throw bad_option(
 			'world, weigh, touches or a key of two fields',
-			'given to plain_flights()',
+			'given to plainFlights()',
 			'given to flights() only'
 		);
 }

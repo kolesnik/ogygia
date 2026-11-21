@@ -631,7 +631,7 @@ export function check_plain_queue<J>(options: QueueOptions<J>): void {
 		throw machine_error('machine_bad_option', {
 			option: 'max',
 			value: 'missing',
-			rule: 'given to plain_queue(), a bounded line'
+			rule: 'given to plainQueue(), a bounded line'
 		});
 	if (
 		options.priority !== undefined ||
@@ -641,8 +641,8 @@ export function check_plain_queue<J>(options: QueueOptions<J>): void {
 	)
 		throw machine_error('machine_bad_option', {
 			option: 'priority, ready, windows or budget',
-			value: 'given to plain_queue()',
-			rule: 'given to queue() or pass_queue() only'
+			value: 'given to plainQueue()',
+			rule: 'given to queue() or passQueue() only'
 		});
 }
 

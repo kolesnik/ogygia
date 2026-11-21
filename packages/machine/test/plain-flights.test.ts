@@ -10,9 +10,9 @@ function held() {
 	return { runs, run };
 }
 
-describe('plain_flights: flights() with no world, weigh, touches or key of two fields', () => {
+describe('plainFlights: flights() with no world, weigh, touches or key of two fields', () => {
 	for (const [label, make] of [
-		['plain_flights', plainFlights],
+		['plainFlights', plainFlights],
 		['flights', flights as unknown as typeof plainFlights]
 	] as const)
 		it(`${label}: one key's callers share a run, keep its answer, and a drop ends it`, async () => {
@@ -33,7 +33,7 @@ describe('plain_flights: flights() with no world, weigh, touches or key of two f
 		});
 
 	for (const [label, make] of [
-		['plain_flights', plainFlights],
+		['plainFlights', plainFlights],
 		['flights', flights as unknown as typeof plainFlights]
 	] as const)
 		it(`${label}: keyed by one field, or by none, as flights() keys them`, async () => {

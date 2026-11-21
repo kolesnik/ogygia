@@ -1,5 +1,5 @@
 /**
- * plain_queue(): the server's bounded first-come-first-served line, as queue({ max }) makes it,
+ * plainQueue(): the server's bounded first-come-first-served line, as queue({ max }) makes it,
  * with none of the passes' options (it refuses them, and a missing max).
  */
 import { describe, expect, test } from 'vitest';
@@ -41,7 +41,7 @@ function walk(make: Made, seed: number): string {
 	return said.join(' ');
 }
 
-describe('plain_queue', () => {
+describe('plainQueue', () => {
 	test('it walks as queue({ max }) walks: every start, stale, wait and hold the same', () => {
 		for (let seed = 1; seed <= 200; seed++) {
 			const want = walk((o) => queue(o), seed);
@@ -53,10 +53,10 @@ describe('plain_queue', () => {
 	test('it refuses what only passes take, and a missing max', () => {
 		const start = () => {};
 		expect(() => plainQueue({ start })).toThrow(/machine_bad_option|max/);
-		expect(() => plainQueue({ max: 2, start, priority: () => 0 })).toThrow(/plain_queue/);
-		expect(() => plainQueue({ max: 2, start, ready: () => true })).toThrow(/plain_queue/);
+		expect(() => plainQueue({ max: 2, start, priority: () => 0 })).toThrow(/plainQueue/);
+		expect(() => plainQueue({ max: 2, start, ready: () => true })).toThrow(/plainQueue/);
 		expect(() => plainQueue({ max: 2, start, budget: { ms: 1, yield: () => {} } })).toThrow(
-			/plain_queue/
+			/plainQueue/
 		);
 		expect(() => plainQueue({ max: 0, start })).toThrow();
 	});

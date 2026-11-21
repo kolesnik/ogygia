@@ -64,7 +64,7 @@ export const PROGRAMS: readonly Program[] = [
 	},
 	// what only flights() takes (a key of several fields, a world, a weigh): the router's page cache
 	// is the one client flights that needs it, made in the lazy router-nav chunk; every boot flights
-	// is plain_flights()
+	// is plainFlights()
 	{ name: 'full flights', feature: null, modules: ['packages/machine/src/flights-full.ts'] },
 	// cache()'s ages, weights, pins and notices: the frame store's alone; every other boot cache is
 	// lru()

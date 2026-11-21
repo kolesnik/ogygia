@@ -30,8 +30,8 @@ test("the gate names a core file's functions as its macros compile them: the cod
 	assert.ok(ids.includes(`${RULES}note_mount`));
 	assert.ok(!ids.some((id) => id.startsWith(`${RULES}$rules:`)));
 	// a maker call the build checked runs as its trusted maker
-	assert.ok(ids.includes(`${SCHEDULER}trusted_pass_queue:0~e6e564 > holds`));
-	assert.ok(!ids.some((id) => id.startsWith(`${SCHEDULER}pass_queue:`)));
+	assert.ok(ids.includes(`${SCHEDULER}trustedPassQueue:0~e6e564 > holds`));
+	assert.ok(!ids.some((id) => id.startsWith(`${SCHEDULER}passQueue:`)));
 	// each id names the source file, never its mirror
 	assert.ok(!ids.some((id) => id.includes('.heisenbench/')));
 });
