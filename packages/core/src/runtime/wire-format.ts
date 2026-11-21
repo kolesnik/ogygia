@@ -5,7 +5,7 @@
  *
  * @packageDocumentation
  */
-import { boot_link } from './slots.ts';
+import { boot_link } from './lazy-link.ts';
 import { L_DEVALUE } from './boot-link-index.ts';
 import { OG_FORMAT } from '../wire-markup.ts';
 

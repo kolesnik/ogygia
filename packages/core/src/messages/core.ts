@@ -237,7 +237,7 @@ export const ERRORS = {
 	},
 	slot_not_linked: {
 		text: (a: { name: string }): string =>
-			`runtime chunk used \`slots.${a.name}\` before the boot linked it`,
+			`runtime chunk used the boot's \`${a.name}\` before the boot handed it its link`,
 		details: (): string => BUG
 	},
 

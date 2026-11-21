@@ -1,16 +1,7 @@
 import * as fsm from '@ogygia/machine';
 import { lru } from '@ogygia/machine';
 import { element_address, resolve_address } from './interaction.ts';
-import { slots } from './slots.ts';
 import { OGYGIA_NO_KEEP } from '../wire-markup.ts';
-
-/** Feature entry: enable form-field survival across SPA nav (unless the build disabled it). */
-export function install(): void {
-	const on =
-		typeof __OGYGIA_CONTINUITY_FORMS__ !== 'undefined' ? __OGYGIA_CONTINUITY_FORMS__ : true;
-	if (!on) return;
-	slots.forms = { snapshot: snapshot_forms, restore: arm_form_restore };
-}
 
 const VALUE_SELECTOR = 'input, textarea, select';
 const MAX_PAGES = 20;

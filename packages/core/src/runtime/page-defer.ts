@@ -1,4 +1,4 @@
-import { boot_link } from './slots.ts';
+import { boot_link } from './lazy-link.ts';
 import { L_WITH_DEVALUE } from './boot-link-index.ts';
 import { OgygiaError } from '../messages/lazy.ts';
 import {

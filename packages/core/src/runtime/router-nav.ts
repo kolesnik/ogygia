@@ -1,8 +1,14 @@
-import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
+import { boot_link } from './lazy-link.ts';
 import { buggify, clock, flights, net, stage, world } from '@ogygia/machine';
 import { lru } from '@ogygia/machine';
 import type { PageGlobals } from '../page-globals.ts';
-import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
+import {
+	morph_sync_attributes,
+	reconcile_body,
+	stamp_region_keys,
+	swap_body,
+	swap_reason
+} from './reconcile.ts';
 import {
 	apply_soft_invalidate_doc,
 	finish_spa_document,
@@ -36,11 +42,18 @@ import { release_head_nodes } from './head-release.ts';
 import {
 	L_ADOPT_RESPONSE,
 	L_FETCH_PRIORITY_OF,
+	L_FORMS_RESTORE,
+	L_FORMS_SNAPSHOT,
+	L_FRAGMENT_TARGET,
+	L_FRAMES_STREAM,
 	L_INIT_SHADOW_REGISTRIES,
 	L_IS_WARMED_MODULE,
+	L_JUMP_TO_HASH,
 	L_KIT_BOOT,
+	L_LAKE_SETTLE_IN,
 	L_LOAD_DEVALUE,
 	L_LOAD_SLOT,
+	L_MORPH,
 	L_NEEDS_DEVALUE,
 	L_NOTE_ENTRY_LOCATION,
 	L_PARSE_PAGE_DOCUMENT,
@@ -84,7 +97,9 @@ const register_island_graph = (text: string, base: string) =>
 	boot_link()[L_REGISTER_ISLAND_GRAPH](text, base);
 const yield_task = () => boot_link()[L_YIELD_TASK]();
 const is_stale = (v: unknown): v is Stale => v === boot_link()[L_STALE];
-const jump_to_hash = (hash: string) => router_link().jump_to_hash(hash);
+const jump_to_hash = (hash: string) => boot_link()[L_JUMP_TO_HASH]!(hash);
+
+export { init } from './lazy-link.ts';
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const RULES =
@@ -695,33 +710,35 @@ export async function navigate(
 		own_live_head(left);
 		r.history.commit(dest, move, pop);
 		built.written = true;
-		const swap = swap_reason(!!slots.morph, regions_in_shadow, document.body, doc.body);
+		const link = boot_link();
+		const morph = link[L_MORPH];
+		const swap = swap_reason(morph !== null, regions_in_shadow, document.body, doc.body);
 		announcer?.remove();
 		document.dispatchEvent(new Event('og:before-swap'));
 		for (const sheet of built.sheets) session().claim_page_head(sheet.link);
 		const unlisted = merge_head(doc.head);
 		for (const sheet of built.sheets) apply_sheet(sheet);
-		slots.forms?.snapshot(document.body, left.pathname);
+		link[L_FORMS_SNAPSHOT]?.(document.body, left.pathname);
 		prepare_spa_document(next);
 		apply_soft_invalidate_doc(doc);
 		if (swap === null) {
-			reconcile_body(document.body, doc.body, slots.morph!);
+			reconcile_body(document.body, doc.body, morph!);
 			built.reconciled = true;
 			adopt_title(doc);
-			slots.lakes?.settle_in(document.body);
+			link[L_LAKE_SETTLE_IN]?.(document.body);
 		} else {
 			if (DEVTOOLS) dt_emit({ domain: 'nav', name: 'nav.fallback', reason: swap });
 			swap_body(document.body, doc.body);
 			adopt_title(doc);
-			slots.lakes?.settle_in(document.body);
+			link[L_LAKE_SETTLE_IN]?.(document.body);
 		}
-		boot_link()[L_INIT_SHADOW_REGISTRIES](document.body);
+		link[L_INIT_SHADOW_REGISTRIES](document.body);
 		(globalThis as PageGlobals).__og_restore_adopt?.();
 		retire_page_head_copies(session());
 		release_head_nodes(unlisted, sheets_in_use);
 		apply_late_templates(document.body);
 		finish_spa_document();
-		slots.forms?.restore(url.pathname);
+		link[L_FORMS_RESTORE]?.(url.pathname);
 		document.dispatchEvent(new Event('og:after-swap'));
 	};
 
@@ -971,7 +988,7 @@ function reset_focus(hash: string, kept: string | null = null) {
 
 	const was = kept ? document.getElementById(kept) : null;
 	if (was) return focus_reset(was);
-	const target = router_link().fragment_target(hash);
+	const target = boot_link()[L_FRAGMENT_TARGET]!(hash);
 	if (target instanceof HTMLElement || target instanceof SVGElement) return focus_reset(target);
 	const autofocus = document.querySelector<HTMLElement>('[autofocus]');
 	if (autofocus) {
@@ -1112,5 +1129,5 @@ function batch_regions(doc: Document, visit: Life, dest: URL) {
 	if (!endpoints.length) return;
 	if (DEVTOOLS) dt_emit({ domain: 'nav', name: 'nav.batch', count: endpoints.length });
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a batch settles on every end, called off or broken off (frame-nav.ts streamFrames)
-	void slots.frames?.stream?.(endpoints, visit, dest.href);
+	void boot_link()[L_FRAMES_STREAM]?.(endpoints, visit, dest.href);
 }

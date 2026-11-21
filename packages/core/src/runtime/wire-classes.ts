@@ -3,14 +3,8 @@ import { wire_loaders, wire_all } from 'ogygia:region';
 import { import_again } from './import-again.ts';
 import { props_sidecar_of } from './sidecar.ts';
 import { yield_task } from './schedule.ts';
-import { slots } from './slots.ts';
 import { download } from '../policies.ts';
 import { OG_WIRE, OGYGIA_PROVIDE, OGYGIA_PROVIDE_PAGE } from '../wire-markup.ts';
-
-/** Feature entry: fill the `wire_classes` slot. */
-export function install(): void {
-	slots.wire_classes = wire_classes_for;
-}
 
 const loaders = wire_loaders;
 const paths = Object.keys(loaders);

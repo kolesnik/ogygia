@@ -14,10 +14,23 @@ import {
 	region_remount
 } from './region-attrs.ts';
 import { runtime_session, type PageVisit, type RuntimeSession } from './session.ts';
-import { slots, type HeldLake, type LakeArm } from './slots.ts';
+import type { ScheduleArms } from '../contract/trigger.ts';
 import { warn } from '../messages/core.ts';
 import { OG_LAKE } from '../wire-markup.ts';
 import { note_lake_restore } from './rules.ts';
+
+/** A lake an island's hydrate adopts in place, held by its key to find it again after. */
+export type HeldLake = {
+	id: string;
+	lake: Element;
+};
+
+/** Region schedule hooks lakes need without importing the custom element: a schedule's arms (null
+ *  where the build left one out, contract/trigger.ts `ScheduleArms`), a revalidation, a wake. */
+export type LakeArm = ScheduleArms & {
+	fetch_revalidate: () => void;
+	wake_children: () => void;
+};
 
 const LAKE_CACHE_MAX = 64;
 
@@ -144,13 +157,6 @@ export class LakeState {
 
 /** The document's lakes, on the runtime's session. */
 export const lake_state: LakeState = new LakeState(runtime_session);
-
-/** Feature entry: fill the `lakes` slot, so the lazy chunks (the hydrate core, the router's
- *  navigation) hold, release and settle lakes. The region element calls this module directly
- *  (`ogygia:boot/feature-code`). */
-export function install(): void {
-	slots.lakes = { hold, release, settle_in };
-}
 
 export function settle_in(root: ParentNode): void {
 	lake_state.settle_lakes_in(root);

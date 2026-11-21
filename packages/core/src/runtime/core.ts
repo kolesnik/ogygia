@@ -32,13 +32,19 @@ import {
 	warning
 } from 'ogygia:boot/hooks';
 import {
+	F_FORMS,
 	F_FRAMES,
 	F_GRAPH,
 	F_IDLE,
+	F_INTERACTION,
 	F_LAKES,
 	F_LIVE,
 	F_MEDIA,
-	F_VISIBLE
+	F_MORPH,
+	F_MPA_NAV,
+	F_ROUTER,
+	F_VISIBLE,
+	F_WIRE_CLASSES
 } from '../contract/features.ts';
 import { wire_for_wake } from './wire-on-use.ts';
 import { report_thrown } from '../report-thrown.ts';
@@ -79,8 +85,17 @@ import {
 	region_hydrate_schedule,
 	region_schedule
 } from './region-attrs.ts';
-import { slots, type LiveLink, type LiveTick, type WakeLink } from './slots.ts';
-import { frames, lakes } from 'ogygia:boot/feature-code';
+import type { LiveLink, LiveTick } from './live-program.ts';
+import type { WakeLink } from './hydrate-core.ts';
+import {
+	frames,
+	interaction,
+	lakes,
+	morph,
+	mpa_nav,
+	router,
+	wire_classes
+} from 'ogygia:boot/feature-code';
 import { say_reload_needed } from './reload-needed.ts';
 import {
 	create_answer,
@@ -114,7 +129,7 @@ import {
 	watch_programs
 } from './rules.ts';
 import { PAGE_FACTS_SELECTOR } from '../page-facts-script.ts';
-import { link_boot } from './boot-link.ts';
+import { linked } from './boot-link.ts';
 import {
 	background_start,
 	hydrate_settled,
@@ -158,6 +173,8 @@ const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS_
 const RULES =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
+const FORMS_ON =
+	typeof __OGYGIA_CONTINUITY_FORMS__ !== 'undefined' ? __OGYGIA_CONTINUITY_FORMS__ : true;
 
 type SourceFrames = typeof import('./frames.ts');
 
@@ -199,7 +216,7 @@ const hydrate_core = plainFlights({
 	run: () =>
 		yield_task()
 			.then(import_core)
-			.then((m) => (loaded_core = m)),
+			.then((m) => (loaded_core = linked(m))),
 	retry: download
 });
 
@@ -853,12 +870,11 @@ class OgygiaRegion extends HTMLElement {
 			this.setAttribute('data-kit-hydrated', '');
 			return;
 		}
-		const arm = slots.interaction;
-		if (!arm) {
+		if (!(HAS & F_INTERACTION)) {
 			fire();
 			return;
 		}
-		this.#hold_capture(arm(this, this.#by_visitor(fire), this.#life));
+		this.#hold_capture(interaction.arm(this, this.#by_visitor(fire), this.#life));
 	}
 
 	/**
@@ -868,10 +884,9 @@ class OgygiaRegion extends HTMLElement {
 	 * island there, as for `interaction`), not without the interaction feature, never once awake.
 	 */
 	#catch_early_input(fire: () => unknown) {
-		const arm = slots.interaction;
-		if (!arm || this.#app) return;
+		if (!(HAS & F_INTERACTION) || this.#app) return;
 		if (KIT_PAGES && kit_hydrates_page() && !ours_on_kit_document(this)) return;
-		this.#hold_capture(arm(this, this.#by_visitor(fire), this.#life));
+		this.#hold_capture(interaction.arm(this, this.#by_visitor(fire), this.#life));
 	}
 
 	#by_visitor(fire: () => unknown): (replayed: Promise<unknown>) => Promise<void> {
@@ -1023,12 +1038,11 @@ class OgygiaRegion extends HTMLElement {
 			lakes.settle_in(frag);
 			lakes.mark_frozen_settled(this);
 		}
-		const morph = slots.morph;
 		if (!this.#app && region_hydrate_schedule(this)) {
 			this.#ssr_html = fragment_markup(frag);
 			this.#watch();
 		}
-		if (morph) morph(this, Array.from(frag.childNodes));
+		if (HAS & F_MORPH) morph.morph_children(this, Array.from(frag.childNodes));
 		else this.replaceChildren(frag);
 		if (answerPlaced) answerPlaced({ el: this });
 		init_shadow_registries(this);
@@ -1286,7 +1300,7 @@ class OgygiaRegion extends HTMLElement {
 						Promise.all([
 							load_island(entry, cls()),
 							hydrate_core.get(),
-							slots.wire_classes?.(this),
+							HAS & F_WIRE_CLASSES ? wire_classes.wire_classes_for(this) : null,
 							wire_for_wake(this),
 							devalue_for_wake()
 						])
@@ -1297,8 +1311,8 @@ class OgygiaRegion extends HTMLElement {
 				release();
 			}
 			times.loaded = now_ms();
-			slots.wake_link ??= OgygiaRegion.#wake_link();
-			await core.wake_island(this, entry, mod, visit, turn, times);
+			const wake = (OgygiaRegion.#wake_given ??= OgygiaRegion.#wake_link());
+			await core.wake_island(this, entry, mod, visit, turn, times, wake);
 		} catch (err) {
 			// A run whose visit is over fails quietly: the region left while it loaded, and what stands
 			// now (the region put back) is a new visit, which loads, fails or wakes on its own.
@@ -1374,18 +1388,24 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	async #apply_live(desc: LiveTick, turn: Turn): Promise<void> {
-		slots.live_link ??= OgygiaRegion.#live_link();
 		if (HAS & F_FRAMES && desc.url && !(desc.hydrate && desc.module))
 			desc.written ??= { v: frames.ticket(frameAddress(desc.url)) };
-		if (slots.live_program === null)
+		let core = loaded_core;
+		if (core === null)
 			try {
-				$await(turn.wait(hydrate_core.get()));
+				core = $await(turn.wait(hydrate_core.get()));
 			} catch (error) {
 				say_island_failed(this.getAttribute('entry'), error);
 				return;
 			}
-		return slots.live_program?.(this, desc, turn);
+		const live = (OgygiaRegion.#live_given ??= OgygiaRegion.#live_link());
+		return core.apply_live?.(this, desc, turn, live);
 	}
+
+	/** What the hydrate core's wakes and the live program reach of the element (made on first need,
+	 *  then the same record): handed in with each call. */
+	static #wake_given: WakeLink | null = null;
+	static #live_given: LiveLink | null = null;
 
 	static #wake_link(): WakeLink {
 		return {
@@ -1499,10 +1519,9 @@ const apply_dev_head_region_css: () => void = $dev(function apply_dev_head_regio
 	});
 });
 
-export function boot(
-	installers: Array<() => void> = [],
-	client_plugins: readonly ClientRealm[] = []
-): void {
+/** Boot the runtime: its features' installs (`ogygia:boot/feature-code`, those the build's word
+ *  holds), then the region element. Idempotent. */
+export function boot(client_plugins: readonly ClientRealm[] = []): void {
 	disclose_version();
 	if (!publish_kit_hydrates()) return;
 	install_rules(import.meta.env.DEV);
@@ -1514,8 +1533,9 @@ export function boot(
 		warn,
 		line
 	};
-	link_boot();
-	for (const install of installers) install();
+	if (HAS & F_FRAMES) frames.install();
+	if (HAS & F_MPA_NAV) mpa_nav.install();
+	if (HAS & F_ROUTER) router.install();
 	// The build's location map, pinned to this page's address before any navigation moves it
 	pin_build_map();
 	// The origins island code may load from, read while the head is still the server's alone
@@ -1556,11 +1576,11 @@ export function boot(
 	if (realm_count) boot_client_plugins(client_plugins, false);
 	if (DEVTOOLS) {
 		const features: string[] = [];
-		if (slots.interaction) features.push('interaction');
-		if (slots.morph) features.push('morph');
-		if (slots.frames) features.push('frames');
-		if (slots.nav) features.push('router');
-		if (slots.forms) features.push('forms');
+		if (HAS & F_INTERACTION) features.push('interaction');
+		if (HAS & F_MORPH) features.push('morph');
+		if (HAS & F_FRAMES) features.push('frames');
+		if (HAS & F_ROUTER) features.push('router');
+		if (HAS & F_FORMS && FORMS_ON) features.push('forms');
 		dt_emit({ domain: 'runtime', name: 'runtime.boot', features });
 	}
 

@@ -1,5 +1,5 @@
 /**
- * Each boot helper's place in the boot link (./slots.ts `BootLink`, filled by ./boot-link.ts): the
+ * Each boot helper's place in the boot link (./boot-link.ts `BootLink`): the
  * lazy chunks read the link by number, so no helper's name ships in the boot or in a lazy chunk.
  * Constants alone, each under 1000: the boot and its lazy chunks both import this module, and the
  * bundler inlines a shared number into each chunk only while it prints in three characters or
@@ -49,3 +49,19 @@ export const L_SOFT = 37;
 export const L_IS_DEFERRED = 38;
 export const L_OURS_ON_KIT_DOCUMENT = 39;
 export const L_REGION_SSR_TRUNCATED = 40;
+export const L_MORPH = 41;
+export const L_SYNC_ATTRIBUTES = 42;
+export const L_LAKE_HOLD = 43;
+export const L_LAKE_RELEASE = 44;
+export const L_LAKE_SETTLE_IN = 45;
+export const L_FORMS_SNAPSHOT = 46;
+export const L_FORMS_RESTORE = 47;
+export const L_FRAMES_SUBSCRIBE = 48;
+export const L_FRAMES_PEEK = 49;
+export const L_FRAMES_TICKET = 50;
+export const L_FRAMES_STREAM = 51;
+export const L_ROUTER = 52;
+export const L_JUMP_TO_HASH = 53;
+export const L_FRAGMENT_TARGET = 54;
+export const L_RESOLVE_ADDRESS = 55;
+export const L_WIRE_CODEC = 56;

@@ -3,15 +3,21 @@
  * or as an interactive island hydrated and fed props. Part of the live feature (./live.ts), which
  * the hydrate core installs: a build without held regions never ships it, and the boot keeps only
  * the call (./core.ts `#apply_live`). It reaches the element's state and the boot's helpers through
- * `slots.live_link` (./slots.ts `LiveLink`), set by the element before its first tick.
+ * the {@link LiveLink} the element hands in with each tick.
  *
  * @internal
  * @packageDocumentation
  */
 import { STALE, type Turn } from '@ogygia/machine';
 import { OG_BAKED } from '../wire-markup.ts';
-import { boot_link, live_link, slots, type LiveTick } from './slots.ts';
-import { L_HOOKS } from './boot-link-index.ts';
+import { boot_link } from './lazy-link.ts';
+import {
+	L_FRAMES_PEEK,
+	L_FRAMES_SUBSCRIBE,
+	L_FRAMES_TICKET,
+	L_HOOKS,
+	L_MORPH
+} from './boot-link-index.ts';
 import type { LazyHooks } from '../contract/runtime-hooks.ts';
 import {
 	answerPlaced as HOOK_ANSWER_PLACED,
@@ -23,6 +29,52 @@ import type { FrameOrder } from '../frame.ts';
 import type { IslandModule } from './hydrate-core.ts';
 
 type HydrateCore = typeof import('./hydrate-core.ts');
+
+/** A held region's tick, as `applyLive` takes it (./core.ts). */
+export type LiveTick = {
+	id: string;
+	module: string;
+	props: Record<string, unknown>;
+	html: string;
+	url?: string;
+	hydrate?: string;
+	hydrateMargin?: string;
+	written?: FrameOrder | undefined;
+};
+
+/** What the live program reaches in the boot: a region element's live and paint machines and
+ *  mailbox, its nested regions' refresh, and the boot's helpers it shares with the element's other
+ *  programs. The element hands it in with each tick (./core.ts). */
+export type LiveLink = {
+	live: (el: Element) => import('./region-machines.ts').Live;
+	paint: (el: Element) => import('./region-machines.ts').Paint;
+	box: (el: Element) => import('@ogygia/machine').Mailbox;
+	/** A nested region refreshes against the HTML that came in around it. */
+	renew: (el: Element) => void;
+	region_fragment: typeof import('./core.ts').region_fragment;
+	settle_in: (frag: DocumentFragment) => void;
+	absorb_page_facts_now: () => void;
+	use_sheets: typeof import('./region-sheets.ts').use_sheets;
+	use_code_sheets: typeof import('./region-sheets.ts').use_code_sheets;
+	init_shadow_registries: typeof import('./html-sink.ts').init_shadow_registries;
+	vouch_remote_answer: typeof import('./html-sink.ts').vouch_remote_answer;
+	frameAddress: typeof import('../frame.ts').frameAddress;
+	older_by: typeof import('../frame.ts').older_by;
+	stands_at: typeof import('../frame.ts').stands_at;
+	island_entry_of: typeof import('./entry-locations.ts').island_entry_of;
+	viewport_class: typeof import('./load-scheduler.ts').viewport_class;
+	LoadSlot: typeof import('./load-scheduler.ts').LoadSlot;
+	load_island: (
+		entry: string,
+		cls: import('./load-scheduler.ts').LoadClass
+	) => Promise<import('./hydrate-core.ts').IslandModule>;
+	hydrate_core: () => Promise<typeof import('./hydrate-core.ts') | import('@ogygia/machine').Stale>;
+	devalue_for_wake: () => Promise<unknown> | undefined;
+	dom_ready: () => Promise<unknown>;
+	kit_boot_failed: (err: unknown) => boolean;
+	say_island_failed: (entry: string | null, err: unknown) => void;
+	client_region_mount: typeof import('./region-hooks.ts').client_region_mount;
+};
 
 const hooks = () => boot_link()[L_HOOKS] as LazyHooks;
 
@@ -42,8 +94,12 @@ function state_of(el: Element): LiveState {
 const hand_back = (release: () => void): void => release();
 
 /** Applies a tick to `el` (see the region element's `applyLive`). */
-export async function apply_live(el: HTMLElement, desc: LiveTick, turn: Turn): Promise<void> {
-	const link = live_link();
+export async function apply_live(
+	el: HTMLElement,
+	desc: LiveTick,
+	turn: Turn,
+	link: LiveLink
+): Promise<void> {
 	const live = link.live(el);
 	const st = state_of(el);
 	el.setAttribute('render', 'defer');
@@ -59,15 +115,18 @@ export async function apply_live(el: HTMLElement, desc: LiveTick, turn: Turn): P
 		const now = live.now;
 		const bound = now.kind === 'static' ? now.bound : { address: null };
 		if (now.kind !== 'static') live.go('static', { bound });
-		const frames = slots.frames;
+		const boot = boot_link();
+		const subscribe = boot[L_FRAMES_SUBSCRIBE];
+		const peek = boot[L_FRAMES_PEEK];
+		const ticket = boot[L_FRAMES_TICKET];
 		if (desc.url && bound.address === null) {
 			const box = link.box(el);
 			const address = link.frameAddress(desc.url);
-			const off = frames?.subscribe(address, (f) => {
+			const off = subscribe?.(address, (f) => {
 				box.post((t) => {
 					if (link.older_by(f, st.painted) !== null) return;
 					st.painted = link.stands_at(st.painted, f);
-					return morph_live(el, f.html, t);
+					return morph_live(el, f.html, t, link);
 				});
 			});
 			if (off) {
@@ -76,14 +135,14 @@ export async function apply_live(el: HTMLElement, desc: LiveTick, turn: Turn): P
 			}
 		}
 		const address = desc.url ? link.frameAddress(desc.url) : null;
-		const stored = address && frames ? frames.peek(address) : null;
-		const mine = address && frames ? (desc.written ??= { v: frames.ticket(address) }) : null;
+		const stored = address && peek ? peek(address) : null;
+		const mine = address && ticket ? (desc.written ??= { v: ticket(address) }) : null;
 		const held = stored === null || (stored.v === mine?.v && stored.d === mine.d) ? null : stored;
 		const html = link.vouch_remote_answer(desc.html);
-		if (mine === null) await morph_live(el, html, turn);
+		if (mine === null) await morph_live(el, html, turn, link);
 		else if (link.older_by(mine, held) === null && link.older_by(mine, st.painted) === null) {
 			st.painted = link.stands_at(held && held.v > (st.painted?.v ?? 0) ? held : st.painted, mine);
-			await morph_live(el, html, turn);
+			await morph_live(el, html, turn, link);
 		}
 		return;
 	}
@@ -101,7 +160,7 @@ export async function apply_live(el: HTMLElement, desc: LiveTick, turn: Turn): P
 		return;
 	}
 	if (s.kind === 'failed' && s.module === desc.module)
-		return morph_live(el, link.vouch_remote_answer(desc.html), turn);
+		return morph_live(el, link.vouch_remote_answer(desc.html), turn, link);
 
 	const pending: { props: Record<string, unknown> | null } = { props: null };
 	live.go('hydrating', { module: desc.module, pending });
@@ -121,12 +180,16 @@ export async function apply_live(el: HTMLElement, desc: LiveTick, turn: Turn): P
 	el.replaceChildren(frag);
 	if (HOOK_ANSWER_PLACED) hooks().answerPlaced!({ el });
 	link.init_shadow_registries(el);
-	await live_hydrate(el, desc.props, mine, desc.module, pending, turn);
+	await live_hydrate(el, desc.props, mine, desc.module, pending, turn, link);
 }
 
-async function morph_live(el: HTMLElement, html: VerifiedHtml, turn: Turn): Promise<void> {
+async function morph_live(
+	el: HTMLElement,
+	html: VerifiedHtml,
+	turn: Turn,
+	link: LiveLink
+): Promise<void> {
 	if (!el.isConnected) return;
-	const link = live_link();
 	const st = state_of(el);
 	// BAKED (Region.svelte, PromiseRegionAwait): the first HTML is already here — the page was
 	// served with it and hydrated against it. Nothing to paint; later ticks morph as usual (by
@@ -152,7 +215,7 @@ async function morph_live(el: HTMLElement, html: VerifiedHtml, turn: Turn): Prom
 		el.setAttribute('data-hydrated', '');
 	} else {
 		const nodes = Array.from(frag.childNodes);
-		const morph = slots.morph;
+		const morph = boot_link()[L_MORPH];
 		if (morph) morph(el, nodes);
 		else el.replaceChildren(...nodes);
 		for (const inner of el.querySelectorAll('ogygia-region')) link.renew(inner);
@@ -169,9 +232,9 @@ async function live_hydrate(
 	mine: number,
 	module: string,
 	pending: { props: Record<string, unknown> | null },
-	turn: Turn
+	turn: Turn,
+	link: LiveLink
 ): Promise<void> {
-	const link = live_link();
 	const live = link.live(el);
 	const ours = () => el.isConnected && live.epoch === mine;
 	try {
