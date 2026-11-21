@@ -45,7 +45,8 @@ describe('resolved_urls.resolve', () => {
 		}
 		const got = resolve_url(url, base);
 		if (want === null) return expect(got).toBeNull();
-		expect(got).toEqual({
+		const { href, origin, protocol, pathname, search, hash } = got!;
+		expect({ href, origin, protocol, pathname, search, hash }).toEqual({
 			href: want.href,
 			origin: want.origin,
 			protocol: want.protocol,

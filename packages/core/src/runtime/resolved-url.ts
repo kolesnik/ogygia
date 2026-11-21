@@ -1,14 +1,9 @@
 import { lru } from '@ogygia/machine';
 
-/** A URL as the URL parser read it: the parts the runtime compares and writes. */
-export interface ResolvedUrl {
-	readonly href: string;
-	readonly origin: string;
-	readonly protocol: string;
-	readonly pathname: string;
-	readonly search: string;
-	readonly hash: string;
-}
+/** A URL as the URL parser read it, shared by every ask of its pair: read only. */
+export type ResolvedUrl = Readonly<
+	Pick<URL, 'href' | 'origin' | 'protocol' | 'pathname' | 'search' | 'hash'>
+>;
 
 const PER_BASE = 4000;
 
@@ -34,15 +29,7 @@ export class ResolvedUrls {
 		if (hit !== undefined) return hit;
 		let out: ResolvedUrl | null;
 		try {
-			const u = b === null ? new URL(url) : new URL(url, b);
-			out = {
-				href: u.href,
-				origin: u.origin,
-				protocol: u.protocol,
-				pathname: u.pathname,
-				search: u.search,
-				hash: u.hash
-			};
+			out = b === null ? new URL(url) : new URL(url, b);
 			// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: the caller's null case
 		} catch {
 			out = null;
