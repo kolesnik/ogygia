@@ -10,19 +10,21 @@
  */
 import { STALE, type Turn } from '@ogygia/machine';
 import { OG_BAKED } from '../wire-markup.ts';
-import { live_link, slots, type LiveTick } from './slots.ts';
+import { boot_link, live_link, slots, type LiveTick } from './slots.ts';
+import { L_HOOKS } from './boot-link-index.ts';
+import type { LazyHooks } from '../contract/runtime-hooks.ts';
+import {
+	answerPlaced as HOOK_ANSWER_PLACED,
+	regionMount as HOOK_REGION_MOUNT,
+	regionUnmount as HOOK_REGION_UNMOUNT
+} from 'ogygia:boot/hook-bits';
 import type { VerifiedHtml } from './html-sink.ts';
 import type { FrameOrder } from '../frame.ts';
 import type { IslandModule } from './hydrate-core.ts';
 
 type HydrateCore = typeof import('./hydrate-core.ts');
 
-const HOOK_ANSWER_PLACED: boolean =
-	typeof __OGYGIA_HOOK_ANSWER_PLACED__ !== 'undefined' ? __OGYGIA_HOOK_ANSWER_PLACED__ : true;
-const HOOK_REGION_MOUNT: boolean =
-	typeof __OGYGIA_HOOK_REGION_MOUNT__ !== 'undefined' ? __OGYGIA_HOOK_REGION_MOUNT__ : true;
-const HOOK_REGION_UNMOUNT: boolean =
-	typeof __OGYGIA_HOOK_REGION_UNMOUNT__ !== 'undefined' ? __OGYGIA_HOOK_REGION_UNMOUNT__ : true;
+const hooks = () => boot_link()[L_HOOKS] as LazyHooks;
 
 class LiveState {
 	painted: FrameOrder | null = null;
@@ -117,7 +119,7 @@ export async function apply_live(el: HTMLElement, desc: LiveTick, turn: Turn): P
 	link.use_sheets(el, sheets);
 	link.settle_in(frag);
 	el.replaceChildren(frag);
-	if (HOOK_ANSWER_PLACED) slots.hooks?.answerPlaced?.({ el });
+	if (HOOK_ANSWER_PLACED) hooks().answerPlaced!({ el });
 	link.init_shadow_registries(el);
 	await live_hydrate(el, desc.props, mine, desc.module, pending, turn);
 }
@@ -155,7 +157,7 @@ async function morph_live(el: HTMLElement, html: VerifiedHtml, turn: Turn): Prom
 		else el.replaceChildren(...nodes);
 		for (const inner of el.querySelectorAll('ogygia-region')) link.renew(inner);
 	}
-	if (HOOK_ANSWER_PLACED) slots.hooks?.answerPlaced?.({ el });
+	if (HOOK_ANSWER_PLACED) hooks().answerPlaced!({ el });
 	link.init_shadow_registries(el);
 	link.absorb_page_facts_now();
 	el.dispatchEvent(new CustomEvent('ogygia:live', { bubbles: true }));
@@ -214,7 +216,7 @@ async function live_hydrate(
 		live.go('live', { module, app });
 		live.visit().defer(() => {
 			if (HOOK_REGION_UNMOUNT)
-				slots.hooks?.regionUnmount?.({ el, entry: el.getAttribute('entry') ?? '' });
+				hooks().regionUnmount!({ el, entry: el.getAttribute('entry') ?? '' });
 			app.dispose();
 		});
 		if (pending.props) app.set_props?.(pending.props);

@@ -10,6 +10,7 @@ import {
 	generateProgramsSource,
 	server_feature_word
 } from '../link/runtime-entry.ts';
+import { generateHookBitsSource, generateHooksSource } from '../link/hooks.ts';
 import { island_deps_module } from '../link/island-deps.ts';
 import { router_css_module } from '../link/router-css.ts';
 import { server_plugins_module, route_config_module, client_realms_source } from '../link/caps.ts';
@@ -31,8 +32,8 @@ import type { CompileCtx } from '../ctx.ts';
 import type { ClientRealmFile, ServerRealm } from '../link/caps.ts';
 import type { Program } from '../program.ts';
 import {
-	RUNTIME_HOOK_CONSTANTS,
-	type RuntimeHookName,
+	type HookBitsModule,
+	type HooksModule,
 	type DevtoolsBootUrlModule,
 	type DevtoolsMetaModule,
 	type ProfilerMapsModule,
@@ -231,6 +232,25 @@ export const hydrate_features: Family<HydrateFeaturesModule> = virtual.family({
 		app.prescan();
 		return generateHydrateFeaturesSource(program.runtime_marks, ctx.runtime_dir).code;
 	}
+});
+
+/** The runtime hooks the app's client realms subscribe to (link/hooks.ts `generateHooksSource`). */
+export const hooks: Family<HooksModule> = virtual.family({
+	realm: 'boot',
+	id: 'hooks',
+	load(app: CoreApp) {
+		const { ctx } = app;
+		const clients = app.plugins().client;
+		const rt = ctx.is_build ? null : dev_runtime_of(ctx.runtime_dir);
+		return generateHooksSource(clients, rt?.dir ?? ctx.runtime_dir, rt?.ts ? '.ts' : '.js');
+	}
+});
+
+/** A lazy chunk's hooks, a `0`/`1` bit each (link/hooks.ts `generateHookBitsSource`). */
+export const hook_bits: Family<HookBitsModule> = virtual.family({
+	realm: 'boot',
+	id: 'hook-bits',
+	load: (app: CoreApp) => generateHookBitsSource(app.plugins().client)
 });
 
 export const devtools_meta: Value<DevtoolsMetaModule> = virtual.value({
@@ -552,9 +572,6 @@ export interface ConstantInput {
 	devtools: boolean;
 	devtools_lazy: boolean;
 	rules: boolean;
-	client_plugins: boolean;
-	/** the runtime hooks some plugin's browser half subscribes to */
-	hooks: readonly RuntimeHookName[];
 	kit_major: number | null;
 	/** Kit may hydrate a document the app serves (kit.ts `kit_may_hydrate`; dev and a federated
 	 *  app: always) */
@@ -593,55 +610,6 @@ export const rules_gate: Constant = virtual.constant({
 	id: '__OGYGIA_RULES__',
 	from: (o: ConstantInput) => o.rules
 });
-/** a plugin's browser half is in the boot: the runtime calls its hooks */
-export const client_plugins_gate: Constant = virtual.constant({
-	id: '__OGYGIA_CLIENT_PLUGINS__',
-	from: (o: ConstantInput) => o.client_plugins
-});
-const hook_gate = (name: RuntimeHookName): Constant =>
-	virtual.constant({
-		id: RUNTIME_HOOK_CONSTANTS[name],
-		from: (o: ConstantInput) => o.hooks.includes(name)
-	});
-/** a plugin's browser half subscribes to `regionMount`; otherwise its emit point folds out */
-export const hook_region_mount: Constant = hook_gate('regionMount');
-/** a plugin's browser half subscribes to `regionUnmount` */
-export const hook_region_unmount: Constant = hook_gate('regionUnmount');
-/** a plugin's browser half subscribes to `regionHydrate` (around Svelte's hydrate) */
-export const hook_region_hydrate: Constant = hook_gate('regionHydrate');
-/** a plugin's browser half subscribes to `answerParsed` */
-export const hook_answer_parsed: Constant = hook_gate('answerParsed');
-/** a plugin's browser half subscribes to `answerPlaced` */
-export const hook_answer_placed: Constant = hook_gate('answerPlaced');
-/** a plugin's browser half subscribes to `regionHydrated` */
-export const hook_region_hydrated: Constant = hook_gate('regionHydrated');
-/** a plugin's browser half subscribes to `regionFailed` */
-export const hook_region_failed: Constant = hook_gate('regionFailed');
-/** a plugin's browser half subscribes to `regionWoke` */
-export const hook_region_woke: Constant = hook_gate('regionWoke');
-/** a plugin's browser half subscribes to `regionMismatched` */
-export const hook_region_mismatched: Constant = hook_gate('regionMismatched');
-/** a plugin's browser half subscribes to `holeAnswered` */
-export const hook_hole_answered: Constant = hook_gate('holeAnswered');
-/** a plugin's browser half subscribes to `holeFailed` */
-export const hook_hole_failed: Constant = hook_gate('holeFailed');
-/** a plugin's browser half subscribes to `holeBatchMissed` */
-export const hook_hole_batch_missed: Constant = hook_gate('holeBatchMissed');
-/** a plugin's browser half subscribes to `entryFallback` */
-export const hook_entry_fallback: Constant = hook_gate('entryFallback');
-/** a plugin's browser half subscribes to `reloadNeeded` */
-export const hook_reload_needed: Constant = hook_gate('reloadNeeded');
-/** a plugin's browser half subscribes to `navStarted` */
-export const hook_nav_started: Constant = hook_gate('navStarted');
-/** a plugin's browser half subscribes to `navigated` */
-export const hook_navigated: Constant = hook_gate('navigated');
-/** a plugin's browser half subscribes to `criticalSettled` */
-export const hook_critical_settled: Constant = hook_gate('criticalSettled');
-/** a plugin's browser half subscribes to `loadStarted` */
-export const hook_load_started: Constant = hook_gate('loadStarted');
-/** a plugin's browser half subscribes to `warning` */
-export const hook_warning: Constant = hook_gate('warning');
-
 /** the app's Kit major (2, 3), or null when none was found (kit-paths.ts) */
 export const kit_major: Constant<VirtualConstants['__OGYGIA_KIT_MAJOR__']> = virtual.constant({
 	id: '__OGYGIA_KIT_MAJOR__',
@@ -672,26 +640,6 @@ export const CORE_CONSTANTS: readonly Constant<boolean | number | string | null>
 	devtools_gate,
 	devtools_lazy,
 	rules_gate,
-	client_plugins_gate,
-	hook_region_mount,
-	hook_region_unmount,
-	hook_region_hydrate,
-	hook_answer_parsed,
-	hook_answer_placed,
-	hook_region_hydrated,
-	hook_region_failed,
-	hook_region_woke,
-	hook_region_mismatched,
-	hook_hole_answered,
-	hook_hole_failed,
-	hook_hole_batch_missed,
-	hook_entry_fallback,
-	hook_reload_needed,
-	hook_nav_started,
-	hook_navigated,
-	hook_critical_settled,
-	hook_load_started,
-	hook_warning,
 	kit_major,
 	kit_pages,
 	version,
@@ -723,6 +671,8 @@ export const CORE_VIRTUALS: readonly Entry<CoreApp>[] = [
 	transport,
 	transportables,
 	hydrate_features,
+	hooks,
+	hook_bits,
 	hmr,
 	devtools_boot,
 	runtime_url,

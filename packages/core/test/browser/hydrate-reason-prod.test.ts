@@ -2,7 +2,7 @@
 // `regionMismatched`: with one, it is told why.
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 import { hydrate_island } from '../../src/runtime/hydrate-core.ts';
 import type { RegionMismatchedEvent } from '../../src/contract/runtime-hooks.ts';
 import { claims } from './_walk.ts';
@@ -18,12 +18,12 @@ beforeEach(() => {
 });
 afterEach(() => {
 	vi.unstubAllEnvs();
-	slots.hooks = undefined;
+	hear_none();
 });
 
 test('a plugin hearing regionMismatched is told why the island drifted, in a production build', () => {
 	const heard: RegionMismatchedEvent[] = [];
-	slots.hooks = { regionMismatched: (e) => void heard.push(e) };
+	hear({ regionMismatched: (e) => void heard.push(e) });
 	const region = document.createElement('ogygia-region');
 	region.innerHTML = '<!--[--><p>a</p><!--]-->';
 	document.body.append(region);

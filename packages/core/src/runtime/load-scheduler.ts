@@ -10,15 +10,10 @@ import { emit as dt_emit } from '../events/bus.ts';
 import { class_at, PRIORITY, type LoadClass } from './load-class.ts';
 import { on_screen, watch_viewport } from './viewport.ts';
 import type { CriticalOutcome } from '../contract/runtime-hooks.ts';
-import { slots } from './slots.ts';
+import { criticalSettled, loadStarted } from 'ogygia:boot/hooks';
 import { downloaded, hear_responses } from './import-again.ts';
 
 export { fetch_priority_of, type LoadClass } from './load-class.ts';
-
-const HOOK_CRITICAL_SETTLED =
-	typeof __OGYGIA_HOOK_CRITICAL_SETTLED__ !== 'undefined' ? __OGYGIA_HOOK_CRITICAL_SETTLED__ : true;
-const HOOK_LOAD_STARTED =
-	typeof __OGYGIA_HOOK_LOAD_STARTED__ !== 'undefined' ? __OGYGIA_HOOK_LOAD_STARTED__ : true;
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
@@ -119,8 +114,8 @@ class LoadScheduler {
 				: { outcome, resources: 0, waited_ms: 0 };
 		this.gate.go('settled', { report });
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'load.critical', ...report });
-		if (HOOK_CRITICAL_SETTLED)
-			slots.hooks?.criticalSettled?.({
+		if (criticalSettled)
+			criticalSettled({
 				outcome: report.outcome,
 				resources: report.resources,
 				waitedMs: report.waited_ms
@@ -296,8 +291,8 @@ export class LoadSlot {
 				label: this.label,
 				waited_ms: Math.round(now() - this.queued_at)
 			});
-		if (HOOK_LOAD_STARTED)
-			slots.hooks?.loadStarted?.({
+		if (loadStarted)
+			loadStarted({
 				class: cls,
 				kind: this.kind,
 				...(this.label !== undefined ? { label: this.label } : {}),

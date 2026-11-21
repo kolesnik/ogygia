@@ -8,6 +8,7 @@ import { load_devalue } from '../../src/runtime/devalue-lane.ts';
 import { install as install_live } from '../../src/runtime/live.ts';
 import { install as install_lakes } from '../../src/runtime/lakes.ts';
 import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { ids_released } from '../../src/runtime/region-ids.ts';
 import { resolve_sink } from '../../src/ref-sink.ts';
@@ -272,18 +273,22 @@ test('while a live region hydrates it is the current region; after, none is', ()
 
 test('the plugins around Svelte’s hydrate run before it and after it, on both paths', () => {
 	const order: string[] = [];
-	slots.hooks = {
+	hear({
 		regionHydrate: () => {
 			order.push('before');
 			return () => void order.push('after');
 		}
-	};
-	const island = claims(1, () => order.push('hydrate'));
-	hydrate_island(region_with('<!--[--><p>a</p><!--]-->'), '/p', island, null, false);
-	expect(order).toEqual(['before', 'hydrate', 'after']);
-	order.length = 0;
-	hydrate_live(region_with('<!--[--><p>a</p><!--]-->'), '/p', island, {});
-	expect(order).toEqual(['before', 'hydrate', 'after']);
+	});
+	try {
+		const island = claims(1, () => order.push('hydrate'));
+		hydrate_island(region_with('<!--[--><p>a</p><!--]-->'), '/p', island, null, false);
+		expect(order).toEqual(['before', 'hydrate', 'after']);
+		order.length = 0;
+		hydrate_live(region_with('<!--[--><p>a</p><!--]-->'), '/p', island, {});
+		expect(order).toEqual(['before', 'hydrate', 'after']);
+	} finally {
+		hear_none();
+	}
 });
 
 test('a live region with no live feature in the build is not hydrated, and dev says so', () => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { boot_client_plugins, type ClientRealm } from '../src/runtime/client-plugins.ts';
-import { slots } from '../src/runtime/slots.ts';
+import { told } from '../src/runtime/hook-told.ts';
 import type { NavigatedEvent } from '../src/contract/runtime-hooks.ts';
 
 const nav: NavigatedEvent = {
@@ -17,12 +17,13 @@ let errors: unknown[][];
 beforeEach(() => {
 	errors = [];
 	vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void errors.push(a));
-	slots.hooks = {};
 });
 afterEach(() => {
 	vi.restoreAllMocks();
-	slots.hooks = {};
+	boot_client_plugins([], false);
 });
+const navigated = told('navigated');
+const region_hydrate = told('regionHydrate');
 const codes = () => errors.map((a) => String(a[0]));
 
 test('three plugins on one hook run in plugin order', () => {
@@ -32,7 +33,7 @@ test('three plugins on one hook run in plugin order', () => {
 		client: { hooks: { navigated: () => void order.push(name) } }
 	}));
 	boot_client_plugins(realms, false);
-	slots.hooks?.navigated!({ ...nav });
+	navigated({ ...nav });
 	expect(order).toEqual(['a', 'b', 'c']);
 });
 
@@ -55,8 +56,8 @@ test('a throwing subscriber is reported once and never stops the ones after it',
 		],
 		false
 	);
-	slots.hooks?.navigated!({ ...nav });
-	slots.hooks?.navigated!({ ...nav });
+	navigated({ ...nav });
+	navigated({ ...nav });
 	expect(order).toEqual(['a', 'c', 'a', 'c']);
 	expect(codes()).toHaveLength(1);
 	expect(codes()[0]).toContain('client_hook_failed');
@@ -70,7 +71,7 @@ test("a subscriber's rejected promise is reported, never awaited", async () => {
 		client: { hooks: { navigated: (async () => Promise.reject(new Error('later'))) as () => void } }
 	};
 	boot_client_plugins([lone], false);
-	expect(slots.hooks?.navigated!({ ...nav })).toBeUndefined();
+	expect(navigated({ ...nav })).toBeUndefined();
 	await vi.waitFor(() => expect(codes()).toHaveLength(1));
 	expect(codes()[0]).toContain('client_hook_failed');
 	expect(codes()[0]).toContain('`lone`');
@@ -94,7 +95,7 @@ test('in dev, a subscriber that writes to the payload fails, and the next one se
 		],
 		false
 	);
-	slots.hooks?.navigated!({ ...nav });
+	navigated({ ...nav });
 	expect(seen).toBe('/next');
 	expect(codes()[0]).toContain('`writer`');
 });
@@ -143,7 +144,7 @@ test('the functions subscribers return come back as one, run in plugin order, a 
 		{ name: 'c', client: { hooks: { regionHydrate: () => () => void order.push('c') } } }
 	];
 	boot_client_plugins(realms, false);
-	const hook = slots.hooks?.regionHydrate as (e: unknown) => (() => void) | undefined;
+	const hook = region_hydrate as (e: unknown) => (() => void) | undefined;
 	const after = hook({});
 	expect(order).toEqual([]);
 	expect(typeof after).toBe('function');
@@ -158,11 +159,14 @@ test('a hook whose subscribers return nothing gives back nothing to run after', 
 		[{ name: 'a', client: { hooks: { regionHydrate: () => undefined } } }],
 		false
 	);
-	const hook = slots.hooks?.regionHydrate as (e: unknown) => unknown;
+	const hook = region_hydrate as (e: unknown) => unknown;
 	expect(hook({})).toBeUndefined();
 });
 
-test('a hook with no subscriber stays empty', () => {
-	boot_client_plugins([{ name: 'a', client: { boot() {} } }], false);
-	expect(slots.hooks?.navigated).toBeUndefined();
+test('a hook no realm subscribes to tells nobody and gives back nothing', () => {
+	let booted = 0;
+	boot_client_plugins([{ name: 'a', client: { boot: () => void booted++ } }], false);
+	expect(booted).toBe(1);
+	expect(navigated({ ...nav })).toBeUndefined();
+	expect(codes()).toEqual([]);
 });

@@ -13,6 +13,7 @@ import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 import { L_IS_WARMED_MODULE, L_SOFT, L_YIELD_TASK } from '../../src/runtime/boot-link-index.ts';
 import { scope } from '@ogygia/machine';
 import { patch } from '../_patch.ts';
@@ -769,12 +770,12 @@ test.each([
 ])('an author who opts %s out of the reconcile gets a whole-body swap', async (_, live, next) => {
 	if (live) document.body.setAttribute(live, '');
 	let reconciled: boolean | undefined;
-	slots.hooks = { navigated: (e) => void (reconciled = e.reconciled) };
+	hear({ navigated: (e) => void (reconciled = e.reconciled) });
 	pages['/rn-optout'] = { body: '<p>next</p>', body_attrs: next };
 	try {
 		await go('/rn-optout');
 	} finally {
-		slots.hooks = undefined;
+		hear_none();
 		document.body.removeAttribute('data-og-no-reconcile');
 	}
 	expect(reconciled).toBe(false);

@@ -10,6 +10,7 @@ import { _restart_page_beacon } from '../../../devtools/src/profiler/beacon-stan
 import devtools_client from '../../../devtools/src/client.ts';
 import { scope } from '@ogygia/machine';
 import { patch } from '../_patch.ts';
+import { subscribe_realms } from '../_hooks.ts';
 
 const inject_html = () => from_b64(inject('counter_json_lane_ssr_b64'));
 
@@ -54,7 +55,9 @@ beforeEach(async () => {
 		return true;
 	});
 	document.body.innerHTML = inject_html();
-	bootDev([{ name: '@ogygia/devtools', client: devtools_client }]);
+	const realms = [{ name: '@ogygia/devtools', client: devtools_client }];
+	subscribe_realms(realms);
+	bootDev(realms);
 	await expect
 		.poll(() => document.querySelector('ogygia-region[data-og-fp][data-hydrated]') !== null, {
 			timeout: 20_000

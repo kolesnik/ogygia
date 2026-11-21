@@ -2433,13 +2433,19 @@
 			"name": "throws when a marked binding has no component/signer (client leg)"
 		},
 		{
-			"site": "packages/core/src/runtime/client-plugins.ts > isolated > .catch:0",
+			"site": "packages/core/src/runtime/region-hooks.ts > region_urls > catch:0",
+			"reason": "a region whose src no URL parser takes is told as mounted with its entry alone; proved by hand: the catch made to rethrow turns the test red",
+			"test": "packages/core/test/browser/region-hooks.test.ts",
+			"name": "a file no URL parser takes is left out, and the mount is still told"
+		},
+		{
+			"site": "packages/core/src/runtime/hook-told.ts > isolated > .catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the .catch handler made to rethrow turns the test red",
 			"test": "packages/core/test/runtime-hooks-compose.test.ts",
 			"name": "a subscriber's rejected promise is reported, never awaited"
 		},
 		{
-			"site": "packages/core/src/runtime/client-plugins.ts > isolated > catch:0",
+			"site": "packages/core/src/runtime/hook-told.ts > isolated > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch body emptied turns the test red",
 			"test": "packages/core/test/runtime-hooks-compose.test.ts",
 			"name": "a throwing subscriber is reported once and never stops the ones after it"
@@ -6081,7 +6087,6 @@
 		"packages/core/src/region.ts > make_awaitable > value > reject:0",
 		"packages/core/src/request-event.ts > requestEvent > catch:0",
 		"packages/core/src/rules.ts > Rules > broken > catch:0",
-		"packages/core/src/runtime/client-plugins.ts > region_urls > catch:0",
 		"packages/core/src/runtime/code-origins.ts > origin_of > catch:0",
 		"packages/core/src/runtime/code-origins.ts > import_code > import:0",
 		"packages/core/src/runtime/concurrency.ts > ConcurrencyGate > run > abort:0",

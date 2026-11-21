@@ -19,6 +19,19 @@ import { import_again, is_failed_import, on_file_load, on_reload_needed } from '
 import { browser_offline, no_response } from './network.ts';
 import { HAS } from 'ogygia:boot';
 import {
+	answerParsed,
+	answerPlaced,
+	entryFallback,
+	holeAnswered,
+	holeFailed,
+	realm_count,
+	regionFailed,
+	regionMount,
+	regionUnmount,
+	regionWoke,
+	warning
+} from 'ogygia:boot/hooks';
+import {
 	F_FRAMES,
 	F_GRAPH,
 	F_IDLE,
@@ -136,22 +149,8 @@ import {
 	install_window_sink as dt_install_window_sink,
 	ingest_server_events as dt_ingest_server
 } from '../events/sinks.ts';
-import {
-	CLIENT_PLUGINS,
-	HOOK_ANSWER_PARSED,
-	HOOK_ANSWER_PLACED,
-	HOOK_ENTRY_FALLBACK,
-	HOOK_HOLE_ANSWERED,
-	HOOK_HOLE_FAILED,
-	HOOK_REGION_FAILED,
-	HOOK_REGION_MOUNT,
-	HOOK_REGION_UNMOUNT,
-	HOOK_REGION_WOKE,
-	HOOK_WARNING,
-	boot_client_plugins,
-	client_region_mount
-} from './client-plugins.ts';
-import type { ClientRealm } from './client-plugins.ts';
+import { boot_client_plugins, type ClientRealm } from './client-plugins.ts';
+import { client_region_mount } from './region-hooks.ts';
 import { OgygiaError, warn, line } from '../messages/core.ts';
 import { disclose_version } from './disclose-version.ts';
 
@@ -425,7 +424,7 @@ export function region_fragment(html: VerifiedHtml): {
 				)
 				.then(() => undefined)
 		: Promise.resolve();
-	if (HOOK_ANSWER_PARSED) slots.hooks?.answerParsed?.({ fragment: frag });
+	if (answerParsed) answerParsed({ fragment: frag });
 	for (const el of frag.querySelectorAll('ogygia-region')) {
 		if (el.getAttribute('entry') && !is_deferred(el) && !is_frozen(el)) {
 			(el as unknown as PristineHost)[PRISTINE_SSR] = el.innerHTML;
@@ -785,11 +784,11 @@ class OgygiaRegion extends HTMLElement {
 	#arm(when: string, fire: () => unknown, visible_margin?: string) {
 		const owner: Leaves = fire === this.#fire_hydrate ? this.#wake : this.#hole;
 		if (fire === this.#fire_hydrate && when !== 'interaction') this.#catch_early_input(fire);
-		if (DEVTOOLS || (HOOK_REGION_WOKE && slots.hooks?.regionWoke)) {
+		if (DEVTOOLS || regionWoke) {
 			const raw = fire;
 			fire = () => {
 				if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'wake.fired', ...dt_ids(this), when });
-				if (HOOK_REGION_WOKE) slots.hooks?.regionWoke?.({ el: this, when });
+				if (regionWoke) regionWoke({ el: this, when });
 				return raw();
 			};
 		}
@@ -1033,7 +1032,7 @@ class OgygiaRegion extends HTMLElement {
 		}
 		if (morph) morph(this, Array.from(frag.childNodes));
 		else this.replaceChildren(frag);
-		if (HOOK_ANSWER_PLACED) slots.hooks?.answerPlaced?.({ el: this });
+		if (answerPlaced) answerPlaced({ el: this });
 		init_shadow_registries(this);
 		absorb_page_facts_now();
 		this.#answered('answered');
@@ -1042,10 +1041,10 @@ class OgygiaRegion extends HTMLElement {
 		else if (!is_awake(this)) this.setAttribute('data-hydrated', '');
 		if (HAS & F_LAKES)
 			slots.lakes?.after_html_swap(this, { revalidate }, () => this.#wake_waiting_regions());
-		if (HOOK_HOLE_ANSWERED && slots.hooks?.holeAnswered && !revalidate && this.#fetch_started) {
+		if (holeAnswered && !revalidate && this.#fetch_started) {
 			const ep = this.getAttribute('endpoint');
 			const batch = ep ? slots.frames?.batch_times?.(ep) : undefined;
-			slots.hooks.holeAnswered({
+			holeAnswered({
 				el: this,
 				start: this.#fetch_started,
 				...(batch ? { batch } : {})
@@ -1161,7 +1160,7 @@ class OgygiaRegion extends HTMLElement {
 				warn('region_fetch_failed', { endpoint }, err);
 			}
 		}
-		if (HOOK_HOLE_FAILED && final && slots.hooks?.holeFailed) {
+		if (holeFailed && final) {
 			let id = '';
 			let final_path: string | undefined;
 			try {
@@ -1170,7 +1169,7 @@ class OgygiaRegion extends HTMLElement {
 				// oxlint-disable-next-line ogygia/no-silent-failures -- an endpoint URL that was fetched parses; the message goes without its id if not
 			} catch {}
 			if (id)
-				slots.hooks.holeFailed?.({
+				holeFailed({
 					el: this,
 					id,
 					reason: refused ? err.reason : 'error',
@@ -1268,7 +1267,7 @@ class OgygiaRegion extends HTMLElement {
 		const t0 = now_ms();
 		const times: WakeTimes = { t0, loaded: t0, turn: undefined };
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'region.hydrate.start', ...dt_ids(this) });
-		if (HOOK_REGION_MOUNT) client_region_mount(this);
+		if (regionMount) client_region_mount(this);
 		try {
 			// wait for full parse so the end-of-body props sidecars (and the seed) are in the DOM. On an
 			// SPA swap (and any post-load hydrate) the document is already parsed, so skip the await
@@ -1317,8 +1316,8 @@ class OgygiaRegion extends HTMLElement {
 			// (a failed island stops being watched; its copy, if kept, counts as changed from here)
 			if (this.#watching) mark_region_changed(this);
 			this.#unwatch();
-			if (HOOK_REGION_FAILED)
-				slots.hooks?.regionFailed?.({
+			if (regionFailed)
+				regionFailed({
 					el: this,
 					message: (err as { message?: string })?.message ?? String(err),
 					since: t0,
@@ -1446,7 +1445,7 @@ class OgygiaRegion extends HTMLElement {
 			dom_ready,
 			kit_boot_failed,
 			say_island_failed,
-			client_region_mount: HOOK_REGION_MOUNT ? client_region_mount : nothing
+			client_region_mount: regionMount ? client_region_mount : nothing
 		};
 	}
 
@@ -1461,8 +1460,8 @@ class OgygiaRegion extends HTMLElement {
 		// out of the document nothing watches it: a copy it keeps is compared if it wakes again (its
 		// sleep ends with its lifetime, below)
 		if (this.#watching) mark_region_changed(this);
-		if (HOOK_REGION_UNMOUNT && this.#app)
-			slots.hooks?.regionUnmount?.({ el: this, entry: this.getAttribute('entry') ?? '' });
+		if (regionUnmount && this.#app)
+			regionUnmount({ el: this, entry: this.getAttribute('entry') ?? '' });
 		const live = this.#live_run;
 		if (live !== null && live.kind !== 'idle') live.go('idle');
 		const hole = this.#hole_run;
@@ -1522,7 +1521,7 @@ export function boot(
 	code_origins();
 	on_entry_fallback((report) => {
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'entry.fallback', ...report });
-		if (HOOK_ENTRY_FALLBACK) slots.hooks?.entryFallback?.(report);
+		if (entryFallback) entryFallback(report);
 	});
 	// A chunk whose dependency failed: no retry loads it, the page needs a reload (#262; said once,
 	// import-again.ts imports nothing)
@@ -1536,7 +1535,7 @@ export function boot(
 	if (import.meta.env.DEV) {
 		tap_svelte_warnings();
 		on_svelte_warning((w) => {
-			if (HOOK_WARNING) slots.hooks?.warning?.(w);
+			if (warning) warning(w);
 			if (DEVTOOLS)
 				dt_emit({
 					domain: 'runtime',
@@ -1553,7 +1552,7 @@ export function boot(
 		dt_install_window_sink();
 		dt_ingest_server();
 	}
-	if (CLIENT_PLUGINS) boot_client_plugins(client_plugins, false);
+	if (realm_count) boot_client_plugins(client_plugins, false);
 	if (DEVTOOLS) {
 		const features: string[] = [];
 		if (slots.interaction) features.push('interaction');

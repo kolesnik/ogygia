@@ -75,8 +75,6 @@ describe('the virtual modules’ declarations', () => {
 			devtools: true,
 			devtools_lazy: false,
 			rules: false,
-			client_plugins: false,
-			hooks: ['regionHydrated'],
 			kit_major: 2,
 			kit_pages: false,
 			version: '1.2.3',
@@ -84,8 +82,8 @@ describe('the virtual modules’ declarations', () => {
 		});
 		expect(Object.keys(defines).length).toBe(core.CORE_CONSTANTS.length);
 		expect(defines.__OGYGIA_DEVTOOLS__).toBe('true');
-		expect(defines.__OGYGIA_HOOK_REGION_HYDRATED__).toBe('true');
-		expect(defines.__OGYGIA_HOOK_NAVIGATED__).toBe('false');
+		// (the runtime hooks are a module, `ogygia:boot/hooks`: no define each)
+		expect(Object.keys(defines).some((d) => d.startsWith('__OGYGIA_HOOK_'))).toBe(false);
 		expect(defines.__OGYGIA_VERSION__).toBe('"1.2.3"');
 		expect(defines.__OGYGIA_DEV_HMR_URL__).toBe('""');
 	});

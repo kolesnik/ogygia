@@ -29,7 +29,6 @@ import {
 	QUERY_MAKERS,
 	RUNTIME_DIR,
 	OGYGIA_VERSION,
-	type RuntimeHookName,
 	type BarrelLeftReason,
 	type ChunkBarrel
 } from '@ogygia/core/contract';
@@ -218,7 +217,6 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 	let app_plugins: PluginDefinition[] = [];
 	let server_plugins: ServerRealm[] = [];
 	let client_plugins: ClientRealmFile[] = [];
-	let runtime_hooks: RuntimeHookName[] = [];
 	let route_config: string[] = [];
 	let foreign_hydrate = false;
 	let macros: ResolvedPlugins['macros'] = [];
@@ -493,7 +491,6 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 					({
 						servers: server_plugins,
 						clients: client_plugins,
-						client_hooks: runtime_hooks,
 						route_config,
 						foreign_hydrate,
 						macros,
@@ -557,8 +554,6 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 							devtools: devtools_effective,
 							devtools_lazy,
 							rules: process.env.OGYGIA_RULES === '1',
-							client_plugins: client_plugins.length > 0,
-							hooks: runtime_hooks,
 							kit_major: kit_major(path.resolve(userConfig.root ?? '.')),
 							kit_pages:
 								env.command === 'serve' ||

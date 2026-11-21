@@ -126,7 +126,7 @@ describe('realms, named by the plugin', () => {
 		});
 		const out = resolve_plugins([plugin], APP, true);
 		expect(out.servers).toEqual([{ name: '@ogygia/flags', module: posix, options: { x: 1 } }]);
-		expect(out.clients).toEqual([{ name: '@ogygia/flags', module: posix }]);
+		expect(out.clients).toEqual([{ name: '@ogygia/flags', module: posix, hooks: [] }]);
 	});
 	it('the runtime hooks a client realm subscribes to are read from its file, and nothing else passes', () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-client-hooks-'));

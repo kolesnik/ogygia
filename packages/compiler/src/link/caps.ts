@@ -1,5 +1,5 @@
 import { page_route_config, type Routes } from '../kit.ts';
-import { dedent } from '@ogygia/core/contract';
+import { dedent, type RuntimeHookName } from '@ogygia/core/contract';
 
 /** One plugin's server realm, as the build wires it. */
 export interface ServerRealm {
@@ -17,6 +17,8 @@ export interface ClientRealmFile {
 	name: string;
 	/** the realm module's absolute POSIX path (the plugin's `client`) */
 	module: string;
+	/** the runtime hooks it subscribes to (its `defineClient({ hooks })`, read from the file) */
+	hooks: readonly RuntimeHookName[];
 }
 
 /** The boot entry's plugin list (`[{ name, client }, …]`) and the imports it names, in plugin order. */

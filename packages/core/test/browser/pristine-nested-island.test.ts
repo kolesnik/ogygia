@@ -10,7 +10,7 @@
 import { expect, test } from 'vitest';
 import { pristine_ssr_of } from '../../src/runtime/core.ts';
 import { region_fragment } from './_html.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 
 test('a nested self-hydrating island captures its pristine markup (whitespace intact)', () => {
 	const { frag } = region_fragment(
@@ -47,18 +47,18 @@ test('the captured markup is the server bytes, unaffected by a later live mutati
 });
 
 test('an app’s answerParsed pass runs before the copy: a nested island repairs against the answer as the app restored it', () => {
-	slots.hooks = {
+	hear({
 		answerParsed: ({ fragment }) => {
 			for (const el of fragment.querySelectorAll('[data-reshaped]')) el.textContent = 'restored';
 		}
-	};
+	});
 	try {
 		const { frag } = region_fragment(
 			'<ogygia-region entry="/x.js" wake="load"><span data-reshaped>moved</span></ogygia-region>'
 		);
 		expect(pristine_ssr_of(frag.querySelector('ogygia-region')!)).toContain('restored');
 	} finally {
-		slots.hooks = undefined;
+		hear_none();
 	}
 });
 

@@ -28,6 +28,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { rolldown, type OutputChunk, type Plugin } from 'rolldown';
 import { dedent } from 'ogygia/plugin/utils';
 import type { RuntimeMarks } from '../../../packages/compiler/dist/link/runtime-entry.js';
+import type { ClientRealmFile } from '../../../packages/compiler/dist/link/caps.js';
 import { PROGRAMS } from './_programs.ts';
 import { mapped_text } from './_sourcemap.ts';
 
@@ -66,6 +67,15 @@ const client_hook_names: ((plugin: string, file: string) => string[]) | null = e
 				client_hook_names?: typeof client_hook_names;
 			}
 		).client_hook_names ?? null)
+	: null;
+
+// The generators of the hooks module and the lazy chunks' bits (a checkout that folds its hooks by
+// defines has none)
+const HOOKS_GEN = join(CORE, '../compiler/dist/link/hooks.js');
+const hooks_gen = existsSync(HOOKS_GEN)
+	? ((await import(
+			pathToFileURL(HOOKS_GEN).href
+		)) as typeof import('../../../packages/compiler/dist/link/hooks.js'))
 	: null;
 
 const RUNTIME_DIR = join(CORE, 'dist/runtime');
@@ -223,18 +233,25 @@ const size = (code: string): Size => {
 /** The boot realm's virtual module, `ogygia:boot`, served from the profile's marks as the plugin
  *  serves an app build's (the runtime flags, the hydrate-phase features; no region names). An older
  *  checkout's compiler without the generators leaves it external, as that build's own tool did. */
-function boot_realm(marks: RuntimeMarks): Plugin {
+function boot_realm(marks: RuntimeMarks, realms: readonly ClientRealmFile[]): Plugin {
 	// (one named re-export per name, as the plugin's realm module is: virtual/resolver.ts)
 	const flags = () => generateRuntimeFlagsSource(marks, RUNTIME_DIR);
-	const flag_names = () => [...flags().matchAll(EXPORTED_CONST_RE)].map((m) => m[1]).join(', ');
+	const names = (source: string) =>
+		[...source.matchAll(EXPORTED_CONST_RE)].map((m) => m[1]).join(', ');
+	// (a checkout that folds its hooks by a module: the hooks the realms subscribe to, and the
+	// lazy chunks' bits, as the plugin serves them)
+	const hooks = () => hooks_gen?.generateHooksSource(realms, RUNTIME_DIR) ?? '';
+	const bits = () => hooks_gen?.generateHookBitsSource(realms) ?? '';
 	const ids: Record<string, () => string> = {
 		'ogygia:boot': () => dedent`
-			export { ${flag_names()} } from 'ogygia:boot/runtime-flags';
+			export { ${names(flags())} } from 'ogygia:boot/runtime-flags';
 			export { install as install_hydrate_features } from 'ogygia:boot/hydrate-features';
 			export const region_names = {};
 		`,
 		'ogygia:boot/runtime-flags': flags,
-		'ogygia:boot/hydrate-features': () => generateHydrateFeaturesSource(marks, RUNTIME_DIR).code
+		'ogygia:boot/hydrate-features': () => generateHydrateFeaturesSource(marks, RUNTIME_DIR).code,
+		'ogygia:boot/hooks': hooks,
+		'ogygia:boot/hook-bits': bits
 	};
 	const served = typeof generateRuntimeFlagsSource === 'function';
 	return {
@@ -253,10 +270,12 @@ async function measure(
 ): Promise<
 	Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'> & { boot_code: string }
 > {
-	const realms = clients.map((module, i) => ({ name: `size-client-${i}`, module }));
-	const subscribed = new Set(
-		realms.flatMap((r) => client_hook_names?.(r.name, r.module) ?? HOOK_NAMES)
-	);
+	const realms: ClientRealmFile[] = clients.map((module, i) => {
+		const name = `size-client-${i}`;
+		const hooks = (client_hook_names?.(name, module) ?? HOOK_NAMES) as ClientRealmFile['hooks'];
+		return { name, module, hooks };
+	});
+	const subscribed = new Set(realms.flatMap((r) => r.hooks));
 	const { code } = generateRuntimeEntrySource(marks, RUNTIME_DIR, realms);
 	const dir = mkdtempSync(join(tmpdir(), 'ogygia-size-'));
 	const entry = join(dir, 'entry.mjs');
@@ -270,7 +289,7 @@ async function measure(
 		input: entry,
 		external: [/^svelte(\/|$)/, /^\$app\//, /\.svelte$/, /^ogygia:region(\/|$)/],
 		resolve: { conditionNames: ['browser', 'production', 'import', 'default'] },
-		plugins: [boot_realm(marks)],
+		plugins: [boot_realm(marks, realms)],
 		// Strip DEV like a real Vite prod build (import.meta.env.DEV → false), so the numbers reflect
 		// what actually ships — not the dev-only warnings and the PropMutationGuard, which prod DCEs.
 		// Mirror the plugin's `define` (vite/index.ts) at their prod defaults: the runtime's build-time
@@ -294,7 +313,10 @@ async function measure(
 				__OGYGIA_VERSION__: JSON.stringify(CORE_VERSION),
 				// each hook its client realms subscribe to (a checkout that folds hooks by defines)
 				...Object.fromEntries(
-					Object.entries(HOOK_CONSTANTS).map(([h, id]) => [id, String(subscribed.has(h))])
+					Object.entries(HOOK_CONSTANTS).map(([h, id]) => [
+						id,
+						String(subscribed.has(h as ClientRealmFile['hooks'][number]))
+					])
 				)
 			}
 		},

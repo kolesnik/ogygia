@@ -133,7 +133,8 @@
 		{
 			"files": [
 				"packages/core/test/wire-markup.test.ts",
-				"packages/core/test/instruments-node-load.test.ts"
+				"packages/core/test/instruments-node-load.test.ts",
+				"packages/compiler/test/runtime-hooks.test.ts"
 			],
 			"rules": { "ogygia/tests-read-source": "off" }
 		}

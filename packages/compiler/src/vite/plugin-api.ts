@@ -7,7 +7,7 @@ import type { Plugin as VitePlugin } from 'vite';
 import type { ExportMap, Policy } from '../exports/index.ts';
 import type { ClientRealmFile, ServerRealm } from '../link/caps.ts';
 import {
-	RUNTIME_HOOK_CONSTANTS,
+	RUNTIME_HOOK_NAMES,
 	type BarrelLeftReason,
 	type RuntimeHookName
 } from '@ogygia/core/contract';
@@ -292,10 +292,8 @@ export async function find_plugins(list: unknown): Promise<PluginDefinition[]> {
 export interface ResolvedPlugins {
 	/** each server realm, in plugin order (`enforce` applied) */
 	servers: ServerRealm[];
-	/** each browser realm (its plugin's name, its absolute path), in plugin order */
+	/** each browser realm (its plugin's name, its absolute path, its hooks), in plugin order */
 	clients: ClientRealmFile[];
-	/** every runtime hook some browser realm subscribes to */
-	client_hooks: RuntimeHookName[];
 	/** every key any plugin claims inside Kit's `config` page option */
 	route_config: string[];
 	/** a plugin asked for island entries' foreign-hydrate exports */
@@ -486,7 +484,7 @@ export function client_hook_names(plugin: string, file: string): RuntimeHookName
 	for (const p of hooks.properties as AstNode[]) {
 		const key = key_of(p);
 		if (key === null) throw unread();
-		if (!Object.hasOwn(RUNTIME_HOOK_CONSTANTS, key))
+		if (!(RUNTIME_HOOK_NAMES as readonly string[]).includes(key))
 			throw new OgygiaError('plugin_client_hook_unknown', { plugin, hook: key });
 		names.push(key as RuntimeHookName);
 	}
@@ -519,7 +517,6 @@ export function resolve_plugins(
 	const out: ResolvedPlugins = {
 		servers: [],
 		clients: [],
-		client_hooks: [],
 		route_config: [],
 		foreign_hydrate: false,
 		macros: [],
@@ -546,9 +543,11 @@ export function resolve_plugins(
 			out.servers.push({ name: plugin.name, module: server, options: plugin.options ?? {} });
 		const client = realm_path(plugin, 'client');
 		if (client) {
-			out.clients.push({ name: plugin.name, module: client });
-			for (const name of client_hook_names(plugin.name, client))
-				if (!out.client_hooks.includes(name)) out.client_hooks.push(name);
+			out.clients.push({
+				name: plugin.name,
+				module: client,
+				hooks: client_hook_names(plugin.name, client)
+			});
 		}
 		plugin.build?.({
 			root,

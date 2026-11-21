@@ -797,7 +797,7 @@
 			"reason": "browser only: is this still the live region's hydrating visit, constant work; proven in packages/core/test/browser/live-region.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/live-program.ts > live_hydrate > defer:0~8c9c1a",
+			"id": "packages/core/src/runtime/live-program.ts > live_hydrate > defer:0~771fc3",
 			"reason": "browser only: disposes a live region's island when it leaves `live`, constant work besides Svelte's unmount; proven in packages/core/test/browser/live-region.test.ts"
 		},
 		{
@@ -3129,12 +3129,20 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/compiler/src/virtual/core.ts > hook_gate",
-			"reason": "declares one hook constant (its from is a lambda: not cloneable), once per hook as core.ts loads; constant, never per build"
+			"id": "packages/core/src/runtime/hydrate-core.ts > hooks",
+			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes (its call folds out otherwise)"
 		},
 		{
-			"id": "packages/core/src/runtime/client-plugins.ts > joined",
-			"reason": "browser only: builds one hook's subscriber list once at boot, linear in the client plugins (a handful)"
+			"id": "packages/core/src/runtime/hydrate-core.ts > after_region_hydrate",
+			"reason": "browser only: the regionHydrate subscribers' after, or null where none subscribes (a constant the build folds), constant work besides the subscribers; proven in packages/core/test/browser/hydrate-island-claims.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/live-program.ts > hooks",
+			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes"
+		},
+		{
+			"id": "packages/core/src/runtime/router-nav.ts > hooks",
+			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes"
 		},
 		{
 			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > unread",

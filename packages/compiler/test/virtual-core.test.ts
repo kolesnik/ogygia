@@ -21,7 +21,7 @@ const table = new VirtualTable<CoreApp>(
 type Fake = {
 	ctx?: Record<string, unknown>;
 	program?: Record<string, unknown>;
-	client?: { name: string; module: string }[];
+	client?: { name: string; module: string; hooks: string[] }[];
 	calls?: string[];
 };
 
@@ -58,9 +58,23 @@ const load = (spec: string, a: CoreApp, ssr = false) =>
 	table.load(table.resolve(spec)!, a, leg(ssr)) as string | null;
 const DEV = { is_dev: true, is_build: false };
 const BUILD = { is_dev: false, is_build: true };
-const PLUGIN = { name: 'x-plugin', module: '/plugins/x/client.js' };
+const PLUGIN = { name: 'x-plugin', module: '/plugins/x/client.js', hooks: ['navigated'] };
 
 describe('core’s boot modules', () => {
+	it('serves the hooks the app’s client realms subscribe to, from the build’s runtime or dev’s', () => {
+		const built = load('ogygia:boot/hooks', app({ ctx: BUILD, client: [PLUGIN] }))!;
+		expect(built).toContain('import { told } from "/pkg/dist/runtime/hook-told.js";');
+		expect(built).toContain('export const navigated = /* @__PURE__ */ told("navigated");');
+		expect(built).toContain('export const regionMount = 0;');
+		expect(built).toContain('export const realm_count = 1;');
+		expect(load('ogygia:boot/hook-bits', app({ ctx: BUILD, client: [PLUGIN] }))).toContain(
+			'export const navigated = 1;'
+		);
+		const none = load('ogygia:boot/hooks', app({ ctx: DEV }))!;
+		expect(none).not.toContain('import');
+		expect(none).toContain('export const realm_count = 0;');
+	});
+
 	it('the dev boot calls bootDev, so a sideEffects:false package is not tree-shaken out of it', () => {
 		expect(load('ogygia:boot/runtime', app({ ctx: DEV }))).toContain('bootDev();');
 	});

@@ -147,6 +147,22 @@ function boot_realm_names(files: Iterable<string>): Set<string> {
 	return names;
 }
 
+/** The boot realm's own modules `files` import by their ids (`ogygia:boot/hooks`), types aside. */
+function boot_realm_modules(files: Iterable<string>): Set<string> {
+	const ids = new Set<string>();
+	for (const file of files) {
+		if (file.endsWith('.svelte')) continue;
+		const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest);
+		for (const stmt of sf.statements) {
+			if (!ts.isImportDeclaration(stmt)) continue;
+			if (stmt.importClause?.phaseModifier === ts.SyntaxKind.TypeKeyword) continue;
+			const spec = (stmt.moduleSpecifier as ts.StringLiteral).text;
+			if (spec.startsWith('ogygia:boot/')) ids.add(spec);
+		}
+	}
+	return ids;
+}
+
 /** Every chain from `entry` that ends in Svelte. */
 function svelte_chains(entry: string): string[] {
 	const seen = new Set<string>();
@@ -319,6 +335,25 @@ describe('island-side modules reach the runtime only through its handles', () =>
 			expect(shared).toEqual([]);
 		});
 	}
+
+	// The same for a realm module imported by its own id: one the boot imports too (the hooks it
+	// calls, functions) would be shared by the two chunks, a file of its own. A lazy chunk reads its
+	// hooks' bits (`ogygia:boot/hook-bits`, which the boot never imports) and the hooks through the link.
+	const boot_modules = boot_realm_modules(boot.keys());
+	for (const lazy of ['hydrate-core.ts', 'router-nav.ts', 'interaction-replay.ts']) {
+		it(`lazy chunk ${lazy} imports no ogygia:boot module the boot imports`, () => {
+			const shared = [...boot_realm_modules(static_files(path.join(RUNTIME, lazy)).keys())].filter(
+				(id) => boot_modules.has(id)
+			);
+			expect(shared).toEqual([]);
+		});
+	}
+
+	it('the module check is not vacuous: the boot calls its hooks, the hydrate core reads their bits', () => {
+		expect(boot_modules.has('ogygia:boot/hooks')).toBe(true);
+		const hydrate = boot_realm_modules(static_files(path.join(RUNTIME, 'hydrate-core.ts')).keys());
+		expect(hydrate.has('ogygia:boot/hook-bits')).toBe(true);
+	});
 
 	it('the ogygia:boot check is not vacuous: the boot reads the feature word, the hydrate core its features', () => {
 		expect(boot_names.has('HAS')).toBe(true);
