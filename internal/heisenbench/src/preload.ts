@@ -11,7 +11,8 @@
  * stand-in island module, one instance per file: `<ISLAND_FILES><name>` -> island-module.ts?entry=<name>.
  * And a `.svelte` file a module imports (core's RenderSnippet.svelte) is compiled for the server by
  * core's own Svelte, as the app's Vite would. And a core file with macros loads as core's build
- * compiles it (./macros.ts).
+ * compiles it (./macros.ts). And each bench file loads in Node's own world: the globals an earlier
+ * bench file of the run installed (a browser's, core's hydration benches) are taken off first.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire, registerHooks, stripTypeScriptTypes } from 'node:module';
@@ -62,8 +63,47 @@ function counted(): boolean {
 	return (globalThis as Record<symbol, unknown>)[HEISENBENCH_RUNTIME] !== undefined;
 }
 
+/** A bench file, as Heisenbench imports it (each fresh copy with its own query). */
+const BENCH_FILE_RE = /\.bench\.[cm]?ts(?:\?|$)/;
+/** ogygia's process slots (`slot()`, @ogygia/machine: `globalThis[Symbol.for('ogygia.…')]`). */
+const SLOT_PREFIX = 'ogygia.';
+
+/** The world each bench file of a run loads in: Node's own, as in a run of that file alone. */
+class BenchWorld {
+	/** The globals the run had when its first bench file loaded. */
+	static #own: ReadonlySet<string | symbol> | null = null;
+	/** The bench file whose copies load now. */
+	static #file: string | null = null;
+
+	/**
+	 * `url` (a bench file's copy) is about to load. When it is another file than the one before,
+	 * every global the earlier files installed since the run's first one loaded is taken off: the
+	 * browser a hydration bench installs (a server file after it reads no `window`: esm-env's
+	 * BROWSER, the `typeof window` checks), and ogygia's process slots (the readers a server bench
+	 * installed). The copies of one file keep what their file installed, as in a run of it alone,
+	 * so each case counts as it does there.
+	 */
+	static load(url: string): void {
+		const q = url.indexOf('?');
+		const file = q === -1 ? url : url.slice(0, q);
+		const g = globalThis as unknown as Record<string | symbol, unknown>;
+		if (BenchWorld.#own === null) BenchWorld.#own = new Set(Reflect.ownKeys(g));
+		else if (file !== BenchWorld.#file)
+			for (const key of Reflect.ownKeys(g))
+				if (!BenchWorld.#own.has(key) && BenchWorld.#installed(key)) delete g[key];
+		BenchWorld.#file = file;
+	}
+
+	/** Whether `key` is a global a bench file installs: a name, or one of ogygia's slots
+	 *  (Heisenbench keeps its own state under its own symbols). */
+	static #installed(key: string | symbol): boolean {
+		return typeof key === 'string' || (key.description?.startsWith(SLOT_PREFIX) ?? false);
+	}
+}
+
 registerHooks({
 	resolve(specifier, context, next) {
+		if (BENCH_FILE_RE.test(specifier)) BenchWorld.load(specifier);
 		if (specifier === 'svelte' && hydrate_core_import(context))
 			return { url: new URL('svelte-hydrate.ts', STUBS).href, shortCircuit: true };
 		if (specifier.startsWith(ISLAND_FILES)) {
