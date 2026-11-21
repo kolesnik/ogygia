@@ -9,15 +9,11 @@ const unique = (name: string) => `lake-connect-${name}-${next++}`;
 /** The arms a region hands its lake, counting what the lake asked of them; `built: false`, a build
  *  that left the idle arm out. */
 function arms(built = true) {
-	const asked = { fetch: 0, idle: [] as (() => void)[], missing: [] as string[] };
+	const asked = { fetch: 0, idle: [] as (() => void)[] };
 	const arm: LakeArm = {
 		idle: built ? (fire) => asked.idle.push(fire) : null,
 		visible: () => {},
-		media: { is: () => false, arm: () => {} },
-		missing: (value, fire) => {
-			asked.missing.push(value);
-			fire();
-		},
+		media: () => false,
 		fetch_revalidate: () => asked.fetch++,
 		wake_children: () => {}
 	};
@@ -119,14 +115,22 @@ test('on a document served from a page store an swr lake revalidates at its firs
 	expect(idle.asked.fetch, 'swr, when=idle, at idle').toBe(1);
 
 	const unbuilt = arms(false);
-	on_frozen_connect(
-		place(
-			lake(unique('stored-idle-unbuilt'), 'remount="swr" when="idle" endpoint="/e"'),
-			'[data-lake]'
-		),
-		unbuilt.arm
-	);
-	expect(unbuilt.asked.missing, 'swr, when=idle, no idle arm: said').toEqual(['idle']);
+	const said: string[] = [];
+	const real = console.error;
+	console.error = (...args: unknown[]) => said.push(args.map(String).join(' '));
+	try {
+		on_frozen_connect(
+			place(
+				lake(unique('stored-idle-unbuilt'), 'remount="swr" when="idle" endpoint="/e"'),
+				'[data-lake]'
+			),
+			unbuilt.arm
+		);
+	} finally {
+		console.error = real;
+	}
+	expect(said, 'swr, when=idle, no idle arm: said once').toHaveLength(1);
+	expect(said[0]).toContain('region_schedule_missing');
 	expect(unbuilt.asked.fetch, 'swr, when=idle, no idle arm: at once').toBe(1);
 });
 

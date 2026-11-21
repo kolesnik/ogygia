@@ -2793,16 +2793,8 @@
 			"reason": "hands a callback to one of four schedule arms (functions, not cloneable), one parse and one branch, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/lakes.ts > on_frozen_connect > on_schedule:2~6d0320",
-			"reason": "browser only: a stored page's swr lake revalidates on its schedule, one fetch call, constant work"
-		},
-		{
-			"id": "packages/core/src/runtime/lakes.ts > on_frozen_connect > on_schedule:2~6d0320#2",
-			"reason": "browser only: a cached lake revalidates on its schedule, one fetch call, constant work"
-		},
-		{
-			"id": "packages/core/src/runtime/lakes.ts > on_frozen_connect > on_schedule:2~6d0320#3",
-			"reason": "browser only: a cached lake revalidates on its schedule, one fetch call, constant work"
+			"id": "packages/core/src/runtime/lakes.ts > revalidate_on",
+			"reason": "browser only: a stored page's swr lake or a cached lake revalidates on its schedule (an arm the build left out said), one schedule call, constant work; proven in packages/core/test/browser/lake-connect.test.ts"
 		},
 		{
 			"id": "packages/core/src/server/request-stats.ts > set_request_stats_sink",
@@ -3993,11 +3985,15 @@
 			"reason": "test seam: the number of observers, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/region-endpoint-url.ts > make_warms > trusted_plain_flights:0~fe3e1d > run > onRaise:0~367f39",
-			"reason": "browser only: a more urgent warm joins one whose import is already on the wire, and its graph links are raised (one graph.preload call through the boot's graph slot, measured by its own bench)"
+			"id": "packages/core/src/runtime/island-warm.ts > make_warms > trusted_plain_flights:0~54cae6 > run > onRaise:0~1a69dd",
+			"reason": "browser only: a more urgent warm joins one whose import is already on the wire, and its graph links are raised (one preload_island_graph call, measured by its own bench)"
 		},
 		{
-			"id": "packages/core/src/runtime/region-endpoint-url.ts > reset_island_warms > drop:0~8b94d4",
+			"id": "packages/core/src/runtime/boot-link.ts > no_graph",
+			"reason": "a build whose word has no graph: a router read of a fetched page's graph does nothing, constant work; proven in packages/core/test/browser/island-graph-preload.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/island-warm.ts > reset_island_warms > drop:0~8b94d4",
 			"reason": "test seam: the predicate that drops every warm, constant work"
 		},
 		{
@@ -6957,36 +6953,20 @@
 			"reason": "the browser's stand-in: does nothing (the server's word gates what the server writes), constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > say_schedule_missing",
-			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw): never on a bench path, where every arm is in; proven in packages/core/test/browser/schedules-missing.test.ts"
+			"id": "packages/core/src/runtime/schedule-said.ts > say_trigger",
+			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw) or on no trigger: never on a bench path, where every schedule is a keyword its arm holds; two attribute reads and one message, constant work; proven in packages/core/test/browser/schedules-missing.test.ts and wake-unknown-trigger.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > region_label",
-			"reason": "a message argument: two attribute reads, constant work, only when a region is said (unknown or missing schedule)"
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #arm > on_trigger:2~f418cb > media",
+			"reason": "browser only: a wake or a hole's fetch on a value no keyword holds goes to the media arm (one media query test, then one matchMedia), constant work; proven in packages/core/test/browser/hole-lifecycle.test.ts and wake-unknown-trigger.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #arm > on_trigger:2~e5c3eb > missing",
-			"reason": "browser only, a region scheduled on an arm its build left out (HTML the compiler never saw): never on a bench path, where every arm is in; proven in packages/core/test/browser/schedules-missing.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #lake_arm > missing",
-			"reason": "browser only, a lake revalidated on an arm its build left out; proven in packages/core/test/browser/lake-connect.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #arm > on_trigger:2~e5c3eb > media > arm",
-			"reason": "browser only (matchMedia): hands a wake's media query to on_media, constant work; proven in packages/core/test/browser/schedules-missing.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #lake_arm > media > arm",
-			"reason": "browser only (matchMedia): hands a hole's or lake's media query to on_media while it is armed, constant work; proven in packages/core/test/browser/hole-when.test.ts and hole-lifecycle.test.ts"
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #lake_arm > media",
+			"reason": "browser only: a lake revalidated on a value no keyword holds goes to the media arm (one media query test, the hole's state, one matchMedia), constant work; proven in packages/core/test/browser/lake-swr-remount.test.ts"
 		},
 		{
 			"id": "packages/core/src/runtime/arm-media.ts > on_media",
-			"reason": "browser only (matchMedia): one query, fired now or one change listener in the visit's scope, constant work; proven in packages/core/test/browser/hole-when.test.ts and hole-lifecycle.test.ts"
-		},
-		{
-			"id": "packages/core/src/runtime/boot-link.ts > register_graph",
-			"reason": "a forwarder: one optional call to the boot's graph reader (island-graph-preload's register_island_graph, measured on its own); proven in packages/core/test/browser/island-graph-preload.test.ts"
+			"reason": "browser only (matchMedia): one media query test, then the query fired now or one change listener in the visit's scope, constant work; proven in packages/core/test/browser/hole-when.test.ts and hole-lifecycle.test.ts"
 		},
 		{
 			"id": "packages/core/src/messages/core.ts > ERRORS > region_schedule_missing",

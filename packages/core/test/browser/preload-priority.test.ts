@@ -4,12 +4,10 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import {
 	preload_island_graph,
-	register_island_graph,
 	reset_island_graph
 } from '../../src/runtime/island-graph-preload.ts';
-import { slots } from '../../src/runtime/slots.ts';
 import { OGYGIA_GRAPH_PRELOAD as GRAPH_PRELOAD_ATTR } from '../../src/wire-markup.ts';
-import { warm_island_module } from '../../src/runtime/region-endpoint-url.ts';
+import { warm_island_module } from '../../src/runtime/island-warm.ts';
 import {
 	BACKGROUND_WINDOW,
 	LoadSlot,
@@ -29,7 +27,6 @@ const requested = (part: string) =>
 
 let host: HTMLElement;
 beforeEach(() => {
-	slots.graph = { preload: preload_island_graph, register: register_island_graph };
 	reset_island_graph();
 	reset_load_scheduler();
 	reset_document_painted();

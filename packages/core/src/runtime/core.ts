@@ -114,6 +114,7 @@ import {
 import { on_idle } from './arm-idle.ts';
 import { on_visible } from './arm-visible.ts';
 import { on_media } from './arm-media.ts';
+import { say_trigger } from './schedule-said.ts';
 import {
 	note_code_sheets,
 	sheet_of,
@@ -121,7 +122,7 @@ import {
 	use_sheets,
 	type RegionSheet
 } from './region-sheets.ts';
-import { preload_island_graph, register_island_graph } from './island-graph-preload.ts';
+import { preload_island_graph } from './island-graph-preload.ts';
 import { fetch_priority_of, LoadSlot, viewport_class, type LoadClass } from './load-scheduler.ts';
 import { PRIORITY } from './load-class.ts';
 import type { FrameFetcher } from './frame-store.ts';
@@ -304,12 +305,6 @@ function say_island_failed(entry: string | null, err: unknown): void {
 /** A region needs a program its build's word left out (`HAS`): it keeps the server's HTML. */
 function say_program_missing(entry: string, program: 'hole' | 'live'): void {
 	console.error(new OgygiaError('region_program_missing', { entry, program }));
-}
-function region_label(el: Element): string {
-	return el.getAttribute('entry') || el.getAttribute(OG_HOLE) || 'ogygia-region';
-}
-function say_schedule_missing(el: Element, value: string): void {
-	console.error(new OgygiaError('region_schedule_missing', { region: region_label(el), value }));
 }
 const nothing = (): void => {};
 const kit_boot_failed = (err: unknown): boolean =>
@@ -780,17 +775,9 @@ class OgygiaRegion extends HTMLElement {
 					: null,
 			media:
 				HAS & F_MEDIA
-					? {
-							is: is_media_query,
-							arm: (when: string, fire: () => void) => {
-								if (this.#hole_armed()) on_media(when, fire, this.#hole);
-							}
-						}
+					? (when: string, fire: () => void) =>
+							is_media_query(when) && (!this.#hole_armed() || on_media(when, fire, this.#hole))
 					: null,
-			missing: (value: string, fire: () => void) => {
-				say_schedule_missing(this, value);
-				fire();
-			},
 			fetch_revalidate: () => this.#box.post((turn) => this.#fetch_html(turn, true)),
 			wake_children: () => this.#wake_waiting_regions()
 		};
@@ -823,21 +810,14 @@ class OgygiaRegion extends HTMLElement {
 		// starts nothing (#335).
 		const armed = owner.visit();
 		const start = () => background_start(() => void (armed.closed || fire()));
-		const held = on_trigger(
+		const said = on_trigger(
 			when,
 			WAKE,
 			{
 				idle: HAS & F_IDLE ? (f) => on_idle(f, owner) : null,
 				visible: HAS & F_VISIBLE ? () => on_visible(this, start, visible_margin, owner) : null,
 				load: start,
-				media:
-					HAS & F_MEDIA
-						? { is: is_media_query, arm: (query) => on_media(query, start, owner) }
-						: null,
-				missing: (value) => {
-					say_schedule_missing(this, value);
-					start();
-				},
+				media: HAS & F_MEDIA ? (value) => on_media(value, start, owner) : null,
 				interaction: (f) => {
 					if (HAS & F_FRAMES && owner === this.#hole) {
 						arm_on_demand(
@@ -853,7 +833,7 @@ class OgygiaRegion extends HTMLElement {
 			},
 			fire
 		);
-		if (!held) warn('region_wake_unknown', { region: region_label(this), value: when });
+		if (said) say_trigger(this, when, said);
 	}
 
 	/**
@@ -1535,8 +1515,6 @@ export function boot(
 		warn,
 		line
 	};
-	slots.graph =
-		HAS & F_GRAPH ? { preload: preload_island_graph, register: register_island_graph } : null;
 	link_boot();
 	for (const install of installers) install();
 	// The build's location map, pinned to this page's address before any navigation moves it

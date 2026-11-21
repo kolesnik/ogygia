@@ -11,11 +11,11 @@ import { slots } from './slots.ts';
 import { create_soft_refresh } from './soft-refresh.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
 import { KitBoot, kit_meta_of } from '../wire-markup.ts';
-import {
-	ABSOLUTE_URL_SCHEME,
-	is_warmed_module,
-	warm_island_module
-} from './region-endpoint-url.ts';
+import { HAS } from 'ogygia:boot';
+import { F_GRAPH } from '../contract/features.ts';
+import { ABSOLUTE_URL_SCHEME } from './region-endpoint-url.ts';
+import { is_warmed_module, warm_island_module } from './island-warm.ts';
+import { register_island_graph } from './island-graph-preload.ts';
 import { note_entry_location } from './entry-locations.ts';
 import {
 	is_deferred,
@@ -55,9 +55,8 @@ const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAG
 /** Without Kit pages no document of the app is Kit's: one that says so is refused. */
 const KIT_META = { document_has: (doc: ParentNode): boolean => kit_meta_of(doc) === true };
 const no_kit = (): boolean => false;
-/** A router read of a fetched page's graph: the boot's graph reader's, none without one. */
-export const register_graph = (text: string, base?: string): void =>
-	slots.graph?.register(text, base);
+/** A router read of a fetched page in a build whose word has no graph: nothing to read. */
+const no_graph: typeof register_island_graph = () => {};
 
 export function link_boot(): void {
 	// (in ./boot-link-index.ts's order: the lazy chunks read each by its number)
@@ -65,7 +64,7 @@ export function link_boot(): void {
 		KIT_PAGES ? kit_hydrates_page : no_kit,
 		KIT_PAGES ? KitBoot : KIT_META,
 		ABSOLUTE_URL_SCHEME,
-		register_graph,
+		HAS & F_GRAPH ? register_island_graph : no_graph,
 		is_warmed_module,
 		warm_island_module,
 		runs_entry,

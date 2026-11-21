@@ -15,6 +15,8 @@ import { bootDev } from '../../src/runtime/full.ts';
 import { from_b64 } from './b64.ts';
 import { boot_link, slots } from '../../src/runtime/slots.ts';
 import { L_REGISTER_ISLAND_GRAPH } from '../../src/runtime/boot-link-index.ts';
+import { link_boot } from '../../src/runtime/boot-link.ts';
+import { warm_island_module } from '../../src/runtime/island-warm.ts';
 
 const ALL = HAS;
 
@@ -108,27 +110,51 @@ test('a graph read from another page resolves against that page (router warm)', 
 describe('a build whose word has no graph (no island code of the app can load: F_GRAPH off)', () => {
 	afterEach(() => {
 		set_feature_word(ALL);
+		slots.boot = null;
 		bootDev();
 	});
 
-	test('its boot hands the runtime no graph: a router read and a warm read nothing, link nothing', () => {
+	/** The boot link a boot of the current word makes. */
+	const relink = () => {
+		slots.boot = null;
+		link_boot();
+		return boot_link();
+	};
+
+	test('its boot links a router read to no graph reader: a fetched page’s graph links nothing', () => {
 		set_feature_word(ALL & ~F_GRAPH);
-		bootDev();
-		expect(slots.graph).toBeNull();
-		boot_link()[L_REGISTER_ISLAND_GRAPH](
+		relink()[L_REGISTER_ISLAND_GRAPH](
 			JSON.stringify({ h: ['/g/c-dep.js'], e: { '/g/c.js': [0] } }),
 			location.href
 		);
+		preload_island_graph('/g/c.js');
 		expect(ours()).toEqual([]);
 		set_feature_word(ALL);
-		bootDev();
-		expect(slots.graph?.preload).toBe(preload_island_graph);
-		boot_link()[L_REGISTER_ISLAND_GRAPH](
+		relink()[L_REGISTER_ISLAND_GRAPH](
 			JSON.stringify({ h: ['/g/c-dep.js'], e: { '/g/c.js': [0] } }),
 			location.href
 		);
 		preload_island_graph('/g/c.js');
 		expect(ours(), 'with the bit: the graph a router read').toEqual(['/g/c-dep.js']);
+	});
+
+	test('a warm preloads no graph without the bit, and its graph with it', async () => {
+		const requested = (part: string) =>
+			performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
+		performance.clearResourceTimings();
+		const off = '/test/browser/fixtures/no-such-island.ts?t=graph-off';
+		const on = '/test/browser/fixtures/no-such-island.ts?t=graph-on';
+		register_island_graph(
+			JSON.stringify({ h: ['/g/w-off-dep.js', '/g/w-on-dep.js'], e: { [off]: [0], [on]: [1] } }),
+			location.href
+		);
+		set_feature_word(ALL & ~F_GRAPH);
+		warm_island_module(off, undefined, 'user');
+		await expect.poll(() => requested('t=graph-off').length, { timeout: 5000 }).toBe(1);
+		expect(ours(), 'without the bit').toEqual([]);
+		set_feature_word(ALL);
+		warm_island_module(on, undefined, 'user');
+		await expect.poll(() => ours(), { timeout: 5000 }).toEqual(['/g/w-on-dep.js']);
 	});
 
 	test('an island it never saw still wakes: its import finds its chunks itself', async () => {

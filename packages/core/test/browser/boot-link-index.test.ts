@@ -3,16 +3,14 @@
 // is checked against the helper it names.
 import { expect, test } from 'vitest';
 import { STALE } from '@ogygia/machine';
-import { link_boot, register_graph } from '../../src/runtime/boot-link.ts';
+import { link_boot } from '../../src/runtime/boot-link.ts';
 import { slots } from '../../src/runtime/slots.ts';
 import * as index from '../../src/runtime/boot-link-index.ts';
 import { kit_hydrates_page } from '../../src/runtime/kit-boot.ts';
 import { KitBoot } from '../../src/wire-markup.ts';
-import {
-	ABSOLUTE_URL_SCHEME,
-	is_warmed_module,
-	warm_island_module
-} from '../../src/runtime/region-endpoint-url.ts';
+import { ABSOLUTE_URL_SCHEME } from '../../src/runtime/region-endpoint-url.ts';
+import { is_warmed_module, warm_island_module } from '../../src/runtime/island-warm.ts';
+import { register_island_graph } from '../../src/runtime/island-graph-preload.ts';
 import { note_entry_location } from '../../src/runtime/entry-locations.ts';
 import {
 	is_deferred,
@@ -60,7 +58,7 @@ test('each place in the boot link holds the helper its number names', () => {
 		L_KIT_HYDRATES_PAGE: kit_hydrates_page,
 		L_KIT_BOOT: KitBoot,
 		L_ABSOLUTE_URL_SCHEME: ABSOLUTE_URL_SCHEME,
-		L_REGISTER_ISLAND_GRAPH: register_graph,
+		L_REGISTER_ISLAND_GRAPH: register_island_graph,
 		L_IS_WARMED_MODULE: is_warmed_module,
 		L_WARM_ISLAND_MODULE: warm_island_module,
 		L_RUNS_ENTRY: runs_entry,

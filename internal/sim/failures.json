@@ -2649,7 +2649,7 @@
 			"name": "the mpa-nav feature publishes the MPA handle; the router feature replaces it with the SPA API"
 		},
 		{
-			"site": "packages/core/src/runtime/region-endpoint-url.ts > make_warms > run > catch:0",
+			"site": "packages/core/src/runtime/island-warm.ts > make_warms > run > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch body emptied turns the test red",
 			"test": "packages/core/test/browser/entry-locations.test.ts",
 			"name": "a warm that failed is not kept: the module does not count as warmed"
@@ -6015,6 +6015,7 @@
 		"packages/core/src/runtime/interaction.ts > wake > stale:1",
 		"packages/core/src/runtime/interaction.ts > replay_ahead > reject:0",
 		"packages/core/src/runtime/island-graph-preload.ts > absolute > catch:0",
+		"packages/core/src/runtime/island-warm.ts > warm_key > catch:0",
 		"packages/core/src/runtime/kit-page-thread.svelte.ts > page_applied > catch:0",
 		"packages/core/src/runtime/load-scheduler.ts > preload_urls > catch:0",
 		"packages/core/src/runtime/morph.ts > carry_shadows > catch:0",
@@ -6023,7 +6024,6 @@
 		"packages/core/src/runtime/page-defer.ts > install_page_defer > live > catch:0",
 		"packages/core/src/runtime/region-endpoint-url.ts > capability_expired > catch:0",
 		"packages/core/src/runtime/region-endpoint-url.ts > deny_of > catch:0",
-		"packages/core/src/runtime/region-endpoint-url.ts > warm_key > catch:0",
 		"packages/core/src/runtime/region-sheets.ts > sheet_of > error-event:0",
 		"packages/core/src/runtime/region-sheets.ts > note_code_sheets > catch:0",
 		"packages/core/src/runtime/router-nav.ts > fetch_page > abort:0",
