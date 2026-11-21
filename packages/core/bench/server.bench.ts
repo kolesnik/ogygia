@@ -20,6 +20,12 @@ import type { RequestContext, ServerApp } from '../src/plugin/index.ts';
 import { ref_names, set_ref_names_reader } from '../src/ref.ts';
 import { __register_transportable, wire } from '../src/live-transport.ts';
 import { hole_identity } from '../src/server/region-identity.ts';
+import { handle } from '../src/hooks.ts';
+import { mint_server_region } from '../src/server/region-endpoint.ts';
+import { region_sign as real_region_sign } from '../src/server/hmac.ts';
+import { signing_key } from '../src/server/signing-key.ts';
+import { islands_endpoint } from '../src/server/endpoint.ts';
+import { set_server_regions } from '../test/_stubs/server.server-manifest.ts';
 
 /** A wired instance a hole's props can hold (a ref: named by its place, #816). */
 class BenchBadge {
@@ -273,4 +279,73 @@ bench(
 		return out.length;
 	},
 	{ setup: () => ({ n: 200 }), scale: (_ctx, k) => ({ n: 200 * k }) }
+);
+
+// A HOLE REQUEST, end to end through the handle: the capability prechecked and verified (the real
+// HMAC: production's signer), the region's server module loaded, its props decoded, the component
+// rendered and its answer assembled.
+const HOLE_ID = 'abcdef012345';
+/** A hole component: a list of cards. */
+const HoleCards = ($$renderer: { push(s: string): void }, props: { n: number; tag: string }) => {
+	$$renderer.push(`<section class="cards" data-tag="${props.tag}">`);
+	for (let i = 0; i < props.n; i++)
+		$$renderer.push(`<article><h3>Card ${i}</h3><p>${props.tag} #${i}</p></article>`);
+	$$renderer.push('</section>');
+};
+/** `url` signed by the real HMAC (the stubbed `ogygia:server/sign` the mint goes through signs nothing). */
+function really_signed(url: string): string {
+	const u = new URL(url, 'https://app.test');
+	const p = u.searchParams;
+	const claim = {
+		id: p.get('id')!,
+		payload: p.get('props')!,
+		session: '',
+		ttl: p.get('ttl') ?? '',
+		render: p.get('r') ?? '',
+		wakes: p.get('w') ?? ''
+	};
+	const sig = real_region_sign(
+		signing_key().secret,
+		islands_endpoint(),
+		Number(p.get('exp')),
+		claim
+	);
+	return url.replace(/sig=[^&]*/, `sig=${sig}`);
+}
+function hole_event(url: string) {
+	const u = new URL(url, 'https://app.test');
+	return {
+		url: u,
+		request: new Request(u),
+		getClientAddress: () => '203.0.113.7',
+		cookies: { get: () => undefined },
+		route: { id: null },
+		params: {},
+		isDataRequest: false,
+		setHeaders() {},
+		platform: undefined,
+		locals: {}
+	} as never;
+}
+function hole_requests(n: number) {
+	set_server_regions({ [HOLE_ID]: async () => ({ default: HoleCards }) });
+	const h = handle();
+	const urls = Array.from({ length: n }, (_, i) =>
+		really_signed(mint_server_region(HOLE_ID, { n: 8, tag: `t${i}` }))
+	);
+	return { h, urls };
+}
+
+bench(
+	'hole request: the endpoint answers each hole of a page (verify, load, decode, render)',
+	async ({ h, urls }) => {
+		let bytes = 0;
+		for (const url of urls) {
+			const res = await h({ event: hole_event(url), resolve: async () => new Response('page') });
+			if (res.status !== 200) throw new Error(`hole answered ${res.status} ${res.headers.get('x-ogygia-deny')}`);
+			bytes += (await res.text()).length;
+		}
+		return bytes;
+	},
+	{ setup: () => hole_requests(20), scale: (_ctx, k) => hole_requests(20 * k) }
 );

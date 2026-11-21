@@ -79,7 +79,8 @@ describe("a hole request's server module", () => {
 		const second = await h({ event: event(mint_server_region(ID, { n: 2 })), resolve } as never);
 		expect(second.status).toBe(200);
 		expect(await second.text()).toContain('<p>hole</p>');
-		expect(counts.region).toBe(3);
+		// (the failed load, then the one the second request keeps for its render too)
+		expect(counts.region).toBe(2);
 	});
 
 	it('a dev server imports the region again on every request (an edit replaces the module)', async () => {
