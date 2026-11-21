@@ -6449,6 +6449,10 @@
 			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
 		},
 		{
+			"id": "packages/core/src/region-parts/plan.svelte.ts > RegionPlan > set unbuilt",
+			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
+		},
+		{
 			"id": "packages/core/src/region-plan.ts > map:0~a63d75",
 			"reason": "runs once at module load: the index of the table's kinds, for the plan cache's row key; constant"
 		},
@@ -6723,10 +6727,6 @@
 		{
 			"id": "packages/core/src/region-server.browser.ts > say_unbuilt",
 			"reason": "the browser's stand-in: does nothing (the server says the code), constant work"
-		},
-		{
-			"id": "packages/core/src/server/programs.ts > say_unbuilt",
-			"reason": "runs only for a region whose program the build left out (a build that missed a region): one console.error, never on a page every program renders"
 		},
 		{
 			"id": "packages/core/src/runtime/schedule-said.ts > say_trigger",
