@@ -11,8 +11,9 @@
  * stand-in island module, one instance per file: `<ISLAND_FILES><name>` -> island-module.ts?entry=<name>.
  * And a `.svelte` file a module imports (core's RenderSnippet.svelte) is compiled for the server by
  * core's own Svelte, as the app's Vite would. And a core file with macros loads as core's build
- * compiles it (./macros.ts). And each bench file loads in Node's own world: the globals an earlier
- * bench file of the run installed (a browser's, core's hydration benches) are taken off first.
+ * compiles it (./macros.ts). And each copy of a bench file loads in Node's own world: the globals
+ * installed since the run began (a browser's, core's hydration benches; ogygia's slots) are taken
+ * off first.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire, registerHooks, stripTypeScriptTypes } from 'node:module';
@@ -70,34 +71,30 @@ const SLOT_PREFIX = 'ogygia.';
 /** Node's own globals a bench file replaced, as it found them (packages/core/bench/world.ts). */
 const REPLACED = Symbol.for('ogygia.bench-world.replaced');
 
-/** The world each bench file of a run loads in: Node's own, as in a run of that file alone. */
+/** The world each copy of a bench file loads in: Node's own, the world the run started in. */
 class BenchWorld {
 	/** The globals the run had when its first bench file loaded. */
 	static #own: ReadonlySet<string | symbol> | null = null;
-	/** The bench file whose copies load now. */
-	static #file: string | null = null;
 
 	/**
-	 * `url` (a bench file's copy) is about to load. When it is another file than the one before,
-	 * every global the earlier files installed since the run's first one loaded is taken off: the
-	 * browser a hydration bench installs (a server file after it reads no `window`: esm-env's
-	 * BROWSER, the `typeof window` checks), and ogygia's process slots (the readers a server bench
-	 * installed); and a global Node has that the file replaced (bench/world.ts) is Node's again.
-	 * The copies of one file keep what their file installed, as in a run of it alone, so each case
-	 * counts as it does there.
+	 * A copy of a bench file is about to load (Heisenbench's fresh copy for each run of a case):
+	 * every global installed since the run's first bench file loaded is taken off, as the copy's
+	 * modules are its own. The browser a hydration bench installs (a server file after it reads no
+	 * `window`: esm-env's BROWSER, the `typeof window` checks); ogygia's process slots (the readers
+	 * a server bench installed, a plugin that joined core's shared hooks at load); and a global Node
+	 * has that a file replaced (bench/world.ts) is Node's again. So each run of a case, the warm-up
+	 * and the two measured ones, starts in the same world, whatever ran before it.
 	 */
-	static load(url: string): void {
-		const q = url.indexOf('?');
-		const file = q === -1 ? url : url.slice(0, q);
+	static load(): void {
 		const g = globalThis as unknown as Record<string | symbol, unknown>;
-		if (BenchWorld.#own === null) BenchWorld.#own = new Set(Reflect.ownKeys(g));
-		else if (file !== BenchWorld.#file) {
-			const replaced = g[REPLACED] as Map<string, PropertyDescriptor> | undefined;
-			for (const [name, own] of replaced ?? []) Object.defineProperty(g, name, own);
-			for (const key of Reflect.ownKeys(g))
-				if (!BenchWorld.#own.has(key) && BenchWorld.#installed(key)) delete g[key];
+		if (BenchWorld.#own === null) {
+			BenchWorld.#own = new Set(Reflect.ownKeys(g));
+			return;
 		}
-		BenchWorld.#file = file;
+		const replaced = g[REPLACED] as Map<string, PropertyDescriptor> | undefined;
+		for (const [name, own] of replaced ?? []) Object.defineProperty(g, name, own);
+		for (const key of Reflect.ownKeys(g))
+			if (!BenchWorld.#own.has(key) && BenchWorld.#installed(key)) delete g[key];
 	}
 
 	/** Whether `key` is a global a bench file installs: a name, or one of ogygia's slots
@@ -109,7 +106,7 @@ class BenchWorld {
 
 registerHooks({
 	resolve(specifier, context, next) {
-		if (BENCH_FILE_RE.test(specifier)) BenchWorld.load(specifier);
+		if (BENCH_FILE_RE.test(specifier)) BenchWorld.load();
 		if (specifier === 'svelte' && hydrate_core_import(context))
 			return { url: new URL('svelte-hydrate.ts', STUBS).href, shortCircuit: true };
 		if (specifier.startsWith(ISLAND_FILES)) {
