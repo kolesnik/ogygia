@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { machine, scope, stage, STALE, trace, type Staging } from '../src/index.ts';
-import { held, life_of } from '../src/internal.ts';
+import { heldBy, lifeOf } from '../src/index.ts';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -305,7 +305,7 @@ describe('after the commit', () => {
 			});
 			await failed.ready.catch(() => {});
 		}
-		expect(held(life_of(owner))).toBe(0);
+		expect(heldBy(lifeOf(owner))).toBe(0);
 		owner.close();
 	});
 

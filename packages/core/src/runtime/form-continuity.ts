@@ -1,5 +1,5 @@
-import * as fsm from '@ogygia/machine/internal';
-import { lru } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine';
+import { lru } from '@ogygia/machine';
 import { element_address, resolve_address } from './interaction.ts';
 import { slots } from './slots.ts';
 import { OGYGIA_NO_KEEP } from '../wire-markup.ts';
@@ -27,7 +27,7 @@ const store = lru<string, FieldRec[]>({ name: 'form continuity', max: MAX_PAGES 
 
 const RESTORE_WINDOW_MS = 5000;
 
-const restore_window = fsm.create(
+const restore_window = fsm.createRun(
 	$machine<{ idle: {}; open: {} }>()({
 		name: 'form-restore',
 		initial: 'idle',

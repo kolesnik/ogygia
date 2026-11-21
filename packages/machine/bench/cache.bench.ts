@@ -2,7 +2,7 @@
 // recently used out, gets that find (and touch) what it holds, and the eviction notices.
 import { bench } from '@bench/heisenbench/bench';
 import { cache, type Cache } from '../src/index.ts';
-import { lru, root, trusted_lru, type Lru } from '../src/internal.ts';
+import { lru, rootLife, trustedLru, type Lru } from '../src/index.ts';
 
 const keys = (n: number): string[] => Array.from({ length: n }, (_, i) => `/page/${i}`);
 
@@ -93,12 +93,12 @@ bench(
 bench(
 	"lru: the runtime's caches made in a scope (checked and trusted), used, cleared, let go with it",
 	({ n }) => {
-		const owner = root();
+		const owner = rootLife();
 		let found = 0;
 		for (let i = 0; i < n; i++) {
 			const c =
 				i % 2 === 0
-					? trusted_lru<string, number>({ max: 4, owner })
+					? trustedLru<string, number>({ max: 4, owner })
 					: lru<string, number>({ max: 4, owner });
 			for (let k = 0; k < 6; k++) c.set(`/p/${k}`, k);
 			if (c.peek('/p/3') !== undefined) found++;

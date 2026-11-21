@@ -4,7 +4,7 @@
  *
  * @packageDocumentation
  */
-import type { Run } from '@ogygia/machine/internal';
+import type { Run } from '@ogygia/machine';
 import { is_media_query } from '../contract/trigger.ts';
 
 /** When `q` is a media query: runs `fire` now when it matches, else the first time it comes to

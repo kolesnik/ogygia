@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { machine, scope, STALE } from '../src/index.ts';
-import { held, Life, life_of } from '../src/internal.ts';
+import { heldBy, Life, lifeOf } from '../src/index.ts';
 import { macrotask } from './_tick.ts';
 import { ASYNC_DISPOSE, DISPOSE } from './_dispose.ts';
 
@@ -150,7 +150,7 @@ describe('children', () => {
 	it('a long-lived parent holds none of the children that closed on their own', () => {
 		const parent = scope();
 		for (let i = 0; i < 20; i++) parent.child().close();
-		expect(held(life_of(parent))).toBe(0);
+		expect(heldBy(lifeOf(parent))).toBe(0);
 		parent.close();
 	});
 
@@ -292,7 +292,7 @@ describe('on', () => {
 			target.dispatchEvent(new Event('ping'));
 		}
 		expect(heard).toHaveBeenCalledTimes(50);
-		expect(held(life_of(s))).toBe(0);
+		expect(heldBy(lifeOf(s))).toBe(0);
 		// (one that has not fired yet is still held, and goes with the scope)
 		const late = vi.fn();
 		s.on(target, 'ping', late, { once: true });
@@ -425,7 +425,7 @@ describe('timers', () => {
 		const s = scope();
 		for (let i = 0; i < 50; i++) s.timeout(() => {}, 0);
 		await wait(20);
-		expect(held(life_of(s))).toBe(0);
+		expect(heldBy(lifeOf(s))).toBe(0);
 		s.close();
 	});
 
@@ -782,9 +782,9 @@ describe('a life that closes itself after a time (close_after)', () => {
 	it('holds no timer once it closed sooner', async () => {
 		const l = new Life();
 		l.close_after(5);
-		expect(held(l)).toBe(1);
+		expect(heldBy(l)).toBe(1);
 		l.close();
-		expect(held(l)).toBe(0);
+		expect(heldBy(l)).toBe(0);
 		await wait(20);
 		expect(l.closed).toBe(true);
 	});

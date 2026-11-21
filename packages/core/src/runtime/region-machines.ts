@@ -1,7 +1,7 @@
 import { mailbox, type Kind, type Mailbox, type MachineGraph } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
-import type { Life, Run } from '@ogygia/machine/internal';
+import * as life from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import type { Life, Run } from '@ogygia/machine';
 import type { IslandHandle } from './hydrate-core.ts';
 
 type Lifetime = { life: Life; box: Mailbox };
@@ -24,7 +24,7 @@ const region_definition = $machine<RegionStates>()({
 	steps: region_steps
 });
 
-const DETACHED: Lifetime = { life: life.ENDED, box: mailbox(life.ENDED) };
+const DETACHED: Lifetime = { life: life.ENDED_LIFE, box: mailbox(life.ENDED_LIFE) };
 
 /**
  * A region element's lifetime in the page (core.ts). `detached`: before its first connect, and
@@ -42,12 +42,12 @@ export function region_life_graph(): MachineGraph {
 
 /** A region element's life machine, detached. */
 export function create_region_life(): RegionLife {
-	return fsm.create(region_definition, DETACHED);
+	return fsm.createRun(region_definition, DETACHED);
 }
 
 /** A new lifetime in the page: its scope and its mailbox. */
 export function new_lifetime(): Lifetime {
-	const l = life.root();
+	const l = life.rootLife();
 	return { life: l, box: mailbox(l) };
 }
 
@@ -100,7 +100,7 @@ export function hole_graph(): MachineGraph {
 
 /** A hole's fetch machine, idle. */
 export function create_hole(): Hole {
-	return fsm.create(hole_definition);
+	return fsm.createRun(hole_definition);
 }
 
 type AnswerStates = {
@@ -133,7 +133,7 @@ export function answer_graph(): MachineGraph {
 
 /** A hole's answer machine: nothing on screen yet. */
 export function create_answer(): Answer {
-	return fsm.create(answer_definition);
+	return fsm.createRun(answer_definition);
 }
 
 type WakeStates = {
@@ -174,7 +174,7 @@ export function wake_graph(): MachineGraph {
 
 /** An island's wake machine, cold. */
 export function create_wake(): Wake {
-	return fsm.create(wake_definition);
+	return fsm.createRun(wake_definition);
 }
 
 type LiveBinding = { address: string | null };
@@ -215,7 +215,7 @@ export type Live = Run<LiveStates, typeof live_steps>;
 
 /** A live region's machine, before its first tick. */
 export function create_live(): Live {
-	return fsm.create(live_definition);
+	return fsm.createRun(live_definition);
 }
 
 type PaintStates = {
@@ -241,7 +241,7 @@ export type Paint = Run<PaintStates, typeof paint_steps>;
 
 /** A region's paint machine: which frame (a hole's answer, a static live tick) paints next. */
 export function create_paint(): Paint {
-	return fsm.create(paint_definition);
+	return fsm.createRun(paint_definition);
 }
 
 /** Where a region element's machines are, by machine name. (Its answer has no rest: a region put

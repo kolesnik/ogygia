@@ -24,11 +24,11 @@
  * its message (`on_reload_needed`).
  */
 import { buggify, noop, registry, say, STALE } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
-import * as life from '@ogygia/machine/internal';
-import { lru } from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import { lru } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
 import { code_url_or_refuse, import_code, type CodeUrl } from './code-origins.ts';
 
 // dev and rules builds (a buggify point); folded out of any other
@@ -57,7 +57,7 @@ let timeline: Life | null = null;
 
 function hear_responses(): void {
 	if (timeline !== null || typeof PerformanceObserver === 'undefined') return;
-	timeline = life.root();
+	timeline = life.rootLife();
 	try {
 		// (buffered: what the timeline already holds is heard at once, then every entry after it)
 		timeline
@@ -92,7 +92,7 @@ function heard(url: string, status: number | null): void {
 function response_landed(url: string): Promise<number | null> {
 	const now = response_of(url);
 	if (now !== null || responses.has(url) || timeline === null) return Promise.resolve(now);
-	const wait = life.root();
+	const wait = life.rootLife();
 	return new Promise<number | null>((resolve) => {
 		const done = (status: number | null) => {
 			wait.close();
@@ -206,7 +206,7 @@ export function import_again<T>(
 	base?: string
 ): () => Promise<T> {
 	hear_responses();
-	const state = fsm.create(file_definition);
+	const state = fsm.createRun(file_definition);
 	const next = (): Promise<T> => {
 		const s = state.now;
 		if (s.kind === 'loaded') return s.run as Promise<T>;
@@ -299,7 +299,7 @@ const file_loaders = lru<string, () => Promise<unknown>>({
  *  one retry, so a failure gets one fresh URL and the module runs once (#271). */
 type FileLoads = { readonly get: (url: string) => Promise<unknown> };
 
-const file_loads: FileLoads = plain_flights({
+const file_loads: FileLoads = plainFlights({
 	name: 'island file',
 	run: (url: string) => {
 		let again = file_loaders.get(url);

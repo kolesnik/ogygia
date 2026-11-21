@@ -1,8 +1,8 @@
 import { on_schedule, TRIGGER_MISSING } from '../contract/trigger.ts';
 import { say_trigger } from './schedule-said.ts';
 import { clock } from '@ogygia/machine';
-import * as fsm from '@ogygia/machine/internal';
-import { lru, type Lru } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine';
+import { lru, type Lru } from '@ogygia/machine';
 import {
 	FROZEN_SELECTOR,
 	document_is_stored,
@@ -93,7 +93,7 @@ export class LakeState {
 
 	#lake(el: Element): LakeMachine {
 		let m = this.#lakes.get(el);
-		if (m === undefined) this.#lakes.set(el, (m = fsm.create(LAKE)));
+		if (m === undefined) this.#lakes.set(el, (m = fsm.createRun(LAKE)));
 		return m;
 	}
 

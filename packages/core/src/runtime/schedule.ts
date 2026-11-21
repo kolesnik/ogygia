@@ -1,10 +1,10 @@
 import { watch_viewport } from './viewport.ts';
 import { watch_turns } from './rules.ts';
 import { clock, tasks, timers, type MachineGraph, type Stale } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
-import { pass_queue } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import { passQueue } from '@ogygia/machine';
 
 export type Turn = {
 	el: Element;
@@ -63,7 +63,7 @@ const drain_definition = $machine<{ idle: {}; queued: {}; waiting: { at: number 
 		waiting: ['queued']
 	}
 });
-const drainer = fsm.create(drain_definition);
+const drainer = fsm.createRun(drain_definition);
 
 /** The drain's machine as data (test/machine-steps.test.ts holds each step to where it is taken). */
 export function drain_graph(): MachineGraph {
@@ -182,7 +182,7 @@ export function background_start(fn: () => void): void {
 const BACKGROUND_BUDGET_MS = 30;
 
 class BackgroundStarts {
-	readonly starts = pass_queue<() => void>({
+	readonly starts = passQueue<() => void>({
 		name: 'background starts',
 		budget: { ms: BACKGROUND_BUDGET_MS, yield: post_background, defer: true },
 		start: (fn) => fn()
@@ -207,7 +207,7 @@ function post_background(fn: () => void): void {
 	timers.after(fn, 0);
 }
 
-const document_painted = plain_flights({ name: 'document painted', run: () => until_painted() });
+const document_painted = plainFlights({ name: 'document painted', run: () => until_painted() });
 
 /**
  * Resolves once the document is parsed AND painted: after `DOMContentLoaded`, then one rendered

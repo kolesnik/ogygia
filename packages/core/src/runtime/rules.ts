@@ -38,7 +38,7 @@
  * rules are on (`RULES`): every call site folds out of a build without them.
  */
 import { observe, STALE, timers, trace } from '@ogygia/machine';
-import type { Life, Run } from '@ogygia/machine/internal';
+import type { Life, Run } from '@ogygia/machine';
 import { Rules, type BrokenRule } from '../rules.ts';
 import { warn } from '../messages/core.ts';
 import type { PageGlobals } from '../page-globals.ts';

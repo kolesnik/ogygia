@@ -3,7 +3,7 @@
 // each in the heap its snapshot names: it holds through requests, picks and a region leaving, and a
 // count that drifts is a broken rule, not a TypeError in a task of its own.
 import { expect, test } from 'vitest';
-import { life_of } from '@ogygia/machine/internal';
+import { lifeOf } from '@ogygia/machine';
 import {
 	hydrate_turn,
 	PendingTurns,
@@ -29,7 +29,7 @@ const region = (entry: string): Element => {
 test('turns requested, picked, and dropped as their region leaves: the count holds', async () => {
 	const owner = scope();
 	const [a, b, c] = ['a', 'b', 'c'].map(region);
-	for (const el of [a, b, c]) register_region(el, life_of(owner));
+	for (const el of [a, b, c]) register_region(el, lifeOf(owner));
 	const turns = [hydrate_turn(a), hydrate_turn(b), hydrate_turn(c), hydrate_turn(c)];
 	expect(turns_rule()).toEqual([]);
 	unregister_region(c);

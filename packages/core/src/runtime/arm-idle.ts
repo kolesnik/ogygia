@@ -4,7 +4,7 @@
  *
  * @packageDocumentation
  */
-import type { Run } from '@ogygia/machine/internal';
+import type { Run } from '@ogygia/machine';
 
 /** Runs `fire` at the browser's next idle moment, or 2 s at most (a short pause where the browser
  *  has no idle callback), while `owner`'s visit lasts. */

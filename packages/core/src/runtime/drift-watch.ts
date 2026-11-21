@@ -1,4 +1,4 @@
-import type { Life } from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine';
 import { walk_enters } from './ownership.ts';
 
 const REGION = 'ogygia-region';

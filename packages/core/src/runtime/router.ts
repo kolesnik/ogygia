@@ -1,6 +1,6 @@
 import { random, STALE, type Stale } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { fragment_is_top, fragment_target } from './fragment.ts';
 import { import_again } from './import-again.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
@@ -269,7 +269,7 @@ function on_idle(page: Life, fn: () => void, cap = 1000) {
 
 type Nav = typeof import('./router-nav.ts');
 let loaded_nav: Nav | null = null;
-const load_nav = plain_flights({
+const load_nav = plainFlights({
 	name: 'navigation',
 	run: import_again(() => import('./router-nav.ts')),
 	retry: download

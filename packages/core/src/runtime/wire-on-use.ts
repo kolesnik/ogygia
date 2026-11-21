@@ -1,4 +1,4 @@
-import { plain_flights } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
 import { load_wire_codec } from 'ogygia:boot';
 import { import_again } from './import-again.ts';
 import { props_sidecar_of } from './sidecar.ts';
@@ -8,7 +8,7 @@ import { REF_WIRE_KEY } from '../ref-key.ts';
 
 const import_codec = load_wire_codec && /* @__PURE__ */ import_again(load_wire_codec);
 
-const codec_load = /* @__PURE__ */ plain_flights({
+const codec_load = /* @__PURE__ */ plainFlights({
 	name: 'wire codec',
 	run: () => import_codec!().then((m) => m.install()),
 	keep: 0,

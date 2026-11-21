@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cache, MachineError, scope } from '../src/index.ts';
-import { lru } from '../src/internal.ts';
+import { lru } from '../src/index.ts';
 import { DISPOSE } from './_dispose.ts';
 
 /** A small seeded generator: the same walk on every run. */

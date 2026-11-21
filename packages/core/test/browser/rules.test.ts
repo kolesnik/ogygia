@@ -6,7 +6,7 @@
 import { afterEach, expect, inject, test, vi } from 'vitest';
 import { from_b64 } from './b64.ts';
 import { STALE } from '@ogygia/machine';
-import * as life from '@ogygia/machine/internal';
+import * as life from '@ogygia/machine';
 import { bootDev } from '../../src/runtime/full.ts';
 import {
 	note_handed,
@@ -168,8 +168,8 @@ test('nothing of an old page open: a visit before the one on screen still open',
 });
 
 test('the address bar and the history model: checked once no navigation is out', () => {
-	const nav = life.create(
-		life.definition<{ idle: {}; loading: {} }>()({
+	const nav = life.createRun(
+		life.runDefinition<{ idle: {}; loading: {} }>()({
 			name: 'nav',
 			initial: 'idle',
 			steps: { idle: ['loading'], loading: ['idle'] }

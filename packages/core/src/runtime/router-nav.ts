@@ -1,6 +1,6 @@
 import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
 import { buggify, clock, flights, net, stage, world } from '@ogygia/machine';
-import { lru } from '@ogygia/machine/internal';
+import { lru } from '@ogygia/machine';
 import type { PageGlobals } from '../page-globals.ts';
 import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
 import {
@@ -64,7 +64,7 @@ const regions_in_shadow = () => boot_link()[L_REGIONS_IN_SHADOW]();
 const sheets_in_use = () => boot_link()[L_SHEETS_IN_USE]();
 const session = () => boot_link()[L_RUNTIME_SESSION];
 const adopt_response = (next: Document) => boot_link()[L_ADOPT_RESPONSE](next);
-type Life = import('@ogygia/machine/internal').Life;
+type Life = import('@ogygia/machine').Life;
 type Stale = import('@ogygia/machine').Stale;
 type Staging = import('@ogygia/machine').Staging;
 const devalue_for = (doc: Document) =>
@@ -421,7 +421,7 @@ const pages = (): Pages =>
 		weigh: (answer) =>
 			Math.max((answer.page?.html.length ?? 0) * 2, PAGE_CACHE_MAX_BYTES / PAGE_CACHE_MAX_ENTRIES)
 	}));
-type Memo<K, V> = import('@ogygia/machine/internal').Lru<K, V>;
+type Memo<K, V> = import('@ogygia/machine').Lru<K, V>;
 let warmed_pages_memo: Memo<string, true> | undefined;
 const warmed_pages = () => (warmed_pages_memo ??= lru({ name: 'warmed pages', max: 512 }));
 let announcer: HTMLElement | null = null;

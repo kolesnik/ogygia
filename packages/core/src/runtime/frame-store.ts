@@ -8,10 +8,10 @@ import {
 	type Stale,
 	type World
 } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
-import * as life from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { older_by, stands_at, type DropWhy, type Frame } from '../frame.ts';
 import type { VerifiedHtml } from './html-sink.ts';
 import { watch, notify, watcher_count } from '../ref-watch.ts';
@@ -106,7 +106,7 @@ function store(): Store {
 }
 
 function make_store(): Store {
-	const own = life.root();
+	const own = life.rootLife();
 	const entries = cache<string, Entry>({
 		name: 'frames',
 		max: MAX_ADDRESSES,
@@ -119,7 +119,7 @@ function make_store(): Store {
 			e.answer.stop();
 		}
 	});
-	const frames = plain_flights.keyed<FrameAsk>()({
+	const frames = plainFlights.keyed<FrameAsk>()({
 		name: 'frames',
 		key: ['a'],
 		ignore: { work: 'one flight per address: a fetch or a batch part out there is joined' },
@@ -187,7 +187,7 @@ function entry(a: string, s: Store = store()): Entry {
 	if (!e)
 		s.entries.set(
 			a,
-			(e = { answer: fsm.create(s.answers), part: null, renewed: null, refused: null })
+			(e = { answer: fsm.createRun(s.answers), part: null, renewed: null, refused: null })
 		);
 	return e;
 }
@@ -264,7 +264,7 @@ export function reserve(a: string): void {
 	const e = entry(a);
 	if (shown_of(e) !== null || flying(a)) return;
 	const s = store();
-	const part = (e.part = fsm.create(s.parts));
+	const part = (e.part = fsm.createRun(s.parts));
 	const landed = part.wait('landed').then((p) => (p === STALE ? STALE : p.html));
 	const settled = () => schedule_evict(a, e);
 	s.flights.get({ a, work: landed }).then(settled, settled);

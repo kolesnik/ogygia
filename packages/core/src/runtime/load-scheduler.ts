@@ -1,11 +1,11 @@
 import { after_document_painted, yield_task } from './schedule.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
 import { clock, type InFlight, type Place, type Queue, type Stale } from '@ogygia/machine';
-import { plain_flights } from '@ogygia/machine/internal';
-import * as life from '@ogygia/machine/internal';
-import type { Life } from '@ogygia/machine/internal';
-import * as fsm from '@ogygia/machine/internal';
-import { pass_queue } from '@ogygia/machine/internal';
+import { plainFlights } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import { passQueue } from '@ogygia/machine';
 import { emit as dt_emit } from '../events/bus.ts';
 import { class_at, PRIORITY, type LoadClass } from './load-class.ts';
 import { on_screen, watch_viewport } from './viewport.ts';
@@ -70,16 +70,16 @@ function waits_for_critical(kind: LoadKind, cls: LoadClass): boolean {
 }
 
 class LoadScheduler {
-	gate = fsm.create(gate_definition);
-	readonly critical = plain_flights({
+	gate = fsm.createRun(gate_definition);
+	readonly critical = plainFlights({
 		name: 'critical resources',
 		run: () => this.#until_critical()
 	});
-	#owner: Life = life.root();
+	#owner: Life = life.rootLife();
 	line: Queue<LoadSlot> = this.#open_line();
 
 	#open_line(): Queue<LoadSlot> {
-		return pass_queue<LoadSlot>({
+		return passQueue<LoadSlot>({
 			name: 'downloads',
 			owner: this.#owner,
 			priority: (s) => PRIORITY[s.cls()],
@@ -152,11 +152,11 @@ class LoadScheduler {
 
 	reset(): void {
 		this.#owner.close();
-		this.#owner = life.root();
+		this.#owner = life.rootLife();
 		this.line = this.#open_line();
 		this.critical.drop(() => true);
 		this.gate.stop();
-		this.gate = fsm.create(gate_definition);
+		this.gate = fsm.createRun(gate_definition);
 	}
 }
 

@@ -1,5 +1,5 @@
 import type { Stale } from '@ogygia/machine';
-import type { Life } from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine';
 import type { FrameOrder } from '../frame.ts';
 import type { FrameFetcher, StoredFrame } from './frame-store.ts';
 import type { VerifiedHtml } from './html-sink.ts';

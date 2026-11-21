@@ -1,5 +1,5 @@
 import { clock } from '@ogygia/machine';
-import type { Life } from '@ogygia/machine/internal';
+import type { Life } from '@ogygia/machine';
 import { OG_FP } from '../wire-markup.ts';
 
 export interface SvelteWarning {

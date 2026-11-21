@@ -7,7 +7,7 @@
 // a backdrop + appends a suggestions pane to its own light DOM. The repair recursed down to the widget
 // and morphed IT as the morph root (whose ownership was never checked), stripping both nodes.
 import { expect, test, afterEach } from 'vitest';
-import { life_of } from '@ogygia/machine/internal';
+import { lifeOf } from '@ogygia/machine';
 import { repair_if_drifted, sequence_differs } from '../../src/runtime/hydrate-core.ts';
 import { parse_region_html } from './_html.ts';
 import { install as install_morph, morph_children } from '../../src/runtime/morph.ts';
@@ -250,7 +250,7 @@ test('drift-watch: a widget editing inside an opaque subtree does not mark its i
 	region.innerHTML = '<p>t</p><div data-og-opaque><b>w</b></div>';
 	document.body.appendChild(region);
 	const sleep = scope();
-	watch_region(life_of(sleep), region);
+	watch_region(lifeOf(sleep), region);
 	try {
 		region.querySelector('[data-og-opaque]')!.append(document.createElement('i'));
 		expect(region_changed(region)).toBe(false);

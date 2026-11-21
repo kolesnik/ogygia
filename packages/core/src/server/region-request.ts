@@ -15,8 +15,8 @@
  * illegal move (a thrown `machine_illegal_move` in dev and tests; refused in production), not a
  * convention (`packages/core/test/region-request-order.test.ts`).
  */
-import * as fsm from '@ogygia/machine/internal';
-import type { Def, Run } from '@ogygia/machine/internal';
+import * as fsm from '@ogygia/machine';
+import type { RunDef, Run } from '@ogygia/machine';
 
 type States = {
 	received: {};
@@ -40,7 +40,7 @@ const STEPS = {
 	refused: []
 } as const;
 
-export const region_request: Def<States, typeof STEPS, 'received'> = $machine<States>()({
+export const region_request: RunDef<States, typeof STEPS, 'received'> = $machine<States>()({
 	name: 'region request',
 	initial: 'received',
 	steps: STEPS
@@ -50,5 +50,5 @@ export type RegionRequest = Run<States, typeof STEPS>;
 
 /** A new request's machine, received. */
 export function create_region_request(): RegionRequest {
-	return fsm.create(region_request);
+	return fsm.createRun(region_request);
 }

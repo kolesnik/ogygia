@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { life_of } from '@ogygia/machine/internal';
+import { lifeOf } from '@ogygia/machine';
 import { scope } from '@ogygia/machine';
 import {
 	mark_region_changed,
@@ -18,7 +18,7 @@ describe('drift-watch: which sleeping islands were touched', () => {
 	it('an untouched island is not changed; attribute edits do not count', () => {
 		const r = region('<p>hi</p>');
 		const sleep = scope();
-		watch_region(life_of(sleep), r);
+		watch_region(lifeOf(sleep), r);
 		r.querySelector('p')!.setAttribute('class', 'x');
 		expect(region_changed(r)).toBe(false);
 		sleep.close();
@@ -30,7 +30,7 @@ describe('drift-watch: which sleeping islands were touched', () => {
 		const inner = outer.querySelector('ogygia-region')!;
 		const other = region('<p>b</p>');
 		const sleep = scope();
-		watch_region(life_of(sleep), outer);
+		watch_region(lifeOf(sleep), outer);
 		inner.querySelector('p')!.firstChild!.nodeValue = 'changed';
 		expect(region_changed(inner)).toBe(true);
 		expect(region_changed(outer)).toBe(true);
@@ -43,7 +43,7 @@ describe('drift-watch: which sleeping islands were touched', () => {
 	it('records pending when the last sleep ends still count', () => {
 		const r = region('<p>c</p>');
 		const sleep = scope();
-		watch_region(life_of(sleep), r);
+		watch_region(lifeOf(sleep), r);
 		r.append(document.createElement('span'));
 		sleep.close();
 		expect(region_changed(r)).toBe(true);
@@ -54,8 +54,8 @@ describe('drift-watch: which sleeping islands were touched', () => {
 		const r = region('<p>e</p>');
 		const first = scope();
 		const second = scope();
-		watch_region(life_of(first), r);
-		watch_region(life_of(second), r);
+		watch_region(lifeOf(first), r);
+		watch_region(lifeOf(second), r);
 		first.close();
 		first.close(); // (an end runs once: it cannot take the second's place)
 		r.append(document.createElement('span'));
@@ -68,10 +68,10 @@ describe('drift-watch: which sleeping islands were touched', () => {
 		const r = region('<p>f</p>');
 		const ended = scope();
 		ended.close();
-		watch_region(life_of(ended), r);
+		watch_region(lifeOf(ended), r);
 		r.append(document.createElement('span'));
 		const sleep = scope();
-		watch_region(life_of(sleep), r);
+		watch_region(lifeOf(sleep), r);
 		expect(region_changed(r)).toBe(false);
 		sleep.close();
 		r.remove();

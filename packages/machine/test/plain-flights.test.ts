@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { flights, MachineError, STALE, world } from '../src/index.ts';
-import { plain_flights } from '../src/internal.ts';
+import { plainFlights } from '../src/index.ts';
 import { DISPOSE } from './_dispose.ts';
 
 /** A run that answers when told, counting its runs. */
@@ -12,8 +12,8 @@ function held() {
 
 describe('plain_flights: flights() with no world, weigh, touches or key of two fields', () => {
 	for (const [label, make] of [
-		['plain_flights', plain_flights],
-		['flights', flights as unknown as typeof plain_flights]
+		['plain_flights', plainFlights],
+		['flights', flights as unknown as typeof plainFlights]
 	] as const)
 		it(`${label}: one key's callers share a run, keep its answer, and a drop ends it`, async () => {
 			const { runs, run } = held();
@@ -33,8 +33,8 @@ describe('plain_flights: flights() with no world, weigh, touches or key of two f
 		});
 
 	for (const [label, make] of [
-		['plain_flights', plain_flights],
-		['flights', flights as unknown as typeof plain_flights]
+		['plain_flights', plainFlights],
+		['flights', flights as unknown as typeof plainFlights]
 	] as const)
 		it(`${label}: keyed by one field, or by none, as flights() keys them`, async () => {
 			const { runs, run } = held();
@@ -64,20 +64,20 @@ describe('plain_flights: flights() with no world, weigh, touches or key of two f
 			{ run, weigh: () => 1, max: 10 },
 			{ run, touches: () => [] }
 		])
-			expect(() => plain_flights(options as never)).toThrow(MachineError);
+			expect(() => plainFlights(options as never)).toThrow(MachineError);
 		expect(() =>
-			plain_flights.keyed<{ a: string; b: string }>()({ key: ['a', 'b'] as never, run })
+			plainFlights.keyed<{ a: string; b: string }>()({ key: ['a', 'b'] as never, run })
 		).toThrow(MachineError);
 	});
 
 	it('takes none of them in its types', () => {
 		const run = () => 1;
 		// @ts-expect-error -- a world is flights()'s
-		void (() => plain_flights({ run, world: world() }));
+		void (() => plainFlights({ run, world: world() }));
 		// @ts-expect-error -- a weigh is flights()'s
-		void (() => plain_flights({ run, weigh: () => 1, max: 10 }));
+		void (() => plainFlights({ run, weigh: () => 1, max: 10 }));
 		// @ts-expect-error -- a key of two fields is flights()'s
-		void (() => plain_flights.keyed<{ a: string; b: string }>()({ key: ['a', 'b'], run }));
+		void (() => plainFlights.keyed<{ a: string; b: string }>()({ key: ['a', 'b'], run }));
 		expect(true).toBe(true);
 	});
 });
