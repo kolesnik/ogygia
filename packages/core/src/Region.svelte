@@ -35,7 +35,7 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 	import PromiseRegion from './PromiseRegion.svelte';
 	import HoleRegion from './HoleRegion.svelte';
 	import LakeRegion from './LakeRegion.svelte';
-	import { HAS_FRAMES, HAS_LAKES, HAS_LIVE } from '#region-server';
+	import { HAS_FRAMES, HAS_LAKES, HAS_LIVE } from 'ogygia:region';
 
 	const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 
@@ -171,4 +171,6 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 	{/key}
 {:else if HAS_LIVE && rp.arm === 'promise'}
 	<PromiseRegion of={of as Promise<RegionValue>} {placeholder} {children} />
+{:else if rp.unbuilt}
+	{#if plan.family === 'hole'}{@render ogygiaFallback?.()}{:else if plan.family !== 'lake'}{#if placeholder}{@render placeholder()}{:else if children}{@render children()}{/if}{/if}
 {/if}

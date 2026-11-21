@@ -861,10 +861,6 @@
 			"reason": "one WeakMap set keyed by the page Request (not cloneable), constant work; proven in packages/core/test/shared-cache.test.ts"
 		},
 		{
-			"id": "packages/core/src/server/devalue-text.ts > devalue_text > <anonymous>~ff4f1a",
-			"reason": "the reducer devalue is handed when this pass leaves a value to it: one Map lookup per value devalue asks about; devalue_text is benched (packages/core/bench/serialize.bench.ts), and devalue's text and reducer calls are checked byte for byte by devalue-text.test.ts"
-		},
-		{
 			"id": "packages/core/src/server/early-holes-csp.ts > add_early_holes_csp",
 			"reason": "a response's two CSP headers read and set (Headers, not cloneable), linear in the policy; proven in packages/core/test/early-holes-csp.test.ts through with_early_holes_csp"
 		},
@@ -1099,6 +1095,46 @@
 		{
 			"id": "packages/tooling/src/e2e/servers.ts > group_alive",
 			"reason": "the e2e harness (not a shipped package): asks the OS whether a process group still exists, one syscall; proven with real child processes in packages/tooling/test/servers.test.ts"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > Downloads > constructor",
+			"reason": "the browser tests' harness (not a shipped package): starts one resource observer per test file; proven by packages/core/test/browser/hydrate-visit.test.ts on a full timeline"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > Downloads > PerformanceObserver:0~1c6d71",
+			"reason": "the browser tests' harness: the observer's callback, one push per download the page makes"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > Downloads > #hear",
+			"reason": "the browser tests' harness: one push per download heard"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > Downloads > named",
+			"reason": "the browser tests' harness: a filter over the downloads one test file's frame made"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > Downloads > named > filter:0~95c737",
+			"reason": "the browser tests' harness: one substring test per download"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > Downloads > loading",
+			"reason": "the browser tests' harness: an expect.poll over named(), the wait a test makes for its download"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > Downloads > loading > poll:0~3c6416",
+			"reason": "the browser tests' harness: the poll's read, one named() call"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > Downloads > forget",
+			"reason": "the browser tests' harness: empties one list, constant work"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > timeline_full",
+			"reason": "the browser tests' harness: sets the page's resource timeline size once per test, constant work"
+		},
+		{
+			"id": "packages/tooling/src/vitest/downloads.ts > timeline_full > onTestFinished:0~4e4ead",
+			"reason": "the browser tests' harness: puts the timeline's size back when the test ends, constant work"
 		},
 		{
 			"id": "packages/tooling/src/e2e/servers.ts > port_held",
@@ -6413,6 +6449,10 @@
 			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
 		},
 		{
+			"id": "packages/core/src/region-parts/plan.svelte.ts > RegionPlan > set unbuilt",
+			"reason": "a setter Svelte writes for a $derived class field; Region only reads the field, never assigns it"
+		},
+		{
 			"id": "packages/core/src/region-plan.ts > map:0~a63d75",
 			"reason": "runs once at module load: the index of the table's kinds, for the plan cache's row key; constant"
 		},
@@ -6685,8 +6725,8 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/core/src/region-server.browser.ts > need_program",
-			"reason": "the browser's stand-in: does nothing (the server's word gates what the server writes), constant work"
+			"id": "packages/core/src/region-server.browser.ts > say_unbuilt",
+			"reason": "the browser's stand-in: does nothing (the server says the code), constant work"
 		},
 		{
 			"id": "packages/core/src/runtime/schedule-said.ts > say_trigger",

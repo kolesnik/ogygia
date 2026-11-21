@@ -112,13 +112,14 @@ const NOT_GRID = [
 /** The hydration grid's server HTML for one kind at one place (test/_region-grid-ssr.ts), rendered
  *  through the calling project's own Vite server: compiled with the Svelte options of the client
  *  that hydrates it. */
-const region_grid_ssr: BrowserCommand<[kind: string, place: unknown]> = async (
+const region_grid_ssr: BrowserCommand<[kind: string, place: unknown, word?: number]> = async (
 	ctx,
 	kind,
-	place
+	place,
+	word
 ) => {
 	const mod = await ctx.project.vite.ssrLoadModule('/test/_region-grid-ssr.ts');
-	return (mod.ssr_cell as (k: string, p: unknown) => unknown)(kind, place);
+	return (mod.ssr_cell as (k: string, p: unknown, w?: number) => unknown)(kind, place, word);
 };
 /** The hydration fuzz's server HTML for each of its inputs, the same way. */
 const region_grid_ssr_specs: BrowserCommand<[inputs: unknown[]]> = async (ctx, inputs) => {
