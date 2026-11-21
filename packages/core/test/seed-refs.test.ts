@@ -15,15 +15,13 @@ import type { Component } from 'svelte';
 import {
 	SEED_REF_KEY,
 	analyze,
-	deep_equal_plain,
 	json_culprit,
 	resolve_seed_ref,
-	SeedRefPlan,
-	SeedIndex,
 	seed_ref_reviver,
 	set_measure_memo_reader,
 	type MeasureMemo
 } from '../src/seed-refs.ts';
+import { deep_equal_plain, SeedRefPlan, SeedIndex } from '../src/seed-index.ts';
 import Region from '../src/Region.svelte';
 import Tiny from './_fixtures/Tiny.svelte';
 import KitPagePass from './_fixtures/KitPagePass.svelte';

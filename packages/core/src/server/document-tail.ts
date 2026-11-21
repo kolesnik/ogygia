@@ -31,7 +31,7 @@
  * Universal module: imported by Region.svelte on both legs, so no Node imports here. On the client
  * the reader is never installed and `document_tail()` is `null`.
  */
-import type { SeedIndex } from '../seed-refs.ts';
+import type { SeedIndex } from '../seed-index.ts';
 import { escape_script_text } from '../escape.ts';
 import { server_ports } from '../server-ports.ts';
 import { HOLES_SCRIPT_TYPE } from '../holes-record.ts';

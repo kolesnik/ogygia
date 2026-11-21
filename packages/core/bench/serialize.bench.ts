@@ -4,7 +4,8 @@
 import { bench } from '@bench/heisenbench/bench';
 import { stringify } from 'devalue';
 import { encode_island_graph, decode_island_graph } from '../src/island-graph.ts';
-import { SeedIndex, SeedRefPlan, __heisenbench as seed_refs } from '../src/seed-refs.ts';
+import { measure } from '../src/seed-refs.ts';
+import { SeedIndex, SeedRefPlan, __heisenbench as seed_index } from '../src/seed-index.ts';
 import { DocumentTail } from '../src/server/document-tail.ts';
 import { region_fingerprint } from '../src/server/fingerprint.ts';
 import { PageSeed } from '../src/server/page-seed.ts';
@@ -50,14 +51,14 @@ bench(
 	}
 );
 
-bench('measure: the walk over a page.data tree', ({ tree }) => seed_refs.measure(tree, new Map()), {
+bench('measure: the walk over a page.data tree', ({ tree }) => measure(tree, new Map()), {
 	setup: () => ({ tree: page_of(4) }),
 	scale: (_ctx, k) => ({ tree: page_of(4 * k) })
 });
 
 bench(
 	'hash_subtree: structural hash of a page.data tree',
-	({ tree }) => seed_refs.hash_subtree(tree, new Map(), new Set()),
+	({ tree }) => seed_index.hash_subtree(tree, new Map(), new Set()),
 	{
 		setup: () => ({ tree: page_of(4) }),
 		scale: (_ctx, k) => ({ tree: page_of(4 * k) })

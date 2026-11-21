@@ -32,14 +32,14 @@
 			"browser": "./dist/region-server.browser.js",
 			"default": "./dist/region-server.js"
 		},
-		"#entry-load": {
+		"#browser-half": {
 			"ogygia-source": {
-				"browser": "./src/entry-load.browser.ts",
-				"default": "./src/entry-load.ts"
+				"browser": "./src/browser-half.browser.ts",
+				"default": "./src/browser-half.ts"
 			},
-			"types": "./dist/entry-load.d.ts",
-			"browser": "./dist/entry-load.browser.js",
-			"default": "./dist/entry-load.js"
+			"types": "./dist/browser-half.d.ts",
+			"browser": "./dist/browser-half.browser.js",
+			"default": "./dist/browser-half.js"
 		}
 	},
 	"exports": {
@@ -133,10 +133,10 @@
 				"browser": "./dist/region-server.browser.js",
 				"default": "./dist/region-server.js"
 			},
-			"#entry-load": {
-				"types": "./dist/entry-load.d.ts",
-				"browser": "./dist/entry-load.browser.js",
-				"default": "./dist/entry-load.js"
+			"#browser-half": {
+				"types": "./dist/browser-half.d.ts",
+				"browser": "./dist/browser-half.browser.js",
+				"default": "./dist/browser-half.js"
 			}
 		},
 		"exports": {

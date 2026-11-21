@@ -19,8 +19,11 @@ import type { RequestState } from '@sveltejs/kit/internal/server';
 import { __heisenbench as hooks } from '../src/hooks.ts';
 import { record_page } from '../src/page-seed-registry.ts';
 import { facts_of } from '../src/plugin/facts.ts';
-import { SeedIndex, SeedRefPlan, json_culprit } from '../src/seed-refs.ts';
+import { json_culprit } from '../src/seed-refs.ts';
+import { SeedIndex, SeedRefPlan } from '../src/seed-index.ts';
 import { DocumentTail, document_tail } from '../src/server/document-tail.ts';
+import { remote_seed_script } from '../src/server/document-seeds.ts';
+import { __heisenbench as page_context, page_ctx_script } from '../src/server/page-context.ts';
 import { region_fingerprint } from '../src/server/fingerprint.ts';
 import {
 	__heisenbench as page_stream,
@@ -521,7 +524,7 @@ bench(
 
 bench(
 	'page_ctx_script: the drop-in setContext values, one script',
-	({ bag }) => hooks.page_ctx_script(bag.request).length,
+	({ bag }) => page_ctx_script(bag.request).length,
 	{
 		setup: () => ctx_bag(12),
 		scale: (_ctx, k) => ctx_bag(12 * k)
@@ -537,8 +540,8 @@ function ctx_bag(keys: number): { bag: Bag } {
 
 /** The context a request's render set, as the handle's recorder keeps it. */
 function ctx_of(request: Request): Map<string, unknown> {
-	let ctx = hooks.request_ctx.get(request);
-	if (ctx === undefined) hooks.request_ctx.set(request, (ctx = new Map()));
+	let ctx = page_context.request_ctx.get(request);
+	if (ctx === undefined) page_context.request_ctx.set(request, (ctx = new Map()));
 	return ctx;
 }
 
@@ -653,14 +656,14 @@ function promises_of(count: number): { handle: Handle; deferred: Deferred[] } {
 }
 
 bench(
-	'build_remote_seed_script: a page of many remote queries',
-	({ handle, state, wanted }) => handle.build_remote_seed_script(state, wanted),
+	'remote_seed_script: a page of many remote queries',
+	({ state, wanted }) => remote_seed_script(state, wanted),
 	{ setup: () => remotes_of(24, 8), scale: (_ctx, k) => remotes_of(24 * k, 8) }
 );
 
 bench(
-	'build_remote_seed_script: one query answering a long list',
-	({ handle, state, wanted }) => handle.build_remote_seed_script(state, wanted),
+	'remote_seed_script: one query answering a long list',
+	({ state, wanted }) => remote_seed_script(state, wanted),
 	{ setup: () => remotes_of(1, 400), scale: (_ctx, k) => remotes_of(1, 400 * k) }
 );
 
@@ -680,5 +683,5 @@ function remotes_of(queries: number, rows: number) {
 		transport: TRANSPORT,
 		remote: { implicit, data: new Map() }
 	} as unknown as RequestState;
-	return { handle: new hooks.OgygiaHandle(), state, wanted: new Set([REMOTE_HASH]) };
+	return { state, wanted: new Set([REMOTE_HASH]) };
 }

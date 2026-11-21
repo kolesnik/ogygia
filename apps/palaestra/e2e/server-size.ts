@@ -141,6 +141,16 @@ function measure(): Report {
  *  server whose word lacks it holds none (packages/core/test/server-programs.test.ts holds what a
  *  server without them refuses). */
 const SERVER_PROGRAMS: readonly { feature: string; bit: number; modules: readonly string[] }[] = [
+	// the page seed: a streamed load's staging and its resolve stream, the seed's serializer
+	{
+		feature: 'page',
+		bit: 0x2,
+		modules: ['core/server/page-stream', 'core/server/page-seed', 'core/page-defer']
+	},
+	// the remote seed's gate (which remote queries ship)
+	{ feature: 'remote-seeds', bit: 0x1, modules: ['core/server/remote-seed-gate'] },
+	// the drop-in context root (an app reading context alone still holds the bridge's reader)
+	{ feature: 'context', bit: 0x1000, modules: ['core/server/page-context'] },
 	{
 		feature: 'frames',
 		bit: 0x10,
@@ -160,11 +170,14 @@ const SERVER_PROGRAMS: readonly { feature: string; bit: number; modules: readonl
 		modules: ['core/region-parts/live-value.svelte', 'core/PromiseRegionAwait.svelte']
 	}
 ];
-/** The browser's own modules (an island entry's load and its recovery): in no server build. */
+/** The browser's own modules (an island entry's load and its recovery, the frame store, the
+ *  `{@html}` range marks taken out before a hydrate): in no server build. */
 const BROWSER_ONLY: readonly string[] = [
 	'core/runtime/entry-locations',
 	'core/runtime/import-again',
-	'core/runtime/code-origins'
+	'core/runtime/code-origins',
+	'core/runtime/frame-store',
+	'core/runtime/html-ranges'
 ];
 const WORD_RE = /\b(?:var|const|let) HAS(?:\$\d+)? = (\d+);/;
 

@@ -50,3 +50,9 @@ export function assemble(
 	if (!has_body) return front + html.slice(head_end);
 	return front + html.slice(head_end, body_end) + body_inject + html.slice(body_end);
 }
+
+/** A side-channel `<script type="application/ogygia-<subtype>">` around an already escaped payload,
+ *  with `marker` (its attributes) when given. */
+export function ogygia_script(subtype: string, escaped_payload: string, marker = ''): string {
+	return `<script type="application/ogygia-${subtype}"${marker ? ` ${marker}` : ''}>${escaped_payload}</script>`;
+}

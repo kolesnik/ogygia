@@ -24,12 +24,10 @@ import type { Handle } from './kit-handle.ts';
 import { KitRequestStore, type RequestState } from './server/kit-request-store.ts';
 import { live_event } from './server/live-event.ts';
 import { transport as app_transport } from 'ogygia:region';
-import * as devalue from 'devalue';
 import {
 	HAS,
 	region_reads_page_data,
 	fn_manifest,
-	create_remote_key,
 	rate_limit,
 	router_enabled,
 	view_transitions,
@@ -40,7 +38,6 @@ import {
 	handoff_problem
 } from 'ogygia:server';
 import { dev_hmr_url } from './dev-hmr-url.ts';
-import { REGION_BRAND } from './region-brand.ts';
 import { signing_key, configure_signing_secret } from './server/signing-key.ts';
 import { mpaSpeculationRules } from './server/speculation.ts';
 import { fn_manifest_script } from './server/fn-manifest-script.ts';
@@ -91,7 +88,7 @@ import {
 	region_denied,
 	region_response
 } from './server/region-response.ts';
-import { F_FRAMES } from './contract/features.ts';
+import { F_CONTEXT, F_FRAMES, F_PAGE, F_REMOTE_SEEDS } from './contract/features.ts';
 import {
 	page_declares_router_meta,
 	page_declares_runtime_script,
@@ -101,7 +98,9 @@ import {
 	runtime_first
 } from './server/head-presence.ts';
 import { code_origins } from './plugin/hooks.ts';
-import { locate, assemble } from './server/document-assembly.ts';
+import { locate, assemble, ogygia_script } from './server/document-assembly.ts';
+import { remote_seed_script, ship_page_seed, type ShippedSeed } from './server/document-seeds.ts';
+import { install_page_context, page_ctx_script } from './server/page-context.ts';
 import { error_route_is_csr_true, route_is_csr_true, take_early_holes } from './context.ts';
 import { early_holes_head } from './early-holes-head.ts';
 import {
@@ -110,45 +109,20 @@ import {
 	with_early_holes_meta_csp
 } from './server/early-holes-csp.ts';
 import { kit_gate, kit_start_ungated } from './server/kit-gate.ts';
-import {
-	merge_seed_ask,
-	shape_page_data,
-	unshipped_attr,
-	type SeedKeys
-} from './server/seed-shape.ts';
+import { merge_seed_ask, type SeedKeys } from './server/seed-shape.ts';
 import { html_has_kit_bootstrap } from './server/html-scan.ts';
 import { RateLimiter, is_shared_address } from './server/rate-limit.ts';
-import { PageSeed } from './server/page-seed.ts';
-import { analyze, SeedIndex, set_measure_memo_reader, type MeasureMemo } from './seed-refs.ts';
-import { WIRE_FORMAT_JSON } from './server/props-wire.ts';
-import {
-	OG_FORMAT,
-	OGYGIA_DEV_HMR,
-	OGYGIA_DEVTOOLS_BOOT,
-	OGYGIA_PAGE,
-	OGYGIA_PROVIDE_PAGE,
-	OGYGIA_SPECULATE
-} from './wire-markup.ts';
+import { analyze, set_measure_memo_reader, type MeasureMemo } from './seed-refs.ts';
+import { OGYGIA_DEV_HMR, OGYGIA_DEVTOOLS_BOOT, OGYGIA_SPECULATE } from './wire-markup.ts';
 import { body_end, head_end } from './markup-walk.ts';
-import {
-	stage_deferred,
-	settle_deferred,
-	page_seed_reducers,
-	stream_page_deferred,
-	type Deferred
-} from './server/page-stream.ts';
-import { PAGE_DEFER_BOOTSTRAP } from './page-defer.ts';
-import { stringify } from 'devalue';
-import { serialize_provided_context } from './context-bridge.ts';
+import { stream_page_deferred, type Deferred } from './server/page-stream.ts';
 import { escape_amp_quot, escape_script_text } from './escape.ts';
-import { set_ctx_recorder, set_ctx_script_reader } from './context-registry.ts';
 import {
 	set_ask_scope_opener,
 	set_page_recorder,
 	set_seed_ask_reader,
 	type PageSnapshot
 } from './page-seed-registry.ts';
-import { collect_remote_seed } from './server/remote-seed-gate.ts';
 import { DocumentTail, set_tail_reader } from './server/document-tail.ts';
 import { runtime_bootstrap } from './server/entry-location.ts';
 import {
@@ -242,19 +216,8 @@ function bag_of(): RequestBag | undefined {
 	const request = live_event()?.request;
 	return request ? bags.get(request) : undefined;
 }
-const request_ctx = shared<WeakMap<Request, Map<string, unknown>>>({
-	name: 'ogygia.request-context',
-	version: 1,
-	make: () => new WeakMap()
-});
-set_ctx_recorder((key, value) => {
-	const request = live_event()?.request;
-	if (!request) return;
-	let ctx = request_ctx.get(request);
-	if (ctx === undefined) request_ctx.set(request, (ctx = new Map()));
-	ctx.set(key, value);
-});
-set_ctx_script_reader(() => page_ctx_script(live_event()?.request));
+// (the drop-in context root: only where the build's runtime reads it, server/page-context.ts)
+if (HAS & F_CONTEXT) install_page_context();
 const doc_asks = shared<WeakMap<Request, SeedKeys | null>>({
 	name: 'ogygia.document-asks',
 	version: 1,
@@ -290,16 +253,19 @@ set_page_recorder((snapshot, seed, remotes, entry) => {
 	// the answer carries those keys of the looked-up page (server/render-page.ts)
 	const event = live_event();
 	if (event && note_render_page_ask(event, seed)) return;
+	// (an ask of the page seed counts only where the build's runtime reads one: else no document
+	// ships a seed, and every sidecar carries its props whole)
+	const asks = HAS & F_PAGE && seed !== false;
 	const bag = bag_of();
 	if (!bag) {
 		const request = request_of();
-		if (request && doc_asks.has(request) && seed !== false)
+		if (asks && request && doc_asks.has(request))
 			doc_asks.set(request, merge_seed_ask(doc_asks.get(request) ?? null, seed));
 		return;
 	}
 	bag.page = { ...bag.page, ...snapshot };
-	if (seed !== false) bag.seed_keys = merge_seed_ask(bag.seed_keys, seed);
-	if (bag.seed_asks && entry && seed !== false) bag.seed_asks.set(entry, seed);
+	if (asks) bag.seed_keys = merge_seed_ask(bag.seed_keys, seed);
+	if (asks && bag.seed_asks && entry) bag.seed_asks.set(entry, seed);
 	if (remotes === null) bag.remotes_wanted = null;
 	else if (bag.remotes_wanted) for (const h of remotes) bag.remotes_wanted.add(h);
 });
@@ -412,10 +378,6 @@ function decode_pathname(pathname: string): string | null {
 	}
 }
 
-function emit_ogygia_script(subtype: string, escaped_payload: string, marker = ''): string {
-	return `<script type="application/ogygia-${subtype}"${marker ? ` ${marker}` : ''}>${escaped_payload}</script>`;
-}
-
 const CSR_META = '<meta name="ogygia-csr" content="true">';
 const CSR_FALSE_META = '<meta name="ogygia-csr" content="false">';
 const fnm_script_cache = new WeakMap<object, string>();
@@ -432,32 +394,6 @@ function router_fetched(event: RequestEvent): boolean {
  * `csr = false` is dropped), and the regions recorded Kit's `page.error` into the bag as they rendered
  * — the same fact Region.svelte decided its own inline/island form on, so the two cannot disagree.
  */
-type SeedCodecs = {
-	seed_reducers: Record<string, (v: unknown) => unknown>;
-	seed_stringify: typeof stringify;
-};
-const NO_TRANSPORT = {};
-const seed_codec_cache = new WeakMap<object, SeedCodecs>();
-
-function seed_codecs(
-	transport: Record<string, { encode: (v: unknown) => unknown }> | undefined
-): SeedCodecs {
-	const key = transport ?? NO_TRANSPORT;
-	let hit = seed_codec_cache.get(key);
-	if (!hit) {
-		const encoders = Object.fromEntries(
-			Object.entries(transport ?? {}).map(([name, codec]) => [name, codec.encode])
-		);
-		const seed_reducers = { ...encoders, ...page_seed_reducers };
-		hit = {
-			seed_reducers,
-			seed_stringify: ((v: unknown) => stringify(v, seed_reducers)) as typeof stringify
-		};
-		seed_codec_cache.set(key, hit);
-	}
-	return hit;
-}
-
 function csr_page_of(
 	html: string,
 	body_end: number,
@@ -468,18 +404,6 @@ function csr_page_of(
 	return bag?.page?.error != null
 		? error_route_is_csr_true(event.route.id)
 		: route_is_csr_true(event.route.id);
-}
-
-/** The drop-in `setContext` page root (`<script data-ogygia-provide-page>`), or '' when the request
- *  set nothing an island can read. Drops any non-serializable value (function / store / class
- *  instance) instead of crashing. */
-function page_ctx_script(request: Request | undefined): string {
-	const ctx = request && request_ctx.get(request);
-	if (!request || !ctx?.size) return '';
-	const payload = serialize_provided_context(ctx);
-	return payload
-		? emit_ogygia_script('ctx', payload, OGYGIA_PROVIDE_PAGE + mark_attr(request))
-		: '';
 }
 
 /** `inner` with the request's owner around it: made before `inner` runs, ended with its response
@@ -702,7 +626,8 @@ class OgygiaHandle {
 				page: null,
 				seed_keys: null,
 				seed_asks: request_stats_detailed() ? new Map() : null,
-				remotes_wanted: new Set(),
+				// (none to collect where the build's runtime reads no remote seed)
+				remotes_wanted: HAS & F_REMOTE_SEEDS ? new Set() : null,
 				tail: new DocumentTail(),
 				measure_memo: new Map(),
 				deferred: null,
@@ -807,7 +732,7 @@ class OgygiaHandle {
 			// — with the pending seed + resolve-global bootstrap — is fully built now (transformPageChunk
 			// ran synchronously inside `resolve`); the tail streams a resolve script per promise as it
 			// settles. Only set when the request could consume a stream (see `inject_client_seeds`).
-			if (bag.deferred && bag.deferred.length) {
+			if (HAS & F_PAGE && bag.deferred && bag.deferred.length) {
 				return stream_page_deferred(
 					request_scope(event.request),
 					response,
@@ -932,7 +857,7 @@ class OgygiaHandle {
 				spans.body_end !== -1 && bag
 					? (bag.transform_body ?? '') +
 						bag.tail.render(null, false, mark_attr(bag.request)) +
-						(bag.kit_with_runtime ? page_ctx_script(bag.request) : '')
+						(HAS & F_CONTEXT && bag.kit_with_runtime ? page_ctx_script(bag.request) : '')
 					: '';
 			if (head === null && !tail) return html;
 			// The runtime an island inside a lake emitted goes before the head's JavaScript here too
@@ -1066,123 +991,37 @@ class OgygiaHandle {
 		// Region.svelte records during SSR from Kit's REAL page — the only place the resolved load data
 		// is reachable (Kit merges it locally in render.js, never on RequestState). PAGE-SEED-EVENT.
 		const page_snap = bag!.page!;
-		// SEED ONLY WHEN READ (the rule is spelled out at the seed payload below): no reader → no
-		// seed → the sidecars serialize self-contained, and nothing below stages or settles.
-		const seed_wanted = bag!.seed_keys !== null;
-		// THE DOCUMENT TAIL (server/document-tail.ts): the regions' module-preload hints, then their
-		// props sidecars — after the content, before the seeds. Rendered ONCE, now that the request
-		// knows whether the seed ships: only then does a sidecar serialize relative to it (seed-refs.ts)
-		// — every island's, whichever rendered first. The index is over the FULL `page.data`, whatever
-		// shaping keeps below: a reference path is structural (a top-level key, then keys and indices
-		// down), shaping keeps top-level keys whole, and staging / settling keep the shape too — so a
-		// path into the full tree resolves identically against the shipped seed, provided its key
-		// ships. The plan records the keys it referenced (`touched`) for exactly that.
 		const detail = request_stats_detailed();
-		const tail_html = bag!.tail.render(
-			seed_wanted ? SeedIndex.of(page_snap.data) : null,
-			detail,
-			mark_attr(bag!.request)
-		);
-		// SEED SHAPING: the slice of `page.data` the page's islands read (server/seed-shape.ts) — every
-		// step below (streaming, settling, the payload) sees the shaped tree. A key no island's code
-		// reads but whose node an island's props point into ships too: a reference must have something
-		// to point at. The postrender verdict above read the whole snapshot (a streamed promise anywhere
-		// keeps the page per-request).
-		let seed_keys = bag!.seed_keys;
-		if (seed_wanted && seed_keys !== 'all' && seed_keys !== null) {
-			for (const k of SeedIndex.of(page_snap.data).touched) seed_keys.add(k);
-		}
-		const shaped_data = shape_page_data(page_snap.data, seed_keys);
-		let seed_data = shaped_data;
-		let seed_form = page_snap.form;
-		// Merge the app's universal `transport` ENCODERS (custom types the app teaches Kit) with the
-		// DeferRef/SettledRef marker reducers, so a load's custom types round-trip into islands — not
-		// just built-in devalue types. A no-op for the common promise-free / transport-free seed.
-		// (built once per app transport — the same object on every request — not per request)
-		const { seed_reducers, seed_stringify } = seed_codecs(app_transport);
-		// ONE walk of the seed tree (seed-refs.ts `analyze`, against the request's shared memo — the
-		// tail's index above already measured every node; a shaped root is a few lookups) answers
-		// every question below: a streamed promise inside (stage or settle), JSON-exact (the native
-		// lane).
-		const data_shape = analyze(shaped_data);
-		const form_shape = analyze(page_snap.form ?? null);
-		// A load may return promises at any level (Kit streaming). csr=false can't hydrate the PAGE, so
-		// Kit's own resolve stream is dead there — but an ISLAND has a client. Two paths:
-		//  • Real browser load (`Sec-Fetch-Mode: navigate`) can consume a stream — STAGE each promise to a
-		//    marker (a pending Promise on the client) and stream a resolve `<script>` per settle after the
-		//    doc ships (`stream_page_deferred`, drains Kit's dead tail). Inline bootstrap defines the
-		//    resolve global before any resolve script runs.
-		//  • Programmatic fetch (SPA/router, mode ≠ navigate) can't run streamed scripts, so SETTLE the
-		//    promises here and seed resolved values — no hang, same as before.
-		const has_pending = data_shape.thenable || form_shape.thenable;
-		// A page with streaming promises is per-request BY INTENT — even on the non-navigate path
-		// where the promises get settled into a complete document (storing that copy would keep one
-		// settle forever while browser loads stream live).
-		if (has_pending) bag!.facts.reads.visitor('streamed load (promise in page data)');
-		const can_stream = event?.request.headers.get('sec-fetch-mode') === 'navigate';
-		// No reader → no seed → nothing to stage or settle (the postrender verdict above still saw the
-		// promise: that page stays per-request).
-		if (has_pending && can_stream && seed_wanted) {
-			const staged_data = stage_deferred(shaped_data, 0);
-			const staged_form = stage_deferred(page_snap.form, staged_data.next_id);
-			seed_data = staged_data.staged;
-			seed_form = staged_form.staged;
-			bag!.deferred = [...staged_data.deferred, ...staged_form.deferred];
-			bag!.defer_next_id = staged_form.next_id; // real next id — do NOT recompute from array length
-			bag!.seed_reducers = seed_reducers; // resolve scripts encode with the same transport + defer
-			scripts.push(`<script>${PAGE_DEFER_BOOTSTRAP}</script>`);
-		} else if (has_pending && seed_wanted) {
-			// (data and form settle together, the request's wait: the visitor gone, nobody reads it)
-			const settled = await settle_deferred(
-				[shaped_data, page_snap.form],
-				request_scope(bag!.request),
-				event?.url.pathname
-			);
-			if (settled === STALE) return html;
-			[seed_data, seed_form] = settled as [typeof seed_data, typeof seed_form];
-		}
-
-		// The tail (rendered above, before shaping) goes out after the defer bootstrap, before the seeds.
-		if (tail_html) scripts.push(tail_html);
-
 		// SEED ONLY WHEN READ: the seed exists so islands can read `$page` through the shim. A region
-		// asks for it (`seed_wanted`) only when its client code reaches the `$app/state` / `$app/stores`
-		// shim (`islandReadsPage`, from the build's chunk closure; fail-open for an entry the handoff
-		// does not know, e.g. a foreign fragment's island). No reader → no seed: a CMS page whose 20
-		// islands take everything as props stops shipping its whole `page.data` again (674 KB on one
-		// measured page) and stops serializing it on the server.
-		// THE LANE: a JSON-exact slice (the common CMS tree, no promise staged into it) goes out as
-		// native `JSON.stringify` output; anything devalue exists for keeps devalue.
+		// asks for it (`bag.seed_keys`) only when its client code reaches the `$app/state` /
+		// `$app/stores` shim (`islandReadsPage`, from the build's chunk closure; fail-open for an entry
+		// the handoff does not know, e.g. a foreign fragment's island), and only where the build's
+		// runtime reads a seed at all (the `page` feature: server/document-seeds.ts). No reader → no
+		// seed: a CMS page whose 20 islands take everything as props stops shipping its whole
+		// `page.data` again (674 KB on one measured page) and stops serializing it on the server, and
+		// every sidecar serializes self-contained.
+		let seed: ShippedSeed | null = null;
+		if (HAS & F_PAGE && bag!.seed_keys !== null) {
+			const shipped = await ship_page_seed(bag!, event, detail, scripts);
+			if (shipped === STALE) return html;
+			seed = shipped;
+		}
+		// THE DOCUMENT TAIL (server/document-tail.ts): the regions' module-preload hints, then their
+		// props sidecars, after the content, before the seeds (with a seed, written against it above).
+		const tail_html = seed
+			? seed.tail_html
+			: bag!.tail.render(null, detail, mark_attr(bag!.request));
+		if (!seed) {
+			// (a page with streaming promises is per-request BY INTENT, read by an island or not)
+			if (analyze(page_snap.data).thenable || analyze(page_snap.form ?? null).thenable)
+				bag!.facts.reads.visitor('streamed load (promise in page data)');
+			if (tail_html) scripts.push(tail_html);
+		}
+		const page_payload = seed?.payload ?? null;
 		let remote_seed_bytes = 0;
 		let fnm_bytes = 0;
 		let ctx_bytes = 0;
-		const page_payload =
-			event && seed_wanted
-				? PageSeed.serialize(
-						{
-							url: event.url,
-							params: event.params,
-							route: event.route,
-							status: page_snap.status ?? 200,
-							data: seed_data,
-							form: seed_form,
-							error: page_snap.error
-						},
-						seed_stringify,
-						!has_pending &&
-							data_shape.json &&
-							form_shape.json &&
-							analyze(page_snap.error ?? null).json
-					)
-				: null;
 		if (page_payload) {
-			scripts.push(
-				emit_ogygia_script(
-					'page',
-					page_payload.text,
-					`${OGYGIA_PAGE}${page_payload.json ? ` ${OG_FORMAT}="${WIRE_FORMAT_JSON}"` : ''}${mark_attr(bag!.request)}${RULES ? unshipped_attr(page_snap.data, seed_keys) : ''}`
-				)
-			);
 			if (DEVTOOLS)
 				dt_record(bag, {
 					domain: 'server',
@@ -1192,12 +1031,9 @@ class OgygiaHandle {
 				});
 		}
 
-		if (state?.remote?.implicit) {
-			const remote_script = await this.build_remote_seed_script(
-				state,
-				bag!.remotes_wanted,
-				bag!.request
-			);
+		// (where the build's runtime reads one: server/document-seeds.ts)
+		if (HAS & F_REMOTE_SEEDS && state?.remote?.implicit) {
+			const remote_script = await remote_seed_script(state, bag!.remotes_wanted, bag!.request);
 			if (remote_script) {
 				scripts.push(remote_script);
 				remote_seed_bytes = remote_script.length;
@@ -1227,8 +1063,9 @@ class OgygiaHandle {
 			fnm_bytes = fnm_script.length;
 		}
 
-		// Drop-in `setContext` page root — emitted here (final chunk) so every `setContext` has run.
-		const ctx_script = page_ctx_script(bag?.request);
+		// Drop-in `setContext` page root — emitted here (final chunk) so every `setContext` has run
+		// (where the build's runtime reads one: server/page-context.ts).
+		const ctx_script = HAS & F_CONTEXT ? page_ctx_script(bag?.request) : '';
 		if (ctx_script) {
 			scripts.push(ctx_script);
 			ctx_bytes = ctx_script.length;
@@ -1258,9 +1095,10 @@ class OgygiaHandle {
 				// holes. The seed explainer reads the request's shared measure memo — a lookup per key.
 				...(detail
 					? {
-							seed_culprit: page_payload && !page_payload.json ? json_culprit(seed_data) : null,
+							seed_culprit:
+								seed && page_payload && !page_payload.json ? json_culprit(seed.data) : null,
 							island_rows: bag!.tail.island_rows() ?? [],
-							seed: this.explain_seed(page_snap.data, seed_keys, bag!),
+							seed: this.explain_seed(page_snap.data, seed?.keys ?? null, bag!),
 							hole_rows: bag!.tail.hole_rows()
 						}
 					: {})
@@ -1327,60 +1165,13 @@ class OgygiaHandle {
 		const dt_buf = DEVTOOLS && bag ? dt_buffers.get(bag) : undefined;
 		if (DEVTOOLS && bag && dt_buf && dt_buf.events.length) {
 			scripts.push(
-				emit_ogygia_script(
+				ogygia_script(
 					'devtools',
 					escape_script_text(JSON.stringify(dt_buf.events)),
 					`${RESPONSE_MARK}="${response_mark(bag.request)}"`
 				)
 			);
 		}
-	}
-
-	/**
-	 * True when a remote's resolved value (deep) contains a region carrying baked SSR HTML — a
-	 * page-sized render, not seed data (see the skip in {@link build_remote_seed_script}). Depth-capped:
-	 * a region ticket sits shallow in any sane payload (a DocView's `entry.body` is 2 levels deep).
-	 */
-	has_baked_region(value: unknown, depth = 0): boolean {
-		if (depth > 6 || value === null || typeof value !== 'object') return false;
-		const r = value as Record<PropertyKey, unknown>;
-		if (r[REGION_BRAND] === true && typeof r.html === 'string') return true;
-		if (Array.isArray(value)) return value.some((x) => this.has_baked_region(x, depth + 1));
-		for (const k in r) if (this.has_baked_region(r[k], depth + 1)) return true;
-		return false;
-	}
-
-	async build_remote_seed_script(
-		state: RequestState,
-		/** REMOTE SEED ONLY WHEN REACHABLE: the id-hashes some region's client on this page can call
-		 *  (`bag.remotes_wanted`); `null` = unknown → seed every implicit remote (the pre-gate rule). */
-		wanted: ReadonlySet<string> | null = null,
-		/** the request whose response carries it: its mark goes on the script (RESPONSE-MARK) */
-		request?: Request
-	): Promise<string | null> {
-		const implicit = state.remote?.implicit;
-		if (!implicit) return null;
-
-		// The bucketing (Kit parity: q / p / l / f, `create_remote_key` keys) and the skips — private
-		// remote, no region's client can call it (`wanted`), errored/pending, baked-region value —
-		// live in server/remote-seed-gate.ts, pure and unit-tested; this serializes what comes back.
-		const data = await collect_remote_seed(implicit, wanted, {
-			memo: (internals) => state.remote.data?.get(internals as never),
-			skip_value: (v) => this.has_baked_region(v),
-			key: create_remote_key
-		});
-
-		if (!Object.values(data).some((b) => Object.keys(b).length > 0)) return null;
-
-		const reducers = Object.fromEntries(
-			Object.entries(app_transport).map(([name, codec]) => [name, codec.encode])
-		);
-		// devalue output is `<`-safe by itself (it writes `<`), so no second pass over the payload.
-		return emit_ogygia_script(
-			'remote',
-			devalue.stringify(data, reducers),
-			request ? `${RESPONSE_MARK}="${response_mark(request)}"` : ''
-		);
 	}
 }
 

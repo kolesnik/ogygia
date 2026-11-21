@@ -466,7 +466,9 @@ export class IslandsEndpoint {
 		 *  logged for the profiler as a hole request. A postrender stitch splices into a stored document
 		 *  and stays as it was. */
 		batch = false,
-		/** the batch's: aborts when its visitor left (nothing more is verified, loaded or rendered) */
+		/** the batch's: aborts when its visitor left (a render not started yet never starts, and an
+		 *  answer finished after it is dropped). Never aborted on entry: a batch whose visitor left
+		 *  before its stream started calls no render (stream-regions.ts `batch_stream`). */
 		signal?: AbortSignal,
 		/** the visitor a batch charges, per hole, as its GET would (PROBE-THEN-RENDER): a probe before
 		 *  the MAC, a render after it. Over budget: no parcel, and the hole fetches on its own. A
@@ -489,7 +491,7 @@ export class IslandsEndpoint {
 		ip: string | undefined
 	): Promise<{ slot: string; html: string } | null> {
 		const q = endpoint.indexOf('?');
-		if (q === -1 || signal?.aborted) return null;
+		if (q === -1) return null;
 		const cap = capability_of(new URLSearchParams(endpoint.slice(q + 1)));
 		const { id, payload, sig } = cap;
 

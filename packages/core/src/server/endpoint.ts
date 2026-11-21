@@ -138,8 +138,8 @@ export const REGION_ID_RE: RegExp = /^[0-9a-f]{12}$/;
  */
 export const REGION_TTL_RE: RegExp = /^(|0|[1-9][0-9]{0,6})$/;
 
-// The per-request gates, as char loops (measured ~2× the anchored patterns above, which stay the
-// documented shape): every hole request runs both before its HMAC.
+// The per-request gates: every hole request runs them before its HMAC (the anchored patterns above
+// stay the documented shape). Digits are char loops; hex is its length, then one charset pattern.
 
 /** {@link REGION_ID_RE}: exactly 12 lowercase hex chars. */
 export function is_region_id(s: string): boolean {
@@ -169,12 +169,9 @@ export function is_signed_number(s: string, max: number): boolean {
 /** The most digits a capability's `exp` (unix seconds) has: past the year 33658. */
 export const REGION_EXP_DIGITS = 12;
 
+const LOWER_HEX_RE = /^[0-9a-f]*$/;
+
 /** Exactly `n` chars of `[0-9a-f]`. */
 export function is_lower_hex(s: string, n: number): boolean {
-	if (s.length !== n) return false;
-	for (let i = 0; i < n; i++) {
-		const c = s.charCodeAt(i);
-		if (!((c >= 48 && c <= 57) || (c >= 97 && c <= 102))) return false;
-	}
-	return true;
+	return s.length === n && LOWER_HEX_RE.test(s);
 }

@@ -1053,8 +1053,8 @@
 			"name": "a path whose percent-encoding does not decode is a 400, and the page is never rendered"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > client_ip > catch:0",
-			"reason": "an adapter that cannot name the client: proved: its failure thrown instead of failing closed (429) turns the test red, twice",
+			"site": "packages/core/src/server/region-response.ts > client_ip > catch:0",
+			"reason": "an adapter that cannot name the client: proved: its failure thrown instead of failing closed (429) turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/handle-failures.test.ts",
 			"name": "a batch from a client the adapter cannot name is a 429 (fail closed)"
 		},
@@ -1113,32 +1113,68 @@
 			"name": "a devtools browser’s page whose headers cannot change goes out without the profiling headers"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > render_batch > parse:0",
-			"reason": "a batch body that is not JSON: proved: its parse failure thrown instead of a 400 turns the test red, twice",
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_batch > parse:0",
+			"reason": "a batch body that is not JSON: proved: its parse failure thrown instead of a 400 turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/handle-failures.test.ts",
 			"name": "a batch body that is not JSON is a 400"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > render_batch > catch:0",
-			"reason": "a batch body that is not JSON: proved: the failure thrown instead of a 400 turns the test red, twice",
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_batch > catch:0",
+			"reason": "a batch body that is not JSON: proved: the failure thrown instead of a 400 turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/handle-failures.test.ts",
 			"name": "a batch body that is not JSON is a 400"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > render_component > catch:0",
-			"reason": "a hole whose render calls keepFallback(): proved: the signal treated as a failure (a 500) turns the test red, twice",
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_component > catch:0",
+			"reason": "a hole whose render calls keepFallback(): proved: the signal treated as a failure (a 500) turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/hole-keep-fallback-answer.test.ts",
 			"name": "a hole whose render keeps its fallback answers 204 with no content, and nothing is said"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > decode_region_props > catch:0",
-			"reason": "a hole whose island module throws as its props decode: proved: the failure thrown turns the test red, twice",
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_component > abort:0",
+			"reason": "a batch whose visitor left while its hole's props decode: the render gate refuses it: proved: the leaving not read (the refusal said as region_render_failed) turns the test red",
+			"test": "packages/core/test/batch-visitor-left.test.ts",
+			"name": "left while its hole’s props decode: the render refused for it is not said as a failure"
+		},
+		{
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > capability_parcel > abort:0",
+			"reason": "a batch whose visitor left while its hole rendered: proved: the leaving not read (the answer shaped by the app's pass) turns the test red",
+			"test": "packages/core/test/batch-visitor-left.test.ts",
+			"name": "left while its hole renders: the finished answer is not shaped by the app’s pass"
+		},
+		{
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > decode_region_props > catch:0",
+			"reason": "a hole whose island module throws as its props decode: proved: the failure thrown turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/hole-props-decode-said.test.ts",
 			"name": "in production: the server says it with a code and the error; the visitor gets an opaque 403 (#1506)"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > region_answer > .catch:0",
-			"reason": "a plugin's `measures` hook that throws: proved: its rejection left uncaught turns the test red, twice",
+			"site": "packages/core/src/server/document-seeds.ts > ship_page_seed > stale:0",
+			"reason": "a router fetch whose visitor leaves while its streamed load settles: proved: the STALE not read (it destructured as the settled values) turns the test red",
+			"test": "packages/core/test/page-seed-visitor-left.test.ts",
+			"name": "a router fetch whose visitor leaves while its load settles gets the document as Kit wrote it"
+		},
+		{
+			"site": "packages/core/src/hooks.ts > OgygiaHandle > inject_client_seeds > stale:0",
+			"reason": "the same leaving, read by the handle: proved: the STALE seed read as a shipped one turns the test red",
+			"test": "packages/core/test/page-seed-visitor-left.test.ts",
+			"name": "a router fetch whose visitor leaves while its load settles gets the document as Kit wrote it"
+		},
+		{
+			"site": "packages/core/src/browser-half.ts > unmark_html_ranges > throw:0",
+			"reason": "the server half of a browser-only work: proved: the refusal not thrown turns the test red",
+			"test": "packages/core/test/browser-half.test.ts",
+			"name": "anywhere else, taking the range marks out refuses with browser_only_on_server"
+		},
+		{
+			"site": "packages/core/src/server/programs.ts > need_program > throw:0",
+			"reason": "a region whose program the server's word left out: proved: the refusal not thrown turns the test red",
+			"test": "packages/core/test/server-programs.test.ts",
+			"name": "the refusal names the region and its program"
+		},
+		{
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > region_answer > .catch:0",
+			"reason": "a plugin's `measures` hook that throws: proved: its rejection left uncaught turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/server-timing-measurer.test.ts",
 			"name": "a plugin that fails to say is no vouching: the answer goes out, untimed"
 		},
@@ -5897,10 +5933,6 @@
 		"packages/core/src/events/sinks.ts > ingest_server_events > catch:0",
 		"packages/core/src/head-owners.ts > adopt_owner_record > parse:0",
 		"packages/core/src/head-owners.ts > adopt_owner_record > catch:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > inject_client_seeds > stale:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > render_component > abort:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > capability_parcel > abort:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > capability_parcel > abort:1",
 		"packages/core/src/island-graph.ts > decode_island_locations > parse:0",
 		"packages/core/src/island-graph.ts > decode_island_graph > parse:0",
 		"packages/core/src/keep-fallback.ts > keepFallback > catch:0",
