@@ -118,7 +118,7 @@ const value_arb = fc.letrec((tie) => ({
 })).node;
 
 describe('devalue_text writes devalue’s text', () => {
-	it('any value, with reducers of the prop families’ shape: the same text, or the same refusal', () => {
+	it('any value, with reducers that claim objects, functions and strings: the same text, or the same refusal', () => {
 		fuzz(
 			value_arb,
 			(value) => {

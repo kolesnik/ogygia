@@ -2295,6 +2295,48 @@
 			"name": "any text decodes to a graph of strings, without a throw"
 		},
 		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > flatten > throw:0",
+			"reason": "a function no reducer claims, or a symbol, goes to devalue, which refuses it: proved: writing it instead turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > write_object > throw:0",
+			"reason": "a thenable goes to devalue, which refuses it: proved: writing it as an object turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > write_object > throw:1",
+			"reason": "a sparse array goes to devalue, which writes its holes: proved: writing its hole turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > write_object > throw:2",
+			"reason": "an own `__proto__` key goes to devalue, which refuses it: proved: writing the key turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > write_object > throw:3",
+			"reason": "anything else (a RegExp, a URL, a boxed value, a class instance no reducer claims, a null-prototype object) goes to devalue: proved: writing it as an object turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > catch:0",
+			"reason": "a reducer's own error passes through, never to devalue (which would ask the reducer again): proved: the error kept turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "a reducer’s own error passes through, and the reducer is asked once"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > throw:0",
+			"reason": "a reducer's own error passes through, never to devalue (which would ask the reducer again): proved: the error kept turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "a reducer’s own error passes through, and the reducer is asked once"
+		},
+		{
 			"site": "packages/core/src/island-graph-read.ts > decode_island_locations > parse:0",
 			"reason": "text that is not JSON gives no locations: proved: its parse failure thrown turns the test red",
 			"test": "packages/core/test/property-decoders.test.ts",
