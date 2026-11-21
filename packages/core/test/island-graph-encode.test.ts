@@ -1,7 +1,8 @@
-// The island graph's wire text (island-graph.ts `encode_island_graph`), written directly: over
-// generated graphs it is byte for byte the text `JSON.stringify` made of the wire object (the old
-// encoder, below, the oracle), keys that are array indexes, `__proto__`, quotes, lone surrogates
-// and line separators included.
+// The island graph's wire text (island-graph.ts `encode_island_graph`), its entries an ordinary
+// object from `Object.fromEntries`: over generated graphs it is byte for byte the text of the
+// null-prototype object it replaced (the old encoder, below, the oracle), keys that are array
+// indexes, `__proto__` (an own key, never the prototype), quotes, lone surrogates and line
+// separators included.
 import { describe, expect, it } from 'vitest';
 import { fc } from '@ogygia/config/sim';
 import { encode_island_graph, type IslandGraphWire } from '../src/island-graph.ts';
@@ -65,7 +66,7 @@ const LOCATIONS = fc.option(
 	{ nil: undefined }
 );
 
-describe('the island graph written directly', () => {
+describe('the island graph from an ordinary object', () => {
 	it('is the text JSON.stringify made of the wire object', () => {
 		fc.assert(
 			fc.property(GRAPH, LOCATIONS, (graph, locations) => {

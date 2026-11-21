@@ -28,16 +28,16 @@ export interface IslandGraphWire {
 }
 
 /** Encode entry → chunk hrefs (and identity → location, when any) as the wire shape (JSON text,
- *  not yet script-escaped): the text `JSON.stringify` makes of it, written directly (an object
- *  built key by key with no prototype is one V8 stringifies slowly; test/island-graph-encode.test.ts
- *  holds the two equal). */
+ *  not yet script-escaped). The entries are an ordinary object made by `Object.fromEntries`, where
+ *  an entry named `__proto__` is an own key like any other: an object with no prototype, built key
+ *  by key, is one V8 stringifies slowly (test/island-graph-encode.test.ts holds the text equal). */
 export function encode_island_graph(
 	graph: ReadonlyMap<string, readonly string[]>,
 	locations?: ReadonlyMap<string, string>
 ): string {
 	const h: string[] = [];
 	const index = new Map<string, number>();
-	const e: Array<[string, string]> = [];
+	const rows: Array<[string, number[]]> = [];
 	for (const [entry, hrefs] of graph) {
 		const ids: number[] = [];
 		for (const href of hrefs) {
@@ -49,39 +49,9 @@ export function encode_island_graph(
 			}
 			ids.push(i);
 		}
-		e.push([entry, `[${ids.join(',')}]`]);
+		rows.push([entry, ids]);
 	}
-	const head = `{"h":${JSON.stringify(h)},"e":${json_object(e)}`;
-	if (!locations?.size) return `${head}}`;
-	const s: Array<[string, string]> = [];
-	for (const [entry, src] of locations) s.push([entry, JSON.stringify(src)]);
-	return `${head},"s":${json_object(s)}}`;
-}
-
-/** An object's JSON text from its keys, in the order given, and each value's JSON text: as
- *  `JSON.stringify` writes one, a key that is an array index (`"0"`, `"17"`) comes first, in
- *  ascending order. `rows` holds each key once. */
-function json_object(rows: Array<[string, string]>): string {
-	const named: string[] = [];
-	let indexed: Array<[string, string]> | null = null;
-	for (const row of rows) {
-		if (is_index(row[0])) (indexed ??= []).push(row);
-		else named.push(`${JSON.stringify(row[0])}:${row[1]}`);
-	}
-	if (indexed === null) return `{${named.join(',')}}`;
-	indexed.sort((a, b) => Number(a[0]) - Number(b[0]));
-	const first = indexed.map(([key, value]) => `"${key}":${value}`);
-	return `{${first.concat(named).join(',')}}`;
-}
-
-/** An array index as a property key: a canonical whole number below 2^32 - 1. */
-function is_index(key: string): boolean {
-	const c = key.charCodeAt(0);
-	if (!(c >= 48 && c <= 57) || key.length > 10) return false;
-	if (c === 48) return key.length === 1;
-	for (let i = 1; i < key.length; i++) {
-		const d = key.charCodeAt(i);
-		if (d < 48 || d > 57) return false;
-	}
-	return Number(key) < 4294967295;
+	const e = Object.fromEntries(rows) as IslandGraphWire['e'];
+	if (!locations?.size) return JSON.stringify({ h, e } satisfies IslandGraphWire);
+	return JSON.stringify({ h, e, s: Object.fromEntries(locations) } satisfies IslandGraphWire);
 }
