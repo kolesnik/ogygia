@@ -96,6 +96,13 @@ describe('the tail carries the load wake’s files', () => {
 		expect(files_of(tail.render())).toBe(null);
 	});
 
+	it('an island that wakes at load with no chunk of its own still fills the tail (its file)', () => {
+		const tail = new DocumentTail();
+		tail.load_island('/a.HASH.js', [], () => []);
+		expect(tail.empty).toBe(false);
+		expect(files_of(tail.render(null, false, '', true))).toEqual(['/a.HASH.js']);
+	});
+
 	it('a page with no island that wakes at load carries none', () => {
 		const tail = new DocumentTail();
 		tail.graph('/a.js', ['/svelte.js']);
