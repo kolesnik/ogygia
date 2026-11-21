@@ -3,7 +3,7 @@
 // re-slots its children, a header that re-renders, a layout that moves a node. The old run is out
 // of its visit and must touch nothing of the new one: the island mounts ONCE, and the old run's
 // failure is not the new visit's (no failed state, no error said for it, no report).
-import { afterEach, beforeEach, expect, inject, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, inject, onTestFinished, test, vi } from 'vitest';
 import { from_b64 } from './b64.ts';
 import { bootDev } from '../../src/runtime/full.ts';
 
@@ -26,8 +26,6 @@ afterEach(() => {
 	performance.setResourceTimingBufferSize(RESOURCE_BUFFER);
 	vi.restoreAllMocks();
 	document.body.innerHTML = '';
-	// @why the browser keeps 250 resource entries and drops the rest; a dev run loads each source module as one (test: hydrate-visit › an old run’s failure leaves the new visit alone)
-	performance.clearResourceTimings();
 });
 
 /** Out of the page past its task, then back where it was (in front of its props sidecar). */
@@ -40,13 +38,25 @@ async function out_and_back(el: Element, while_out?: () => void): Promise<void> 
 	parent.insertBefore(el, spot);
 }
 
-/** Its module is on its way: the resource is in the timeline. */
-async function loading(name: string): Promise<void> {
-	await expect
-		.poll(() => performance.getEntriesByType('resource').some((r) => r.name.includes(name)), {
-			timeout: 5_000
-		})
-		.toBe(true);
+/** The downloads the page makes from now until the test ends, each heard as it lands: an observer
+ *  hears every one, the timeline full or not, and none from before. */
+class Downloads {
+	#names: string[] = [];
+	#observer = new PerformanceObserver((list) => {
+		for (const entry of list.getEntries()) this.#names.push(entry.name);
+	});
+
+	constructor() {
+		this.#observer.observe({ type: 'resource' });
+		onTestFinished(() => this.#observer.disconnect());
+	}
+
+	/** Its module is on its way: a download whose URL holds `name` landed. */
+	async loading(name: string): Promise<void> {
+		await expect
+			.poll(() => this.#names.some((n) => n.includes(name)), { timeout: 5_000 })
+			.toBe(true);
+	}
 }
 
 test('a region put back while its island loads mounts it once', async () => {
@@ -55,8 +65,9 @@ test('a region put back while its island loads mounts it once', async () => {
 	const ssr_button = el.querySelector('button')!;
 	let hydrated = 0;
 	el.addEventListener('ogygia:hydrated', () => hydrated++);
+	const downloads = new Downloads();
 	bootDev();
-	await loading('slow-entry.ts?import&once');
+	await downloads.loading('slow-entry.ts?import&once');
 	await out_and_back(el);
 	await expect.poll(() => el.hasAttribute('data-hydrated'), { timeout: 5_000 }).toBe(true);
 	await tick(300);
@@ -78,8 +89,9 @@ test('an old run’s failure leaves the new visit alone', async () => {
 	});
 	let hydrated = 0;
 	el.addEventListener('ogygia:hydrated', () => hydrated++);
+	const downloads = new Downloads();
 	bootDev();
-	await loading('slow-fail-entry.ts');
+	await downloads.loading('slow-fail-entry.ts');
 	await out_and_back(el, () => el.setAttribute('entry', `${SLOW}?fresh`));
 	await expect
 		.poll(() => el.hasAttribute('data-hydrated'), {
