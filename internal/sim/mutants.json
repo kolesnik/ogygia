@@ -557,10 +557,10 @@
 		"id": "missed-part-lands-empty",
 		"file": "packages/core/src/runtime/frame-store.ts",
 		"in": "reserve",
-		"code": "const landed = part.wait('landed').then((s) => (s === STALE ? STALE : s.html));",
+		"code": "const landed = part.wait('landed').then((p) => (p === STALE ? STALE : p.html));",
 		"operator": "statement",
-		"from": "(s === STALE ? STALE : s.html)",
-		"to": "(s === STALE ? ('' as VerifiedHtml) : s.html)",
+		"from": "(p === STALE ? STALE : p.html)",
+		"to": "(p === STALE ? ('' as VerifiedHtml) : p.html)",
 		"aim": "batch.part-lost"
 	},
 	{
