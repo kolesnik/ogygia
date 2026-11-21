@@ -14,9 +14,8 @@ import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
 import { F_GRAPH } from '../../src/contract/features.ts';
 import { bootDev } from '../../src/runtime/full.ts';
 import { from_b64 } from './b64.ts';
-import { boot_link, slots } from '../../src/runtime/slots.ts';
 import { L_REGISTER_ISLAND_GRAPH } from '../../src/runtime/boot-link-index.ts';
-import { link_boot } from '../../src/runtime/boot-link.ts';
+import { link_boot, make_boot_link } from '../../src/runtime/boot-link.ts';
 import { init } from '../../src/runtime/lazy-link.ts';
 import { warm_island_module } from '../../src/runtime/island-warm.ts';
 
@@ -113,15 +112,15 @@ test('a graph read from another page resolves against that page (router warm)', 
 describe('a build whose word has no graph (no island code of the app can load: F_GRAPH off)', () => {
 	afterEach(() => {
 		set_feature_word(ALL);
-		slots.boot = null;
+		init(link_boot());
 		bootDev();
 	});
 
 	/** The boot link a boot of the current word makes. */
 	const relink = () => {
-		slots.boot = null;
-		init(link_boot());
-		return boot_link();
+		const link = make_boot_link();
+		init(link);
+		return link;
 	};
 
 	test('its boot links a router read to no graph reader: a fetched page’s graph links nothing', () => {

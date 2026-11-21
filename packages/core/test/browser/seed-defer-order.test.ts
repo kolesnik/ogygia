@@ -6,7 +6,7 @@ import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { init } from '../../src/runtime/lazy-link.ts';
 import { prepare_spa_document, seed_page_once } from '../../src/runtime/seeds.ts';
-import { boot_link } from '../../src/runtime/slots.ts';
+import { boot_link } from '../../src/runtime/lazy-link.ts';
 import { L_LOAD_DEVALUE } from '../../src/runtime/boot-link-index.ts';
 import { page_state } from '../../src/shims/page-store.svelte.ts';
 import { DeferRef, defer_reducer } from '../../src/server/page-stream.ts';

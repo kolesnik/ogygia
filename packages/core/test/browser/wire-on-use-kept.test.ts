@@ -4,32 +4,21 @@
 // runtime loads the codec before it reads them, as a wake does (wire-on-use.test.ts), and the island
 // shows the next page's props instead of keeping the old ones.
 //
-// Its own file: the wire slot is module state shared by a file's tests.
+// Its own file: the codec the boot loaded is module state shared by a file's tests.
 import { expect, inject, test, vi } from 'vitest';
 import { from_b64 } from './b64.ts';
 import { page } from 'vitest/browser';
 import { writable } from 'svelte/store';
 
-// as a build whose marks left `wire` out: the hydrate core installs every feature but the codec
-vi.mock('../_stubs/boot.hydrate-features.ts', async () => {
-	const [context, live, remote_seeds, seeds] = await Promise.all([
-		import('../../src/runtime/context.ts'),
-		import('../../src/runtime/live.ts'),
-		import('../../src/runtime/remote-seeds.ts'),
-		import('../../src/runtime/seeds.ts')
-	]);
-	return {
-		install(): void {
-			remote_seeds.install();
-			seeds.install();
-			live.install();
-			context.install();
-		}
-	};
-});
+// as a build whose marks left `wire` out: the hydrate core has every feature but the codec
+vi.mock('../_stubs/boot.hydrate-features.ts', async (real: () => Promise<object>) => ({
+	...(await real()),
+	wire: null,
+	wire_on: false
+}));
 
 const { bootDev } = await import('../../src/runtime/full.ts');
-const { slots } = await import('../../src/runtime/slots.ts');
+const { wire_codec } = await import('../../src/runtime/wire-on-use.ts');
 const { stringify_props } = await import('../../src/server/props-wire.ts');
 
 const LABEL = '/test/browser/fixtures/Label.svelte';
@@ -51,7 +40,7 @@ test('a kept island whose next props hold a live value shows them in a build wit
 		.poll(() => document.querySelector(HYDRATED) !== null, { timeout: 10_000 })
 		.toBe(true);
 	await expect.element(page.getByTestId('label')).toHaveTextContent('one');
-	expect(slots.wire, 'its first props needed no codec').toBeFalsy();
+	expect(wire_codec(), 'its first props needed no codec').toBeNull();
 	const live = document.querySelector('ogygia-region')!;
 	const p = live.querySelector('p');
 

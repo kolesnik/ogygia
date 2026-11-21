@@ -1,28 +1,30 @@
-// Its own file: the wire slot is module state shared by a file's tests.
+// Its own file: the codec the boot loaded is module state shared by a file's tests.
 import { expect, inject, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { writable } from 'svelte/store';
 import { from_b64 } from './b64.ts';
 
-vi.mock('../_stubs/boot.hydrate-features.ts', async () => {
-	const [context, live, remote_seeds, seeds] = await Promise.all([
-		import('../../src/runtime/context.ts'),
-		import('../../src/runtime/live.ts'),
-		import('../../src/runtime/remote-seeds.ts'),
-		import('../../src/runtime/seeds.ts')
-	]);
+// as a build whose marks left `wire` out: the hydrate core has every feature but the codec
+vi.mock('../_stubs/boot.hydrate-features.ts', async (real: () => Promise<object>) => ({
+	...(await real()),
+	wire: null,
+	wire_on: false
+}));
+// the moment the codec installs, which the test takes to bring newer props in
+const installing = vi.hoisted(() => ({ then: null as (() => void) | null }));
+vi.mock('../../src/live-transport.ts', async (real: () => Promise<{ install(): void }>) => {
+	const codec = await real();
 	return {
+		...codec,
 		install(): void {
-			remote_seeds.install();
-			seeds.install();
-			live.install();
-			context.install();
+			codec.install();
+			installing.then?.();
 		}
 	};
 });
 
 const { bootDev } = await import('../../src/runtime/full.ts');
-const { slots } = await import('../../src/runtime/slots.ts');
+const { wire_codec } = await import('../../src/runtime/wire-on-use.ts');
 const { stringify_props } = await import('../../src/server/props-wire.ts');
 
 const LABEL = '/test/browser/fixtures/Label.svelte';
@@ -48,18 +50,10 @@ test('a kept island’s newer props that arrive as the wire codec installs win o
 		.toBe(true);
 	const live = document.querySelector('ogygia-region') as Kept;
 	const newer = twin_of(kept(body, { text: 'newer' }));
-	let wire: unknown;
-	Object.defineProperty(slots, 'wire', {
-		configurable: true,
-		get: () => wire,
-		set(codec: unknown) {
-			wire = codec;
-			live.absorbKeptProps(newer);
-		}
-	});
+	installing.then = () => live.absorbKeptProps(newer);
 
 	live.absorbKeptProps(twin_of(kept(body, { text: 'older', extra: writable(7) })));
-	await expect.poll(() => wire, { timeout: 10_000 }).toBeTruthy();
+	await expect.poll(() => wire_codec(), { timeout: 10_000 }).toBeTruthy();
 	await new Promise((r) => setTimeout(r, 100));
 	await expect.element(page.getByTestId('label')).toHaveTextContent('newer');
 });

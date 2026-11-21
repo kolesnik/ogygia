@@ -6,19 +6,15 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { lifeOf } from '@ogygia/machine';
 import { scope } from '@ogygia/machine';
-import {
-	resolve_address,
-	type FieldSnapshot,
-	type QueuedClick
-} from '../../src/runtime/interaction.ts';
-import { slots } from '../../src/runtime/slots.ts';
-import { after_wake, replay_clicks } from '../../src/runtime/interaction-replay.ts';
+import type { FieldSnapshot, QueuedClick } from '../../src/runtime/interaction.ts';
+import { link_boot } from '../../src/runtime/boot-link.ts';
+import { after_wake, init, replay_clicks } from '../../src/runtime/interaction-replay.ts';
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 
 let region: HTMLElement;
 beforeEach(() => {
-	slots.interaction_link = { resolve_address };
+	init(link_boot());
 	region = document.createElement('div');
 	document.body.append(region);
 });

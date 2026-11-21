@@ -4,9 +4,10 @@
 import { expect, test } from 'vitest';
 
 (globalThis as unknown as { __OGYGIA_DEVTOOLS__: boolean }).__OGYGIA_DEVTOOLS__ = true;
-const { morph_children, install: install_morph } = await import('../../src/runtime/morph.ts');
+const { morph_children } = await import('../../src/runtime/morph.ts');
 const { reconcile_body } = await import('../../src/runtime/reconcile.ts');
 const { link_boot } = await import('../../src/runtime/boot-link.ts');
+const { init } = await import('../../src/runtime/lazy-link.ts');
 const { snapshot, clear, configure } = await import('../../src/events/bus.ts');
 init(link_boot());
 

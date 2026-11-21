@@ -17,8 +17,8 @@ import { runtime_session } from '../../src/runtime/session.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { init } from '../../src/runtime/lazy-link.ts';
 
-// Some checks below drive the seeds module before (or without) a boot: link the boot helpers it
-// reaches through the registry (runtime/slots.ts `BootLink`), as the boot would.
+// Some checks below drive the seeds module before (or without) a boot: hand it the boot's link
+// (runtime/boot-link.ts `BootLink`), as the boot would.
 init(link_boot());
 
 const HYDRATED = 'ogygia-region[data-hydrated]';

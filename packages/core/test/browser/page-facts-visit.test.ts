@@ -9,7 +9,7 @@ import { init } from '../../src/runtime/lazy-link.ts';
 import { region_fragment } from './_html.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document, seed_page_once } from '../../src/runtime/seeds.ts';
-import { boot_link } from '../../src/runtime/slots.ts';
+import { boot_link } from '../../src/runtime/lazy-link.ts';
 import { L_LOAD_DEVALUE } from '../../src/runtime/boot-link-index.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { page_state, set_page } from '../../src/shims/page-store.svelte.ts';

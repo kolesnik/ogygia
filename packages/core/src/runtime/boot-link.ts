@@ -183,7 +183,13 @@ export function linked<T extends LazyChunk>(chunk: T): T {
 /** The boot's link (made on first ask, then the same list): what the boot hands each lazy chunk it
  *  imports. A test that imports a lazy module without booting hands it this too. */
 export function link_boot(): BootLink {
-	return (made ??= [
+	return (made ??= make_boot_link());
+}
+
+/** A boot link, made from the build's word as it stands (its soft refresh a new machine): the boot
+ *  makes one ({@link link_boot}). */
+export function make_boot_link(): BootLink {
+	return [
 		KIT_PAGES ? kit_hydrates_page : no_kit,
 		KIT_PAGES ? KitBoot : KIT_META,
 		ABSOLUTE_URL_SCHEME,
@@ -241,5 +247,5 @@ export function link_boot(): BootLink {
 		HAS & F_ROUTER ? router.fragment_target : null,
 		HAS & F_INTERACTION ? interaction.resolve_address : null,
 		wire_codec
-	]);
+	];
 }

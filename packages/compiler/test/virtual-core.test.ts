@@ -168,16 +168,15 @@ describe('core’s boot modules', () => {
 		for (const program of [{ runtime_marks: { wire: true } }, { crosses_wire: true }]) {
 			const code = load('ogygia:boot/hydrate-features', app({ ctx: DEV, program }))!;
 			expect(code).not.toMatch(/fn-manifest/);
-			expect(code).toContain('hydrate');
+			expect(code).toContain('export * as wire from');
 		}
 	});
 
-	it('re-exports the hydrate features after the runtime flags, which the runtime they import reads back', () => {
+	it('re-exports the runtime flags but no feature’s code: only the boot and the hydrate core import those, by their own ids', () => {
 		const boot = load('ogygia:boot', app())!;
-		expect(boot.indexOf('ogygia:boot/runtime-flags')).toBeGreaterThan(-1);
-		expect(boot.indexOf('ogygia:boot/hydrate-features')).toBeGreaterThan(
-			boot.indexOf('ogygia:boot/runtime-flags')
-		);
+		expect(boot).toContain('ogygia:boot/runtime-flags');
+		for (const id of ['feature-code', 'hydrate-features', 'remote-seeds'])
+			expect(boot).not.toContain(`ogygia:boot/${id}`);
 	});
 
 	it('names every region’s component for devtools in a build, and none in dev (the dev server serves them)', () => {

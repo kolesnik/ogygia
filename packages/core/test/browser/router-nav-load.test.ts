@@ -147,11 +147,11 @@ test('a prefetched page warms its island graph and the regions the browser runs,
 	const graphs: string[] = [];
 	const warmed: string[] = [];
 	const located: string[] = [];
-	const { slots } = await import('../../src/runtime/slots.ts');
-	const real = [...slots.boot!] as typeof slots.boot;
-	slots.boot![L_REGISTER_ISLAND_GRAPH] = (text) => void graphs.push(text);
-	slots.boot![L_WARM_ISLAND_MODULE] = (entry) => void warmed.push(entry);
-	slots.boot![L_NOTE_ENTRY_LOCATION] = (entry, src) => void located.push(`${entry} ${src}`);
+	const link = link_boot();
+	const real = [...link] as typeof link;
+	link[L_REGISTER_ISLAND_GRAPH] = (text) => void graphs.push(text);
+	link[L_WARM_ISLAND_MODULE] = (entry) => void warmed.push(entry);
+	link[L_NOTE_ENTRY_LOCATION] = (entry, src) => void located.push(`${entry} ${src}`);
 	const plain = answer;
 	answer = () =>
 		new Response(
@@ -163,7 +163,7 @@ test('a prefetched page warms its island graph and the regions the browser runs,
 		await nav.fetch_page(href('/warm-page'), undefined, 'prefetch');
 	} finally {
 		answer = plain;
-		Object.assign(slots.boot!, real);
+		Object.assign(link, real);
 	}
 	expect(graphs).toEqual(['{"g":1}']);
 	expect(warmed).toEqual(['/runs.js']);

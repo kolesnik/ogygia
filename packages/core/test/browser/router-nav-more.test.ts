@@ -14,7 +14,7 @@ import { hold_scroll } from '../../src/runtime/router-nav.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { L_FRAMES_STREAM } from '../../src/runtime/boot-link-index.ts';
 import { hear, hear_none } from '../_hooks.ts';
 import { patch } from '../_patch.ts';
 
@@ -304,14 +304,12 @@ it_with_network_routes(
 
 test('only the next page’s load-timed holes join the navigation’s batch', async () => {
 	const asked: string[][] = [];
-	const frames = slots.frames;
-	slots.frames = {
-		...frames,
-		stream: (endpoints: string[]) => {
-			asked.push(endpoints);
-			return Promise.resolve();
-		}
-	} as never;
+	const link = link_boot();
+	const stream = link[L_FRAMES_STREAM];
+	link[L_FRAMES_STREAM] = (endpoints: string[]) => {
+		asked.push(endpoints);
+		return Promise.resolve();
+	};
 	const ep = (id: string) => `/__ogygia__?id=${id}&props=W3t9XQ&exp=9999999999&sig=stub`;
 	pages['/rn-batch'] = {
 		body: `<ogygia-region render="defer" endpoint="${ep('load')}"></ogygia-region><ogygia-region render="defer" when="visible" endpoint="${ep('visible')}"></ogygia-region>`
@@ -319,7 +317,7 @@ test('only the next page’s load-timed holes join the navigation’s batch', as
 	try {
 		await go('/rn-batch');
 	} finally {
-		slots.frames = frames;
+		link[L_FRAMES_STREAM] = stream;
 	}
 	expect(asked).toEqual([[ep('load')]]);
 });

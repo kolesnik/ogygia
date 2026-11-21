@@ -6,7 +6,7 @@ import { history_room } from './_history-budget.ts';
 
 (globalThis as unknown as { __OGYGIA_DEVTOOLS__: boolean }).__OGYGIA_DEVTOOLS__ = true;
 const { link_boot } = await import('../../src/runtime/boot-link.ts');
-const { install: install_morph } = await import('../../src/runtime/morph.ts');
+const { init } = await import('../../src/runtime/lazy-link.ts');
 const { SpaRouter } = await import('../../src/runtime/router.ts');
 const { prepare_spa_document } = await import('../../src/runtime/seeds.ts');
 const { runtime_session } = await import('../../src/runtime/session.ts');

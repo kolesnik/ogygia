@@ -13,6 +13,7 @@ import { rolldown } from 'rolldown';
 import { MachineTypes } from 'ogygia-internal-macros/plugin';
 import { dedent } from '../src/contract/dedent.ts';
 import { MACRO_TYPES, core_macros } from '../macros.config.ts';
+import { feature_code } from './_boot-bundle.ts';
 
 const SRC = fileURLToPath(new URL('../src/', import.meta.url));
 
@@ -30,15 +31,13 @@ async function build(rules: boolean): Promise<string> {
 		file,
 		`${dedent`
 			import { boot } from ${JSON.stringify(`${SRC}runtime/core.ts`)};
-			import { install } from ${JSON.stringify(`${SRC}runtime/router.ts`)};
-			import { install as lakes } from ${JSON.stringify(`${SRC}runtime/lakes.ts`)};
-			boot([install, lakes]);
+			boot();
 		`}\n`
 	);
 	const bundle = await rolldown({
 		input: file,
 		external: [/^svelte(\/|$)/, /^\$app\//, 'esm-env', /\.svelte$/, /^node:/],
-		plugins: [core_macros()],
+		plugins: [core_macros(), feature_code(SRC, ['router', 'lakes'])],
 		transform: {
 			define: {
 				'import.meta.env.DEV': 'false',
@@ -73,9 +72,12 @@ describe('a production build names no machine state', () => {
 	it('the runtime boot moves and reads its machines by int; a rules build by name', async () => {
 		const names = state_names();
 		const prod = named(await build(false), names);
+		// (`case 'empty'` is the lakes' remount mode, region-attrs.ts `region_remount`: no machine's)
 		expect(prod, 'only `kept`, a flights entry’s own state (a machine with names)').toEqual([
+			'kind empty',
 			'kind kept'
 		]);
+		expect(await build(false)).toContain('case`empty`:return');
 		const rules = named(await build(true), names);
 		expect(rules).toContain('move armed');
 		expect(rules).toContain('kind fetching');

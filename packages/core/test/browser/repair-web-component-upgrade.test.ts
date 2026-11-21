@@ -10,8 +10,8 @@ import { parse_region_html } from './_html.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
 import { init } from '../../src/runtime/lazy-link.ts';
 
-// This file drives the hydrate core's repair directly, without booting the runtime: link the boot
-// helpers it reaches through the registry (runtime/slots.ts `BootLink`), as the boot would.
+// This file drives the hydrate core's repair directly, without booting the runtime: hand it the
+// boot's link (runtime/boot-link.ts `BootLink`), as the boot would.
 init(link_boot());
 // The REAL repair path: with the morph installed, align_to falls to the morph on a skeleton mismatch
 // (not the innerHTML swap it uses when no morph feature shipped).

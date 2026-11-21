@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { morph_children } from '../../src/runtime/morph.ts';
 import { install_head_style } from '../../src/runtime/router-nav.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { link_boot, type BootLink } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { L_RUNTIME_SESSION } from '../../src/runtime/boot-link-index.ts';
 
 /** Elements as the HTML parser makes them from `html`: it takes attribute names (one that starts
@@ -64,17 +65,16 @@ test('an attribute the parser took under such a name changes value and is remove
 test("a navigation's head style with such an attribute name is installed with it", () => {
 	const head = document.createElement('div');
 	const [source] = parsed('<style @media-note="wide" data-x="1">p{color:red}</style>');
-	const was_boot = slots.boot;
 	const claimed: Node[] = [];
-	const fake: unknown[] = [];
+	const fake: unknown[] = [...link_boot()];
 	fake[L_RUNTIME_SESSION] = { claim_page_head: (n: Node) => claimed.push(n) };
-	slots.boot = fake as unknown as typeof slots.boot;
+	init(fake as unknown as BootLink);
 
 	let el: HTMLStyleElement;
 	try {
 		el = install_head_style(source, head as unknown as HTMLHeadElement);
 	} finally {
-		slots.boot = was_boot;
+		init(link_boot());
 	}
 
 	expect(claimed).toEqual([el]);

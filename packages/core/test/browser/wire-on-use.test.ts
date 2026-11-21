@@ -4,38 +4,27 @@
 // (an `OgygiaRef`) for a build without the codec, the runtime loads the codec before it reads the
 // props, and the island hydrates with the live value.
 //
-// Its own file: the wire slot is module state shared by a file's tests.
+// Its own file: the codec the boot loaded is module state shared by a file's tests.
 import { expect, inject, test, vi } from 'vitest';
 import { from_b64 } from './b64.ts';
 import { page } from 'vitest/browser';
 import { writable } from 'svelte/store';
 
-// as a build whose marks left `wire` out: the hydrate core installs every feature but the codec
-vi.mock('../_stubs/boot.hydrate-features.ts', async () => {
-	const [context, live, remote_seeds, seeds] = await Promise.all([
-		import('../../src/runtime/context.ts'),
-		import('../../src/runtime/live.ts'),
-		import('../../src/runtime/remote-seeds.ts'),
-		import('../../src/runtime/seeds.ts')
-	]);
-	return {
-		install(): void {
-			remote_seeds.install();
-			seeds.install();
-			live.install();
-			context.install();
-		}
-	};
-});
+// as a build whose marks left `wire` out: the hydrate core has every feature but the codec
+vi.mock('../_stubs/boot.hydrate-features.ts', async (real: () => Promise<object>) => ({
+	...(await real()),
+	wire: null,
+	wire_on: false
+}));
 
 const { bootDev } = await import('../../src/runtime/full.ts');
-const { slots } = await import('../../src/runtime/slots.ts');
+const { wire_codec } = await import('../../src/runtime/wire-on-use.ts');
 const { stringify_props } = await import('../../src/server/props-wire.ts');
 
 const HYDRATED = 'ogygia-region[data-hydrated]';
 
 test('an island whose props hold a live value hydrates in a build without the wire codec', async () => {
-	expect(slots.wire, 'no codec before the wake').toBeFalsy();
+	expect(wire_codec(), 'no codec before the wake').toBeNull();
 	document.body.innerHTML = from_b64(inject('counter_ssr_b64'));
 	const sidecar = document.querySelector('script[data-ogygia-props]')!;
 	sidecar.textContent = stringify_props({ start: 3, extra: writable(7) }, 'Counter');

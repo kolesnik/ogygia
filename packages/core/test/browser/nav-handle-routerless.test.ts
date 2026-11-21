@@ -1,18 +1,23 @@
 // A runtime WITHOUT the router (`router: false`): island code still reaches `invalidate` and
 // `invalidateAll` through the navigation handle, and both are the soft seed refresh. The router
-// never loads here, so nothing the router sets up may be needed for them. (This file never imports
-// ./router.ts: the router feature's install would fill what the refresh must work without.)
-import { expect, test } from 'vitest';
+// never starts here, so nothing the router sets up may be needed for them: this file boots a build
+// whose word has no router, so its install never runs and the boot's link holds none of it.
+import { afterAll, beforeAll, expect, test } from 'vitest';
 import { observe } from '@ogygia/machine';
 import { boot } from '../../src/runtime/core.ts';
-import * as mpa_nav from '../../src/runtime/nav-handle.ts';
+import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
+import { F_ROUTER } from '../../src/contract/features.ts';
+
+const ALL = HAS;
+beforeAll(() => set_feature_word(ALL & ~F_ROUTER));
+afterAll(() => set_feature_word(ALL));
 
 const NAV = Symbol.for('ogygia.nav');
 const scope = globalThis as unknown as Record<symbol, Record<string, unknown> | undefined>;
 
 test('without the router, invalidateAll and invalidate refresh (they never need the router)', async () => {
 	delete scope[NAV];
-	boot([mpa_nav.install]);
+	boot();
 	const handle = scope[NAV]!;
 	expect(handle, 'the MPA handle is published').toBeDefined();
 
@@ -29,7 +34,7 @@ test('without the router, invalidateAll and invalidate refresh (they never need 
 
 test('without the router, a refresh whose loaded code the keep let go loads it again and refreshes', async () => {
 	delete scope[NAV];
-	boot([mpa_nav.install]);
+	boot();
 	const invalidate_all = scope[NAV]!.invalidateAll as () => Promise<void>;
 	const moves: string[] = [];
 	const off = observe((name, from, to) => {

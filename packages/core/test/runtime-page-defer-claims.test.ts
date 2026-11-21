@@ -8,9 +8,8 @@ import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { parse, stringify } from 'devalue';
 import { DeferRef, defer_reducer } from '../src/server/page-stream.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
-import { init } from '../src/runtime/lazy-link.ts';
+import { boot_link, init } from '../src/runtime/lazy-link.ts';
 import { load_devalue } from '../src/runtime/devalue-lane.ts';
-import { slots } from '../src/runtime/slots.ts';
 import { L_WITH_DEVALUE } from '../src/runtime/boot-link-index.ts';
 import {
 	create_deferred,
@@ -103,12 +102,12 @@ it('a value that came twice for one id keeps the first: a streamed promise settl
 
 /** devalue held back: each read waits until the test lets it in, or says it never came. */
 function devalue_held(): { arrive(): void; never(): void; [Symbol.dispose](): void } {
-	const real = slots.boot!;
+	const real = boot_link();
 	const reads: Array<{ fn: (d: typeof import('devalue')) => void; gone: (e: unknown) => void }> =
 		[];
 	const held = [...real] as typeof real;
 	held[L_WITH_DEVALUE] = (fn, gone) => void reads.push({ fn, gone });
-	slots.boot = held;
+	init(held);
 	return {
 		arrive: () => {
 			for (const r of reads.splice(0)) r.fn({ parse, stringify } as typeof import('devalue'));
@@ -116,7 +115,7 @@ function devalue_held(): { arrive(): void; never(): void; [Symbol.dispose](): vo
 		never: () => {
 			for (const r of reads.splice(0)) r.gone(new Error('download failed'));
 		},
-		[Symbol.dispose]: () => void (slots.boot = real)
+		[Symbol.dispose]: () => init(real)
 	};
 }
 
