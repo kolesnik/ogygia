@@ -93,7 +93,12 @@ import { F_CONTEXT, F_FRAMES, F_PAGE, F_REMOTE_SEEDS } from './contract/features
 import { HeadTags } from './server/head-presence.ts';
 import { page_code_origins } from './server/page-code-origins.ts';
 import { assemble, ogygia_script } from './server/document-assembly.ts';
-import { remote_seed_script, ship_page_seed, type ShippedSeed } from './server/document-seeds.ts';
+import {
+	remote_seed_script,
+	ship_page_seed,
+	walk_page_seed,
+	type ShippedSeed
+} from './server/document-seeds.ts';
 import { install_page_context, page_ctx_script } from './server/page-context.ts';
 import { error_route_is_csr_true, route_is_csr_true } from './context.ts';
 import { early_holes_head, take_early_holes } from './early-holes-head.ts';
@@ -106,7 +111,7 @@ import { kit_gate, kit_start_ungated } from './server/kit-gate.ts';
 import { merge_seed_ask, type SeedKeys } from './server/seed-shape.ts';
 import { html_has_kit_bootstrap } from './server/html-scan.ts';
 import { RateLimiter, is_shared_address } from './server/rate-limit.ts';
-import { analyze, set_measure_memo_reader, type MeasureMemo } from './seed-refs.ts';
+import { analyze, MeasureMemo, set_measure_memo_reader } from './seed-refs.ts';
 import { OGYGIA_DEV_HMR, OGYGIA_DEVTOOLS_BOOT, OGYGIA_SPECULATE } from './wire-markup.ts';
 import { body_end, head_end, read_head } from './markup-walk.ts';
 import { stream_page_deferred, type Deferred } from './server/page-stream.ts';
@@ -254,7 +259,9 @@ set_page_recorder((snapshot, seed, remotes, entry) => {
 			doc_asks.set(request, merge_seed_ask(doc_asks.get(request) ?? null, seed));
 		return;
 	}
+	const first = bag.page === null;
 	bag.page = { ...bag.page, ...snapshot };
+	if (HAS & F_PAGE && first) walk_page_seed(bag.page.data, bag.measure_memo);
 	if (asks) bag.seed_keys = merge_seed_ask(bag.seed_keys, seed);
 	if (asks && bag.seed_asks && entry) bag.seed_asks.set(entry, seed);
 	if (remotes === null) bag.remotes_wanted = null;
@@ -617,7 +624,7 @@ class OgygiaHandle {
 				seed_asks: request_stats_detailed() ? new Map() : null,
 				remotes_wanted: HAS & F_REMOTE_SEEDS ? new Set() : null,
 				tail: new DocumentTail(),
-				measure_memo: new Map(),
+				measure_memo: new MeasureMemo(),
 				deferred: null,
 				defer_next_id: 0,
 				late: null,

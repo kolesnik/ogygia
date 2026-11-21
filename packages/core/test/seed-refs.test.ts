@@ -19,7 +19,7 @@ import {
 	resolve_seed_ref,
 	seed_ref_reviver,
 	set_measure_memo_reader,
-	type MeasureMemo
+	MeasureMemo
 } from '../src/seed-refs.ts';
 import { deep_equal_plain, SeedIndex } from '../src/seed-index.ts';
 import Region from '../src/Region.svelte';
@@ -185,22 +185,22 @@ describe('the shared request memo', () => {
 	afterEach(() => set_measure_memo_reader(null));
 
 	it('a block island whose props are a seed node adds one entry (its wrapper), not a subtree', () => {
-		const memo: MeasureMemo = new Map();
+		const memo = new MeasureMemo();
 		set_measure_memo_reader(() => memo);
 		const data = { catalog: { blocks: Array.from({ length: 20 }, (_, i) => big(`b${i}`)) } };
 		const idx = SeedIndex.of(data);
-		const after_seed = memo.size;
+		const after_seed = memo.nodes.size;
 		expect(after_seed).toBeGreaterThan(20 * 3); // blocks, metas, link objects…
 		for (const block of data.catalog.blocks) {
 			const props = { block };
 			expect(analyze(props).json).toBe(true);
 			expect(idx.plan(props).count).toBe(1);
 		}
-		expect(memo.size).toBe(after_seed + 20); // exactly the twenty `{ block }` wrappers
+		expect(memo.nodes.size).toBe(after_seed + 20); // exactly the twenty `{ block }` wrappers
 		// a shaped copy of the seed (new root, same children) is a handful of lookups too
 		const shaped = { catalog: data.catalog };
 		expect(analyze(shaped).bytes).toBe(analyze(data).bytes);
-		expect(memo.size).toBe(after_seed + 21);
+		expect(memo.nodes.size).toBe(after_seed + 21);
 	});
 
 	it('without a reader every root measures on its own (a hole endpoint, a test)', () => {
@@ -210,7 +210,7 @@ describe('the shared request memo', () => {
 	});
 
 	it('a cycle met through the shared memo is opaque, and the walk still terminates', () => {
-		const memo: MeasureMemo = new Map();
+		const memo = new MeasureMemo();
 		set_measure_memo_reader(() => memo);
 		const cyc: Record<string, unknown> = { body: 'x'.repeat(200) };
 		cyc.self = cyc;

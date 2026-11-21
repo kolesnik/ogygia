@@ -76,7 +76,9 @@ function wire_of(
 	props: () => Record<string, unknown>,
 	children: () => (() => void) | undefined
 ): IslandWire {
-	return new IslandWire(rp, props, children as never);
+	const island = new IslandWire(rp, props, children as never);
+	island.record();
+	return island;
 }
 
 afterEach(() => {

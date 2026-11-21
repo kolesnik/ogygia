@@ -102,12 +102,17 @@ export class IslandWire {
 			: props_sidecar(this.fp, wire.wire(null), 'adjacent', wire.wire_modules);
 	}
 
-	/** An island in its place: it warns about a wake its parent overrides, and hands its props to
-	 *  Kit's tail when the page has one. */
+	/** An island in its place; {@link record} hands it to the page. */
 	constructor(rp: RegionPlan, props: () => Props, children: () => Snippet | undefined) {
 		this.#rp = rp;
 		this.#props = props;
 		this.#children = children;
+	}
+
+	/** Warns about a wake its parent overrides, and hands its props to Kit's tail when the page has
+	 *  one. Region calls it after the region's page ask: the page is recorded, and its seed walked,
+	 *  before these props are measured (seed-index.ts). */
+	record(): void {
 		untrack(() => this.#record());
 	}
 

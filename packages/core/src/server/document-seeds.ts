@@ -93,6 +93,16 @@ function seed_codecs(
 }
 
 /**
+ * The page seed's one walk, where the request first knows its page (hooks' page recorder, before
+ * the recording island's props are measured): the seed becomes the request memo's first root, so
+ * every island's props measured after it say which of their nodes may reach the seed
+ * (seed-index.ts), and the document's seed step finds the index already built.
+ */
+export function walk_page_seed(data: unknown, memo: MeasureMemo): void {
+	SeedIndex.of(data, memo);
+}
+
+/**
  * The page seed of a document some region asked it of (`bag.seed_keys`), into `scripts` in the
  * document's order: the defer bootstrap (a streamed load on a browser navigation), the document
  * tail (rendered against the seed, so a sidecar that points into it is written as a reference),

@@ -4,8 +4,8 @@
 import { bench } from '@bench/heisenbench/bench';
 import { encode_island_graph } from '../src/island-graph.ts';
 import { decode_island_graph } from '../src/island-graph-read.ts';
-import { measure } from '../src/seed-refs.ts';
-import { SeedIndex, __heisenbench as seed_index } from '../src/seed-index.ts';
+import { MeasureMemo, measure } from '../src/seed-refs.ts';
+import { SeedIndex, StructureHashes } from '../src/seed-index.ts';
 import { DocumentTail } from '../src/server/document-tail.ts';
 import { region_fingerprint } from '../src/server/fingerprint.ts';
 import { PageSeed } from '../src/server/page-seed.ts';
@@ -35,6 +35,24 @@ bench(
 );
 
 bench(
+	'island fingerprint: forty-eight small props texts and the header config',
+	({ small, big }) => {
+		let n = 0;
+		for (let i = 0; i < small.length; i++)
+			n += region_fingerprint(island_entry(i), small[i]!).length;
+		return n + region_fingerprint(island_entry(99), big).length;
+	},
+	{
+		setup: () => ({
+			small: Array.from({ length: 48 }, (_, i) =>
+				JSON.stringify({ label: `Card ${i}`, n: i, tone: i % 2 ? 'warm' : 'cool', on: true })
+			),
+			big: new PropsWire(header(), 'header').canonical
+		})
+	}
+);
+
+bench(
 	'props wire: live snippet entries in a devalue payload',
 	({ text }) => props_wire.live_entries_in(text),
 	{
@@ -52,14 +70,14 @@ bench(
 	}
 );
 
-bench('measure: the walk over a page.data tree', ({ tree }) => measure(tree, new Map()), {
+bench('measure: the walk over a page.data tree', ({ tree }) => measure(tree, new MeasureMemo()), {
 	setup: () => ({ tree: page_of(4) }),
 	scale: (_ctx, k) => ({ tree: page_of(4 * k) })
 });
 
 bench(
-	'hash_subtree: structural hash of a page.data tree',
-	({ tree }) => seed_index.hash_subtree(tree, new Map(), new Set()),
+	'structure hashes: the structural hash of a page.data tree',
+	({ tree }) => new StructureHashes().of(tree),
 	{
 		setup: () => ({ tree: page_of(4) }),
 		scale: (_ctx, k) => ({ tree: page_of(4 * k) })
@@ -70,6 +88,19 @@ bench(
 	'seed refs: twenty islands pass the seed its own blocks',
 	({ data }) => {
 		const index = new SeedIndex(data, 96);
+		let count = 0;
+		for (const b of data.catalog.blocks) count += index.plan({ block: b }).count;
+		return count;
+	},
+	{ setup: () => ({ data: page_tree() }), scale: (_ctx, k) => ({ data: page_of(20 * k) }) }
+);
+
+bench(
+	'seed index: the seed walked after the islands that hold its blocks were measured',
+	({ data }) => {
+		const memo = new MeasureMemo();
+		for (const block of data.catalog.blocks) measure({ block }, memo);
+		const index = new SeedIndex(data, 96, memo);
 		let count = 0;
 		for (const b of data.catalog.blocks) count += index.plan({ block: b }).count;
 		return count;

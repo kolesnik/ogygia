@@ -71,6 +71,7 @@ remote call); `placeholder` shows while it is not ready yet. Placed regions (`wa
 				)
 			: null;
 	if (!BROWSER) untrack(() => new PageSeedAsk(rp, island).record());
+	island?.record();
 	const graph = !BROWSER && island ? new IslandGraph(rp, island) : null;
 	const hole = HAS_FRAMES && plan.family === 'hole' ? new HoleFacts(rp, () => __props) : null;
 	const head = BROWSER ? null : new RegionHead(rp, { island, graph, hole });

@@ -75,7 +75,6 @@
 		"devalue": "catalog:"
 	},
 	"devDependencies": {
-		"ogygia-internal-macros": "workspace:*",
 		"@ogygia/compiler": "workspace:*",
 		"@ogygia/config": "workspace:*",
 		"@ogygia/core": "workspace:*",
@@ -87,6 +86,7 @@
 		"@sveltejs/kit": "catalog:",
 		"@types/node": "catalog:",
 		"@typescript/native": "catalog:tsgo",
+		"ogygia-internal-macros": "workspace:*",
 		"svelte": "catalog:",
 		"tsdown": "catalog:",
 		"typescript": "catalog:",

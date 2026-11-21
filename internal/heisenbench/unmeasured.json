@@ -2425,10 +2425,6 @@
 			"reason": "browser only: a nested island's copy of its markup, one innerHTML read per island of an answer, as before (the same loop, now after an answer's wait)"
 		},
 		{
-			"id": "packages/core/src/runtime/hook-told.ts > noop",
-			"reason": "the empty function a settled wait ends in"
-		},
-		{
 			"id": "packages/rewrite/src/messages.ts > REWRITE_ERRORS > restore_markup_broken > details",
 			"reason": "a message table entry: wording only"
 		},
@@ -2583,14 +2579,6 @@
 		{
 			"id": "packages/rewrite/src/reversible.ts > transformMarkup",
 			"reason": "moved from packages/core/src/server/reversible.ts with reshape (#607): not recorded here, browser or closure state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
-		},
-		{
-			"id": "packages/rewrite/src/host-classes.ts > keep_host_classes",
-			"reason": "moved from packages/core/src/runtime/host-classes.ts with reshape (#608): never ran here, browser state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
-		},
-		{
-			"id": "packages/rewrite/src/host-classes.ts > note_host_classes",
-			"reason": "moved from packages/core/src/runtime/host-classes.ts with reshape (#608): never ran here, browser state; the gate on this base does not follow a file across packages, and the moved tests (packages/rewrite/test) prove it"
 		},
 		{
 			"id": "packages/rewrite/src/restore-report.ts > report",
@@ -3189,10 +3177,6 @@
 			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes (its call folds out otherwise)"
 		},
 		{
-			"id": "packages/core/src/runtime/hydrate-core.ts > after_region_hydrate",
-			"reason": "browser only: the regionHydrate subscribers' after, or null where none subscribes (a constant the build folds), constant work besides the subscribers; proven in packages/core/test/browser/hydrate-island-claims.test.ts"
-		},
-		{
 			"id": "packages/core/src/runtime/live-program.ts > hooks",
 			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes"
 		},
@@ -3201,20 +3185,8 @@
 			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes"
 		},
 		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object",
-			"reason": "build time: parses one plugin realm file once per build, linear in its size"
-		},
-		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > server_hook_names",
-			"reason": "build time: one plugin server half's shared hooks, once per build"
-		},
-		{
 			"id": "packages/compiler/src/vite/plugin-api.ts > server_hook_names > filter:0~e25402",
 			"reason": "build time: one set lookup per shared hook name"
-		},
-		{
-			"id": "packages/compiler/src/link/caps.ts > server_plugins_module > some:0~123e41",
-			"reason": "build time: one includes per plugin, once per build"
 		},
 		{
 			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > unread",

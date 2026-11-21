@@ -19,7 +19,7 @@ import type { RequestState } from '@sveltejs/kit/internal/server';
 import { __heisenbench as hooks } from '../src/hooks.ts';
 import { record_page } from '../src/page-seed-registry.ts';
 import { facts_of } from '../src/plugin/facts.ts';
-import { json_culprit } from '../src/seed-refs.ts';
+import { json_culprit, MeasureMemo } from '../src/seed-refs.ts';
 import { SeedIndex } from '../src/seed-index.ts';
 import { DocumentTail, document_tail } from '../src/server/document-tail.ts';
 import { remote_seed_script } from '../src/server/document-seeds.ts';
@@ -166,7 +166,7 @@ function bag_of(request: Request): Bag {
 		seed_asks: request_stats_detailed() ? new Map() : null,
 		remotes_wanted: new Set(),
 		tail: new DocumentTail(),
-		measure_memo: new Map(),
+		measure_memo: new MeasureMemo(),
 		deferred: null,
 		defer_next_id: 0,
 		late: null,
