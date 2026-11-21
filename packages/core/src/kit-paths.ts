@@ -25,12 +25,8 @@ function well_formed(url: string): boolean {
 
 export { app_path } from './app-base.ts';
 
-/** The request an `asset()` answer is for: the prefix Kit puts before a path depends on it alone (its
- *  page's depth, a data request, a prerender). Null outside one, and on the client. */
 let asset_request: (() => object | null) | null = null;
-/** Rules on: each answer the prefix made, with Kit's own for the same path. */
 let asset_check: ((path: string, ours: string, kits: string) => void) | null = null;
-/** Each request's prefix (null: Kit's answer for the probe is not prefix + path, so Kit answers each). */
 const prefixes = new WeakMap<object, string | null>();
 const PROBE = '/_app';
 
@@ -44,7 +40,6 @@ export function set_asset_request_reader(
 	asset_check = check;
 }
 
-/** A path Kit's `resolve` returns as it is: no `[param]`, no `(group)` segment, no empty segment. */
 function plain_path(file: string): boolean {
 	return !file.includes('[') && !file.includes('(') && !file.includes('//');
 }
@@ -68,7 +63,6 @@ export function kit_asset(file: string): string {
 	return kit_call(file);
 }
 
-/** What Kit puts before a path in this request, or null when its answer for the probe is not that. */
 function asset_prefix(slash: boolean): string | null {
 	const arg = slash ? PROBE : PROBE.slice(1);
 	const out = (asset as (f: string) => string)(arg);
