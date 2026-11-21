@@ -100,11 +100,11 @@ export function new_comment_findings(root: string, base: string): Finding[] {
 		}[];
 	};
 	const old = base_text(root, base);
-	const texts = new Map<string, string>();
-	const text_of = (file: string) => {
-		let t = texts.get(file);
-		if (t === undefined) texts.set(file, (t = readFileSync(path.join(root, file), 'utf8')));
-		return t;
+	const files = new Map<string, Buffer>();
+	const comment_of = (file: string, span: { offset: number; length: number }): string => {
+		let bytes = files.get(file);
+		if (bytes === undefined) files.set(file, (bytes = readFileSync(path.join(root, file))));
+		return bytes.subarray(span.offset, span.offset + span.length).toString('utf8');
 	};
 	return report.diagnostics
 		.map((d) => ({
@@ -114,11 +114,7 @@ export function new_comment_findings(root: string, base: string): Finding[] {
 			message: d.message
 		}))
 		.filter((f) => added.get(f.file)?.has(f.line))
-		.filter(
-			(f) =>
-				!f.span ||
-				!old.includes(trimmed(text_of(f.file).slice(f.span.offset, f.span.offset + f.span.length)))
-		)
+		.filter((f) => !f.span || !old.includes(trimmed(comment_of(f.file, f.span))))
 		.map(({ file, line, message }) => ({ file, line, message }))
 		.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
