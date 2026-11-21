@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { ref_names, set_ref_names_reader } from '../src/ref.ts';
 import { __register_transportable, wire } from '../src/live-transport.ts';
-import { hole_identity } from '../src/server/props-wire.ts';
+import { hole_identity } from '../src/server/region-identity.ts';
 
 class Badge {
 	label: string;

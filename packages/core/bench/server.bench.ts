@@ -19,7 +19,7 @@ import { observe_reads, open_reads } from '../src/plugin/reads.ts';
 import type { RequestContext, ServerApp } from '../src/plugin/index.ts';
 import { ref_names, set_ref_names_reader } from '../src/ref.ts';
 import { __register_transportable, wire } from '../src/live-transport.ts';
-import { hole_identity } from '../src/server/props-wire.ts';
+import { hole_identity } from '../src/server/region-identity.ts';
 
 /** A wired instance a hole's props can hold (a ref: named by its place, #816). */
 class BenchBadge {

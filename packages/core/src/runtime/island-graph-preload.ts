@@ -1,4 +1,4 @@
-import { decode_island_graph, decode_island_locations } from '../island-graph.ts';
+import { decode_island_graph, decode_island_locations } from '../island-graph-read.ts';
 import { OGYGIA_GRAPH, OGYGIA_GRAPH_PRELOAD } from '../wire-markup.ts';
 import { note_entry_location } from './entry-locations.ts';
 import { code_url } from './code-origins.ts';

@@ -3,7 +3,8 @@
 // island and per page, on the palaestra's CMS page (twenty ~35 KB blocks, a ~300 KB header config).
 import { bench } from '@bench/heisenbench/bench';
 import { stringify } from 'devalue';
-import { encode_island_graph, decode_island_graph } from '../src/island-graph.ts';
+import { encode_island_graph } from '../src/island-graph.ts';
+import { decode_island_graph } from '../src/island-graph-read.ts';
 import { measure } from '../src/seed-refs.ts';
 import { SeedIndex, SeedRefPlan, __heisenbench as seed_index } from '../src/seed-index.ts';
 import { DocumentTail } from '../src/server/document-tail.ts';

@@ -146,7 +146,7 @@ describe('a page whose headers cannot change', () => {
 describe('a page with an early hole whose headers cannot change', () => {
 	it('goes out under the platform’s own policy: the script’s hash is not added, and nothing throws', async () => {
 		const { set_request_event_stub } = await import('./_stubs/server.request-event.ts');
-		const { note_early_hole } = await import('../src/context.ts');
+		const { note_early_hole } = await import('../src/early-hole-note.ts');
 		const e = event('/a');
 		set_request_event_stub(() => e);
 		try {

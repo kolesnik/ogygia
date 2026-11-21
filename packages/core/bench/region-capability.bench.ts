@@ -1,6 +1,7 @@
 // Region capabilities (server/hmac.ts): a page's worth of v3 mints, and the endpoint's checks of them.
 import { bench } from '@bench/heisenbench/bench';
-import { region_sign, region_verify, type RegionClaim } from '../src/server/hmac.ts';
+import { region_sign, type RegionClaim } from '../src/server/hmac.ts';
+import { region_verify } from '../src/server/capability-check.ts';
 import { region_request } from '../src/server/region-request.ts';
 import * as fsm from '@ogygia/machine/internal';
 

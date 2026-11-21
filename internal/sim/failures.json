@@ -609,7 +609,7 @@
 			"name": "a request whose method cannot be read still gets its answer"
 		},
 		{
-			"site": "packages/core/src/server/props-wire.ts > lake_identity > catch:0",
+			"site": "packages/core/src/server/region-identity.ts > lake_identity > catch:0",
 			"reason": "a lake prop no wire carries makes the fingerprint throw: the lake gets no identity and is known by its entry and place",
 			"test": "packages/core/test/lake-identity.test.ts",
 			"name": "props no wire carries give no identity, so the lake is known by its entry and place"
@@ -2241,7 +2241,7 @@
 			"name": "page pass + tail rendered against the seed: a props subtree that is a seed node becomes a reference"
 		},
 		{
-			"site": "packages/core/src/context.ts > take_early_holes > catch:0",
+			"site": "packages/core/src/early-holes-head.ts > take_early_holes > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
 			"test": "packages/core/test/document-seed.test.ts",
 			"name": "JSON lane: a plain pageState goes out as JSON and parses back"
@@ -2277,13 +2277,13 @@
 			"name": "attr() makes one whole attribute, or nothing"
 		},
 		{
-			"site": "packages/core/src/island-graph.ts > decode_island_locations > catch:0",
+			"site": "packages/core/src/island-graph-read.ts > decode_island_locations > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
 			"test": "packages/core/test/property-decoders.test.ts",
 			"name": "any text decodes to a graph of strings, without a throw"
 		},
 		{
-			"site": "packages/core/src/island-graph.ts > decode_island_graph > catch:0",
+			"site": "packages/core/src/island-graph-read.ts > decode_island_graph > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
 			"test": "packages/core/test/property-decoders.test.ts",
 			"name": "any text decodes to a graph of strings, without a throw"
@@ -3771,7 +3771,7 @@
 			"name": "a path that does not exist is kept as given, with forward slashes"
 		},
 		{
-			"site": "packages/core/src/context.ts > note_early_hole > catch:0",
+			"site": "packages/core/src/early-hole-note.ts > note_early_hole > catch:0",
 			"reason": "`catch { // ok: no request (the client, a build step): no head to star…`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/core/test/quiet-failures.test.ts",
 			"name": "an early hole noted outside a request is dropped"

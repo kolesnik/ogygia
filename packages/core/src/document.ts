@@ -46,8 +46,7 @@ const RULES =
 
 import { escape_text } from './escape.ts';
 import { mark_attr, response_mark } from './server/response-mark.ts';
-import { take_early_holes } from './context.ts';
-import { early_holes_head } from './early-holes-head.ts';
+import { early_holes_head, take_early_holes } from './early-holes-head.ts';
 import { add_early_holes_csp, with_early_holes_meta_csp } from './server/early-holes-csp.ts';
 import { next_tag } from './wire-markup.ts';
 import {

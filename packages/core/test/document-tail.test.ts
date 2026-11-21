@@ -16,7 +16,7 @@ import {
 	document_tail,
 	props_preview
 } from '../src/server/document-tail.ts';
-import { decode_island_graph } from '../src/island-graph.ts';
+import { decode_island_graph } from '../src/island-graph-read.ts';
 import { PropsWire } from '../src/server/props-wire.ts';
 import { SeedIndex } from '../src/seed-index.ts';
 import { set_island_deps } from './_stubs/server.region-deps.ts';

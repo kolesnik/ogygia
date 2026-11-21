@@ -78,7 +78,7 @@ export const PROGRAMS: readonly Program[] = [
 	},
 	{ name: 'media arm', feature: 'media', modules: ['packages/core/dist/runtime/arm-media.js'] },
 	// the island graph's reader: only where some island's code can load
-	{ name: 'island graph', feature: 'graph', modules: ['packages/core/dist/island-graph.js'] },
+	{ name: 'island graph', feature: 'graph', modules: ['packages/core/dist/island-graph-read.js'] },
 	// the probe for a page Kit hydrates (its boot script), with ogygia's regions on it: mixed mode
 	{ name: 'kit probe', feature: null, kit: true, modules: [], strings: ['__sveltekit_'] }
 ];
