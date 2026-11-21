@@ -2295,6 +2295,18 @@
 			"name": "any text decodes to a graph of strings, without a throw"
 		},
 		{
+			"site": "packages/core/src/island-graph-read.ts > decode_island_locations > parse:0",
+			"reason": "text that is not JSON gives no locations: proved: its parse failure thrown turns the test red",
+			"test": "packages/core/test/property-decoders.test.ts",
+			"name": "any text decodes to a graph of strings, without a throw"
+		},
+		{
+			"site": "packages/core/src/island-graph-read.ts > decode_island_graph > parse:0",
+			"reason": "text that is not JSON gives an empty graph: proved: its parse failure thrown turns the test red",
+			"test": "packages/core/test/property-decoders.test.ts",
+			"name": "any text decodes to a graph of strings, without a throw"
+		},
+		{
 			"site": "packages/core/src/keep-fallback.ts > keepFallback > throw:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
 			"test": "packages/core/test/keep-fallback-inline.test.ts",
@@ -5939,8 +5951,6 @@
 		"packages/core/src/events/sinks.ts > ingest_server_events > catch:0",
 		"packages/core/src/head-owners.ts > adopt_owner_record > parse:0",
 		"packages/core/src/head-owners.ts > adopt_owner_record > catch:0",
-		"packages/core/src/island-graph.ts > decode_island_locations > parse:0",
-		"packages/core/src/island-graph.ts > decode_island_graph > parse:0",
 		"packages/core/src/keep-fallback.ts > keepFallback > catch:0",
 		"packages/core/src/plugin/css.ts > run > import:0",
 		"packages/core/src/plugin/reads.ts > observe_reads > fetch:0",
