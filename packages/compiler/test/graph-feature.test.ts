@@ -1,6 +1,6 @@
 // THE GRAPH FEATURE (link/runtime-entry.ts `graph`): the island graph's reader (core
 // runtime/island-graph-preload.ts) ships only where some island's code can load on the page: a
-// waking island, a held region (its wake is a runtime value), a peer's or a client plugin's regions.
+// waking island, a held region (its wake is a runtime value), a peer's regions.
 // A page of lakes and holes with no island in them loads no island code, so it reads no graph (core
 // test/browser/island-graph-preload.test.ts: without it an island still wakes, its import finding its
 // chunks itself).
@@ -22,8 +22,7 @@ describe('the graph ships where island code can load', () => {
 		['an island woken by a gesture', { hydrate: ['interaction'] }],
 		['an island beside lakes', { hydrate: ['none', 'idle'], lakes: true }],
 		["a held region (region()'s wake is a runtime value)", { live: true }],
-		["a peer's regions (federation)", { foreign: true }],
-		["a client plugin's", { clientPlugins: true }]
+		["a peer's regions (federation)", { foreign: true }]
 	])('%s', (_, m) => {
 		expect(has_graph(m)).toBe(true);
 	});

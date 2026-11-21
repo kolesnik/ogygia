@@ -1,7 +1,7 @@
 // THE SCHEDULE FEATURES (link/runtime-entry.ts `idle`, `visible`, `media`): each arm of the region
 // element's trigger interpreter ships only when some region of the app is scheduled on it, a wake,
 // a hole's fetch or prefetch, or a lake's revalidation. A schedule the marks cannot see (a held
-// region's runtime options, a peer's regions, a client plugin's) keeps every arm. A region that asks
+// region's runtime options, a peer's regions) keeps every arm. A region that asks
 // for an arm its build left out runs on load and says so (core test/browser/schedules-missing.test.ts).
 import { afterEach, describe, expect, test } from 'vitest';
 import fs from 'node:fs';
@@ -59,8 +59,7 @@ describe('each arm ships with a region scheduled on it', () => {
 describe('a schedule the marks cannot see keeps every arm', () => {
 	test.each<[string, Partial<RuntimeMarks>]>([
 		["a held region (region()'s options are runtime values)", { hydrate: ['load'], live: true }],
-		["a peer's regions (federation)", { hydrate: ['load'], foreign: true }],
-		["a client plugin's", { hydrate: ['load'], clientPlugins: true }]
+		["a peer's regions (federation)", { hydrate: ['load'], foreign: true }]
 	])('%s', (_, m) => {
 		expect(arms_of(m)).toEqual([...ARMS]);
 	});
