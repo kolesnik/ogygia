@@ -17,7 +17,7 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
 	return out;
 }
 
-function noise_png(): Uint8Array {
+function noise_png(): Uint8Array<ArrayBuffer> {
 	const raw = new Uint8Array(H * (1 + W * 3));
 	let s = 0x2545f491;
 	for (let y = 0; y < H; y++) {
