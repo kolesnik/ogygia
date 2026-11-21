@@ -55,19 +55,40 @@ const {
 	pathToFileURL(COMPILER_ENTRY ?? join(CORE, 'dist/compiler/link/runtime-entry.js')).href
 )) as typeof import('../../../packages/compiler/dist/link/runtime-entry.js');
 
+// The hooks each client realm subscribes to, read from its file as the plugin reads it (an older
+// checkout's compiler, without client realms, has none)
+const PLUGIN_API = join(CORE, '../compiler/dist/vite/plugin-api.js');
+const client_hook_names: ((plugin: string, file: string) => string[]) | null = existsSync(
+	PLUGIN_API
+)
+	? ((
+			(await import(pathToFileURL(PLUGIN_API).href)) as {
+				client_hook_names?: typeof client_hook_names;
+			}
+		).client_hook_names ?? null)
+	: null;
+
 const RUNTIME_DIR = join(CORE, 'dist/runtime');
 const CORE_VERSION = (
 	JSON.parse(readFileSync(join(CORE, 'package.json'), 'utf8')) as { version: string }
 ).version;
-// Each runtime hook's build constant (on only when a plugin's browser half subscribes), as the plugin
-// defines them; a checkout from before the runtime hooks has none.
+// The runtime hooks, and (a checkout that folds them by defines) each one's build constant, on only
+// when a client realm subscribes, as the plugin defines them; a checkout from before the runtime
+// hooks has none.
 const HOOKS_FILE = join(CORE, 'dist/contract/runtime-hooks.js');
-const HOOK_CONSTANTS: string[] = existsSync(HOOKS_FILE)
-	? Object.values(
-			((await import(pathToFileURL(HOOKS_FILE).href)) as { RUNTIME_HOOK_CONSTANTS: object })
-				.RUNTIME_HOOK_CONSTANTS
-		)
-	: [];
+const hooks_contract = (
+	existsSync(HOOKS_FILE) ? await import(pathToFileURL(HOOKS_FILE).href) : {}
+) as { RUNTIME_HOOK_CONSTANTS?: Record<string, string>; RUNTIME_HOOK_NAMES?: readonly string[] };
+const HOOK_CONSTANTS: Record<string, string> = hooks_contract.RUNTIME_HOOK_CONSTANTS ?? {};
+const HOOK_NAMES: readonly string[] =
+	hooks_contract.RUNTIME_HOOK_NAMES ?? Object.keys(HOOK_CONSTANTS);
+// A client realm that subscribes to every hook, each a call the bundler cannot drop: the kitchen
+// sink's plugin, the most hook code a boot can carry
+const EVERY_HOOK_CLIENT = join(mkdtempSync(join(tmpdir(), 'ogygia-size-client-')), 'client.mjs');
+writeFileSync(
+	EVERY_HOOK_CLIENT,
+	`export default { hooks: { ${HOOK_NAMES.map((h) => `${h}: (e) => globalThis.__og_size?.(e)`).join(', ')} } };\n`
+);
 /** A build constant's name (`__OGYGIA_X__`), as it is left in code when nothing defined it. */
 const BUILD_CONSTANT_RE = /\b__OGYGIA_[A-Z0-9_]+__\b/g;
 /** The boot realm's virtual module (`ogygia:boot`, `ogygia:boot/…`), as an import a chunk kept.
@@ -102,6 +123,8 @@ const PROFILES: Array<{
 	marks: RuntimeMarks;
 	budget: number;
 	kit?: boolean;
+	/** Its plugins' browser realms (files), in plugin order. */
+	clients?: string[];
 }> = [
 	{
 		name: 'Static content',
@@ -156,6 +179,7 @@ const PROFILES: Array<{
 		blurb: 'kitchen sink, with the profiler beacon and a client plugin',
 		budget: 39_700,
 		kit: true,
+		clients: [EVERY_HOOK_CLIENT],
 		marks: {
 			complete: true,
 			hydrate: ['load', 'interaction', 'none'],
@@ -223,12 +247,17 @@ function boot_realm(marks: RuntimeMarks): Plugin {
 async function measure(
 	marks: RuntimeMarks,
 	extras: boolean,
+	clients: readonly string[],
 	kit: boolean,
 	profile: string
 ): Promise<
 	Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'> & { boot_code: string }
 > {
-	const { code } = generateRuntimeEntrySource(marks, RUNTIME_DIR);
+	const realms = clients.map((module, i) => ({ name: `size-client-${i}`, module }));
+	const subscribed = new Set(
+		realms.flatMap((r) => client_hook_names?.(r.name, r.module) ?? HOOK_NAMES)
+	);
+	const { code } = generateRuntimeEntrySource(marks, RUNTIME_DIR, realms);
 	const dir = mkdtempSync(join(tmpdir(), 'ogygia-size-'));
 	const entry = join(dir, 'entry.mjs');
 	writeFileSync(entry, code);
@@ -260,11 +289,13 @@ async function measure(
 				// the profiler's browser half and plugin hooks: on only for an app that configured the
 				// profiler or devtools, or installs a client plugin (the kitchen-sink profile does)
 				__OGYGIA_BEACON__: String(extras),
-				__OGYGIA_CLIENT_PLUGINS__: String(extras),
+				__OGYGIA_CLIENT_PLUGINS__: String(realms.length > 0),
 				// the installed version the runtime discloses (`window.__ogygia.v`), as the plugin defines it
 				__OGYGIA_VERSION__: JSON.stringify(CORE_VERSION),
-				// every hook subscribed in the kitchen sink (the beacon's and a client plugin's), none elsewhere
-				...Object.fromEntries(HOOK_CONSTANTS.map((id) => [id, String(extras)]))
+				// each hook its client realms subscribe to (a checkout that folds hooks by defines)
+				...Object.fromEntries(
+					Object.entries(HOOK_CONSTANTS).map(([h, id]) => [id, String(subscribed.has(h))])
+				)
 			}
 		},
 		logLevel: 'silent'
@@ -357,7 +388,13 @@ const rows: Row[] = [];
 const boot_codes = new Map<string, string>();
 for (const p of PROFILES) {
 	const kit = p.kit === true;
-	const { boot_code, ...m } = await measure(p.marks, p.name === 'Everything', kit, p.name);
+	const { boot_code, ...m } = await measure(
+		p.marks,
+		p.name === 'Everything',
+		p.clients ?? [],
+		kit,
+		p.name
+	);
 	boot_codes.set(p.name, boot_code);
 	rows.push({ name: p.name, blurb: p.blurb, features: resolveFeatures(p.marks), kit, ...m });
 }
