@@ -561,11 +561,11 @@
 			"reason": "browser only: the dynamic import of the hydrate core chunk; its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > trustedPlainFlights:0~bd3c10 > run",
+			"id": "packages/core/src/runtime/core.ts > trustedPlainFlights:0~47dacd > run",
 			"reason": "browser only: loads the hydrate core chunk (yield, import, keep); proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > trustedPlainFlights:0~bd3c10 > run > then:0~03979b",
+			"id": "packages/core/src/runtime/core.ts > trustedPlainFlights:0~47dacd > run > then:0~48bc46",
 			"reason": "browser only: keeps the loaded hydrate core; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
@@ -601,7 +601,7 @@
 			"reason": "browser only: the default retry is a dynamic import() of a chunk URL; import_again itself runs in packages/core/bench/runtime.bench.ts with a stand-in"
 		},
 		{
-			"id": "packages/core/src/runtime/interaction.ts > trustedPlainFlights:0~bfa715 > import_again:0~4bdf79",
+			"id": "packages/core/src/runtime/interaction.ts > import_again:0~4bdf79",
 			"reason": "browser only: the dynamic import of the interaction replay chunk; proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
@@ -685,7 +685,7 @@
 			"reason": "browser only: yields a task, then the dynamic import of a transportable class's chunk; its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/router.ts > trustedPlainFlights:0~cdf0a1 > import_again:0~9dfac0",
+			"id": "packages/core/src/runtime/router.ts > import_again:0~9dfac0",
 			"reason": "browser only: the dynamic import of the router's navigation chunk; its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
@@ -693,11 +693,11 @@
 			"reason": "browser only: the navigation chunk did not load, so a prefetch has no page (a constant null); proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~d73139 > import_again:0~2b5d22",
+			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~b86178 > import_again:0~d5879d",
 			"reason": "browser only: the dynamic import of the router-off soft refresh's chunk; its download, failure and retry are proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~d73139 > import_again:0~2b5d22 > then:0~5fb513",
+			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~b86178 > import_again:0~d5879d > then:0~104d5c",
 			"reason": "browser only: picks the refresh out of the loaded navigation chunk, constant work; proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
@@ -1965,7 +1965,7 @@
 			"reason": "cancels the batch body's reader when the batch's owner closes (a live stream reader, not cloneable), constant work; proven in packages/core/test/browser/batch-stream-owner.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/frames.ts > install > frames > stream",
+			"id": "packages/core/src/runtime/frames.ts > stream",
 			"reason": "hands a navigation's batch to streamFrames with its page visit's scope (not cloneable), one call"
 		},
 		{
@@ -4069,15 +4069,15 @@
 			"reason": "once per boot per store runtime: the shared deploy check keyed on the runtime (a WeakMap of live runtimes, not cloneable), constant work; proven in packages/postrender/test/deploy.test.ts (#947)"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~d73139 > import_again:1~da9da6",
+			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~b86178 > import_again:1~c13349",
 			"reason": "browser only: a retry of the soft refresh's download imports its file by URL (a network load, not recorded), only after the first download failed; proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~d73139 > import_again:1~da9da6 > then:0~5fb513",
+			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~b86178 > import_again:1~c13349 > then:0~104d5c",
 			"reason": "browser only: reads invalidate_all off the retried module, one property read; proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~d73139 > import_again:1~da9da6 > then:0~f113fa",
+			"id": "packages/core/src/runtime/nav-handle.ts > trustedPlainFlights:0~b86178 > import_again:1~c13349 > then:0~f113fa",
 			"reason": "browser only: reads invalidate_all off the retried module, one property read; proven in packages/core/test/browser/nav-handle-routerless-retry.test.ts"
 		},
 		{
@@ -6697,10 +6697,6 @@
 			"reason": "browser only: the live feature's link of accessors into the region element (slots.live_link), made once per page; each accessor is one field read or call; proven in packages/core/test/browser/live-region.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/slots.ts > live_link",
-			"reason": "browser only: the live feature's link of accessors into the region element (slots.live_link), made once per page; each accessor is one field read or call; proven in packages/core/test/browser/live-region.test.ts"
-		},
-		{
 			"id": "packages/core/src/runtime/hydrate-core.ts > nothing",
 			"reason": "browser only: the catch that lets a visitor promise's rejection go (the visitor reports its own), constant work"
 		},
@@ -6753,7 +6749,7 @@
 			"reason": "browser only: a region's lifetime ends and stops its viewport snapshot if it is still the same one (an Element and an IntersectionObserver release, not cloneable), constant work; proven in packages/core/test/browser/region-orderings.test.ts and hole-lifecycle.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/wire-on-use.ts > trustedPlainFlights:0~0390da > run",
+			"id": "packages/core/src/runtime/wire-on-use.ts > trustedPlainFlights:0~fb35cc > run",
 			"reason": "browser only: the wire feature's chunk, loaded on first use (a dynamic import, not recorded); its download, failure and retry are proven in apps/palaestra/e2e/lazy-chunk-retry.spec.ts"
 		},
 		{
