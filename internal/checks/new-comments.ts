@@ -55,27 +55,29 @@ export function added_lines(root: string, base: string): Map<string, Set<number>
 	return added;
 }
 
-/** Every line the change removes from package source, each trimmed, in the diff's order. */
-function removed_text(root: string, base: string): string {
-	const from = git(root, ['merge-base', base, 'HEAD']).trim();
-	const out: string[] = [];
-	let file = '';
-	for (const row of git(root, ['diff', '-M', '-U0', '--no-color', from, 'HEAD']).split('\n')) {
-		if (row.startsWith('--- ')) file = row.slice(4).replace(/^a\//, '');
-		else if (row.startsWith('-') && SOURCE_RE.test(file)) out.push(row.slice(1).trim());
-	}
-	return out.join('\n');
-}
-
-/** A comment's text with each line trimmed: the same comment, wherever it is indented. */
+/** A text with each line trimmed: the same comment, wherever it is indented. */
 const trimmed = (text: string): string =>
 	text
 		.split('\n')
 		.map((l) => l.trim())
 		.join('\n');
 
-/** The structured-comments findings that land on a line the change adds, but for a comment the
- *  change only moves: its whole text, each line trimmed, is text the same diff removes. */
+/** The base's text of every package source file the change touches (moved from, too), each line
+ *  trimmed. */
+function base_text(root: string, base: string): string {
+	const from = git(root, ['merge-base', base, 'HEAD']).trim();
+	const out: string[] = [];
+	for (const row of git(root, ['diff', '-M', '--name-status', from, 'HEAD']).split('\n')) {
+		const [status, old] = row.split('\t');
+		if (!status || status.startsWith('A') || !old || !SOURCE_RE.test(old)) continue;
+		out.push(trimmed(git(root, ['show', `${from}:${old}`])));
+	}
+	return out.join('\n');
+}
+
+/** The structured-comments findings that land on a line the change adds, but for an old comment:
+ *  one whose whole text, each line trimmed, the base already has in a file the change touches
+ *  (moved there from another file, or a line git's diff aligned as added). */
 export function new_comment_findings(root: string, base: string): Finding[] {
 	const added = added_lines(root, base);
 	if (added.size === 0) return [];
@@ -97,7 +99,7 @@ export function new_comment_findings(root: string, base: string): Finding[] {
 			labels: { span: { line: number; offset: number; length: number } }[];
 		}[];
 	};
-	const removed = removed_text(root, base);
+	const old = base_text(root, base);
 	const texts = new Map<string, string>();
 	const text_of = (file: string) => {
 		let t = texts.get(file);
@@ -115,9 +117,7 @@ export function new_comment_findings(root: string, base: string): Finding[] {
 		.filter(
 			(f) =>
 				!f.span ||
-				!removed.includes(
-					trimmed(text_of(f.file).slice(f.span.offset, f.span.offset + f.span.length))
-				)
+				!old.includes(trimmed(text_of(f.file).slice(f.span.offset, f.span.offset + f.span.length)))
 		)
 		.map(({ file, line, message }) => ({ file, line, message }))
 		.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
