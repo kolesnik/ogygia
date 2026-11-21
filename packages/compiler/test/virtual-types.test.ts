@@ -78,6 +78,7 @@ describe('the virtual modules’ declarations', () => {
 			client_plugins: false,
 			hooks: ['regionHydrated'],
 			kit_major: 2,
+			kit_pages: false,
 			version: '1.2.3',
 			dev_server: false
 		});
