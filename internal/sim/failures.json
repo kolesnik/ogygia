@@ -345,6 +345,18 @@
 			"name": "a server that ignores SIGTERM is killed after the grace time"
 		},
 		{
+			"site": "packages/tooling/src/e2e/downloads.ts > hear_downloads > observer:0",
+			"reason": "an e2e page's downloads are heard from its first byte, a full timeline or not; proved by hand: the observer never started turns the wake-gate spec red (no download heard)",
+			"test": "apps/palaestra/e2e/wake-gate.spec.ts",
+			"name": "load / visible / idle islands fetch nothing while DOMContentLoaded is held"
+		},
+		{
+			"site": "packages/tooling/src/e2e/downloads.ts > downloads > throw:0",
+			"reason": "a spec that reads downloads with no record made before its goto throws instead of reading nothing; proved by hand: the throw taken out turns the test red",
+			"test": "packages/tooling/test/e2e-downloads.test.ts",
+			"name": "a page with no record made before its goto throws, naming the call it lacks"
+		},
+		{
 			"site": "packages/tooling/src/vitest/downloads.ts > Downloads > observer:0",
 			"reason": "a download past a full resource timeline is still heard; proved by hand: the observer replaced by a read of the timeline turns the test red on Chromium, Firefox and WebKit (83487bc18)",
 			"test": "packages/core/test/browser/hydrate-visit.test.ts",
@@ -2433,13 +2445,49 @@
 			"name": "throws when a marked binding has no component/signer (client leg)"
 		},
 		{
-			"site": "packages/core/src/runtime/client-plugins.ts > isolated > .catch:0",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the .catch handler made to rethrow turns the test red",
-			"test": "packages/core/test/runtime-hooks-compose.test.ts",
-			"name": "a subscriber's rejected promise is reported, never awaited"
+			"site": "packages/core/src/runtime/region-hooks.ts > region_urls > catch:0",
+			"reason": "a region whose src no URL parser takes is told as mounted with its entry alone; proved by hand: the catch made to rethrow turns the test red",
+			"test": "packages/core/test/browser/region-hooks.test.ts",
+			"name": "a file no URL parser takes is left out, and the mount is still told"
 		},
 		{
-			"site": "packages/core/src/runtime/client-plugins.ts > isolated > catch:0",
+			"site": "packages/core/src/runtime/hook-told.ts > told > reject:0",
+			"reason": "a subscriber's rejected wait is waited past (isolated() reported it), so an answer goes on without that subscriber; proved by hand: the rejection let through turns the test red",
+			"test": "packages/core/test/runtime-hooks-compose.test.ts",
+			"name": "subscribers that answer with a promise: the call waits for every one, a rejection reported and waited past"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > import:0",
+			"reason": "the realm's restorer chunk that does not download: the page says it and the answers waiting go on; proved by hand: the rejection rethrown turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > reject:0",
+			"reason": "the restorer's failed load is handled: said, and the wait settles; proved by hand: the rejection rethrown turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > import:1",
+			"reason": "the wording chunk lost too: the error itself is printed; proved by hand: that fallback emptied turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > reject:1",
+			"reason": "the wording chunk's failed load prints the error alone; proved by hand: that fallback emptied turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/core/src/runtime/hook-told.ts > isolated > .catch:0",
+			"reason": "a test reaches its recovery path; proved by the autopilot: the .catch handler made to rethrow turns the test red",
+			"test": "packages/core/test/runtime-hooks-compose.test.ts",
+			"name": "a subscriber's rejected promise is reported, and the call's wait settles past it"
+		},
+		{
+			"site": "packages/core/src/runtime/hook-told.ts > isolated > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch body emptied turns the test red",
 			"test": "packages/core/test/runtime-hooks-compose.test.ts",
 			"name": "a throwing subscriber is reported once and never stops the ones after it"
@@ -3976,15 +4024,27 @@
 		},
 		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:0",
-			"reason": "`throw unread();`: proved: the throw removed turns the test red, twice",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
 			"name": "a client realm that does not parse, or whose defineClient spreads, cannot be read"
 		},
 		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:2",
-			"reason": "`throw unread();`: proved: the throw removed turns the test red, twice",
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:1",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm that does not parse, or whose defineClient spreads, cannot be read"
+			"name": "a client realm whose plugin object, or its hooks, sit in a named const has its hooks read"
+		},
+		{
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:2",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
+			"test": "packages/compiler/test/plugins.test.ts",
+			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
+		},
+		{
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:3",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
+			"test": "packages/compiler/test/plugins.test.ts",
+			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
 		},
 		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > resolve_plugins > routeConfig > throw:1",
@@ -4783,30 +4843,6 @@
 			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
 			"name": "a realm that is not a file, or not a location, fails loudly"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:1",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm is read through casts and parentheses; a const that names itself is no answer"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:3",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm whose plugin object, or its hooks, sit in a named const has its hooks read"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:4",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:5",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
 		},
 		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > package_resolves > catch:0",
@@ -6081,7 +6117,6 @@
 		"packages/core/src/region.ts > make_awaitable > value > reject:0",
 		"packages/core/src/request-event.ts > requestEvent > catch:0",
 		"packages/core/src/rules.ts > Rules > broken > catch:0",
-		"packages/core/src/runtime/client-plugins.ts > region_urls > catch:0",
 		"packages/core/src/runtime/code-origins.ts > origin_of > catch:0",
 		"packages/core/src/runtime/code-origins.ts > import_code > import:0",
 		"packages/core/src/runtime/concurrency.ts > ConcurrencyGate > run > abort:0",

@@ -31,7 +31,7 @@ import { runtime_session } from '../../src/runtime/session.ts';
 import { regions_in_shadow } from '../../src/runtime/connected.ts';
 import { sheets_in_use } from '../../src/runtime/region-sheets.ts';
 import { yield_task } from '../../src/runtime/schedule.ts';
-import { client_region_hydrate } from '../../src/runtime/client-plugins.ts';
+import { lazy_hooks } from 'ogygia:boot/hooks';
 import {
 	is_self_owned,
 	record_server_body,
@@ -75,7 +75,7 @@ test('each place in the boot link holds the helper its number names', () => {
 		L_SHEETS_IN_USE: sheets_in_use,
 		L_YIELD_TASK: yield_task,
 		// (the test build keeps every hook: the subscribers' runner, not its no-op)
-		L_REGION_HYDRATE: client_region_hydrate,
+		L_HOOKS: lazy_hooks,
 		L_WALK_ENTERS: walk_enters,
 		L_IS_SELF_OWNED: is_self_owned,
 		L_RECORD_SERVER_BODY: record_server_body,

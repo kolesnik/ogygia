@@ -199,8 +199,6 @@ export default defineConfig({
 				// each lazy loader's own file, as an app's build hands it over (the ogygia plugin
 				// always carries it): a dropped download is asked for again there
 				plugins: [svelte(), lazy_files()],
-				// as an app with a plugin's browser half builds: the runtime boots the plugins a test hands it
-				define: { __OGYGIA_CLIENT_PLUGINS__: 'true' },
 				test: {
 					name: 'browser',
 					include: ['test/browser/**/*.test.ts'],

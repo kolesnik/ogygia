@@ -46,7 +46,6 @@ async function build(entry: string, rules: boolean): Promise<string> {
 				'import.meta.env.DEV': 'false',
 				'import.meta.env.MODE': '"production"',
 				__OGYGIA_DEVTOOLS__: 'false',
-				__OGYGIA_CLIENT_PLUGINS__: 'false',
 				__OGYGIA_RULES__: String(rules)
 			}
 		},

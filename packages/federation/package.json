@@ -75,6 +75,7 @@
 		"devalue": "catalog:"
 	},
 	"devDependencies": {
+		"ogygia-internal-macros": "workspace:*",
 		"@ogygia/compiler": "workspace:*",
 		"@ogygia/config": "workspace:*",
 		"@ogygia/core": "workspace:*",

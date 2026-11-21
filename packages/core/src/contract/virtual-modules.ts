@@ -5,6 +5,7 @@
  */
 import type { ServerPluginEntry } from '../plugin/server.ts';
 import type { BarrelLeftReason } from './barrels.ts';
+import type { LazyHookName, LazyHooks, RuntimeHookName, RuntimeHooks } from './runtime-hooks.ts';
 
 /** A re-export barrel a chunk still holds: its name, the modules it brings, and why the barrel pass
  *  left it (when it said). */
@@ -123,6 +124,19 @@ export interface RuntimeFlagsModule {
 	load_wire_codec: (() => Promise<{ install(): void }>) | null;
 }
 
+/** `ogygia:boot/hooks`: each runtime hook the app's client realms subscribe to, as the function the
+ *  boot calls (it tells every realm that subscribes); every other hook `0`, so the call folds out. */
+export type HooksModule = { readonly [K in RuntimeHookName]: RuntimeHooks[K] | 0 } & {
+	/** how many client realms the app lists (`0`: the plugin boot folds out) */
+	readonly realm_count: number;
+	/** the lazy chunks' hooks the realms subscribe to, for the boot link; `0` when none */
+	readonly lazy_hooks: LazyHooks | 0;
+};
+
+/** `ogygia:boot/hook-bits`: a lazy chunk's hooks, `1` each where a client realm subscribes, else
+ *  `0` (one character: the bundler inlines it in every chunk, so no chunk imports the module). */
+export type HookBitsModule = { readonly [K in LazyHookName]: 0 | 1 };
+
 export interface ServerFlagsModule {
 	/** the build's feature word, the browser's `HAS` (./features.ts): the server writes into a page
 	 *  only what the page's runtime can revive */
@@ -152,6 +166,10 @@ export interface TransportablesModule {
 export interface ServerPluginsModule {
 	/** the server halves of the plugins listed beside `ogygia()`, in plugin order */
 	plugins: readonly ServerPluginEntry[];
+	/** how many there are (`0`: nothing a plugin adds to a request, a fact or a shared hook, runs) */
+	plugin_count: number;
+	/** `1` where some server half implements core's shared hook `measures`, else `0` */
+	measures: 0 | 1;
 }
 
 export interface RouteConfigModule {
@@ -234,6 +252,8 @@ export interface VirtualModules {
 	'ogygia:boot/runtime-entry': SideEffectModule;
 	'ogygia:boot/runtime-flags': RuntimeFlagsModule;
 	'ogygia:boot/hydrate-features': HydrateFeaturesModule;
+	'ogygia:boot/hooks': HooksModule;
+	'ogygia:boot/hook-bits': HookBitsModule;
 	'ogygia:boot/devtools-meta': DevtoolsMetaModule;
 	'ogygia:region/transport': TransportModule;
 	'ogygia:region/transportables': TransportablesModule;
@@ -268,26 +288,6 @@ export interface VirtualConstants {
 	__OGYGIA_DEVTOOLS__: boolean;
 	__OGYGIA_DEVTOOLS_LAZY__: boolean;
 	__OGYGIA_RULES__: boolean;
-	__OGYGIA_CLIENT_PLUGINS__: boolean;
-	__OGYGIA_HOOK_REGION_MOUNT__: boolean;
-	__OGYGIA_HOOK_REGION_UNMOUNT__: boolean;
-	__OGYGIA_HOOK_REGION_HYDRATED__: boolean;
-	__OGYGIA_HOOK_REGION_FAILED__: boolean;
-	__OGYGIA_HOOK_HOLE_ANSWERED__: boolean;
-	__OGYGIA_HOOK_HOLE_FAILED__: boolean;
-	__OGYGIA_HOOK_HOLE_BATCH_MISSED__: boolean;
-	__OGYGIA_HOOK_ENTRY_FALLBACK__: boolean;
-	__OGYGIA_HOOK_RELOAD_NEEDED__: boolean;
-	__OGYGIA_HOOK_NAVIGATED__: boolean;
-	__OGYGIA_HOOK_CRITICAL_SETTLED__: boolean;
-	__OGYGIA_HOOK_WARNING__: boolean;
-	__OGYGIA_HOOK_REGION_HYDRATE__: boolean;
-	__OGYGIA_HOOK_ANSWER_PARSED__: boolean;
-	__OGYGIA_HOOK_ANSWER_PLACED__: boolean;
-	__OGYGIA_HOOK_REGION_WOKE__: boolean;
-	__OGYGIA_HOOK_REGION_MISMATCHED__: boolean;
-	__OGYGIA_HOOK_NAV_STARTED__: boolean;
-	__OGYGIA_HOOK_LOAD_STARTED__: boolean;
 	__OGYGIA_KIT_MAJOR__: number | null;
 	__OGYGIA_KIT_PAGES__: boolean;
 	__OGYGIA_VERSION__: string;

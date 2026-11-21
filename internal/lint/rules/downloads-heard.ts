@@ -2,8 +2,8 @@
 
 import type { Context, Node } from './shared.ts';
 
-/** A test file: a package's or an app's `test/` tree. */
-const TEST_FILE = /(^|\/)test\//;
+/** A test file: a package's or an app's `test/` tree, or its `e2e/` specs. */
+const TEST_FILE = /(^|\/)(test|e2e)\//;
 /** The timeline's own methods: reads of it, and the calls that change what it holds. */
 const TIMELINE_CALLS: ReadonlySet<string> = new Set([
 	'getEntriesByType',
@@ -11,8 +11,11 @@ const TIMELINE_CALLS: ReadonlySet<string> = new Set([
 	'clearResourceTimings',
 	'setResourceTimingBufferSize'
 ]);
+/** The same calls written as page code in a string (`page.evaluate('…')`, an init script's text). */
+const TIMELINE_IN_TEXT =
+	/\bperformance\s*\.\s*(?:getEntriesByName|clearResourceTimings|setResourceTimingBufferSize)\b|\bperformance\s*\.\s*getEntriesByType\s*\(\s*(['"`])resource\1/;
 const MESSAGE_DOWNLOADS_HEARD =
-	"A page's resource timeline keeps 250 entries and drops each one after, and a dev run's frame fills it with its source modules: read from it, a download is missed (a wait times out) and a check that a file was never asked passes without looking. Read downloads from a Downloads (@ogygia/tooling/vitest/downloads), which hears every one; start a test with the timeline full with timeline_full().";
+	"A page's resource timeline keeps 250 entries and drops each one after, and a dev run fills it with its source modules: read from it, a download is missed (a wait times out) and a check that a file was never asked, or asked once, passes without looking. Read downloads from an observer that hears every one: a Downloads (@ogygia/tooling/vitest/downloads; timeline_full() starts a test with the timeline full), or in an e2e spec hear_downloads(page) before goto, then downloads(page) or window.__og_downloads() in page.evaluate (@ogygia/tooling/e2e/downloads.ts).";
 
 /** The name of `performance.<name>(…)`'s method when `node` is such a call, else null. */
 function timeline_call(node: Node): string | null {
@@ -49,6 +52,17 @@ export const downloads_heard = {
 				const name = timeline_call(node);
 				if (name !== null && reads_resources(node, name))
 					context.report({ node, message: MESSAGE_DOWNLOADS_HEARD });
+			},
+			Literal(node: Node) {
+				const value = (node as { value?: unknown }).value;
+				if (typeof value === 'string' && TIMELINE_IN_TEXT.test(value))
+					context.report({ node, message: MESSAGE_DOWNLOADS_HEARD });
+			},
+			TemplateLiteral(node: Node) {
+				const text = (node.quasis as { value: { raw: string } }[])
+					.map((q) => q.value.raw)
+					.join('${}');
+				if (TIMELINE_IN_TEXT.test(text)) context.report({ node, message: MESSAGE_DOWNLOADS_HEARD });
 			}
 		};
 	}

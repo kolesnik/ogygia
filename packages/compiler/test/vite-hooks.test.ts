@@ -262,9 +262,13 @@ describe('the config hook', () => {
 		expect((await setup('serve')).given.define.__OGYGIA_RULES__).toBe('true');
 	});
 
-	it('no client plugin, no client plugin code', async () => {
+	it('the client plugins are no define: the boot reads them off ogygia:boot/hooks', async () => {
 		app();
-		expect((await setup('serve')).given.define.__OGYGIA_CLIENT_PLUGINS__).toBe('false');
+		const { define } = (await setup('serve')).given;
+		expect(define.__OGYGIA_KIT_PAGES__).toBeDefined();
+		expect(Object.keys(define).filter((d) => /^__OGYGIA_(CLIENT_PLUGINS|HOOK_)/.test(d))).toEqual(
+			[]
+		);
 	});
 
 	// KIT PAGES (kit.ts `kit_may_hydrate`): the runtime's and island code's mixed-mode paths compile

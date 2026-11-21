@@ -34,10 +34,12 @@ export default defineConfig({
 				extends: true,
 				plugins: [
 					{
-						name: 'messages-chunk-lost',
+						name: 'chunks-lost',
 						load(id) {
 							if (id.endsWith('/rewrite/src/messages.ts'))
 								throw new Error('the messages chunk did not load');
+							if (id.endsWith('/rewrite/src/restore.ts'))
+								throw new Error('the restorer chunk did not load');
 						}
 					}
 				],

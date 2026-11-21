@@ -12,6 +12,7 @@ import { create_soft_refresh } from './soft-refresh.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
 import { KitBoot, kit_meta_of } from '../wire-markup.ts';
 import { HAS } from 'ogygia:boot';
+import { lazy_hooks } from 'ogygia:boot/hooks';
 import { F_GRAPH } from '../contract/features.ts';
 import { ABSOLUTE_URL_SCHEME } from './region-endpoint-url.ts';
 import { is_warmed_module, warm_island_module } from './island-warm.ts';
@@ -36,7 +37,6 @@ import { runtime_session } from './session.ts';
 import { regions_in_shadow } from './connected.ts';
 import { sheets_in_use } from './region-sheets.ts';
 import { yield_task } from './schedule.ts';
-import { HOOK_REGION_HYDRATE, client_region_hydrate } from './client-plugins.ts';
 import {
 	is_self_owned,
 	record_server_body,
@@ -50,7 +50,6 @@ import { fetch_priority_of, PRIORITY } from './load-class.ts';
 import { load_devalue, devalue, with_devalue, needs_devalue } from './devalue-lane.ts';
 import { OgygiaError, warn } from '../messages/core.ts';
 
-const no_region_hydrate: typeof client_region_hydrate = () => null;
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 const KIT_META = { document_has: (doc: ParentNode): boolean => kit_meta_of(doc) === true };
 const no_kit = (): boolean => false;
@@ -77,7 +76,7 @@ export function link_boot(): void {
 		regions_in_shadow,
 		sheets_in_use,
 		yield_task,
-		HOOK_REGION_HYDRATE ? client_region_hydrate : no_region_hydrate,
+		lazy_hooks,
 		walk_enters,
 		is_self_owned,
 		record_server_body,

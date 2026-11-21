@@ -17,6 +17,7 @@
 import type { Page, Route } from '@playwright/test';
 import { test, check, replayed_once } from '@ogygia/tooling/e2e';
 import { ISLAND_HINT_G_RE } from '@ogygia/tooling/e2e/re.ts';
+import { downloads, hear_downloads } from '@ogygia/tooling/e2e/downloads.ts';
 
 const SLOW_SCRIPT_NAME = '/wake-gate-slow.js';
 const SLOW_SCRIPT = `**${SLOW_SCRIPT_NAME}`;
@@ -42,14 +43,9 @@ function hold_slow_script(page: Page) {
 
 /** Script requests the page made so far, as absolute URLs. */
 async function script_requests(page: Page): Promise<string[]> {
-	return page.evaluate(() =>
-		performance
-			.getEntriesByType('resource')
-			.filter(
-				(e) => (e as PerformanceResourceTiming).initiatorType === 'script' || e.name.endsWith('.js')
-			)
-			.map((e) => e.name)
-	);
+	return (await downloads(page))
+		.filter((e) => e.initiator === 'script' || e.name.endsWith('.js'))
+		.map((e) => e.name);
 }
 
 test.describe('wake gate: island wakes start after DOMContentLoaded and a painted frame', () => {
@@ -57,6 +53,7 @@ test.describe('wake gate: island wakes start after DOMContentLoaded and a painte
 		page
 	}) => {
 		const { held, release } = hold_slow_script(page);
+		await hear_downloads(page);
 		await page.goto('/wake-gate', { waitUntil: 'commit' });
 		await held;
 		await page.waitForFunction(() => !!customElements.get('ogygia-region'));
@@ -119,9 +116,7 @@ test.describe('wake gate: island wakes start after DOMContentLoaded and a painte
 			return {
 				dcl: nav.domContentLoadedEventEnd,
 				frame: (window as { __gate_frame?: number }).__gate_frame ?? Infinity,
-				resources: performance
-					.getEntriesByType('resource')
-					.map((e) => ({ name: e.name, start: e.startTime }))
+				resources: window.__og_downloads!().map((e) => ({ name: e.name, start: e.startTime }))
 			};
 		});
 		// Every script the runtime fetched for a wake: the gated entries plus whatever they (and the

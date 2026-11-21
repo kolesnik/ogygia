@@ -10,8 +10,10 @@ import { _restart_page_beacon } from '../../../devtools/src/profiler/beacon-stan
 import devtools_client from '../../../devtools/src/client.ts';
 import { scope } from '@ogygia/machine';
 import { patch } from '../_patch.ts';
+import { subscribe_realms } from '../_hooks.ts';
 
 const devtools = [{ name: '@ogygia/devtools', client: devtools_client }];
+subscribe_realms(devtools);
 
 const inject_html = (key: 'counter_json_lane_ssr_b64' | 'heavy_schedule_ssr_b64') =>
 	from_b64(inject(key));

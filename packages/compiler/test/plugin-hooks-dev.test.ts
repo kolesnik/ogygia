@@ -103,9 +103,15 @@ async function start(): Promise<{
 						{
 							name: 'answering',
 							options: null,
-							module: path.join(root, 'plugins/answering.server.ts')
+							module: path.join(root, 'plugins/answering.server.ts'),
+							hooks: []
 						},
-						{ name: 'quiet', options: null, module: path.join(root, 'plugins/quiet.server.ts') }
+						{
+							name: 'quiet',
+							options: null,
+							module: path.join(root, 'plugins/quiet.server.ts'),
+							hooks: []
+						}
 					])
 				: undefined
 	};

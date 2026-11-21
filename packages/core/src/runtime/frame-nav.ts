@@ -9,17 +9,11 @@ import { is_allowed_region_endpoint, vouch_region_answer } from './html-sink.ts'
 import { runtime_session } from './session.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import { OG_LEN, OGYGIA_SLOT } from '../wire-markup.ts';
-import { slots } from './slots.ts';
+import { holeAnswered, holeBatchMissed } from 'ogygia:boot/hooks';
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const RULES =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-const HOOK_HOLE_ANSWERED =
-	typeof __OGYGIA_HOOK_HOLE_ANSWERED__ !== 'undefined' ? __OGYGIA_HOOK_HOLE_ANSWERED__ : true;
-const HOOK_HOLE_BATCH_MISSED =
-	typeof __OGYGIA_HOOK_HOLE_BATCH_MISSED__ !== 'undefined'
-		? __OGYGIA_HOOK_HOLE_BATCH_MISSED__
-		: true;
 let batch_seq = 0;
 
 const batched = lru<string, { left: number; at: number; size: number }>({
@@ -132,7 +126,7 @@ export async function streamFrames(
 	if (!is_allowed_region_endpoint(path)) return;
 
 	const bySig = new Map<string, { a: string; v: number }>();
-	const endpoint_of = DEVTOOLS || HOOK_HOLE_ANSWERED ? new Map<string, string>() : null;
+	const endpoint_of = DEVTOOLS || holeAnswered ? new Map<string, string>() : null;
 	const reserved: string[] = [];
 	for (const e of endpoints) {
 		const s = sigOf(e);
@@ -153,7 +147,7 @@ export async function streamFrames(
 			kind,
 			endpoints: endpoints.slice()
 		});
-	const left = HOOK_HOLE_ANSWERED ? clock.mono() : 0;
+	const left = holeAnswered ? clock.mono() : 0;
 	let delivered = 0;
 	let status = 0;
 	let refused: 'redirected' | 'document' | undefined;
@@ -187,7 +181,7 @@ export async function streamFrames(
 		if (RULES && buggify.fires('batch.refused')) res = new Response('busy', { status: 503 });
 		stream.go('reading');
 		status = res.status;
-		if ((DEVTOOLS || HOOK_HOLE_BATCH_MISSED) && res.redirected) {
+		if ((DEVTOOLS || holeBatchMissed) && res.redirected) {
 			refused = 'redirected';
 			final_url = res.url;
 		}
@@ -226,7 +220,7 @@ export async function streamFrames(
 				const part = bySig.get(p.slot);
 				if (part && RULES && buggify.fires('batch.part-lost')) continue;
 				if (part) {
-					if (HOOK_HOLE_ANSWERED) {
+					if (holeAnswered) {
 						const ep = endpoint_of!.get(p.slot)!;
 						batched.set(ep, { left, at: clock.mono(), size: reserved.length });
 					}
@@ -245,7 +239,7 @@ export async function streamFrames(
 			}
 			if (consumed) buffer = buffer.slice(consumed);
 		}
-		if ((DEVTOOLS || HOOK_HOLE_BATCH_MISSED) && !parcels && !refused) {
+		if ((DEVTOOLS || holeBatchMissed) && !parcels && !refused) {
 			refused = 'document';
 			final_url = res.url;
 		}
@@ -253,8 +247,8 @@ export async function streamFrames(
 		stream.stop();
 		batch_scope.close();
 		for (const a of reserved) release(a);
-		if (HOOK_HOLE_BATCH_MISSED && delivered < reserved.length && !visit.closed)
-			slots.hooks?.holeBatchMissed?.({
+		if (holeBatchMissed && delivered < reserved.length && !visit.closed)
+			holeBatchMissed({
 				sent: reserved.length,
 				delivered,
 				status,

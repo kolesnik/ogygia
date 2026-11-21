@@ -35,6 +35,7 @@ import {
 	runtime_url,
 	devtools_boot_url,
 	server_plugins,
+	server_plugin_count,
 	handoff_problem
 } from 'ogygia:server';
 import { dev_hmr_url } from './dev-hmr-url.ts';
@@ -90,7 +91,7 @@ import {
 } from './server/region-response.ts';
 import { F_CONTEXT, F_FRAMES, F_PAGE, F_REMOTE_SEEDS } from './contract/features.ts';
 import { HeadTags } from './server/head-presence.ts';
-import { code_origins } from './plugin/hooks.ts';
+import { page_code_origins } from './server/page-code-origins.ts';
 import { assemble, ogygia_script } from './server/document-assembly.ts';
 import { remote_seed_script, ship_page_seed, type ShippedSeed } from './server/document-seeds.ts';
 import { install_page_context, page_ctx_script } from './server/page-context.ts';
@@ -869,7 +870,7 @@ class OgygiaHandle {
 				head_tags === null
 					? null
 					: with_early_csp(
-							head_tags.runtime_first(null, code_origins(event?.request), mark_of(bag))
+							head_tags.runtime_first(null, page_code_origins(event?.request), mark_of(bag))
 						);
 			return assemble(
 				gate ? gate.html : html,
@@ -927,14 +928,15 @@ class OgygiaHandle {
 			// sole base/assets authority, and every ogygia URL (prod `/${appDir}/…`, dev `/@id/…`) is
 			// baked base-LESS — so an island-LESS page under a non-root `base` loads the runtime too.
 			const runtime_tag =
-				(router_enabled || (!!event && !!facts_of(event.request).codeOrigins?.length)) &&
+				(router_enabled ||
+					(!!server_plugin_count && !!event && !!facts_of(event.request).codeOrigins?.length)) &&
 				runtime_url &&
 				!probe.declares_runtime_script()
 					? runtime_bootstrap(kit_asset)
 					: null;
 			// (with the code origins the plugins and this render named: runtime/code-origins.ts)
 			const ordered = with_early_csp(
-				probe.runtime_first(runtime_tag, code_origins(event?.request), mark_of(bag))
+				probe.runtime_first(runtime_tag, page_code_origins(event?.request), mark_of(bag))
 			);
 			if (ordered !== probe.html) head_out = ordered;
 			// The DEV bridge is NOT gated on the router — it carries `@vite/client`, and Vite's own

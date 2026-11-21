@@ -54,8 +54,11 @@ import {
 	L_STALE,
 	L_VOUCH_PAGE_ANSWER,
 	L_WARM_ISLAND_MODULE,
+	L_HOOKS,
 	L_YIELD_TASK
 } from './boot-link-index.ts';
+import type { LazyHooks } from '../contract/runtime-hooks.ts';
+import { navigated as HOOK_NAVIGATED, navStarted as HOOK_NAV_STARTED } from 'ogygia:boot/hook-bits';
 
 (globalThis as PageGlobals).__og_head_deny?.(is_dangerous_head_node);
 
@@ -86,10 +89,7 @@ const jump_to_hash = (hash: string) => router_link().jump_to_hash(hash);
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const RULES =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-const HOOK_NAVIGATED =
-	typeof __OGYGIA_HOOK_NAVIGATED__ !== 'undefined' ? __OGYGIA_HOOK_NAVIGATED__ : true;
-const HOOK_NAV_STARTED =
-	typeof __OGYGIA_HOOK_NAV_STARTED__ !== 'undefined' ? __OGYGIA_HOOK_NAV_STARTED__ : true;
+const hooks = () => boot_link()[L_HOOKS] as LazyHooks;
 const dt_now = clock.mono;
 
 const SERVER_DELTA =
@@ -606,7 +606,7 @@ export async function navigate(
 			type
 		});
 	if (HOOK_NAV_STARTED)
-		slots.hooks?.navStarted?.({
+		hooks().navStarted!({
 			from: `${from.pathname}${from.search}`,
 			to: `${url.pathname}${url.search}`,
 			type
@@ -663,7 +663,9 @@ export async function navigate(
 		const this_build = next_build === null ? null : build_of(document);
 		if (this_build !== null && next_build !== this_build) return null;
 		if (doc.querySelector('meta[name="ogygia-first-load"]')) return null;
-		(globalThis as PageGlobals).__og_restore?.(doc);
+		const globals = globalThis as PageGlobals;
+		if (!globals.__og_restore && globals.__og_restore_ready) await globals.__og_restore_ready;
+		globals.__og_restore?.(doc);
 
 		const prefer_reduced_motion =
 			typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -766,7 +768,7 @@ export async function navigate(
 	r.nav.move('loading', 'settling', { href: url.href });
 	const settled = r.nav.epoch;
 	if (HOOK_NAVIGATED)
-		slots.hooks?.navigated?.({
+		hooks().navigated!({
 			from: `${from.pathname}${from.search}`,
 			to: `${dest.pathname}${dest.search}`,
 			type,

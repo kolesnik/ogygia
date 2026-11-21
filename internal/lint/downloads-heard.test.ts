@@ -2,7 +2,8 @@
 // (@ogygia/tooling/vitest/downloads), never from the page's resource timeline, which keeps 250
 // entries. A dev run's frame filled it: hydrate-visit's wait for its island's download timed out in
 // 3 of 6 full core-browser runs, and entry-location-hydrate's "never asked" check passed without
-// looking. Linted for real: a test file in a temporary tree, the repository's plugin.
+// looking. An e2e spec reads it inside page.evaluate: a dev server's page fills it the same way.
+// Linted for real: a test file in a temporary tree, the repository's plugin.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -64,4 +65,20 @@ test("a test's read of the resource timeline is refused; other entry types and a
 
 test('source, which reads the timeline beside an observer of its own, is not a test file', () => {
 	assert.deepEqual(reported('packages/demo/src/runtime/a.ts', SOURCE), []);
+	assert.deepEqual(reported('packages/demo/src/runtime/b.ts', E2E_SOURCE), []);
+});
+
+const E2E_SOURCE = `const a = await page.evaluate(() => performance.getEntriesByType('resource').length);
+const b = await page.evaluate('performance.getEntriesByName("/x.js").length');
+await page.addInitScript(\`performance.setResourceTimingBufferSize(1)\`);
+const c = await page.evaluate("performance.getEntriesByType('resource')");
+const nav = await page.evaluate(() => performance.getEntriesByType('navigation')[0]);
+const nav_text = await page.evaluate("performance.getEntriesByType('navigation')[0]");
+const heard = await page.evaluate(() => window.__og_downloads!().length);
+const words = 'a page reads its performance entries';
+`;
+
+test("an e2e spec's read of the timeline in page code is refused, as a function or as text", () => {
+	assert.deepEqual(reported('apps/demo/e2e/a.spec.ts', E2E_SOURCE), [1, 2, 3, 4]);
+	assert.deepEqual(reported('packages/demo/e2e/b.spec.ts', SOURCE), [1, 2, 3, 4, 6]);
 });

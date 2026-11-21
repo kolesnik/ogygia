@@ -15,6 +15,7 @@ import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 import { patch } from '../_patch.ts';
 
 declare module 'vitest/browser' {
@@ -206,12 +207,12 @@ test('a region inside a shadow root makes the navigation a whole-body swap', asy
 	const life = scope();
 	connected_regions.add(inner, life);
 	let reconciled: boolean | undefined;
-	slots.hooks = { navigated: (e) => void (reconciled = e.reconciled) };
+	hear({ navigated: (e) => void (reconciled = e.reconciled) });
 	pages['/rn-shadow'] = { body: '<p>next</p>' };
 	try {
 		await go('/rn-shadow');
 	} finally {
-		slots.hooks = undefined;
+		hear_none();
 		life.close();
 	}
 	expect(reconciled).toBe(false);

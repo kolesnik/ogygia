@@ -797,7 +797,7 @@
 			"reason": "browser only: is this still the live region's hydrating visit, constant work; proven in packages/core/test/browser/live-region.test.ts"
 		},
 		{
-			"id": "packages/core/src/runtime/live-program.ts > live_hydrate > defer:0~8c9c1a",
+			"id": "packages/core/src/runtime/live-program.ts > live_hydrate > defer:0~771fc3",
 			"reason": "browser only: disposes a live region's island when it leaves `live`, constant work besides Svelte's unmount; proven in packages/core/test/browser/live-region.test.ts"
 		},
 		{
@@ -1135,6 +1135,38 @@
 		{
 			"id": "packages/tooling/src/vitest/downloads.ts > timeline_full > onTestFinished:0~4e4ead",
 			"reason": "the browser tests' harness: puts the timeline's size back when the test ends, constant work"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads",
+			"reason": "the e2e harness (not a shipped package): adds one init script to a Playwright page; proven by wake-gate.spec, load-scheduler.spec, props-tail.spec"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads > addInitScript:0~c9747f",
+			"reason": "the e2e harness: page code, run once per document in the browser, starts one resource observer"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads > addInitScript:0~c9747f > PerformanceObserver:0~c5904c",
+			"reason": "the e2e harness: page code, the observer's callback, one push per download"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads > addInitScript:0~c9747f > __og_downloads",
+			"reason": "the e2e harness: page code, returns the list heard so far"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads > addInitScript:0~c9747f > hear",
+			"reason": "the e2e harness: page code, one push per download heard"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > downloads",
+			"reason": "the e2e harness: one page.evaluate that maps the heard downloads to plain records"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > downloads > evaluate:0~ce5d9a",
+			"reason": "the e2e harness: page code, a map over the heard downloads"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > downloads > evaluate:0~ce5d9a > map:0~39f157",
+			"reason": "the e2e harness: page code, one record per download"
 		},
 		{
 			"id": "packages/tooling/src/e2e/servers.ts > port_held",
@@ -2337,6 +2369,50 @@
 			"reason": ".check(): a test's entry, not a request path (check.ts)"
 		},
 		{
+			"id": "packages/rewrite/src/messages.ts > REWRITE_ERRORS > restorer_unloaded > details",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/rewrite/src/messages.ts > REWRITE_ERRORS > restorer_unloaded > text",
+			"reason": "a message table entry: wording only"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer",
+			"reason": "browser only: one dynamic import of the realm's restorer at boot, where the document carried none; proven in packages/rewrite/test/browser/client-restorer.test.ts"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer > then:0~eb0d99",
+			"reason": "browser only: the restorer in, two assignments"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer > then:1~7cde2f",
+			"reason": "browser only: the restorer's failed load, said once (packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts)"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer > then:1~7cde2f > then:0~b8a5d8",
+			"reason": "browser only: prints the coded error, once"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > load_restorer > then:1~7cde2f > then:1~01da59",
+			"reason": "browser only: prints the error alone, once (the wording chunk lost too)"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > defineClient:0~0364ba > boot > report",
+			"reason": "browser only: one call of the restore report at boot, or once the realm's restorer is in"
+		},
+		{
+			"id": "packages/rewrite/src/client.ts > defineClient:0~0364ba > hooks > answerParsed > then:0~a9247d",
+			"reason": "browser only: one restore of an answer that waited for the realm's restorer; the restore itself is measured (packages/rewrite/bench/restore.bench.ts)"
+		},
+		{
+			"id": "packages/core/src/runtime/core.ts > region_fragment > keep_pristine",
+			"reason": "browser only: a nested island's copy of its markup, one innerHTML read per island of an answer, as before (the same loop, now after an answer's wait)"
+		},
+		{
+			"id": "packages/core/src/runtime/hook-told.ts > noop",
+			"reason": "the empty function a settled wait ends in"
+		},
+		{
 			"id": "packages/rewrite/src/messages.ts > REWRITE_ERRORS > restore_markup_broken > details",
 			"reason": "a message table entry: wording only"
 		},
@@ -3093,43 +3169,67 @@
 			"reason": "a message table entry: wording only"
 		},
 		{
-			"id": "packages/compiler/src/virtual/core.ts > hook_gate",
-			"reason": "declares one hook constant (its from is a lambda: not cloneable), once per hook as core.ts loads; constant, never per build"
+			"id": "packages/core/src/runtime/hydrate-core.ts > hooks",
+			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes (its call folds out otherwise)"
 		},
 		{
-			"id": "packages/core/src/runtime/client-plugins.ts > joined",
-			"reason": "browser only: builds one hook's subscriber list once at boot, linear in the client plugins (a handful)"
+			"id": "packages/core/src/runtime/hydrate-core.ts > after_region_hydrate",
+			"reason": "browser only: the regionHydrate subscribers' after, or null where none subscribes (a constant the build folds), constant work besides the subscribers; proven in packages/core/test/browser/hydrate-island-claims.test.ts"
+		},
+		{
+			"id": "packages/core/src/runtime/live-program.ts > hooks",
+			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes"
+		},
+		{
+			"id": "packages/core/src/runtime/router-nav.ts > hooks",
+			"reason": "browser only: one boot link read (the lazy hooks object), constant work; reached only where a client realm subscribes"
+		},
+		{
+			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object",
+			"reason": "build time: parses one plugin realm file once per build, linear in its size"
+		},
+		{
+			"id": "packages/compiler/src/vite/plugin-api.ts > server_hook_names",
+			"reason": "build time: one plugin server half's shared hooks, once per build"
+		},
+		{
+			"id": "packages/compiler/src/vite/plugin-api.ts > server_hook_names > filter:0~e25402",
+			"reason": "build time: one set lookup per shared hook name"
+		},
+		{
+			"id": "packages/compiler/src/link/caps.ts > server_plugins_module > some:0~123e41",
+			"reason": "build time: one includes per plugin, once per build"
 		},
 		{
 			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > unread",
 			"reason": "builds one OgygiaError for an unreadable realm, constant work"
 		},
 		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > unwrap",
+			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object > unwrap",
 			"reason": "one oxc AST node through its type wrappers (not replayable), at most a few steps; proven in packages/core/test/plugins.test.ts"
 		},
 		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > key_of",
+			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object > key_of",
 			"reason": "one oxc AST property to its key name (not replayable), constant work; proven in packages/core/test/plugins.test.ts"
 		},
 		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > filter:0~a8d4cb",
+			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object > filter:0~a8d4cb",
 			"reason": "one top-level statement against the export form (an oxc AST node: not replayable), once per realm per build; proven in packages/core/test/plugins.test.ts"
 		},
 		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > flatMap:0~9d68c8",
+			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object > flatMap:0~9d68c8",
 			"reason": "one export statement to its specifiers (an oxc AST node: not replayable), once per realm per build; proven in packages/core/test/plugins.test.ts"
 		},
 		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > find:0~9b241a",
+			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object > find:0~9b241a",
 			"reason": "one export specifier against the name default (an oxc AST node: not replayable), constant work; proven in packages/core/test/plugins.test.ts"
 		},
 		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > find:0~de07eb",
+			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object > find:0~de07eb",
 			"reason": "one top-level statement against export default (an oxc AST node: not replayable), constant work; proven in packages/core/test/plugins.test.ts"
 		},
 		{
-			"id": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > some:0~21370e",
+			"id": "packages/compiler/src/vite/plugin-api.ts > realm_object > some:0~21370e",
 			"reason": "one property of the realm's object for a key it cannot read (an oxc AST node: not replayable), constant work; proven in packages/core/test/plugins.test.ts"
 		},
 		{

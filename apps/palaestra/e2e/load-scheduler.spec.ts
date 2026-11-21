@@ -15,6 +15,7 @@
 // Usage: pnpm exec playwright test load-scheduler
 import type { Page, Route } from '@playwright/test';
 import { test, check, expect, replayed_once } from '@ogygia/tooling/e2e';
+import { hear_downloads } from '@ogygia/tooling/e2e/downloads.ts';
 
 const HERO = '**/load-scheduler-hero.png';
 // a 1×1 transparent PNG
@@ -40,7 +41,7 @@ async function island_requests(page: Page) {
 			wake: r.getAttribute('wake'),
 			file: new URL(r.getAttribute('src') ?? r.getAttribute('entry')!, location.href).href
 		}));
-		const res = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+		const res = window.__og_downloads!();
 		const hero = res.find((e) => e.name.includes('load-scheduler-hero.png'));
 		return {
 			hero_end: hero ? hero.responseEnd : null,
@@ -53,6 +54,8 @@ async function island_requests(page: Page) {
 }
 
 test.describe('load scheduler: island code waits for the page’s critical resource', () => {
+	test.beforeEach(({ page }) => hear_downloads(page));
+
 	test('nothing island-shaped downloads while the hero is held; everything wakes after it', async ({
 		page
 	}) => {

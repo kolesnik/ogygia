@@ -47,6 +47,8 @@ export const region_render: import('../dist/contract/virtual-modules.js').Virtua
 export const render_region: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['render_region'];
 export const region_reads_page_data: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['region_reads_page_data'];
 export const server_plugins: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-plugins']['plugins'];
+export const server_plugin_count: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-plugins']['plugin_count'];
+export const server_hook_measures: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-plugins']['measures'];
 export const session_cookie: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/session-cookie']['session_cookie'];
 export { sign, region_sign } from '../dist/server/hmac.js';
 }

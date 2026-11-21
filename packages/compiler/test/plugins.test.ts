@@ -14,11 +14,13 @@ import {
 	find_plugins,
 	PLUGIN,
 	resolve_plugins,
+	server_hook_names,
 	type BuildContext,
 	type PluginDefinition
 } from '../src/vite/plugin-api.ts';
 import { EVERY_BARREL } from '../src/exports/index.ts';
-import { server_plugins_module, route_config_module } from '../src/link/caps.ts';
+import { server_plugins_module, route_config_module, type ServerRealm } from '../src/link/caps.ts';
+import { SERVER_HOOK_NAMES } from '@ogygia/core/contract';
 import { route_reader } from '../src/kit.ts';
 import { node_fs } from '../src/fs.ts';
 import { defineServer } from '../../core/src/plugin/index.ts';
@@ -125,8 +127,10 @@ describe('realms, named by the plugin', () => {
 			options: { x: 1 }
 		});
 		const out = resolve_plugins([plugin], APP, true);
-		expect(out.servers).toEqual([{ name: '@ogygia/flags', module: posix, options: { x: 1 } }]);
-		expect(out.clients).toEqual([{ name: '@ogygia/flags', module: posix }]);
+		expect(out.servers).toEqual([
+			{ name: '@ogygia/flags', module: posix, options: { x: 1 }, hooks: [] }
+		]);
+		expect(out.clients).toEqual([{ name: '@ogygia/flags', module: posix, hooks: [] }]);
 	});
 	it('the runtime hooks a client realm subscribes to are read from its file, and nothing else passes', () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-client-hooks-'));
@@ -428,16 +432,68 @@ describe('realms, named by the plugin', () => {
 describe('ogygia:server/server-plugins', () => {
 	it('imports each server realm statically, with its name and options (server only)', () => {
 		const code = server_plugins_module(true, [
-			{ name: '@ogygia/flags', module: '@ogygia/flags/server', options: { a: 1 } }
+			{ name: '@ogygia/flags', module: '@ogygia/flags/server', options: { a: 1 }, hooks: [] }
 		]);
 		expect(code).toContain('import p0 from "@ogygia/flags/server";');
 		expect(code).toContain('{ name: "@ogygia/flags", options: {"a":1}, server: p0 }');
+		expect(code).toContain('export const plugin_count = 1;');
 	});
 	it('is an empty list on the client and for an app without server realms', () => {
-		expect(server_plugins_module(false, [{ name: 'x', module: 'x/server', options: {} }])).toBe(
-			'export const plugins = [];'
+		const none = dedent`
+			export const plugins = [];
+			export const plugin_count = 0;
+			export const measures = 0;
+		`;
+		expect(
+			server_plugins_module(false, [
+				{ name: 'x', module: 'x/server', options: {}, hooks: ['measures'] }
+			])
+		).toBe(none);
+		expect(server_plugins_module(true, [])).toBe(none);
+	});
+	it('says a shared hook core calls is there exactly when some server half implements it', () => {
+		const realm = (hooks: ServerRealm['hooks']): ServerRealm => ({
+			name: 'x',
+			module: 'x/server',
+			options: {},
+			hooks
+		});
+		expect(server_plugins_module(true, [realm(['codeOrigins'])])).toContain(
+			'export const measures = 0;'
 		);
-		expect(server_plugins_module(true, [])).toBe('export const plugins = [];');
+		expect(server_plugins_module(true, [realm([]), realm(['measures'])])).toContain(
+			'export const measures = 1;'
+		);
+	});
+	it('reads the shared hooks a server half implements off its defineServer({ … }), every one when it cannot', () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-server-hooks-'));
+		const at = (name: string, text: string) => {
+			const file = path.join(dir, name);
+			fs.writeFileSync(file, text);
+			return file;
+		};
+		expect(
+			server_hook_names(
+				at(
+					'a.ts',
+					`export default defineServer({ setup() {}, measures(e) { return true; }, codeOrigins: () => [] });\n`
+				)
+			)
+		).toEqual(['measures', 'codeOrigins']);
+		expect(server_hook_names(at('b.ts', `export default defineServer({ setup() {} });\n`))).toEqual(
+			[]
+		);
+		expect(
+			server_hook_names(
+				at(
+					'c.ts',
+					dedent`
+						const more = {};
+						export default defineServer({ ...more });
+					`
+				)
+			)
+		).toEqual([...SERVER_HOOK_NAMES]);
 	});
 });
 

@@ -10,6 +10,12 @@ import { boot_link, slots, wake_link, type HeldLake } from './slots.ts';
 import { report_thrown } from '../report-thrown.ts';
 import { mark_head, record_island_head, type HeadMark } from './head-copies.ts';
 import { install_hydrate_features } from 'ogygia:boot';
+import {
+	regionHydrate as HOOK_REGION_HYDRATE,
+	regionHydrated as HOOK_REGION_HYDRATED,
+	regionMismatched as HOOK_REGION_MISMATCHED
+} from 'ogygia:boot/hook-bits';
+import type { LazyHooks } from '../contract/runtime-hooks.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import { warn } from '../messages/lazy.ts';
 import { OG_FP, OG_HEALED, OG_RECOVERED, OGYGIA_KEEP } from '../wire-markup.ts';
@@ -26,7 +32,7 @@ import {
 	L_OURS_ON_KIT_DOCUMENT,
 	L_PARSE_REGION_HTML,
 	L_PROPS_SIDECAR_OF,
-	L_REGION_HYDRATE,
+	L_HOOKS,
 	L_REGION_SSR_TRUNCATED,
 	L_RUNTIME_SESSION,
 	L_SET_INNER_HTML,
@@ -52,12 +58,9 @@ const is_self_owned = (el: Element) => boot_link()[L_IS_SELF_OWNED](el);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
-const HOOK_REGION_HYDRATED: boolean =
-	typeof __OGYGIA_HOOK_REGION_HYDRATED__ !== 'undefined' ? __OGYGIA_HOOK_REGION_HYDRATED__ : true;
-const HOOK_REGION_MISMATCHED =
-	typeof __OGYGIA_HOOK_REGION_MISMATCHED__ !== 'undefined'
-		? __OGYGIA_HOOK_REGION_MISMATCHED__
-		: true;
+const hooks = () => boot_link()[L_HOOKS] as LazyHooks;
+const after_region_hydrate = (el: Element): (() => void) | null =>
+	HOOK_REGION_HYDRATE ? (hooks().regionHydrate!({ el }) ?? null) : null;
 
 const REPAIR_MORPH = { target: 'walk' } as const;
 
@@ -306,7 +309,7 @@ export function repair_if_drifted(
 	want.appendChild(content);
 	if (!sequence_differs(region, want)) return { repaired: false, reason: null, conflict: null };
 	const reason =
-		import.meta.env.DEV || DEVTOOLS || (HOOK_REGION_MISMATCHED && slots.hooks?.regionMismatched)
+		import.meta.env.DEV || DEVTOOLS || HOOK_REGION_MISMATCHED
 			? describe_divergence(region, want)
 			: null;
 	conflict = null;
@@ -654,7 +657,7 @@ export function hydrate_island(
 		let out: IslandHandle;
 		let healed = false;
 		let strict_error: unknown = null;
-		const after_hydrate = boot_link()[L_REGION_HYDRATE](region);
+		const after_hydrate = after_region_hydrate(region);
 		try {
 			out = quietly(() => attempt(false));
 			healed = repaired;
@@ -674,7 +677,7 @@ export function hydrate_island(
 					reason: drift.reason || undefined
 				});
 			if (HOOK_REGION_MISMATCHED)
-				slots.hooks?.regionMismatched?.({
+				hooks().regionMismatched!({
 					el: region,
 					kind: 'healed',
 					...(drift.reason ? { reason: drift.reason } : {})
@@ -691,7 +694,7 @@ export function hydrate_island(
 					reason: drift.conflict
 				});
 			if (HOOK_REGION_MISMATCHED)
-				slots.hooks?.regionMismatched?.({ el: region, kind: 'conflict', reason: drift.conflict });
+				hooks().regionMismatched!({ el: region, kind: 'conflict', reason: drift.conflict });
 			if (import.meta.env.DEV) warn('ownership_conflict', { element: drift.conflict }, entry);
 		}
 
@@ -714,7 +717,7 @@ export function hydrate_island(
 					reason: drift.reason || undefined
 				});
 			if (HOOK_REGION_MISMATCHED)
-				slots.hooks?.regionMismatched?.({
+				hooks().regionMismatched!({
 					el: region,
 					kind: 'recovered',
 					...(drift.reason ? { reason: drift.reason } : {})
@@ -753,7 +756,7 @@ export function hydrate_live(
 		return null;
 	}
 	const provided_ctx = capture_region_ids(region, () => slots.context?.(region));
-	const after_hydrate = boot_link()[L_REGION_HYDRATE](region);
+	const after_hydrate = after_region_hydrate(region);
 	set_current_region(region);
 	let out: IslandHandle;
 	try {
@@ -869,7 +872,7 @@ export async function wake_island(
 	if (!link.app(el)) return;
 	el.setAttribute('data-hydrated', '');
 	if (HOOK_REGION_HYDRATED)
-		slots.hooks?.regionHydrated?.({
+		hooks().regionHydrated!({
 			el,
 			t0: times.t0,
 			tLoaded: times.loaded,

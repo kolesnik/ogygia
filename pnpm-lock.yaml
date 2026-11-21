@@ -1484,6 +1484,9 @@ importers:
       '@vitest/browser-playwright':
         specifier: 'catalog:'
         version: 4.1.12(playwright@1.62.1)(vite@8.3.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(sass-embedded@1.104.1)(sass@1.104.1)(yaml@2.9.0))(vitest@4.1.12)
+      ogygia-internal-macros:
+        specifier: workspace:*
+        version: link:../../internal/macros
       shiki:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1822,6 +1825,9 @@ importers:
       '@typescript/native':
         specifier: catalog:tsgo
         version: typescript@7.0.2
+      ogygia-internal-macros:
+        specifier: workspace:*
+        version: link:../../internal/macros
       svelte:
         specifier: 'catalog:'
         version: 5.57.3
@@ -2301,6 +2307,9 @@ importers:
       happy-dom:
         specifier: catalog:sim
         version: 21.0.4
+      ogygia-internal-macros:
+        specifier: workspace:*
+        version: link:../../internal/macros
       rolldown:
         specifier: 'catalog:'
         version: 1.2.16

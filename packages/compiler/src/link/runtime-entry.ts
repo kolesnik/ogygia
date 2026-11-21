@@ -247,7 +247,8 @@ export function resolveFeatures(marks: RuntimeMarks): FeatureId[] {
 }
 
 const to_alias = (id: string) => id.replace(HYPHEN, '_');
-const runtime_path = (runtimeDir: string, mod: string) =>
+/** A runtime module's path in `runtimeDir`, as an import names it (POSIX). */
+export const runtime_path = (runtimeDir: string, mod: string): string =>
 	`${runtimeDir}/${mod}`.replace(BACKSLASH, '/');
 
 /** The selected features of one {@link FeaturePhase}, in FEATURE_ORDER. */

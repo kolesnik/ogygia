@@ -172,8 +172,7 @@ export type BootLink = [
 	regions_in_shadow: typeof import('./connected.ts').regions_in_shadow,
 	sheets_in_use: typeof import('./region-sheets.ts').sheets_in_use,
 	yield_task: typeof import('./schedule.ts').yield_task,
-	/** the `regionHydrate` subscribers around Svelte's hydrate over server markup (./client-plugins.ts) */
-	region_hydrate: typeof import('./client-plugins.ts').client_region_hydrate,
+	hooks: import('../contract/runtime-hooks.ts').LazyHooks | 0,
 	/** DOM ownership (./ownership.ts): which children Svelte's walk enters, and self-owned elements */
 	walk_enters: typeof import('./ownership.ts').walk_enters,
 	is_self_owned: typeof import('./ownership.ts').is_self_owned,
@@ -257,7 +256,7 @@ export type LiveLink = {
 	dom_ready: () => Promise<unknown>;
 	kit_boot_failed: (err: unknown) => boolean;
 	say_island_failed: (entry: string | null, err: unknown) => void;
-	client_region_mount: typeof import('./client-plugins.ts').client_region_mount;
+	client_region_mount: typeof import('./region-hooks.ts').client_region_mount;
 };
 
 /** What an island's wake in the hydrate core (./hydrate-core.ts `wake_island`) reaches in the
@@ -317,9 +316,6 @@ export type Slots = {
 	wake_link: WakeLink | null;
 	/** Morph's attribute sync, for the navigation's body reconcile. */
 	sync_attributes: typeof import('./morph.ts').sync_attributes | null;
-	/** The runtime hooks the plugins' browser halves subscribe to, set at boot only when one does
-	 *  (./client-plugins.ts). */
-	hooks?: Partial<import('../contract/runtime-hooks.ts').RuntimeHooks>;
 };
 
 /** The live registry. A feature's `install()` assigns its slot; core/router read them. */

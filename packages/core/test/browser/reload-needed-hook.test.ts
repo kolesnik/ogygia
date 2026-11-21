@@ -3,8 +3,7 @@
 // hears the chunk's URL, the error, and the regions whose own file it is (a retry's `og-retry`
 // mark aside), so an app can offer the reload. A page where nothing failed never hears it.
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { boot_client_plugins } from '../../src/runtime/client-plugins.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 import { say_reload_needed } from '../../src/runtime/reload-needed.ts';
 import { import_again } from '../../src/runtime/import-again.ts';
 import type { ReloadNeededEvent } from '../../src/contract/runtime-hooks.ts';
@@ -14,10 +13,7 @@ let host: HTMLElement;
 beforeEach(() => {
 	heard = [];
 	vi.spyOn(console, 'error').mockImplementation(() => {});
-	boot_client_plugins(
-		[{ name: 'app', client: { hooks: { reloadNeeded: (e) => void heard.push(e) } } }],
-		false
-	);
+	hear({ reloadNeeded: (e) => void heard.push(e) });
 	host = document.createElement('div');
 	host.innerHTML = ['a', 'b']
 		.map((k) => `<ogygia-region src="/_app/immutable/og-region.${k}.js"></ogygia-region>`)
@@ -26,7 +22,7 @@ beforeEach(() => {
 });
 afterEach(() => {
 	host.remove();
-	slots.hooks = {};
+	hear_none();
 	vi.restoreAllMocks();
 });
 

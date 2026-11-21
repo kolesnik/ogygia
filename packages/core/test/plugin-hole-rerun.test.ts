@@ -27,7 +27,9 @@ vi.mock('ogygia:server/server-plugins', () => ({
 				}
 			}
 		}
-	]
+	],
+	plugin_count: 1,
+	measures: 0
 }));
 
 async function ask(h: ReturnType<typeof import('../src/hooks.ts').handle>, path: string) {
