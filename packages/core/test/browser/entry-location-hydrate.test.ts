@@ -2,7 +2,7 @@
 // the stable name) and its location (`src`, the content-hashed file). The runtime must import the
 // location — the identity is only a key — and, when the location is gone (a page that outlived its
 // build), wake from the identity fetched fresh. The SSR HTML is the Counter island from setup.ts.
-import { expect, inject, test } from 'vitest';
+import { expect, inject, onTestFinished, test } from 'vitest';
 import { from_b64 } from './b64.ts';
 import { page } from 'vitest/browser';
 import { bootDev } from '../../src/runtime/full.ts';
@@ -25,6 +25,9 @@ function mount(entry: string, src: string | null) {
 }
 
 test('the identity is only a key: a stale stable name that 404s, the island wakes from its location', async () => {
+	// @why a full resource timeline drops each new entry (the frame of a dev run that loads one module per source file fills its 250 before a test starts) (test: entry-location-hydrate › the identity is only a key: a stale stable name that 404s, the island wakes from its location)
+	performance.setResourceTimingBufferSize(performance.getEntriesByType('resource').length);
+	onTestFinished(() => performance.setResourceTimingBufferSize(250));
 	mount('/test/browser/fixtures/ogygia/og-region.000000000aa5.js', COUNTER);
 	bootDev();
 	await expect
@@ -34,6 +37,7 @@ test('the identity is only a key: a stale stable name that 404s, the island wake
 	await expect.element(page.getByTestId('count')).toHaveTextContent('3');
 	await page.getByRole('button', { name: 'add' }).click();
 	await expect.element(page.getByTestId('count')).toHaveTextContent('4');
-	// the stable name was never asked for
+	// the location was asked for, and the stable name never
+	expect(requested(COUNTER), 'the location was asked for').not.toHaveLength(0);
 	expect(requested('og-region.000000000aa5.js')).toHaveLength(0);
 });
