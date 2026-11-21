@@ -30,6 +30,18 @@ export function locate(html: string): DocumentSpans {
 }
 
 /**
+ * `parts` as one string, `parts.join('')` byte for byte, kept as a rope: the document's body
+ * injection (the tail, the seeds: a megabyte on a CMS page) is copied once, when Kit flattens the
+ * response, not first into a joined string and then again with the document.
+ */
+export function rope(parts: readonly string[]): string {
+	let out = '';
+	// oxlint-disable-next-line ogygia/no-string-concat -- a join flattens the parts into a copy that the document's own flatten copies again (~1 MB of scripts on a CMS page)
+	for (const part of parts) out += part;
+	return out;
+}
+
+/**
  * Put `head_inject` before `</head>` and `body_inject` before `</body>`, replacing the head slice
  * with `head` when the caller rewrote it (the deduped head; `null` = unchanged). A missing
  * injection point drops that injection (a streamed chunk without `</body>` gets no body work).

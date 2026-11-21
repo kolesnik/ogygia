@@ -92,7 +92,7 @@ import {
 import { F_CONTEXT, F_FRAMES, F_PAGE, F_REMOTE_SEEDS } from './contract/features.ts';
 import { HeadTags } from './server/head-presence.ts';
 import { page_code_origins } from './server/page-code-origins.ts';
-import { assemble, ogygia_script } from './server/document-assembly.ts';
+import { assemble, ogygia_script, rope } from './server/document-assembly.ts';
 import {
 	remote_seed_script,
 	ship_page_seed,
@@ -982,7 +982,7 @@ class OgygiaHandle {
 		const scripts: string[] = bag?.transform_body ? [bag.transform_body] : [];
 		if (!rendered) {
 			this.append_devtools_seed(scripts, bag);
-			return assemble(html, spans, head_out, head_inject, scripts.join(''));
+			return assemble(html, spans, head_out, head_inject, rope(scripts));
 		}
 
 		// Single page seed (PAGE-DUP) — islands read it through the `$app/state` shim. url/params/route
@@ -1062,7 +1062,7 @@ class OgygiaHandle {
 		this.append_devtools_seed(scripts, bag);
 		// ONE assembly from slices — no `replace` (whose `$$` escape would also corrupt an og.$ factory
 		// source carrying a literal `$`), no intermediate copies of the body.
-		const out = assemble(html, spans, head_out, head_inject, scripts.join(''));
+		const out = assemble(html, spans, head_out, head_inject, rope(scripts));
 		// OGYGIA'S OWN COST, for the profiler's request log (server/request-stats.ts): what this
 		// transform took and what it added. One WeakMap write — and none at all in an app without the
 		// profiler (the only reader), so no stats object per request there.
