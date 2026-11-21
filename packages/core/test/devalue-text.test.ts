@@ -89,7 +89,7 @@ const value_arb = fc.letrec((tie) => ({
 			() => 1,
 			Object(1),
 			{ seed: 1 },
-			// oxlint-disable-next-line unicorn/no-thenable -- a thenable prop: devalue's text of one, compared byte for byte
+			// oxlint-disable-next-line unicorn/no-thenable -- a thenable on purpose: devalue refuses one, and so must the writer
 			{ then: () => 1 },
 			JSON.parse('{"__proto__":1,"a":2}') as object
 		)

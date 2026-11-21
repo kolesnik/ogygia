@@ -10,7 +10,8 @@
 import { STALE } from '@ogygia/machine';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { RequestState } from './kit-request-store.ts';
-import * as devalue from 'devalue';
+import type * as devalue from 'devalue';
+import { devalue_text } from './devalue-text.ts';
 import { transport as app_transport } from 'ogygia:region';
 import { create_remote_key } from 'ogygia:server';
 import { analyze } from '../seed-refs.ts';
@@ -81,8 +82,7 @@ function seed_codecs(
 		const seed_reducers = { ...encoders, ...page_seed_reducers };
 		hit = {
 			seed_reducers,
-			seed_stringify: ((v: unknown) =>
-				devalue.stringify(v, seed_reducers)) as typeof devalue.stringify
+			seed_stringify: ((v: unknown) => devalue_text(v, seed_reducers)) as typeof devalue.stringify
 		};
 		seed_codec_cache.set(key, hit);
 	}
@@ -206,7 +206,7 @@ export async function remote_seed_script(
 	// devalue output is `<`-safe by itself (it writes `<`), so no second pass over the payload.
 	return ogygia_script(
 		'remote',
-		devalue.stringify(data, reducers),
+		devalue_text(data, reducers),
 		request ? `${RESPONSE_MARK}="${response_mark(request)}"` : ''
 	);
 }

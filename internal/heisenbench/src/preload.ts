@@ -3,7 +3,9 @@
  * runner adds it whenever this file exists). Outside Vite, the specifiers only the plugin or Kit
  * serve (`ogygia:*`, `$app/*`) resolve to the unit-test stubs in packages/core/test/_stubs,
  * the same ones packages/core/vitest.config.ts aliases: `$app/env` -> app-env.ts,
- * `ogygia:server/sign` -> server.sign.ts. And the hydrate core's `svelte` resolves to a stand-in
+ * `ogygia:server/sign` -> server.sign.ts; a stub's `.native` twin first, where one stands in for
+ * production's native work a browser test cannot load (server.region-endpoint.native.ts: the island
+ * fingerprint's SHA-1), so a bench counts what production runs. And the hydrate core's `svelte` resolves to a stand-in
  * for Svelte's client `hydrate` (svelte-hydrate.ts, below). And a bench page's island files, which a
  * browser fetches from the page's origin (runtime/code-origins.ts refuses any other), are the
  * stand-in island module, one instance per file: `<ISLAND_FILES><name>` -> island-module.ts?entry=<name>.
@@ -76,6 +78,8 @@ registerHooks({
 			});
 		const name = stub_name(specifier);
 		if (name === null) return next(specifier, context);
+		const native = new URL(`${name}.native.ts`, STUBS);
+		if (existsSync(native)) return { url: native.href, shortCircuit: true };
 		const file = new URL(`${name}.ts`, STUBS);
 		if (!existsSync(file))
 			throw new Error(`heisenbench preload: no stub for ${specifier} (expected ${file.pathname})`);

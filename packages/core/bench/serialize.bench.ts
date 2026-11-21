@@ -2,7 +2,6 @@
 // and the references islands make into it, and the document tail that writes them all out. Per
 // island and per page, on the palaestra's CMS page (twenty ~35 KB blocks, a ~300 KB header config).
 import { bench } from '@bench/heisenbench/bench';
-import { stringify } from 'devalue';
 import { encode_island_graph } from '../src/island-graph.ts';
 import { decode_island_graph } from '../src/island-graph-read.ts';
 import { measure } from '../src/seed-refs.ts';
@@ -10,6 +9,7 @@ import { SeedIndex, __heisenbench as seed_index } from '../src/seed-index.ts';
 import { DocumentTail } from '../src/server/document-tail.ts';
 import { region_fingerprint } from '../src/server/fingerprint.ts';
 import { PageSeed } from '../src/server/page-seed.ts';
+import { devalue_text } from '../src/server/devalue-text.ts';
 import { PropsWire, __heisenbench as props_wire } from '../src/server/props-wire.ts';
 import { encode_region_props } from '../src/server/region-props.ts';
 import { block, header, island_entry, page_of, page_tree, rich_block } from './fixtures.ts';
@@ -95,7 +95,10 @@ function clones_of(data: ReturnType<typeof page_tree>) {
 	return { data, props: data.catalog.blocks.map((b) => ({ block: structuredClone(b) })) };
 }
 
-bench('page seed: the JSON lane', ({ page }) => PageSeed.serialize(page, stringify, true), {
+/** The seed's devalue writer, as the handle hands it (server/document-seeds.ts `seed_codecs`). */
+const seed_text = ((v: unknown) => devalue_text(v, {})) as Parameters<typeof PageSeed.serialize>[1];
+
+bench('page seed: the JSON lane', ({ page }) => PageSeed.serialize(page, seed_text, true), {
 	setup: () => ({
 		page: {
 			url: { href: 'https://example.test/catalog' },
@@ -108,7 +111,7 @@ bench('page seed: the JSON lane', ({ page }) => PageSeed.serialize(page, stringi
 	scale: (ctx, k) => ({ page: { ...ctx.page, data: page_of(4 * k) } })
 });
 
-bench('page seed: the devalue lane', ({ page }) => PageSeed.serialize(page, stringify, false), {
+bench('page seed: the devalue lane', ({ page }) => PageSeed.serialize(page, seed_text, false), {
 	setup: () => ({
 		page: {
 			url: { href: 'https://example.test/catalog' },

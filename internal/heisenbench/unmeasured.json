@@ -854,11 +854,11 @@
 		},
 		{
 			"id": "packages/core/src/server/cache-control.ts > note_cache_control",
-			"reason": "the handle's note of the cache-control a load set: one header parse and one WeakMap set per page request (a Request, not cloneable), constant work"
+			"reason": "the handle: one cache-control header parsed per load that sets one, keyed by its Request (not cloneable), linear in the header; proven in packages/core/test/shared-cache.test.ts"
 		},
 		{
 			"id": "packages/core/src/server/shared-cache.ts > note_shared_lifetime",
-			"reason": "one WeakMap set per page request (a Request, not cloneable), constant work"
+			"reason": "one WeakMap set keyed by the page Request (not cloneable), constant work; proven in packages/core/test/shared-cache.test.ts"
 		},
 		{
 			"id": "packages/core/src/server/devalue-text.ts > devalue_text > <anonymous>~ff4f1a",
