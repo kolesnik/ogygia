@@ -297,6 +297,7 @@ export class DocumentTail {
 		return (
 			this.#hints.size === 0 &&
 			this.#graph.size === 0 &&
+			this.#load_code.size === 0 &&
 			this.#locations.size === 0 &&
 			this.#props.size === 0 &&
 			this.#holes.size === 0 &&
