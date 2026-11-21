@@ -809,7 +809,8 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 							server_handoff_json(
 								compiler.ssr_transformed_hosts(),
 								build_secret,
-								compiler.server_island_css_roots()
+								compiler.server_island_css_roots(),
+								compiler.server_word()
 							)
 						);
 					} catch (e) {

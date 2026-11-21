@@ -105,6 +105,9 @@ export class Program {
 	 *  chunk — or drag its imports into a client build whose server pass never saw them (a
 	 *  `.remote.ts` there fails Kit's "expected to find metadata" check). */
 	readonly ssr_transformed: Set<string> = new Set();
+	/** BUILD, server leg: the feature word its bundle was made with, set as
+	 *  `ogygia:server/runtime-flags` loads (null before), for the server handoff. */
+	server_word: number | null = null;
 	/** Every scanned file's facts, and the app-wide answers folded from them (./scan-facts.ts). */
 	readonly scan: ScanFacts = new ScanFacts();
 	/** Absolute paths of app modules that define a transportable class, in scan order. */

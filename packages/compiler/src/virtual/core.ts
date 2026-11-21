@@ -6,7 +6,8 @@ import {
 	generateHydrateFeaturesSource,
 	generateRuntimeEntrySource,
 	generateRuntimeFlagsSource,
-	generateServerFlagsSource
+	generateServerFlagsSource,
+	server_feature_word
 } from '../link/runtime-entry.ts';
 import { island_deps_module } from '../link/island-deps.ts';
 import { router_css_module } from '../link/router-css.ts';
@@ -197,6 +198,7 @@ export const server_flags: Family<ServerFlagsModule> = virtual.family({
 	load(app: CoreApp) {
 		if (!app.ctx.is_build) return generateServerFlagsSource({}, true);
 		app.prescan();
+		app.program.server_word = server_feature_word(app.program.runtime_marks);
 		return generateServerFlagsSource(app.program.runtime_marks);
 	}
 });

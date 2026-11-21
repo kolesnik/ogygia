@@ -91,6 +91,16 @@ describe('core’s boot modules', () => {
 		expect(build).toContain('load_wire_codec = () => import(');
 	});
 
+	it("the server's flags, as they load in a build, leave their word on the program for the handoff", () => {
+		const a = app({
+			ctx: BUILD,
+			program: { runtime_marks: { complete: true }, server_word: null }
+		});
+		const text = load('ogygia:server/runtime-flags', a, true)!;
+		expect(a.program.server_word).toBe(feature_word(resolveFeatures({ complete: true })));
+		expect(text).toContain(`HAS = ${a.program.server_word};`);
+	});
+
 	it('installs every hydrate feature in dev, from the runtime the app resolves (a workspace’s .ts source)', () => {
 		const pkg = fs.mkdtempSync(path.join(os.tmpdir(), 'og-devrt-'));
 		fs.mkdirSync(path.join(pkg, 'src/runtime'), { recursive: true });
