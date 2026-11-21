@@ -8,6 +8,7 @@
 //                                                        else the merge base with origin/main
 //   node internal/checks/new-comments.ts --base <rev>    against that revision
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,9 +32,7 @@ export interface Finding {
 const git = (cwd: string, args: string[]) =>
 	execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 1 << 28 });
 
-/** Each package source file the change touches, with the lines it adds (1-based, in the new file).
- *  A line the change only moves (its text, trimmed, is one the same diff removes) is not added:
- *  each removed line answers for one added line. */
+/** Each package source file the change touches, with the lines it adds (1-based, in the new file). */
 export function added_lines(root: string, base: string): Map<string, Set<number>> {
 	// what HEAD adds since it left `base` (as `base...HEAD`), not what `base` gained since
 	const from = git(root, ['merge-base', base, 'HEAD']).trim();
@@ -42,42 +41,41 @@ export function added_lines(root: string, base: string): Map<string, Set<number>
 		.filter((f) => SOURCE_RE.test(f) && !f.endsWith('.d.ts'));
 	const added = new Map<string, Set<number>>();
 	if (files.length === 0) return added;
-	const rows = git(root, ['diff', '-M', '-U0', '--no-color', from, 'HEAD']).split('\n');
-	const removed = new Map<string, number>();
-	for (const row of rows)
-		if (row.startsWith('-') && !row.startsWith('--- ')) {
-			const text = row.slice(1).trim();
-			removed.set(text, (removed.get(text) ?? 0) + 1);
-		}
 	let file = '';
-	let at = 0;
-	for (const row of rows) {
-		if (row.startsWith('+++ ')) {
-			file = row.slice(4).replace(/^b\//, '');
-			continue;
-		}
+	for (const row of git(root, ['diff', '-M', '-U0', '--no-color', from, 'HEAD']).split('\n')) {
+		if (row.startsWith('+++ ')) file = row.slice(4).replace(/^b\//, '');
 		const hunk = HUNK_RE.exec(row);
-		if (hunk) {
-			at = Number(hunk[1]);
-			continue;
-		}
-		if (!row.startsWith('+')) continue;
-		const line = at++;
-		if (!files.includes(file)) continue;
-		const text = row.slice(1).trim();
-		const moved = removed.get(text) ?? 0;
-		if (moved > 0) {
-			removed.set(text, moved - 1);
-			continue;
-		}
+		if (!hunk || !files.includes(file)) continue;
+		const start = Number(hunk[1]);
+		const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
 		let lines = added.get(file);
 		if (!lines) added.set(file, (lines = new Set()));
-		lines.add(line);
+		for (let i = 0; i < count; i++) lines.add(start + i);
 	}
 	return added;
 }
 
-/** The structured-comments findings that land on a line the change adds. */
+/** Every line the change removes from package source, each trimmed, in the diff's order. */
+function removed_text(root: string, base: string): string {
+	const from = git(root, ['merge-base', base, 'HEAD']).trim();
+	const out: string[] = [];
+	let file = '';
+	for (const row of git(root, ['diff', '-M', '-U0', '--no-color', from, 'HEAD']).split('\n')) {
+		if (row.startsWith('--- ')) file = row.slice(4).replace(/^a\//, '');
+		else if (row.startsWith('-') && SOURCE_RE.test(file)) out.push(row.slice(1).trim());
+	}
+	return out.join('\n');
+}
+
+/** A comment's text with each line trimmed: the same comment, wherever it is indented. */
+const trimmed = (text: string): string =>
+	text
+		.split('\n')
+		.map((l) => l.trim())
+		.join('\n');
+
+/** The structured-comments findings that land on a line the change adds, but for a comment the
+ *  change only moves: its whole text, each line trimmed, is text the same diff removes. */
 export function new_comment_findings(root: string, base: string): Finding[] {
 	const added = added_lines(root, base);
 	if (added.size === 0) return [];
@@ -93,15 +91,35 @@ export function new_comment_findings(root: string, base: string): Finding[] {
 		out = (e as { stdout: string }).stdout;
 	}
 	const report = JSON.parse(out) as {
-		diagnostics: { filename: string; message: string; labels: { span: { line: number } }[] }[];
+		diagnostics: {
+			filename: string;
+			message: string;
+			labels: { span: { line: number; offset: number; length: number } }[];
+		}[];
+	};
+	const removed = removed_text(root, base);
+	const texts = new Map<string, string>();
+	const text_of = (file: string) => {
+		let t = texts.get(file);
+		if (t === undefined) texts.set(file, (t = readFileSync(path.join(root, file), 'utf8')));
+		return t;
 	};
 	return report.diagnostics
 		.map((d) => ({
 			file: path.relative(root, path.resolve(root, d.filename)).replaceAll('\\', '/'),
 			line: d.labels[0]?.span.line ?? 0,
+			span: d.labels[0]?.span,
 			message: d.message
 		}))
 		.filter((f) => added.get(f.file)?.has(f.line))
+		.filter(
+			(f) =>
+				!f.span ||
+				!removed.includes(
+					trimmed(text_of(f.file).slice(f.span.offset, f.span.offset + f.span.length))
+				)
+		)
+		.map(({ file, line, message }) => ({ file, line, message }))
 		.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
 

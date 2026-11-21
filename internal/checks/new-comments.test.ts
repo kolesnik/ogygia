@@ -181,7 +181,6 @@ test('a comment moved into another file is not added; one written beside it is',
 	`;
 	const r = repo({ [A]: before, [B]: 'export const b = 2;' }, { [A]: ONE, [B]: after_b });
 	try {
-		assert.deepEqual([...(added_lines(r.dir, r.base).get(B) ?? [])], [5, 6]);
 		assert.deepEqual(
 			new_comment_findings(r.dir, r.base).map((f) => `${f.file}:${f.line}`),
 			[`${B}:5`]
