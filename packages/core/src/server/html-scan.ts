@@ -108,3 +108,16 @@ export function region_css_tags(head: string): string {
 	}
 	return out;
 }
+
+// oxlint-disable-next-line ogygia/one-markup-walk -- a byte-saving prefilter, never the rule: a false match only leaves the early start out, and the browser stands it down for a mark this misses (early-code.ts)
+const MARKS_CRITICAL_RE = /fetchpriority\s*=\s*["']?high/i;
+
+/**
+ * Whether a page's HTML before `end` marks a resource critical (`fetchpriority="high"`, any case,
+ * any quotes): the page gets no early start of its load wake's code (../early-code.ts). Text that
+ * only reads like the attribute counts too; it leaves the early start out, which costs nothing.
+ */
+export function marks_critical(html: string, end: number = html.length): boolean {
+	const found = MARKS_CRITICAL_RE.exec(html);
+	return found !== null && found.index < end;
+}

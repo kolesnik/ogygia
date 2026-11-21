@@ -1,6 +1,6 @@
 import { untrack } from 'svelte';
 import { island_graph_script, modulepreload_tag } from '#region-server';
-import { graph_hrefs, location_of } from './locate.ts';
+import { graph_hrefs, location_of, wake_hrefs } from './locate.ts';
 import type { IslandWire } from './island-wire.svelte.ts';
 import type { RegionPlan } from './plan.svelte.ts';
 
@@ -69,6 +69,7 @@ export class IslandGraph {
 		else if (!this.#rp.plan.csr && url) {
 			const hrefs = tail.graph_of(url) ?? this.hrefs;
 			if (hrefs.length) tail.graph(url, hrefs, island.fp, island.src);
+			if (island.wake.on === 'load') tail.load_island(island.src, hrefs, wake_hrefs);
 		}
 	}
 
