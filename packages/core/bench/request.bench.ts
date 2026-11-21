@@ -20,7 +20,7 @@ import { __heisenbench as hooks } from '../src/hooks.ts';
 import { record_page } from '../src/page-seed-registry.ts';
 import { facts_of } from '../src/plugin/facts.ts';
 import { json_culprit } from '../src/seed-refs.ts';
-import { SeedIndex, SeedRefPlan } from '../src/seed-index.ts';
+import { SeedIndex } from '../src/seed-index.ts';
 import { DocumentTail, document_tail } from '../src/server/document-tail.ts';
 import { remote_seed_script } from '../src/server/document-seeds.ts';
 import { __heisenbench as page_context, page_ctx_script } from '../src/server/page-context.ts';
@@ -443,7 +443,7 @@ bench(
 // every seed node of its byte size for its hash (same-shaped records share a size).
 bench(
 	'seed refs: a list island passed copies of the page’s products',
-	({ index, props }) => new SeedRefPlan(index, props).count,
+	({ index, props }) => index.plan(props).count,
 	{ setup: () => copies_of(2500), scale: (_ctx, k) => copies_of(250 * k) }
 );
 
@@ -582,7 +582,7 @@ bench('seed index: a page.data dictionary (prices by SKU)', ({ data }) => SeedIn
 
 bench(
 	'seed refs: copies of the page’s list and dictionary, each matched whole',
-	({ index, props }) => new SeedRefPlan(index, props).count,
+	({ index, props }) => index.plan(props).count,
 	{ setup: () => whole_copies(2500), scale: (_ctx, k) => whole_copies(250 * k) }
 );
 

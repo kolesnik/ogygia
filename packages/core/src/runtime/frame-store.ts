@@ -185,13 +185,11 @@ const flying = (a: string): boolean => store_host[STORE_KEY]?.flights.peek({ a }
 
 const live = (a: string): boolean => watcher_count(frame_id(a)) > 0 || flying(a);
 
-function entry(a: string): Entry {
-	const s = store();
-	const entries = s.entries;
-	let e = entries.peek(a);
+function entry(a: string, s: Store = store()): Entry {
+	let e = s.entries.peek(a);
 	if (!e) {
 		e = { answer: fsm.create(s.answers), part: null, renewed: null, refused: null };
-		entries.set(a, e);
+		s.entries.set(a, e);
 	}
 	return e;
 }
@@ -265,9 +263,9 @@ export function write(f: StoredFrame): boolean {
  * leaving never ends it. No-op if content or a fetch is already present.
  */
 export function reserve(a: string): void {
-	const e = entry(a);
-	if (shown_of(e) !== null || flying(a)) return;
 	const s = store();
+	const e = entry(a, s);
+	if (shown_of(e) !== null || flying(a)) return;
 	const part = (e.part = fsm.create(s.parts));
 	const landed = part.wait('landed').then((p) => (p === STALE ? STALE : p.html));
 	const settled = () => schedule_evict(a, e);
@@ -281,10 +279,11 @@ export function reserve(a: string): void {
  * joined heard it, and asks again past it. No-op if content or a fetch is already present.
  */
 export function start(a: string, fetcher: FrameFetcher, signal: AbortSignal): void {
-	const e = entry(a);
+	const st = store();
+	const e = entry(a, st);
 	if (shown_of(e) !== null || flying(a)) return;
 	const settled = () => schedule_evict(a, e);
-	store().flights.get({ a, work: fetcher }, { signal }).then(settled, settled);
+	st.flights.get({ a, work: fetcher }, { signal }).then(settled, settled);
 }
 
 /**
@@ -304,9 +303,10 @@ export function release(a: string): void {
  * stays; after the last unsubscribe it lingers EVICT_TTL then goes (unless re-bound).
  */
 export function subscribe(a: string, cb: (f: StoredFrame) => void): () => void {
-	const e = entry(a);
+	const st = store();
+	const e = entry(a, st);
 	const off = watch(frame_id(a), cb as (v: unknown) => void);
-	store().entries.set(a, e, HELD);
+	st.entries.set(a, e, HELD);
 	const s = shown_of(e);
 	if (s !== null) cb({ a, v: s.v, d: s.d, html: s.html });
 	return () => {
@@ -342,7 +342,7 @@ export async function ensure(
 ): Promise<VerifiedHtml | Stale> {
 	const { signal, priority } = opts;
 	const st = store();
-	const e = entry(a);
+	const e = entry(a, st);
 	let fresh = opts.force === true;
 	try {
 		for (;;) {
