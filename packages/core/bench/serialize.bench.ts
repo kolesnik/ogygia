@@ -3,9 +3,10 @@
 // island and per page, on the palaestra's CMS page (twenty ~35 KB blocks, a ~300 KB header config).
 import { bench } from '@bench/heisenbench/bench';
 import { stringify } from 'devalue';
-import { encode_island_graph, decode_island_graph } from '../src/island-graph.ts';
+import { encode_island_graph } from '../src/island-graph.ts';
+import { decode_island_graph } from '../src/island-graph-read.ts';
 import { measure } from '../src/seed-refs.ts';
-import { SeedIndex, SeedRefPlan, __heisenbench as seed_index } from '../src/seed-index.ts';
+import { SeedIndex, __heisenbench as seed_index } from '../src/seed-index.ts';
 import { DocumentTail } from '../src/server/document-tail.ts';
 import { region_fingerprint } from '../src/server/fingerprint.ts';
 import { PageSeed } from '../src/server/page-seed.ts';
@@ -70,7 +71,7 @@ bench(
 	({ data }) => {
 		const index = new SeedIndex(data, 96);
 		let count = 0;
-		for (const b of data.catalog.blocks) count += new SeedRefPlan(index, { block: b }).count;
+		for (const b of data.catalog.blocks) count += index.plan({ block: b }).count;
 		return count;
 	},
 	{ setup: () => ({ data: page_tree() }), scale: (_ctx, k) => ({ data: page_of(20 * k) }) }
@@ -81,7 +82,7 @@ bench(
 	({ data, props }) => {
 		const index = new SeedIndex(data, 96);
 		let count = 0;
-		for (const p of props) count += new SeedRefPlan(index, p).count;
+		for (const p of props) count += index.plan(p).count;
 		return count;
 	},
 	{

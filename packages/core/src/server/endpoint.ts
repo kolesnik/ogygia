@@ -143,26 +143,6 @@ export function is_region_id(s: string): boolean {
 	return is_lower_hex(s, 12);
 }
 
-/** {@link REGION_TTL_RE}: empty, or 1–7 ASCII digits, spelled as {@link is_signed_number}. */
-export function is_region_ttl(s: string): boolean {
-	return s === '' || is_signed_number(s, 7);
-}
-
-/**
- * A number in a signed region URL (`exp`, `ttl`) in its one spelling: 1 to `max` ASCII digits, no
- * leading zero ("0" itself aside), as ogygia mints it (`String(n)`). Any other spelling of the same
- * number (`+n`, `0n`, `n.0`, `1e3`, `0x…`) is another URL for one capability, refused as shape
- * before the MAC (test/capability-canonical-numbers.test.ts).
- */
-export function is_signed_number(s: string, max: number): boolean {
-	if (s.length === 0 || s.length > max || (s.length > 1 && s.charCodeAt(0) === 48)) return false;
-	for (let i = 0; i < s.length; i++) {
-		const c = s.charCodeAt(i);
-		if (c < 48 || c > 57) return false;
-	}
-	return true;
-}
-
 /** The most digits a capability's `exp` (unix seconds) has: past the year 33658. */
 export const REGION_EXP_DIGITS = 12;
 

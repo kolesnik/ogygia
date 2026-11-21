@@ -182,14 +182,13 @@ const flying = (a: string): boolean => store_host[STORE_KEY]?.flights.peek({ a }
 
 const live = (a: string): boolean => watcher_count(frame_id(a)) > 0 || flying(a);
 
-function entry(a: string): Entry {
-	const s = store();
-	const entries = s.entries;
-	let e = entries.peek(a);
-	if (!e) {
-		e = { answer: fsm.create(s.answers), part: null, renewed: null, refused: null };
-		entries.set(a, e);
-	}
+function entry(a: string, s: Store = store()): Entry {
+	let e = s.entries.peek(a);
+	if (!e)
+		s.entries.set(
+			a,
+			(e = { answer: fsm.create(s.answers), part: null, renewed: null, refused: null })
+		);
 	return e;
 }
 

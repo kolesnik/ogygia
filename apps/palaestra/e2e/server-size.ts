@@ -160,10 +160,18 @@ const SERVER_PROGRAMS: readonly { feature: string; bit: number; modules: readonl
 			'core/server/islands-endpoint',
 			'core/server/stream-regions',
 			'core/server/hole-graph',
-			'core/server/hole-urls'
+			'core/server/hole-urls',
+			// (the handle's and the endpoint's helpers, kept out of the chunk every server shares:
+			// rolldown fixes a shared chunk's exports before the word's folds)
+			'core/server/cache-control',
+			'core/server/capability-check',
+			'core/island-graph-read',
+			'core/early-hole-note'
 		]
 	},
 	{ feature: 'lakes', bit: 0x20, modules: ['core/LakeRegion.svelte'] },
+	// a held region's identity: a hole's and a lake's
+	{ feature: 'frames or lakes', bit: 0x10 | 0x20, modules: ['core/server/region-identity'] },
 	{
 		feature: 'live',
 		bit: 0x80,

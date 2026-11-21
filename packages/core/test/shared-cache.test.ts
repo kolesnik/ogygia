@@ -11,10 +11,9 @@ import {
 	document_shared_lifetime,
 	expiry_refusal,
 	mint_ttl_sec,
-	note_cache_control,
-	renewable_expiry,
-	shared_cache_lifetime
+	renewable_expiry
 } from '../src/server/shared-cache.ts';
+import { note_cache_control, shared_cache_lifetime } from '../src/server/cache-control.ts';
 import { PRERENDER_REGION_TTL_SEC, capability_expiry } from '../src/server/endpoint.ts';
 import { capability_expired, renewal_url } from '../src/runtime/region-endpoint-url.ts';
 

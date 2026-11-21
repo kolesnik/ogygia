@@ -160,10 +160,55 @@ export class SeedIndex {
 		return index;
 	}
 
-	/** The plan of `props` against this index: which of its nodes cross as references. (The props
-	 *  wire asks it here, so a server that never ships a seed never carries the plan.) */
-	plan(props: unknown): SeedRefPlan {
-		return new SeedRefPlan(this, props);
+	/**
+	 * One island's references, the plan of `props` against this index (the props wire asks it here,
+	 * so a server that never ships a seed never carries the plan): walk the props once, top-down,
+	 * largest matching ancestor first — identity first (a pointer lookup per node, no hashing), then
+	 * structure (hash + exact comparison, only for a large plain node the seed does not own, and only
+	 * against the seed nodes of exactly the same byte size — usually none, or one). Nodes under a
+	 * matched ancestor are never visited (they ride inside the reference), and neither is anything
+	 * under a node below `min_bytes` (no child of it can be referenced). The props' own measures
+	 * come from the request memo, so the plan adds no walk of its own beyond the pointer lookups.
+	 * @heisenbench linear in props
+	 */
+	plan(props: unknown, min_bytes = 96): SeedRefPlan {
+		const matched = new WeakMap<object, SeedPath>();
+		const keys = new Set<string>();
+		let count = 0;
+		if (this.size > 0) {
+			const memo = analysis(props).memo;
+			const hashed = new Map<object, { hash: string; bytes: number } | null>();
+			const seen = new Set<object>();
+			const hit = (v: object, path: SeedPath) => {
+				matched.set(v, path);
+				this.touched.add(String(path[0]));
+				keys.add(String(path[0]));
+				count++;
+			};
+			const visit = (v: unknown) => {
+				if (!is_plain(v) || seen.has(v)) return;
+				seen.add(v);
+				const by_id = this.path(v);
+				if (by_id) return hit(v, by_id);
+				const p = memo.get(v) ?? measure(v, memo);
+				const bytes = bytes_of(p);
+				if (bytes < min_bytes) return;
+				if (p & F_REF && this.candidates(bytes).length) {
+					const h = hash_subtree(v, hashed, new Set())?.hash ?? null;
+					const cand = h ? this.match(bytes, h) : undefined;
+					if (cand && deep_equal_plain(cand, v)) return hit(v, this.path(cand)!);
+				}
+				if (Array.isArray(v)) for (const item of v) visit(item);
+				else for (const key in v) visit((v as Record<string, unknown>)[key]);
+			};
+			visit(props);
+		}
+		return {
+			reducer: (value) =>
+				value === null || typeof value !== 'object' ? undefined : matched.get(value),
+			count,
+			keys
+		};
 	}
 
 	constructor(data: unknown, min_bytes: number) {
@@ -265,58 +310,12 @@ export class SeedIndex {
 	}
 }
 
-/**
- * One island's references: walk the props once, top-down, largest matching ancestor first —
- * identity first (a pointer lookup per node, no hashing), then structure (hash + exact comparison,
- * only for a large plain node the seed does not own, and only against the seed nodes of exactly the
- * same byte size — usually none, or one). Nodes under a matched ancestor are never visited (they
- * ride inside the reference), and neither is anything under a node below `min_bytes` (no child
- * of it can be referenced). The props' own measures come from the request memo, so the plan adds
- * no walk of its own beyond the pointer lookups.
- * @heisenbench linear in props
- */
-export class SeedRefPlan {
+/** One island's references: {@link SeedIndex.plan}. */
+export interface SeedRefPlan {
 	/** The devalue reducer for the `OgygiaSeedRef` type: `(value) => path | undefined`. */
 	readonly reducer: (value: unknown) => SeedPath | undefined;
 	/** How many props nodes will cross as references (0 = serialize the canonical text instead). */
 	readonly count: number;
 	/** The top-level `page.data` keys the references point into (this island's share of `touched`). */
-	readonly keys: Set<string> = new Set();
-
-	constructor(index: SeedIndex, props: unknown, min_bytes = 96) {
-		const matched = new WeakMap<object, SeedPath>();
-		const keys = this.keys;
-		let count = 0;
-		if (index.size > 0) {
-			const memo = analysis(props).memo;
-			const hashed = new Map<object, { hash: string; bytes: number } | null>();
-			const seen = new Set<object>();
-			const hit = (v: object, path: SeedPath) => {
-				matched.set(v, path);
-				index.touched.add(String(path[0]));
-				keys.add(String(path[0]));
-				count++;
-			};
-			const visit = (v: unknown) => {
-				if (!is_plain(v) || seen.has(v)) return;
-				seen.add(v);
-				const by_id = index.path(v);
-				if (by_id) return hit(v, by_id);
-				const p = memo.get(v) ?? measure(v, memo);
-				const bytes = bytes_of(p);
-				if (bytes < min_bytes) return;
-				if (p & F_REF && index.candidates(bytes).length) {
-					const h = hash_subtree(v, hashed, new Set())?.hash ?? null;
-					const cand = h ? index.match(bytes, h) : undefined;
-					if (cand && deep_equal_plain(cand, v)) return hit(v, index.path(cand)!);
-				}
-				if (Array.isArray(v)) for (const item of v) visit(item);
-				else for (const key in v) visit((v as Record<string, unknown>)[key]);
-			};
-			visit(props);
-		}
-		this.count = count;
-		this.reducer = (value) =>
-			value === null || typeof value !== 'object' ? undefined : matched.get(value);
-	}
+	readonly keys: Set<string>;
 }

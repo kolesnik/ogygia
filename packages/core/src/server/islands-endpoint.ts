@@ -27,7 +27,8 @@ import { absolutize_hole_html } from './hole-urls.ts';
 import { read_capped } from './capped-body.ts';
 import { KEEP_FALLBACK_HTML, is_keep_fallback } from '../keep-fallback.ts';
 import { kit_asset } from '../kit-paths.ts';
-import { region_sign, region_verify, type RegionClaim } from './hmac.ts';
+import { region_sign, type RegionClaim } from './hmac.ts';
+import { is_region_ttl, is_signed_number, region_verify } from './capability-check.ts';
 import { expiry_refusal } from './shared-cache.ts';
 import { app_lifetime } from './region-endpoint.ts';
 import { create_region_request, type RegionRequest } from './region-request.ts';
@@ -49,8 +50,6 @@ import {
 	MAX_REGION_PROPS_LEN,
 	REGION_CAPABILITY_VERSION,
 	is_region_id,
-	is_region_ttl,
-	is_signed_number,
 	REGION_EXP_DIGITS
 } from './endpoint.ts';
 import { batch_stream } from './stream-regions.ts';

@@ -95,7 +95,7 @@ const region_caps = cache<string, Capability>({ name: 'region capabilities', max
  * Not single-use, like v1/v2. `late_sec`: how long past its expiry it still checks (a renewal).
  * Lifetimes past the longest the app mints (prerender-grade) are refused.
  */
-function region_capability(secret: string, late_sec: number): Capability {
+export function region_capability(secret: string, late_sec: number): Capability {
 	const at = `${late_sec}|${secret}`;
 	let cap = region_caps.get(at);
 	if (cap === undefined) {
@@ -117,7 +117,15 @@ function region_capability(secret: string, late_sec: number): Capability {
 	return cap;
 }
 
-const claim_fields = (c: RegionClaim) => [c.id, c.payload, c.session, c.ttl, c.render, c.wakes];
+/** The claim's fields in the order the capability signs them. */
+export const claim_fields = (c: RegionClaim): string[] => [
+	c.id,
+	c.payload,
+	c.session,
+	c.ttl,
+	c.render,
+	c.wakes
+];
 
 /** Two lowercase-hex strings of one length, compared in constant time. */
 function hex_equal(a: string, b: string): boolean {
@@ -134,25 +142,4 @@ export function region_sign(
 ): string {
 	const token = region_capability(secret, 0).mintUntil(audience, claim_fields(claim), exp * 1000);
 	return token.slice(token.lastIndexOf('.') + 1);
-}
-
-/**
- * Does `sig` sign this region capability? `version` is the URL's `v`: `'3'` checks it through
- * capability() for `audience`; anything else is refused, a capability minted before v3 (no `v`)
- * among them: its page is an earlier build's, whose runtime cannot read this build's answer
- * (#1769). `late_sec`: a renewal's window past expiry.
- */
-export function region_verify(
-	secret: string,
-	audience: string,
-	version: string,
-	exp: string,
-	claim: RegionClaim,
-	sig: string,
-	late_sec = 0
-): boolean {
-	const at = Number(exp);
-	if (version !== REGION_CAPABILITY_VERSION || !Number.isSafeInteger(at) || at < 0) return false;
-	const token = `v${version}.${at * 1000}..${sig}`;
-	return region_capability(secret, late_sec).check(token, audience, claim_fields(claim)).ok;
 }

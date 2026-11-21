@@ -60,7 +60,7 @@ import { set_source_recorder } from './source.ts';
 import { building, dev } from '$app/env';
 import { kit_asset } from './kit-paths.ts';
 import { sign, verify, secret_has_min_entropy, MIN_SECRET_BYTES } from './server/hmac.ts';
-import { note_cache_control } from './server/shared-cache.ts';
+import { note_cache_control } from './server/cache-control.ts';
 import { app_lifetime, server_delta_on } from './server/region-endpoint.ts';
 import { install_server_rules, note_region_answer } from './server/rules.ts';
 import { ref_names, set_ref_names_reader, type RefNames } from './ref.ts';
@@ -101,8 +101,8 @@ import { code_origins } from './plugin/hooks.ts';
 import { locate, assemble, ogygia_script } from './server/document-assembly.ts';
 import { remote_seed_script, ship_page_seed, type ShippedSeed } from './server/document-seeds.ts';
 import { install_page_context, page_ctx_script } from './server/page-context.ts';
-import { error_route_is_csr_true, route_is_csr_true, take_early_holes } from './context.ts';
-import { early_holes_head } from './early-holes-head.ts';
+import { error_route_is_csr_true, route_is_csr_true } from './context.ts';
+import { early_holes_head, take_early_holes } from './early-holes-head.ts';
 import {
 	add_early_holes_csp,
 	EARLY_HOLES_SOURCE,

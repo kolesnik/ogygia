@@ -2,7 +2,8 @@
 // the original pattern over fuzzed inputs (tags, quotes, case, Unicode spaces, split markers).
 import { describe, expect, it } from 'vitest';
 import { escape_amp, escape_amp_quot, escape_attr, escape_text } from '../src/escape.ts';
-import { is_lower_hex, is_region_id, is_region_ttl } from '../src/server/endpoint.ts';
+import { is_lower_hex, is_region_id } from '../src/server/endpoint.ts';
+import { is_region_ttl } from '../src/server/capability-check.ts';
 
 function fuzz(n: number, pieces: string[], seed = 1): string[] {
 	let s = seed;

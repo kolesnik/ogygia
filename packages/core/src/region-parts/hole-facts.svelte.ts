@@ -5,12 +5,13 @@ import { island_graph_script, mint_server_region } from '#region-server';
 import { kit_page_version } from '../server/kit-context.ts';
 import { hole_copy_of } from '../contract/hash.ts';
 import { kit_asset } from '../kit-paths.ts';
-import { hole_identity, PropsWire, props_sidecar } from '../server/props-wire.ts';
+import { PropsWire, props_sidecar } from '../server/props-wire.ts';
+import { hole_identity } from '../server/region-identity.ts';
 import { record_server_event } from '../events/server-registry.ts';
 import { escape_attr } from '../escape.ts';
 import { OG_HOLE, OGYGIA_PROPS } from '../wire-markup.ts';
 import { warn } from '../messages/island.ts';
-import { note_early_hole } from '../context.ts';
+import { note_early_hole } from '../early-hole-note.ts';
 import { graph_hrefs, location_of } from './locate.ts';
 import type { RegionPlan } from './plan.svelte.ts';
 

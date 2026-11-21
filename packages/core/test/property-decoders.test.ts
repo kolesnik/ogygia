@@ -16,11 +16,8 @@ import { parse_wire_text } from '../src/runtime/wire-format.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
 import { load_devalue } from '../src/runtime/devalue-lane.ts';
 import { foreign_region_prop_revivers } from '../src/runtime/foreign-props.ts';
-import {
-	decode_island_graph,
-	decode_island_locations,
-	encode_island_graph
-} from '../src/island-graph.ts';
+import { encode_island_graph } from '../src/island-graph.ts';
+import { decode_island_graph, decode_island_locations } from '../src/island-graph-read.ts';
 
 link_boot();
 await load_devalue();

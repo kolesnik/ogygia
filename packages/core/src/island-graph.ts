@@ -17,7 +17,7 @@
  * portable snippet's live entry, imported by its identity — so the runtime loads the content-hashed
  * file (runtime/region-endpoint-url.ts `note_entry_location`); an element carries its own (`src`).
  *
- * Universal leaf: the server encodes (server/document-tail.ts), the boot decodes.
+ * Universal leaf: the server encodes (server/document-tail.ts), the boot decodes (./island-graph-read.ts).
  */
 
 /** The JSON shape a graph script carries. */
@@ -52,44 +52,4 @@ export function encode_island_graph(
 	}
 	if (!locations?.size) return JSON.stringify({ h, e } satisfies IslandGraphWire);
 	return JSON.stringify({ h, e, s: Object.fromEntries(locations) } satisfies IslandGraphWire);
-}
-
-/** Decode a graph script's `s`: entry identity → location, as written (unresolved). */
-export function decode_island_locations(text: string): Map<string, string> {
-	const out = new Map<string, string>();
-	let wire: IslandGraphWire;
-	try {
-		wire = JSON.parse(text) as IslandGraphWire;
-		// oxlint-disable-next-line ogygia/no-silent-failures -- a graph only steers preloads; without it each entry loads by its own import
-	} catch {
-		return out;
-	}
-	if (!wire || !wire.s || typeof wire.s !== 'object') return out;
-	for (const [entry, src] of Object.entries(wire.s))
-		if (typeof src === 'string') out.set(entry, src);
-	return out;
-}
-
-/** Decode a graph script's text: entry → chunk hrefs, as written (unresolved). Malformed → empty. */
-export function decode_island_graph(text: string): Map<string, string[]> {
-	const out = new Map<string, string[]>();
-	let wire: IslandGraphWire;
-	try {
-		wire = JSON.parse(text) as IslandGraphWire;
-		// oxlint-disable-next-line ogygia/no-silent-failures -- a graph only steers preloads; without it each entry loads by its own import
-	} catch {
-		return out;
-	}
-	if (!wire || !Array.isArray(wire.h) || !wire.e || typeof wire.e !== 'object') return out;
-	for (const entry of Object.keys(wire.e)) {
-		const ids = wire.e[entry];
-		if (!Array.isArray(ids)) continue;
-		const hrefs: string[] = [];
-		for (const i of ids) {
-			const href = wire.h[i];
-			if (typeof href === 'string') hrefs.push(href);
-		}
-		out.set(entry, hrefs);
-	}
-	return out;
 }
