@@ -135,7 +135,7 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 
 ## Decoders: text turned into values (JSON, devalue, base64, URI escapes)
 
-102 entries.
+103 entries.
 
 | file | in | what | n |
 | --- | --- | --- | --- |
@@ -155,6 +155,7 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/compiler/src/vite/index.ts` | `ogygia` | `JSON.parse` | 1 |
 | `packages/compiler/src/vite/package-files.ts` | `read_manifest` | `JSON.parse` | 1 |
 | `packages/core/src/contract/core-files.ts` | `(module)` | `JSON.parse` | 1 |
+| `packages/core/src/early-code.ts` | `start_early_code` | `JSON.parse` | 1 |
 | `packages/core/src/early-holes.ts` | `start_early_holes` | `JSON.parse` | 1 |
 | `packages/core/src/events/sinks.ts` | `ingest_server_events` | `JSON.parse` | 1 |
 | `packages/core/src/head-owners.ts` | `adopt_owner_record` | `JSON.parse` | 1 |
