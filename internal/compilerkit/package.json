@@ -9,6 +9,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./alloc": "./src/alloc.ts",
+		"./checker": "./src/checker.ts",
 		"./comptime": "./src/comptime.ts",
 		"./decisions": "./src/decisions.ts",
 		"./machine": "./src/machine.ts",

@@ -4,12 +4,14 @@
  * The build reads the definition (its steps written in place, or a module const of an object
  * literal, `as const` or not), refuses what `runDef` would refuse at runtime, and writes:
  *
- *   RULES ? runDef({ …as written… }) : compiledRunDef('hole', ['idle', 'armed', …], 0, [6, 5, …], [timeouts])
+ *   RULES ? runDef({ …as written… }) : compiledRunDef('hole', 6, 0, [6, 5, …], [timeouts])
  *
- * so a production build carries the definition as data (its states' names, its initial state's
- * int, each state's steps as bitmasks, its timeouts) and none of `runDef`'s reading or checks, while
- * dev and rules builds (tests, e2e, the simulator) keep `runDef` itself: its checks, `graph()` and
- * `paths()`, and the moves its observers hear, as before.
+ * so a production build carries the definition as data (how many states it has, its initial
+ * state's int, each state's steps as bitmasks, its timeouts), no state names, and none of
+ * `runDef`'s reading or checks, while dev and rules builds (tests, e2e, the simulator) keep `runDef`
+ * itself: its checks, `graph()` and `paths()`, and the moves its observers hear, by name. Its
+ * machines' call sites are compiled to its states' ints the same way (./machine-sites.ts), so a
+ * definition compiles only where the build reads the package's types (./machine-types.ts).
  *
  * Refused at build: a call that is not `$machine<S>()({ … })` with one object literal; a `name` or
  * `initial` that is not a string literal; steps that are not an object literal of arrays of string
@@ -23,6 +25,7 @@ import { code, type N, type Pass, type Visit } from 'ogygia-internal-compilerkit
 import type { Scope } from 'periscopic';
 import type { Compiler } from './compiler.ts';
 import { GATES } from './gates.ts';
+import { compile_sites } from './machine-sites.ts';
 
 /** Where the runtime the output calls lives. */
 export const MACHINE_RUNTIME = '@ogygia/machine';
@@ -63,6 +66,7 @@ export class MachinePass implements Pass<Scope> {
 		const config = node.arguments[0];
 		if (config.type !== 'ObjectExpression') c.report.fail(config, SHAPE);
 		const read = read_machine(this.#c, config);
+		this.#typed(node, read);
 		const e = this.#c.emitter;
 		const define = e.imported(MACHINE_RUNTIME, 'runDef');
 		const compiled = e.imported(MACHINE_RUNTIME, 'compiledRunDef');
@@ -70,9 +74,30 @@ export class MachinePass implements Pass<Scope> {
 		const timed = read.timed.map(
 			(t) => `[${t.state}, ${e.text(t.ms)}, ${t.to}${t.data === null ? '' : `, ${e.text(t.data)}`}]`
 		);
-		const data = `${JSON.stringify(read.name)}, ${JSON.stringify(read.names)}, ${read.initial}, [${read.masks.join(', ')}]${timed.length === 0 ? '' : `, [${timed.join(', ')}]`}`;
+		const data = `${JSON.stringify(read.name)}, ${read.names.length}, ${read.initial}, [${read.masks.join(', ')}]${timed.length === 0 ? '' : `, [${timed.join(', ')}]`}`;
 		e.rewrite(node, code`(${rules} ? ${define}(${config}) : ${compiled}(${data}))`);
 		return true;
+	}
+
+	/** A definition compiles only where the build reads types: its machines' call sites are
+	 *  compiled to the ints its states have here, which the types must number alike. */
+	#typed(node: N, read: ReadMachine): void {
+		const { types, path } = this.#c.options;
+		if (types === undefined || path === undefined)
+			this.#c.report.fail(
+				node,
+				`machine ${read.name}: a $machine definition compiles only with the package's types (the macros' \`types\` option): a production build moves its machines by int, so each call site's machine is read from types.`
+			);
+		const typed = types.definition(path, this.#c.report.code, node.start, node.end);
+		if (typed === null || typed.names.join() !== read.names.join())
+			this.#c.report.fail(
+				node,
+				`machine ${read.name}: its types number its states ${typed === null ? 'not at all' : `as ${typed.names.join(', ')}`}, its steps as ${read.names.join(', ')}: write its steps as an object of its states, in one order.`
+			);
+	}
+
+	done(): void {
+		compile_sites(this.#c);
 	}
 }
 

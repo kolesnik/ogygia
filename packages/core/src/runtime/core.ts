@@ -98,7 +98,6 @@ import {
 	type Live,
 	type Paint,
 	type RegionLife,
-	type RegionMachinesNow,
 	type Wake
 } from './region-machines.ts';
 import { KEEP_FALLBACK_HTML } from '../keep-fallback-marker.ts';
@@ -983,7 +982,7 @@ class OgygiaRegion extends HTMLElement {
 	}
 
 	#answered(kind: 'answered' | 'kept'): void {
-		this.#answer.go(kind);
+		this.#answer.go(kind === 'kept' ? 'kept' : 'answered');
 		const hole = this.#hole.kind;
 		if (hole === 'armed' || hole === 'retrying' || hole === 'offline' || hole === 'failed')
 			this.#hole.go('idle');
@@ -996,15 +995,6 @@ class OgygiaRegion extends HTMLElement {
 
 	#painted(painting: number): void {
 		if (this.#paint.epoch === painting) this.#paint.go('idle');
-	}
-
-	#machines(): RegionMachinesNow {
-		return {
-			hole: this.#hole_run?.kind ?? REGION_REST.hole,
-			wake: this.#wake.kind,
-			'live-region': this.#live_run?.kind ?? REGION_REST['live-region'],
-			'region-paint': this.#paint_run?.kind ?? REGION_REST['region-paint']
-		};
 	}
 
 	async #apply(html: VerifiedHtml, turn: Turn, v?: number) {
@@ -1473,7 +1463,14 @@ class OgygiaRegion extends HTMLElement {
 		if (this.#wake.kind !== 'cold') this.#wake.go('cold');
 		const paint = this.#paint_run;
 		if (paint !== null && paint.kind !== 'idle') paint.go('idle');
-		note_left(this, () => busy_machines(this.#machines()));
+		note_left(this, () =>
+			busy_machines({
+				hole: this.#hole_run?.kind ?? REGION_REST.hole,
+				wake: this.#wake.kind,
+				'live-region': this.#live_run?.kind ?? REGION_REST['live-region'],
+				'region-paint': this.#paint_run?.kind ?? REGION_REST['region-paint']
+			})
+		);
 		this.#life.close();
 		this.#region.go('detached', detached());
 		if (this.#app) {

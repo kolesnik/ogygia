@@ -179,7 +179,7 @@ function check_soon(): void {
 }
 
 /** Rules on: checked after each response, and what broke is said with its code. */
-export function install_server_rules(): void {
+export const install_server_rules: () => void = $rules(function install_server_rules(): void {
 	if (installed) return;
 	installed = true;
 	server_rules.add('rule_request_scope_open', request_scopes_closed);
@@ -208,7 +208,7 @@ export function install_server_rules(): void {
 	// browser's `__ogygia_moves()` (../runtime/rules.ts), under a symbol a process keeps one of
 	const moves = trace({ max: SERVER_MOVES });
 	(globalThis as Record<symbol, unknown>)[Symbol.for('ogygia.server.moves')] = () => moves.text();
-}
+});
 
 /** Moves the server's trace keeps: many requests' worth between two reads. */
 const SERVER_MOVES = 5000;

@@ -9,6 +9,9 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { macroPlugin, notSource } from 'ogygia-internal-compilerkit';
 import { compile, type CompileResult, type Mode } from './compile.ts';
+import { MachineTypes } from './machine-types.ts';
+
+export { MachineTypes };
 
 /** The plugin's options. */
 export interface MacroOptions {
@@ -22,6 +25,9 @@ export interface MacroOptions {
 	readonly root?: string;
 	/** Only files under these folders (absolute) are compiled. */
 	readonly roots?: ReadonlyArray<string>;
+	/** The package's types, read once per build: its tsconfig (absolute), or one shared reading
+	 *  (`MachineTypes`). A package that defines `$machine` machines needs them. */
+	readonly types?: string | MachineTypes;
 }
 
 /** An absolute target as a `./`-relative import from `file`; a bare specifier stays. */
@@ -52,6 +58,7 @@ export function ogygia_macros(
 	const mode = options.mode ?? 'dev';
 	const root = options.root ?? process.cwd();
 	const roots = options.roots?.map((r) => (r.endsWith(sep) ? r : r + sep));
+	const types = typeof options.types === 'string' ? new MachineTypes(options.types) : options.types;
 	return macroPlugin<CompileResult>({
 		name: 'ogygia-macros',
 		skip: (file) =>
@@ -63,7 +70,8 @@ export function ogygia_macros(
 				mode,
 				runtime: specifier(file, options.runtime),
 				path: file,
-				reference: specifier(file, options.reference ?? options.runtime)
+				reference: specifier(file, options.reference ?? options.runtime),
+				types
 			})
 	});
 }

@@ -19,6 +19,7 @@ import {
 	type Pass
 } from 'ogygia-internal-compilerkit';
 import type { Scope } from 'periscopic';
+import type { MachineTypes } from './machine-types.ts';
 import { MACROS } from './macros.ts';
 
 export type { Mode };
@@ -32,6 +33,9 @@ export interface CompileOptions {
 	readonly reference: string;
 	/** The file's absolute path: the marks of the modules it imports are read from it. */
 	readonly path?: string;
+	/** The package's types (./machine-types.ts): which `$machine` definition a call site belongs
+	 *  to. A file that defines a machine, or calls one, compiles only with them. */
+	readonly types?: MachineTypes;
 }
 
 /** A compiled file. */
@@ -67,6 +71,9 @@ export class Compiler {
 	readonly emitter: Emitter;
 	/** The macros the file uses (read from the tree: a comment or a string names none). */
 	readonly uses: ReadonlySet<string>;
+	/** The spans of code that runs only behind a gate: a marked function's body, a gated call (the
+	 *  gates' pass fills it as it meets them). */
+	readonly gated: Array<{ readonly start: number; readonly end: number }> = [];
 	readonly #passes: ReadonlyArray<Pass<Scope>>;
 
 	/** A cheap text test before parsing: false means the file surely uses no macro. */

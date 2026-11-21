@@ -23,7 +23,7 @@
  */
 import { machine_error, warn_once } from './messages.ts';
 import { noop } from './noop.ts';
-import { define as define_run, heard, made, RULES, Run, watch_moves, type Def } from './run.ts';
+import { define as define_run, heard, made, Named, RULES, watch_moves, type Def } from './run.ts';
 import { CLOSED, SCOPED, type Scope } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
@@ -205,7 +205,7 @@ export { heard };
  * A machine as `machine()` hands it out: the runtime record, whose methods are `Machine`'s; each
  * visit's life is a public scope, the same through the visit.
  */
-class Running extends Run {
+class Running extends Named {
 	get scope(): Scope {
 		const life = this._life as unknown as Scope | null;
 		if (life !== null) return life;
@@ -226,7 +226,7 @@ export function machine<S extends Shape<S>>(): <const T extends Steps<S>, const 
 
 function define(config: Parameters<typeof define_run>[0]): object {
 	const def = define_run(config, true, SCOPED);
-	const initial = def.names[def.initial]!;
+	const initial = names_of(def)[def.initial]!;
 	return Object.freeze({
 		name: def.name,
 		initial,
@@ -255,11 +255,17 @@ function drawn_off(): never {
 	throw machine_error('machine_graph_off', {});
 }
 
+/** A definition's state names: a compiled one has none to draw (as a production build). */
+function names_of(def: Def): readonly string[] {
+	return def.names ?? drawn_off();
+}
+
 function graph_of(def: Def): MachineGraph {
+	const names = names_of(def);
 	return {
 		name: def.name,
-		initial: def.names[def.initial]!,
-		states: def.names.map((kind, k) => {
+		initial: names[def.initial]!,
+		states: names.map((kind, k) => {
 			const timed = def.after[k];
 			return {
 				kind,
@@ -268,15 +274,15 @@ function graph_of(def: Def): MachineGraph {
 				after:
 					timed === null || timed === undefined
 						? null
-						: { to: def.names[timed.to]!, ms: typeof timed.ms === 'number' ? timed.ms : null }
+						: { to: names[timed.to]!, ms: typeof timed.ms === 'number' ? timed.ms : null }
 			};
 		})
 	};
 }
 
-function next_of(def: Def, from: number): number[] {
+function next_of(def: Def, names: readonly string[], from: number): number[] {
 	const out: number[] = [];
-	for (const to of def.steps[def.names[from]!]!) {
+	for (const to of def.steps[names[from]!]!) {
 		const t = def.ids[to];
 		if (t !== undefined && !out.includes(t)) out.push(t);
 	}
@@ -286,19 +292,20 @@ function next_of(def: Def, from: number): number[] {
 /** For each step, the shortest path from `initial` that reaches its state and then takes it. */
 function paths_of(def: Def): string[][] {
 	// the shortest way to each state (breadth first)
+	const names = names_of(def);
 	const start = def.initial;
-	const way = new Map<number, string[]>([[start, [def.names[start]!]]]);
+	const way = new Map<number, string[]>([[start, [names[start]!]]]);
 	const queue = [start];
 	while (queue.length > 0) {
 		const k = queue.shift() as number;
-		for (const to of next_of(def, k))
+		for (const to of next_of(def, names, k))
 			if (!way.has(to)) {
-				way.set(to, [...(way.get(k) as string[]), def.names[to]!]);
+				way.set(to, [...(way.get(k) as string[]), names[to]!]);
 				queue.push(to);
 			}
 	}
 	const out: string[][] = [];
 	for (const [k, path] of way)
-		for (const to of next_of(def, k)) out.push([...path, def.names[to]!]);
+		for (const to of next_of(def, names, k)) out.push([...path, names[to]!]);
 	return out;
 }

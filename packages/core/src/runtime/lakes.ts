@@ -100,7 +100,7 @@ export class LakeState {
 	/** May the regions authored in this lake run (its content is in, or it never gets any)? */
 	lake_settled(el: Element): boolean {
 		const m = this.#lakes.get(el);
-		const kind = m === undefined ? undefined : m.kind;
+		const kind = m?.kind;
 		return kind === 'settled' || kind === 'settling';
 	}
 

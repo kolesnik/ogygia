@@ -6,4 +6,4 @@ const toggle = $machine<{ off: {}; on: {} }>()({ name: 'fold-toggle', initial: '
 
 const m = createRun(toggle);
 m.go('on');
-export const now: string = m.kind;
+export const on: boolean = m.kind === 'on';

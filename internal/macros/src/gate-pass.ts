@@ -62,6 +62,7 @@ export class GatePass implements Pass<Scope> {
 				statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement,
 				d.fn
 			);
+			if (Object.hasOwn(GATE_MARKS, d.mark)) this.#c.gated.push(d.fn);
 		}
 		if (options.path !== undefined) {
 			for (const [local, mark] of imported_marks(options.path, program))
@@ -164,6 +165,7 @@ export class GatePass implements Pass<Scope> {
 		if (mark === undefined || v.scope.find_owner(callee.name) !== this.#c.tracker.root)
 			return false;
 		gated(this.#c.emitter, node, GATES.get(GATE_MARKS[mark]!)!);
+		this.#c.gated.push(node);
 		v.next();
 		return true;
 	}
