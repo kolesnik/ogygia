@@ -29,7 +29,7 @@
  * Universal module (no Node imports): Region.svelte imports it on both legs; nothing here runs on
  * the client.
  */
-import { stringify } from 'devalue';
+import { devalue_text } from './devalue-text.ts';
 import { escape_script_text } from '../escape.ts';
 import { REF_WIRE_KEY, placed, ref_reducer } from '../ref.ts';
 import { register_wire_kind } from '../live-transport.ts';
@@ -90,7 +90,7 @@ export function stringify_props(
 					return ref;
 				}
 			: minted;
-		return stringify(value, reducers);
+		return devalue_text(value, reducers);
 	} catch (e) {
 		const detail = e instanceof Error ? e.message : String(e);
 		throw new OgygiaError('prop_not_serializable', { entry, detail });
