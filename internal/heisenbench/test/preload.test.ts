@@ -33,7 +33,8 @@ test('the region bench renders Region for real, not a thrown $derived', () => {
 	assert.doesNotMatch(out, /is not defined/);
 });
 
-test("a bench that reaches core's built runes modules (.svelte.js) runs: Heisenbench compiles them, once", () => {
+/** `heisenbench run` of `fixtures` (in order) in one process, with the preload: what it said. */
+function bench_run(...fixtures: string[]): string {
 	const engine = heisenbench_dir();
 	link_heisenbench(engine);
 	const out = mkdtempSync(join(tmpdir(), 'og-preload-'));
@@ -44,7 +45,7 @@ test("a bench that reaches core's built runes modules (.svelte.js) runs: Heisenb
 			PRELOAD,
 			join(engine, 'src', 'cli.ts'),
 			'run',
-			fileURLToPath(new URL('./fixtures/built-runes.bench.ts', import.meta.url)),
+			...fixtures.map((f) => fileURLToPath(new URL(`./fixtures/${f}`, import.meta.url))),
 			'--root',
 			REPO_ROOT,
 			'--out',
@@ -52,7 +53,18 @@ test("a bench that reaches core's built runes modules (.svelte.js) runs: Heisenb
 		],
 		{ encoding: 'utf8', cwd: REPO_ROOT }
 	);
-	const said = `${r.stdout}${r.stderr}`;
+	return `${r.stdout}${r.stderr}`;
+}
+
+test("a bench that reaches core's built runes modules (.svelte.js) runs: Heisenbench compiles them, once", () => {
+	const said = bench_run('built-runes.bench.ts');
 	assert.doesNotMatch(said, /FAILED/);
 	assert.match(said, /^ok\s+a built runes module/m);
+});
+
+test("each bench file of a run loads in Node's own world: a browser an earlier file installed is gone", () => {
+	const said = bench_run('world-browser.bench.ts', 'world-server.bench.ts');
+	assert.doesNotMatch(said, /FAILED/);
+	assert.match(said, /^ok\s+a file that installs a browser runs in it/m);
+	assert.match(said, /^ok\s+a later file loads in Node's own world/m);
 });
