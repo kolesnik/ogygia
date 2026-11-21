@@ -21,10 +21,6 @@
 			"reason": "runs in the browser only, inline in a page: adds one link, at most once per file; proven in packages/core/test/browser/early-code.test.ts"
 		},
 		{
-			"id": "packages/core/src/region-parts/locate.ts > wake_hrefs",
-			"reason": "once per document (the first island that wakes at load): the handoff's first-wake files through Kit's asset(); proven in packages/core/test/document-tail.test.ts"
-		},
-		{
 			"id": "packages/core/src/region-parts/locate.ts > wake_hrefs > map:0~a923dd",
 			"reason": "once per document: one asset() per first-wake file; proven in packages/core/test/document-tail.test.ts"
 		},
@@ -6795,6 +6791,10 @@
 		{
 			"id": "packages/machine/src/run.ts > checked_data",
 			"reason": "dev builds only (DEV): refuses a state's data that carries its own kind, one own-property test per move"
+		},
+		{
+			"id": "packages/machine/src/run.ts > label",
+			"reason": "error paths only: names a state in a refusal's or a failed timeout's message (one key, as a string), constant work; its input is a definition (functions: not cloneable); proven in packages/machine/test/after.test.ts and packages/machine/test/machine.test.ts"
 		},
 		{
 			"id": "packages/machine/src/run.ts > check",
