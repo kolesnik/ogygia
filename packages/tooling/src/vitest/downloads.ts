@@ -13,7 +13,7 @@
  */
 import { expect, onTestFinished } from 'vitest';
 
-/** The size a browser gives a page's resource timeline. */
+// @why a browser's resource timeline holds 250 entries by default and drops each one after (test: packages/core/test/browser/hydrate-visit.test.ts › a region put back while its island loads mounts it once)
 const TIMELINE_SIZE = 250;
 
 /** The running test starts with its page's resource timeline full, as a dev run's frame often does,
