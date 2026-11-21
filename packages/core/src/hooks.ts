@@ -58,11 +58,11 @@ import {
 } from './server/render-page.ts';
 import { set_source_recorder } from './source.ts';
 import { building, dev } from '$app/env';
-import { kit_asset } from './kit-paths.ts';
+import { kit_asset, set_asset_request_reader } from './kit-paths.ts';
 import { sign, verify, secret_has_min_entropy, MIN_SECRET_BYTES } from './server/hmac.ts';
 import { note_cache_control } from './server/cache-control.ts';
 import { app_lifetime, server_delta_on } from './server/region-endpoint.ts';
-import { install_server_rules, note_region_answer } from './server/rules.ts';
+import { install_server_rules, note_kit_asset, note_region_answer } from './server/rules.ts';
 import { ref_names, set_ref_names_reader, type RefNames } from './ref.ts';
 import type { RequestContext } from './plugin/index.ts';
 import { current_facts, facts_of, set_current_request, type RequestFacts } from './plugin/facts.ts';
@@ -271,6 +271,7 @@ set_measure_memo_reader(() => bag_of()?.measure_memo ?? null);
 configure_render_page({ warn: dev ? (m) => console.warn(m) : null });
 
 set_kit_event_reader(live_event);
+set_asset_request_reader(() => KitRequestStore.state(), RULES ? note_kit_asset : null);
 /** Does this hole's server tree read `page.data` (the build's answer; unknown in dev → yes). */
 const hole_reads_page_data = (id: string): boolean =>
 	region_reads_page_data === null || region_reads_page_data[id] !== false;

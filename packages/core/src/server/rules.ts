@@ -12,6 +12,8 @@
  * - `rule_capability_not_path`: every minted capability URL is a same-origin path.
  * - `rule_hole_page_read_unpredicted`: a render whose page look-up the build skipped (seed shaping
  *   said its tree reads no `page.data`) reads no key of it.
+ * - `rule_asset_not_prefixed`: Kit's `asset()` answers a plain path, within one request, as one
+ *   prefix and the path (../kit-paths.ts asks it once per request on that rule).
  *
  * Each area tells this module what it holds (`note_response_end`) only when rules are on: every call
  * site folds out of a build without them.
@@ -30,7 +32,8 @@ type ServerRule =
 	| 'rule_kept_unkeyed_read'
 	| 'rule_region_answer_shared'
 	| 'rule_capability_not_path'
-	| 'rule_hole_page_read_unpredicted';
+	| 'rule_hole_page_read_unpredicted'
+	| 'rule_asset_not_prefixed';
 
 /** The few breaks found so far (10 each, at most). */
 class Breaks {
@@ -39,6 +42,7 @@ class Breaks {
 	/** The first capability URLs minted with more than a path (CAPABILITY-URL, HOLE-TRUST). */
 	readonly mints: string[] = [];
 	readonly hole_reads: string[] = [];
+	readonly assets: string[] = [];
 }
 const B = new Breaks();
 
@@ -86,6 +90,14 @@ export function note_hole_page_read(path: string, key: string): void {
 	if (!installed) return;
 	const said = `page.data.${key} on ${path}`;
 	if (B.hole_reads.length < 10 && !B.hole_reads.includes(said)) B.hole_reads.push(said);
+	check_soon();
+}
+
+/** An asset URL made as the request's prefix and the path: one Kit's `asset()` answers otherwise
+ *  breaks the rule. */
+export function note_kit_asset(path: string, ours: string, kits: string): void {
+	if (!installed || ours === kits) return;
+	if (B.assets.length < 10) B.assets.push(`${path}: ${ours}, Kit's ${kits}`);
 	check_soon();
 }
 
@@ -180,6 +192,7 @@ export function install_server_rules(): void {
 	server_rules.add('rule_hole_page_read_unpredicted', () =>
 		B.hole_reads.length ? B.hole_reads.join('; ') : null
 	);
+	server_rules.add('rule_asset_not_prefixed', () => (B.assets.length ? B.assets.join('; ') : null));
 	// a flight's entry moving to `kept` with an error, or a render that read what its key does not
 	// cover, for its answer (flights' machine, @ogygia/machine), and out of it again
 	observe((name, _from, to, machine) => {
