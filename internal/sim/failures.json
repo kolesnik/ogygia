@@ -2361,7 +2361,7 @@
 			"name": "on the endpoint (the hole is the render root): the branded signal, as before"
 		},
 		{
-			"site": "packages/core/src/kit-paths.ts > kit_asset > catch:0",
+			"site": "packages/core/src/kit-paths.ts > kit_call > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
 			"test": "packages/core/test/seed-refs.test.ts",
 			"name": "page pass + tail rendered against the seed: a props subtree that is a seed node becomes a reference"
