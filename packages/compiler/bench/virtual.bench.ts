@@ -76,8 +76,16 @@ function compiler(root: string, is_dev: boolean): Compiler {
 		kit_wire_path: '/nowhere/kit/shared.js',
 		client_binding_stub_file: '/nowhere/stub.js',
 		app_shims: {},
-		client_plugins: [{ name: 'p', module: '/nowhere/plugin/client.js' }],
-		server_plugins: [{ name: 'p', module: '/nowhere/plugin/server.js', options: {} }],
+		client_plugins: [
+			{
+				name: 'p',
+				module: '/nowhere/plugin/client.js',
+				hooks: ['regionMount', 'regionHydrated', 'navigated']
+			}
+		],
+		server_plugins: [
+			{ name: 'p', module: '/nowhere/plugin/server.js', options: {}, hooks: ['measures'] }
+		],
 		measure: true,
 		devtools: false
 	};
@@ -247,8 +255,6 @@ bench('virtual constants: the define map of two option sets, and their generated
 		devtools: false,
 		devtools_lazy: false,
 		rules: false,
-		client_plugins: false,
-		hooks: [],
 		kit_major: null,
 		version: '0.0.0',
 		dev_server: false,
@@ -260,8 +266,6 @@ bench('virtual constants: the define map of two option sets, and their generated
 		devtools: true,
 		devtools_lazy: true,
 		rules: true,
-		client_plugins: true,
-		hooks: ['regionMount', 'regionHydrated', 'navigated'],
 		kit_major: 3,
 		version: '1.2.3',
 		dev_server: true,
