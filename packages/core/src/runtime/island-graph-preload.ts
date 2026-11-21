@@ -2,6 +2,7 @@ import { decode_island_graph, decode_island_locations } from '../island-graph-re
 import { OGYGIA_GRAPH, OGYGIA_GRAPH_PRELOAD } from '../wire-markup.ts';
 import { note_entry_location } from './entry-locations.ts';
 import { code_url } from './code-origins.ts';
+import { resolved_urls } from './resolved-url.ts';
 import { lru } from '@ogygia/machine';
 import { runtime_session } from './session.ts';
 
@@ -20,12 +21,7 @@ function priority_of(link: HTMLLinkElement): Priority {
 }
 
 function absolute(href: string, base: string): string | null {
-	try {
-		return new URL(href, base).href;
-		// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: no preload for it
-	} catch {
-		return null;
-	}
+	return resolved_urls.resolve(href, base)?.href ?? null;
 }
 
 /** Merge one graph script's text; hrefs resolve against `base` (the document the text came from).

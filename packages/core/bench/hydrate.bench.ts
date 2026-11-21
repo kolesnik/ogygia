@@ -21,6 +21,7 @@
 import {
 	cms_page,
 	edit_while_asleep,
+	graph_page,
 	grid_page,
 	ISLAND_ENTRIES,
 	in_view,
@@ -30,7 +31,9 @@ import {
 	strip_whitespace,
 	type PageRegion
 } from './hydration-page.ts';
-import { frag, type DomNode } from '../test/_stubs/dom.ts';
+import { frag, type DomElement, type DomNode } from '../test/_stubs/dom.ts';
+import { preload_island_graph, reset_island_graph } from '../src/runtime/island-graph-preload.ts';
+import { resolved_urls } from '../src/runtime/resolved-url.ts';
 import { bench } from '@bench/heisenbench/bench';
 import { RuntimeSession } from '../src/runtime/session.ts';
 import { mark_head, record_island_head } from '../src/runtime/head-copies.ts';
@@ -199,7 +202,10 @@ bench(
 		link_boot();
 		return hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, false) !== null;
 	},
-	{ setup: () => mismatched_grid(12), scale: (_ctx, k) => mismatched_grid(12 * k) }
+	{
+		setup: () => mismatched_grid(12),
+		scale: (_ctx, k) => mismatched_grid(12 * k)
+	}
 );
 
 // ── the drift check and repair, the head markers ───────────────────────────────────────────────
@@ -350,6 +356,29 @@ function wake_page(regions: PageRegion[]): Promise<number> {
 	});
 	return expected === 0 ? Promise.resolve(0) : all;
 }
+
+/** Each island's wake preloads its file's chunks (core.ts `load_island`): a fresh page, nothing
+ *  parsed or linked yet. */
+function preload_page(entries: string[]): number {
+	for (const entry of entries) preload_island_graph(entry);
+	return (document.head as unknown as DomElement).children.length;
+}
+const graph_setup = (entries: number, regions: number) => () => {
+	reset_island_graph();
+	resolved_urls.forget();
+	return { entries: graph_page(entries, regions) };
+};
+
+bench(
+	'island graph: 55 islands of 15 files preload their chunks (shared ones linked once)',
+	({ entries }) => preload_page(entries),
+	{ setup: graph_setup(15, 55) }
+);
+
+bench('island graph: preloads as the page grows', ({ entries }) => preload_page(entries), {
+	setup: graph_setup(5, 20),
+	scale: (_ctx, k) => graph_setup(5 * k, 20 * k)()
+});
 
 bench('scheduler: a 250-block page takes its hydrate turns', ({ regions }) => wake_page(regions), {
 	setup: () => ({ regions: cms_page(250) })

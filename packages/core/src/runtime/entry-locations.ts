@@ -8,34 +8,25 @@ import { rollover } from '../policies.ts';
 import { OG_LOCATIONS } from '../wire-markup.ts';
 import { browser_offline } from './network.ts';
 import { document_address } from './document-address.ts';
+import { resolved_urls } from './resolved-url.ts';
 
 const locations = lru<string, string>({ name: 'entry locations', max: 10_000 });
 
 /** A load that fell back to its identity: who hears about it (the runtime registers the devtools
  *  and beacon reporter at boot). This module imports nothing: app code (a portable snippet) uses it
  *  too, and must not pull the runtime's reporting into the app's chunks. */
-export type EntryFallbackReport = { entry: string; src: string; recovered: boolean };
+export type EntryFallbackReport = {
+	entry: string;
+	src: string;
+	recovered: boolean;
+};
 let fallback_reporter: ((report: EntryFallbackReport) => void) | null = null;
 export function on_entry_fallback(reporter: (report: EntryFallbackReport) => void): void {
 	fallback_reporter = reporter;
 }
 
-const resolved_urls = lru<string, string>({ name: 'resolved entry urls', max: 4000 });
-
 function absolute(url: string, base?: string): string {
-	const b = base ?? location.href;
-	const key = `${b}\n${url}`;
-	const hit = resolved_urls.get(key);
-	if (hit !== undefined) return hit;
-	let out: string;
-	try {
-		out = new URL(url, b).href;
-		// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: kept as written
-	} catch {
-		out = url;
-	}
-	resolved_urls.set(key, out);
-	return out;
+	return resolved_urls.resolve(url, base ?? location.href)?.href ?? url;
 }
 
 /** Remember where an entry is served from. `base`: the document the pair was read from. Only the
@@ -115,14 +106,9 @@ export function pin_region_urls(el: Element, base?: string): void {
 	for (const name of REGION_URL_ATTRS) {
 		const value = el.getAttribute(name);
 		if (!value || !(value.startsWith('./') || value.startsWith('../'))) continue;
-		let url: URL;
-		try {
-			url = new URL(absolute(value, base ?? document_address()));
-			// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: the attribute stays as written
-		} catch {
-			continue;
-		}
-		if (url.origin === location.origin) el.setAttribute(name, url.pathname + url.search + url.hash);
+		const url = resolved_urls.resolve(value, base ?? document_address());
+		if (url !== null && url.origin === location.origin)
+			el.setAttribute(name, url.pathname + url.search + url.hash);
 	}
 }
 
