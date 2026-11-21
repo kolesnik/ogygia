@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 const PACKAGES = fileURLToPath(new URL('../../', import.meta.url));
 
-/** A tsdown config that compiles its package's source with ogygia's macros. */
 const RUNS_MACROS_RE = /\bpackage_macros\(/;
 
 /**

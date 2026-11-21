@@ -33,8 +33,7 @@ export interface DevtoolsOptions {
 
 /** this package's directory (from `dist/vite.js` or `src/vite.ts`) */
 const PKG_ROOT = fileURLToPath(new URL('..', import.meta.url));
-/** this module runs from `src` (a test reading the source) or from `dist` (an install, and the
- *  workspace's apps): the files it names are its own copy's, never the other's */
+// @why a workspace app's server half is dist while the checkout also has src: the files it names are its own copy's, or the profiler's state splits in two (test: e2e/profiler-serverless.spec.ts › every report action works after the recording instance is gone)
 const FROM_SRC = import.meta.url.endsWith('.ts');
 const posix = (p: string) => p.split(path.sep).join('/');
 /** the server half's dynamic import of the profiler (src `.ts` or built `.js`) */

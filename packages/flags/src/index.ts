@@ -307,8 +307,6 @@ export function prime_flags(c: CtxLike): Promise<void> {
  *  (test/source-failed.test.ts). */
 const SOURCE_DEADLINE_MS = 1_000;
 
-/** The source failed, or let its deadline pass: every flag falls to its native rule, and the
- *  failure is said (test/source-failed.test.ts). */
 function source_down(c: CtxLike, error: unknown): void {
 	set_prime(c, { kind: 'resolved', map: {} });
 	source_failed(error);

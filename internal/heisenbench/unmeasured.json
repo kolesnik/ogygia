@@ -1233,6 +1233,10 @@
 			"reason": "the same timer task's promise, constant work"
 		},
 		{
+			"id": "packages/config/src/macro-packages.ts > macro_packages",
+			"reason": "the test and bench harness: reads each package's tsdown config once per run, constant work per package; run by every package's tests and every bench run"
+		},
+		{
 			"id": "packages/config/src/vitest.ts > package_sources_macros",
 			"reason": "the test harness: one build plugin per package that runs the macros, made once per Vitest run, constant work; run by every package's tests"
 		},
