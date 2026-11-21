@@ -8,6 +8,8 @@ import type { ExportMap, Policy } from '../exports/index.ts';
 import type { ClientRealmFile, ServerRealm } from '../link/caps.ts';
 import {
 	RUNTIME_HOOK_NAMES,
+	SERVER_HOOK_NAMES,
+	type ServerHookName,
 	type BarrelLeftReason,
 	type RuntimeHookName
 } from '@ogygia/core/contract';
@@ -428,12 +430,15 @@ function realm_path(plugin: PluginDefinition, realm: 'server' | 'client'): strin
 	return abs.split(path.sep).join('/');
 }
 
-/** The runtime hooks a client realm subscribes to: the keys of the `hooks` object literal in its
- *  default `defineClient({ … })`, read from the file. */
-export function client_hook_names(plugin: string, file: string): RuntimeHookName[] {
-	const unread = () => new OgygiaError('plugin_client_hooks_unread', { plugin, location: file });
+type RealmObject = {
+	props: readonly AstNode[];
+	key_of: (p: AstNode) => string | null;
+	unwrap: (n: AstNode | null | undefined) => AstNode | null | undefined;
+};
+
+function realm_object(file: string): RealmObject | null {
 	const { program } = parse_module(fs.readFileSync(file, 'utf8'), file);
-	if (!program) throw unread();
+	if (!program) return null;
 	const body = program.body as AstNode[];
 	const consts = new Map<string, AstNode>();
 	for (const s of body)
@@ -469,14 +474,24 @@ export function client_hook_names(plugin: string, file: string): RuntimeHookName
 			default_local
 	);
 	if (value?.type === 'CallExpression') value = unwrap(value.arguments?.[0]);
-	if (value?.type !== 'ObjectExpression') throw unread();
+	if (value?.type !== 'ObjectExpression') return null;
 	const key_of = (p: AstNode): string | null => {
 		if (p.type !== 'Property' || p.computed) return null;
 		if (p.key.type === 'Identifier') return p.key.name;
 		return p.key.type === 'Literal' && typeof p.key.value === 'string' ? p.key.value : null;
 	};
 	const props = value.properties as AstNode[];
-	if (props.some((p) => key_of(p) === null)) throw unread();
+	if (props.some((p) => key_of(p) === null)) return null;
+	return { props, key_of, unwrap };
+}
+
+/** The runtime hooks a client realm subscribes to: the keys of the `hooks` object literal in its
+ *  default `defineClient({ … })`, read from the file. */
+export function client_hook_names(plugin: string, file: string): RuntimeHookName[] {
+	const unread = () => new OgygiaError('plugin_client_hooks_unread', { plugin, location: file });
+	const realm = realm_object(file);
+	if (!realm) throw unread();
+	const { props, key_of, unwrap } = realm;
 	const hooks = unwrap(props.find((p) => key_of(p) === 'hooks')?.value);
 	if (!hooks) return [];
 	if (hooks.type !== 'ObjectExpression') throw unread();
@@ -489,6 +504,16 @@ export function client_hook_names(plugin: string, file: string): RuntimeHookName
 		names.push(key as RuntimeHookName);
 	}
 	return names;
+}
+
+/** Core's shared server hooks a server half implements: the keys of its default
+ *  `defineServer({ … })` that name one. A file the build cannot read implements every one, as far
+ *  as the build knows (a hook folded out that a plugin answers would be a silent loss). */
+export function server_hook_names(file: string): ServerHookName[] {
+	const realm = realm_object(file);
+	if (!realm) return [...SERVER_HOOK_NAMES];
+	const keys = new Set(realm.props.map(realm.key_of));
+	return SERVER_HOOK_NAMES.filter((h) => keys.has(h));
 }
 
 function package_resolves(req: NodeJS.Require, name: string): boolean {
@@ -540,7 +565,12 @@ export function resolve_plugins(
 			throw new OgygiaError('plugin_package_unresolved', { plugin: plugin.name, root });
 		const server = realm_path(plugin, 'server');
 		if (server)
-			out.servers.push({ name: plugin.name, module: server, options: plugin.options ?? {} });
+			out.servers.push({
+				name: plugin.name,
+				module: server,
+				options: plugin.options ?? {},
+				hooks: server_hook_names(server)
+			});
 		const client = realm_path(plugin, 'client');
 		if (client) {
 			out.clients.push({

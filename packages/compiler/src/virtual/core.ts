@@ -431,7 +431,11 @@ export const rate_limit: Value<RateLimitModule> = virtual.value({
 export const server_plugins: Family<ServerPluginsModule> = virtual.family({
 	realm: 'server',
 	id: 'server-plugins',
-	exports: { server_plugins: 'plugins' },
+	exports: {
+		server_plugins: 'plugins',
+		server_plugin_count: 'plugin_count',
+		server_hook_measures: 'measures'
+	},
 	load: (app: CoreApp, { ssr }) => server_plugins_module(ssr, app.plugins().server)
 });
 

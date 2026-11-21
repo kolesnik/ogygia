@@ -35,6 +35,7 @@ import {
 	runtime_url,
 	devtools_boot_url,
 	server_plugins,
+	server_plugin_count,
 	handoff_problem
 } from 'ogygia:server';
 import { dev_hmr_url } from './dev-hmr-url.ts';
@@ -930,7 +931,8 @@ class OgygiaHandle {
 			// sole base/assets authority, and every ogygia URL (prod `/${appDir}/…`, dev `/@id/…`) is
 			// baked base-LESS — so an island-LESS page under a non-root `base` loads the runtime too.
 			const runtime_tag =
-				(router_enabled || (!!event && !!facts_of(event.request).codeOrigins?.length)) &&
+				(router_enabled ||
+					(!!server_plugin_count && !!event && !!facts_of(event.request).codeOrigins?.length)) &&
 				runtime_url &&
 				!page_declares_runtime_script(probe)
 					? runtime_bootstrap(kit_asset)

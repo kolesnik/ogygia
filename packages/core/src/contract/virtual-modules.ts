@@ -166,6 +166,10 @@ export interface TransportablesModule {
 export interface ServerPluginsModule {
 	/** the server halves of the plugins listed beside `ogygia()`, in plugin order */
 	plugins: readonly ServerPluginEntry[];
+	/** how many there are (`0`: nothing a plugin adds to a request, a fact or a shared hook, runs) */
+	plugin_count: number;
+	/** `1` where some server half implements core's shared hook `measures`, else `0` */
+	measures: 0 | 1;
 }
 
 export interface RouteConfigModule {

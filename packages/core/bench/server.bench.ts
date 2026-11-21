@@ -342,7 +342,8 @@ bench(
 		let bytes = 0;
 		for (const url of urls) {
 			const res = await h({ event: hole_event(url), resolve: async () => new Response('page') });
-			if (res.status !== 200) throw new Error(`hole answered ${res.status} ${res.headers.get('x-ogygia-deny')}`);
+			if (res.status !== 200)
+				throw new Error(`hole answered ${res.status} ${res.headers.get('x-ogygia-deny')}`);
 			bytes += (await res.text()).length;
 		}
 		return bytes;

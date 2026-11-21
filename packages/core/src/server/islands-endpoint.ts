@@ -20,6 +20,7 @@ import {
 	session_cookie
 } from 'ogygia:server';
 import { signing_key } from './signing-key.ts';
+import { measures } from 'ogygia:server/server-plugins';
 import { kit_page_ready, kit_page_facts_tail } from './kit-context.ts';
 import { hole_answer_context } from './answer-context.ts';
 import { page_url_of } from './render-page.ts';
@@ -746,7 +747,7 @@ export class IslandsEndpoint {
 			(import.meta.env.DEV ||
 				(DEVTOOLS && event.cookies.get(DEVTOOLS_COOKIE) === DEVTOOLS_ON) ||
 				// oxlint-disable-next-line ogygia/no-silent-failures -- a failed hook was said (plugin_hook_failed); unproved is not timed
-				(await ask.measures(event).catch(() => undefined)) === true);
+				(!!measures && (await ask.measures(event).catch(() => undefined)) === true));
 		const server_timing: Record<string, string> = timed
 			? {
 					'server-timing': `og-queue;dur=${timing.queue_ms!.toFixed(1)}, og-render;dur=${(timing.render_ms ?? 0).toFixed(1)}`

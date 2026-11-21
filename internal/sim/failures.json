@@ -4024,15 +4024,27 @@
 		},
 		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:0",
-			"reason": "`throw unread();`: proved: the throw removed turns the test red, twice",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
 			"name": "a client realm that does not parse, or whose defineClient spreads, cannot be read"
 		},
 		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:2",
-			"reason": "`throw unread();`: proved: the throw removed turns the test red, twice",
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:1",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm that does not parse, or whose defineClient spreads, cannot be read"
+			"name": "a client realm whose plugin object, or its hooks, sit in a named const has its hooks read"
+		},
+		{
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:2",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
+			"test": "packages/compiler/test/plugins.test.ts",
+			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
+		},
+		{
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:3",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
+			"test": "packages/compiler/test/plugins.test.ts",
+			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
 		},
 		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > resolve_plugins > routeConfig > throw:1",
@@ -4831,30 +4843,6 @@
 			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
 			"name": "a realm that is not a file, or not a location, fails loudly"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:1",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm is read through casts and parentheses; a const that names itself is no answer"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:3",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm whose plugin object, or its hooks, sit in a named const has its hooks read"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:4",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:5",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
 		},
 		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > package_resolves > catch:0",
