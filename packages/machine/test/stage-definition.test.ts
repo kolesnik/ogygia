@@ -31,7 +31,7 @@ test.runIf(typeof document === 'undefined')(
 		const { readFileSync } = await import('node:fs');
 		const source = readFileSync(new URL('../src/stage.ts', import.meta.url), 'utf8');
 		const sites = [...source.matchAll(/\(RULES \? '(\w+)' : (\d+)\)/g)].map((m) => [m[1], +m[2]!]);
-		expect(sites.map(([name]) => name)).toEqual([...read.names!]);
+		expect(new Set(sites.map(([name]) => name))).toEqual(new Set(read.names!));
 		for (const [name, k] of sites) expect(read.ids[name as string]).toBe(k);
 		expect(source).not.toMatch(/\.(?:go|move)\('|kind [!=]== '/);
 	}

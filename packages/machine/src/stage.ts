@@ -99,7 +99,8 @@ class Staged<B> implements Stage<B> {
 			.task(() => o.build(staging))
 			.then(
 				(built) => {
-					if (built !== STALE) this._m.move(BUILDING, BUILT, { value: built });
+					if (built !== STALE)
+						this._m.move((RULES ? 'building' : 0) as 'building', BUILT, { value: built });
 					return built;
 				},
 				(error: unknown) => {

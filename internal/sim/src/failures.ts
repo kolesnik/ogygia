@@ -146,6 +146,16 @@ function is_body(n: Node): boolean {
 	return n.type === 'MemberExpression' && !n.computed && (n.property as Node).name === 'body';
 }
 
+/** A machine's state written out: a string literal, or as a compiled call site writes it by hand
+ *  (`(RULES ? 'built' : 1) as 'built'`, internal/macros machine-sites.ts). */
+function names_state(n: Node): boolean {
+	let at = n;
+	while (at.type === 'TSAsExpression' || at.type === 'ParenthesizedExpression')
+		at = at.expression as Node;
+	if (at.type === 'ConditionalExpression') at = at.consequent as Node;
+	return at.type === 'Literal' && typeof at.value === 'string';
+}
+
 /** The kind of failure site `node` is, or null. `parent` is the node around it. */
 function kind_of(node: Node, parent: Node | null, above: readonly Node[]): SiteKind | null {
 	switch (node.type) {
@@ -241,14 +251,7 @@ function kind_of(node: Node, parent: Node | null, above: readonly Node[]): SiteK
 			if ((name === 'error' || name === 'close') && object !== null && /controller/i.test(object))
 				return 'stream';
 			if (name === 'postMessage' || name === 'sendBeacon') return 'message';
-			if (
-				name === 'move' &&
-				member &&
-				args.length >= 2 &&
-				args[0].type === 'Literal' &&
-				typeof args[0].value === 'string'
-			)
-				return 'refused';
+			if (name === 'move' && member && args.length >= 2 && names_state(args[0])) return 'refused';
 			if (name === 'timingSafeEqual') return 'crypto';
 			if (name === 'verify' && object !== null && /crypto|subtle|hmac/i.test(object))
 				return 'crypto';
