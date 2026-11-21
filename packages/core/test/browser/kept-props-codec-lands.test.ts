@@ -10,18 +10,20 @@ vi.mock('../_stubs/boot.hydrate-features.ts', async (real: () => Promise<object>
 	wire: null,
 	wire_on: false
 }));
-// the moment the codec installs, which the test takes to bring newer props in
+// the moment the codec installs (its on-use load, ogygia:boot/runtime-flags `load_wire_codec`), which
+// the test takes to bring newer props in
 const installing = vi.hoisted(() => ({ then: null as (() => void) | null }));
-vi.mock('../../src/live-transport.ts', async (real: () => Promise<{ install(): void }>) => {
-	const codec = await real();
-	return {
-		...codec,
-		install(): void {
-			codec.install();
-			installing.then?.();
-		}
-	};
-});
+vi.mock('../_stubs/boot.runtime-flags.ts', async (real: () => Promise<object>) => ({
+	...(await real()),
+	load_wire_codec: () =>
+		import('../../src/live-transport.ts').then((codec) => ({
+			...codec,
+			install(): void {
+				codec.install();
+				installing.then?.();
+			}
+		}))
+}));
 
 const { bootDev } = await import('../../src/runtime/full.ts');
 const { wire_codec } = await import('../../src/runtime/wire-on-use.ts');

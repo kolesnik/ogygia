@@ -27,7 +27,7 @@ const RUNTIME_RE = /\/og-runtime[.-][^/]+\.js$/;
 /** A STATIC import in a built chunk: `import{…}from"./x.js"` / `import"./x.js"` (not `import(`). */
 const STATIC_IMPORT_RE = /(?:^|[;}\n])\s*import\s*(?:[\w*{}\s,$]+from\s*)?["']([^"']+)["']/g;
 /** The floor under Kit's `strict` entry signatures: the runtime + Vite's shared preload helper + the
- *  modules Kit's client transport also uses (runtime/slots.ts `BootLink`) + `@ogygia/machine`, which
+ *  modules Kit's client transport also uses (runtime/boot-link.ts `BootLink`) + `@ogygia/machine`, which
  *  the runtime, that transport (the frame store's fetches are a flights) and islands all share.
  *  Each is modulepreloaded beside the runtime (checked below), so the count is files, not trips. */
 const BOOT_FILE_BUDGET = 5;
