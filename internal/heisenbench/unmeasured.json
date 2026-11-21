@@ -1137,6 +1137,38 @@
 			"reason": "the browser tests' harness: puts the timeline's size back when the test ends, constant work"
 		},
 		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads",
+			"reason": "the e2e harness (not a shipped package): adds one init script to a Playwright page; proven by wake-gate.spec, load-scheduler.spec, props-tail.spec"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads > addInitScript:0~c9747f",
+			"reason": "the e2e harness: page code, run once per document in the browser, starts one resource observer"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads > addInitScript:0~c9747f > PerformanceObserver:0~c5904c",
+			"reason": "the e2e harness: page code, the observer's callback, one push per download"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads > addInitScript:0~c9747f > __og_downloads",
+			"reason": "the e2e harness: page code, returns the list heard so far"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > hear_downloads > addInitScript:0~c9747f > hear",
+			"reason": "the e2e harness: page code, one push per download heard"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > downloads",
+			"reason": "the e2e harness: one page.evaluate that maps the heard downloads to plain records"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > downloads > evaluate:0~ce5d9a",
+			"reason": "the e2e harness: page code, a map over the heard downloads"
+		},
+		{
+			"id": "packages/tooling/src/e2e/downloads.ts > downloads > evaluate:0~ce5d9a > map:0~39f157",
+			"reason": "the e2e harness: page code, one record per download"
+		},
+		{
 			"id": "packages/tooling/src/e2e/servers.ts > port_held",
 			"reason": "the e2e harness: a real TCP connect to the server's port; proven on real ports in packages/tooling/test/servers.test.ts"
 		},
