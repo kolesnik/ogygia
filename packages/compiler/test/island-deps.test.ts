@@ -251,6 +251,7 @@ describe('collectIslandDepModulepreloads', () => {
 			}
 		};
 		const empty = {
+			wake: [],
 			css: {},
 			page: {},
 			page_keys: {},

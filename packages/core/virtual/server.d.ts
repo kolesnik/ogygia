@@ -9,6 +9,7 @@ export const create_remote_key: import('../dist/contract/virtual-modules.js').Vi
 export const profiler_maps: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/profiler-maps']['profiler_maps'];
 export const rate_limit: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/rate-limit']['rate_limit'];
 export const region_deps: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['region_deps'];
+export const wake_code: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['wake_code'];
 export const region_interactivity: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['region_interactivity'];
 export const chunk_contents: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['chunk_contents'];
 export const chunk_heavy: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['chunk_heavy'];

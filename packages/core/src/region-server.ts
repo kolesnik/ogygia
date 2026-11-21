@@ -6,6 +6,7 @@
  */
 export {
 	region_deps,
+	wake_code,
 	region_css,
 	region_css_inline,
 	content_css,

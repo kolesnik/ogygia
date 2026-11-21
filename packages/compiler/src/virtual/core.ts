@@ -360,6 +360,7 @@ export const region_deps: Family<RegionDepsModule> = virtual.family({
 	id: 'region-deps',
 	exports: {
 		region_deps: 'region_deps',
+		wake_code: 'wake_code',
 		region_interactivity: 'region_interactivity',
 		chunk_contents: 'chunk_contents',
 		chunk_heavy: 'chunk_heavy',
