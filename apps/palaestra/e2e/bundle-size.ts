@@ -51,6 +51,7 @@ const {
 	generateRuntimeEntrySource,
 	generateRuntimeFlagsSource,
 	generateHydrateFeaturesSource,
+	generateFeatureCodeSource,
 	resolveFeatures
 } = (await import(
 	pathToFileURL(COMPILER_ENTRY ?? join(CORE, 'dist/compiler/link/runtime-entry.js')).href
@@ -262,7 +263,9 @@ function boot_realm(marks: RuntimeMarks, realms: readonly ClientRealmFile[]): Pl
 		'ogygia:boot/runtime-flags': flags,
 		'ogygia:boot/hydrate-features': () => generateHydrateFeaturesSource(marks, RUNTIME_DIR).code,
 		'ogygia:boot/hooks': hooks,
-		'ogygia:boot/hook-bits': bits
+		'ogygia:boot/hook-bits': bits,
+		// (a checkout whose element calls its features' modules directly)
+		'ogygia:boot/feature-code': () => generateFeatureCodeSource?.(marks, RUNTIME_DIR) ?? ''
 	};
 	const served = typeof generateRuntimeFlagsSource === 'function';
 	return {

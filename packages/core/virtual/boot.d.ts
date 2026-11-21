@@ -12,6 +12,10 @@ export const load_wire_codec: import('../dist/contract/virtual-modules.js').Virt
 declare module 'ogygia:boot/devtools-meta' {
 export const region_names: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/devtools-meta']['region_names'];
 }
+declare module 'ogygia:boot/feature-code' {
+const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/feature-code'];
+export = module;
+}
 declare module 'ogygia:boot/hook-bits' {
 const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/hook-bits'];
 export = module;

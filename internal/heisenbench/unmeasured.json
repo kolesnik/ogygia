@@ -141,7 +141,7 @@
 			"reason": "one profile out of each kept entry (64 at most) while the newest 8 are saved, constant work per entry; devtools-profile-store.test.ts runs it"
 		},
 		{
-			"id": "packages/devtools/src/devtools/source-lines.ts > flights:0~fc7528 > run",
+			"id": "packages/devtools/src/devtools/source-lines.ts > trustedFlights:0~fc7528 > run",
 			"reason": "browser only: one app file's read through the dev server (tool_fetch), once per file"
 		},
 		{
@@ -217,11 +217,11 @@
 			"reason": "a failed ask, left for the next read to ask again: nothing"
 		},
 		{
-			"id": "packages/devtools/src/devtools/page.ts > flights:0~7c898a > run",
+			"id": "packages/devtools/src/devtools/page.ts > trustedFlights:0~7c898a > run",
 			"reason": "a HEAD request to the dev server for a file's Vary header (network IO, not cloneable); proven in packages/devtools/test/devtools-page-asks.test.ts"
 		},
 		{
-			"id": "packages/devtools/src/devtools/page.ts > flights:0~7c898a > run > then:0~f4abe6",
+			"id": "packages/devtools/src/devtools/page.ts > trustedFlights:0~7c898a > run > then:0~f4abe6",
 			"reason": "reads one header off a Response (not cloneable), constant work"
 		},
 		{
@@ -229,7 +229,7 @@
 			"reason": "browser only: the document's pageshow handler (a back-forward cache restore) clears one flag, constant work; proven by packages/devtools/e2e/devtools.spec.ts in WebKit (#408)"
 		},
 		{
-			"id": "packages/devtools/src/devtools/page.ts > flights:0~6a7201 > run",
+			"id": "packages/devtools/src/devtools/page.ts > trustedFlights:0~6a7201 > run",
 			"reason": "fetches the dev server's pre-bundle metadata (network IO, not recorded); its names are prebundled_names', measured on its own; proven in packages/devtools/test/devtools-page-asks.test.ts"
 		},
 		{
@@ -313,7 +313,7 @@
 			"reason": "makes the process's flights of URL weights (not cloneable), constant work; proven in packages/devtools/test/profiler-weigh-urls.test.ts"
 		},
 		{
-			"id": "packages/devtools/src/profiler/index.ts > url_weights > call:0~ec9e31 > run",
+			"id": "packages/devtools/src/profiler/index.ts > url_weights > trustedFlights:0~ec9e31 > run",
 			"reason": "fetches one asset through the app and counts its bytes (network IO, not recorded); proven in packages/devtools/test/profiler-weigh-urls.test.ts"
 		},
 		{
@@ -621,7 +621,7 @@
 			"reason": "browser only: a recording's watchers coming off (PerformanceObservers, a MutationObserver, listeners), once per recording; proven in packages/devtools/e2e/devtools.spec.ts"
 		},
 		{
-			"id": "packages/devtools/src/devtools/session.ts > start_session > flights:0 > run",
+			"id": "packages/devtools/src/devtools/session.ts > start_session > trustedFlights:0 > run",
 			"reason": "browser only: a recording's stop (the JS Self-Profiling sampler, the page's entries), once per recording; proven in packages/devtools/e2e/devtools.spec.ts"
 		},
 		{
@@ -629,7 +629,7 @@
 			"reason": "browser only: a recording's stop from its flight, constant work; proven in packages/devtools/e2e/devtools.spec.ts"
 		},
 		{
-			"id": "packages/devtools/src/server.ts > call:0~12b7f7 > run",
+			"id": "packages/devtools/src/server.ts > trustedFlights:0~12b7f7 > run",
 			"reason": "once per process: the profiler's dynamic import and construction, nothing to repeat; proven in packages/devtools/test/profiler-mount-once.test.ts"
 		},
 		{
@@ -641,11 +641,11 @@
 			"reason": "a failed mount: a constant null, once per wave of requests; proven in packages/devtools/test/profiler-mount-once.test.ts"
 		},
 		{
-			"id": "packages/devtools/src/server.ts > call:0~12b7f7 > run > catch:0~494ff5",
+			"id": "packages/devtools/src/server.ts > trustedFlights:0~12b7f7 > run > catch:0~494ff5",
 			"reason": "the profiler's store module failed to load: a constant fallback, once per process"
 		},
 		{
-			"id": "packages/devtools/src/server.ts > call:0~12b7f7 > run > catch:0~494ff5 > getProfilerStore",
+			"id": "packages/devtools/src/server.ts > trustedFlights:0~12b7f7 > run > catch:0~494ff5 > getProfilerStore",
 			"reason": "the fallback store getter when the store module failed to load: a constant undefined"
 		},
 		{
@@ -1005,15 +1005,15 @@
 			"reason": "puts a capture's span recorder in: runs only as a V8 inspector capture starts, constant work; proven in packages/devtools/test/profiler-recorder.test.ts"
 		},
 		{
-			"id": "packages/content/src/markdown/index.ts > ogygiaPreprocess > flights:0 > run",
+			"id": "packages/content/src/markdown/index.ts > ogygiaPreprocess > trustedFlights:0 > run",
 			"reason": "starts mdsvex (a dynamic import, then its instance) once and keeps it; mdsvex reaches @ogygia/core's built compiler, which a bench run does not load (see packages/content/bench/markdown.bench.ts); its failed start and retry are proven in packages/content/test/markdown-start.test.ts"
 		},
 		{
-			"id": "packages/content/src/markdown/shiki.ts > call:0~5ff701 > run",
+			"id": "packages/content/src/markdown/shiki.ts > trustedFlights:0~5ff701 > run",
 			"reason": "starts the Shiki highlighter (a dynamic import, grammars and Shiki's WASM engine) once per set of themes and languages and keeps it: module IO a measuring window refuses; its failed start and retry are proven in packages/content/test/markdown-start.test.ts, its reuse in packages/content/test/shiki-highlighters.test.ts"
 		},
 		{
-			"id": "packages/content/src/markdown/shiki.ts > call:0~5ff701 > run > then:0~a452b6",
+			"id": "packages/content/src/markdown/shiki.ts > trustedFlights:0~5ff701 > run > then:0~a452b6",
 			"reason": "hands the loaded Shiki module to createHighlighter: Shiki's WASM engine, which a measuring window refuses; proven in packages/content/test/markdown-start.test.ts"
 		},
 		{
@@ -1233,6 +1233,22 @@
 			"reason": "the same timer task's promise, constant work"
 		},
 		{
+			"id": "packages/config/src/macro-packages.ts > macro_packages",
+			"reason": "the test and bench harness: reads each package's tsdown config once per run, constant work per package; run by every package's tests and every bench run"
+		},
+		{
+			"id": "packages/config/src/vitest.ts > package_sources_macros",
+			"reason": "the test harness: one build plugin per package that runs the macros, made once per Vitest run, constant work; run by every package's tests"
+		},
+		{
+			"id": "packages/config/src/vitest.ts > package_sources_macros > map:0~197e3f",
+			"reason": "the same plugin list's map, one plugin per package, constant work"
+		},
+		{
+			"id": "packages/flags/src/index.ts > source_down",
+			"reason": "constant work: one request's prime written and one failure said, once per request whose flag source failed; proven in packages/flags/test/source-failed.test.ts and packages/flags/test/flags.test.ts"
+		},
+		{
 			"id": "packages/config/src/sim.ts > sim_params",
 			"reason": "the simulation harness: reads two knobs once per property, constant work; proven in packages/core/test/property-seeded.test.ts"
 		},
@@ -1433,7 +1449,7 @@
 			"reason": "a scope's collections (live handles, not cloneable) to their tags, constant work per collection; run by the search tests in packages/content/test/site.test.ts"
 		},
 		{
-			"id": "packages/devtools/src/devtools/ledger-dom.ts > read_parts > flights:0",
+			"id": "packages/devtools/src/devtools/ledger-dom.ts > read_parts > trustedFlights:0",
 			"reason": "browser only: the dock's fetch of one runtime file's text, once per read; proven in packages/devtools/e2e/devtools.spec.ts"
 		},
 		{
@@ -1441,7 +1457,7 @@
 			"reason": "browser only: a runtime file's text from its flight, or empty when it failed, constant work; proven in packages/devtools/e2e/devtools.spec.ts"
 		},
 		{
-			"id": "packages/devtools/src/devtools/names.ts > flights:0",
+			"id": "packages/devtools/src/devtools/names.ts > trustedFlights:0",
 			"reason": "browser only: the islands' names from the build or the dev server's meta endpoint (fetch), once per page; proven in packages/devtools/e2e/devtools.spec.ts"
 		},
 		{
@@ -1449,15 +1465,15 @@
 			"reason": "browser only: waits for the names' flight, a failure read as hashes, constant work; proven in packages/devtools/e2e/devtools.spec.ts"
 		},
 		{
-			"id": "packages/devtools/src/profiler/embedded-maps.ts > flights:0",
+			"id": "packages/devtools/src/profiler/embedded-maps.ts > trustedFlights:0",
 			"reason": "the dynamic import of virtual:ogygia/profiler-maps (and its gunzip), module IO once per process; run by the profiler tests"
 		},
 		{
-			"id": "packages/devtools/src/profiler/index.ts > Profiler > flights:0",
+			"id": "packages/devtools/src/profiler/index.ts > Profiler > trustedFlights:0",
 			"reason": "the profiler's one-time setup (node:async_hooks, the network capture) and its .svelte file list (fs), once per instance; run by the profiler tests with a real inspector session"
 		},
 		{
-			"id": "packages/devtools/src/profiler/index.ts > Profiler > constructor > flights:0",
+			"id": "packages/devtools/src/profiler/index.ts > Profiler > constructor > trustedFlights:0",
 			"reason": "the durable store's init, a driver's IO, once per success; proven in packages/devtools/test/profiler-store-init-retry.test.ts (#289)"
 		},
 		{
@@ -1777,7 +1793,7 @@
 			"reason": "browser only: drops every page flight (a one-line predicate); proven in packages/core/test/browser/page-flights.test.ts"
 		},
 		{
-			"id": "packages/content/src/site/search-worker.ts > flights:0~df3d19 > run",
+			"id": "packages/content/src/site/search-worker.ts > trustedFlights:0~df3d19 > run",
 			"reason": "worker only: downloads the index (fetch) and builds the Orama engine over it; run by packages/content/test/search-client.test.ts against a stubbed fetch"
 		},
 		{
@@ -2169,7 +2185,7 @@
 			"reason": "writes the request's prime state onto a Request (not cloneable), constant work; proven in packages/flags/test/prime-twice.test.ts"
 		},
 		{
-			"id": "packages/content/src/markdown/shiki.ts > cache:0~7f893a > onEvict",
+			"id": "packages/content/src/markdown/shiki.ts > trustedCache:0~7f893a > onEvict",
 			"reason": "disposes one highlighter past the cap (a Shiki object, never ran in tests: the cap is never reached), constant work of its own"
 		},
 		{
@@ -3945,7 +3961,7 @@
 			"reason": "test seam: the predicate that drops every warm, constant work"
 		},
 		{
-			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #fetch_region > fetch_hole:1~0557ca > renewed",
+			"id": "packages/core/src/runtime/core.ts > OgygiaRegion > #fetch_region > fetch_hole:1~5fb81c > renewed",
 			"reason": "browser only: a renewal's fresh capability handed to the frame store, constant work; proven in packages/core/test/browser/hole-renewal.test.ts"
 		},
 		{

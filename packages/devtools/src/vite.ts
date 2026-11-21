@@ -11,7 +11,6 @@
  *   render and serves its UI at `/__profiler`; the build records what it reads (maps, island
  *   detail). Its secret defaults to the OGYGIA_PROFILER_SECRET env var at runtime.
  */
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMainThread } from 'node:worker_threads';
@@ -34,8 +33,8 @@ export interface DevtoolsOptions {
 
 /** this package's directory (from `dist/vite.js` or `src/vite.ts`) */
 const PKG_ROOT = fileURLToPath(new URL('..', import.meta.url));
-/** the workspace checkout ships `src`; an install, `dist` */
-const FROM_SRC = fs.existsSync(path.join(PKG_ROOT, 'src/profiler/profiler-router.ts'));
+// @why a workspace app's server half is dist while the checkout also has src: the files it names are its own copy's, or the profiler's state splits in two (test: e2e/profiler-serverless.spec.ts › every report action works after the recording instance is gone)
+const FROM_SRC = import.meta.url.endsWith('.ts');
 const posix = (p: string) => p.split(path.sep).join('/');
 /** the server half's dynamic import of the profiler (src `.ts` or built `.js`) */
 const PROFILER_IMPORT_RE = /import\((['"])\.\/profiler\/index\.(ts|js)\1\)/;

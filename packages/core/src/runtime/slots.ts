@@ -1,7 +1,6 @@
-import type { Stale } from '@ogygia/machine';
 import type { Life } from '@ogygia/machine';
 import type { FrameOrder } from '../frame.ts';
-import type { FrameFetcher, StoredFrame } from './frame-store.ts';
+import type { StoredFrame } from './frame-store.ts';
 import type { VerifiedHtml } from './html-sink.ts';
 import type { ScheduleArms } from '../contract/trigger.ts';
 
@@ -18,24 +17,12 @@ export type LakeArm = ScheduleArms & {
 	wake_children: () => void;
 };
 
+/** The lakes the lazy chunks reach (the hydrate core, the router's navigation). The region element
+ *  calls the lakes module directly (`ogygia:boot/feature-code`). */
 export type LakeOps = {
-	on_frozen_connect(el: HTMLElement, arm: LakeArm): boolean;
-	wait_for_boundary(el: HTMLElement, boundary: Element | null): boolean;
 	hold(parent: Element): HeldLake[];
 	release(parent: Element, held: HeldLake[]): void;
 	settle_in(root: ParentNode): void;
-	mark_frozen_settled(region: HTMLElement): void;
-	/** After an answer swapped into `region`: a lake that settled wakes the regions waiting on it. */
-	after_html_swap(
-		region: HTMLElement,
-		opts: { revalidate?: boolean },
-		wake_children: () => void
-	): void;
-	after_fetch_exhausted(
-		region: HTMLElement,
-		opts: { revalidate?: boolean },
-		wake_children: () => void
-	): void;
 };
 
 export type FormOps = {
@@ -91,9 +78,9 @@ export type PageOps = {
 };
 
 /**
- * The client frame store, filled by the `frames` feature. Core reads it ONLY on the deferred /
- * live / SWR-lake paths (a region with a signed `endpoint`), so a plain load-hydrated app never
- * bundles the store. Null until the feature installs → core's frame calls are optional-chained.
+ * The client frame store as the lazy chunks reach it (the live program, the router's navigation),
+ * filled by the `frames` feature: null in a build without it. The region element calls the store
+ * directly (`ogygia:boot/feature-code`).
  */
 export type FrameOps = {
 	subscribe(a: string, cb: (f: StoredFrame) => void): () => void;
@@ -101,16 +88,6 @@ export type FrameOps = {
 	peek(a: string): (FrameOrder & { html: VerifiedHtml }) | null;
 	/** The next request ticket: where an answer arriving now stands at the address. */
 	ticket(a: string): number;
-	/** `STALE` when its `signal` aborted: only that caller leaves the fetch. A join at a higher
-	 *  `priority` (a load class's, ./load-class.ts) raises the fetch it joins. */
-	ensure(
-		a: string,
-		fetcher: FrameFetcher,
-		opts?: { force?: boolean; signal?: AbortSignal; priority?: number }
-	): Promise<VerifiedHtml | Stale>;
-	/** A renewal answered a fresh capability for this address; and the one it answered, if any. */
-	renew(a: string, fresh: string): void;
-	renewal(a: string): string | null;
 	/**
 	 * SINGLE-FLIGHT NAVIGATION: batch a page's signed deferred endpoints into the store as one streamed response. Lives
 	 * on the seam (not a static router import) so an app with `router` but no deferred/live/lake region
@@ -121,11 +98,6 @@ export type FrameOps = {
 	 * the page they are for, as their referrer (#995).
 	 */
 	stream(endpoints: string[], visit: Life, page: string): Promise<unknown>;
-	/** Holes that start fetching in the same task go out as one batch (frame-nav.ts `join_batch`);
-	 *  await it, then `ensure` joins the batch's reservation. */
-	join?(endpoint: string): Promise<void>;
-	/** How the batch that carried a hole timed it (frame-nav.ts; the measuring browser only). */
-	batch_times?(endpoint: string): { left: number; at: number; size: number } | undefined;
 };
 
 /**

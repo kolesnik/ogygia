@@ -5,6 +5,7 @@
 // load, whose detects all answer no.
 import { bench } from '@bench/heisenbench/bench';
 import {
+	generateFeatureCodeSource,
 	generateServerFlagsSource,
 	resolveFeatures,
 	type RuntimeMarks
@@ -64,5 +65,12 @@ bench(
 bench(
 	"generateServerFlagsSource: the server's word for a large app",
 	({ marks }) => generateServerFlagsSource(marks).length,
+	{ setup: () => ({ marks: marks_of(120) }), scale: (_ctx, k) => ({ marks: marks_of(120 * k) }) }
+);
+
+bench(
+	"generateFeatureCodeSource: the element's feature code for a large app",
+	({ marks }) =>
+		generateFeatureCodeSource(marks, '/app/node_modules/@ogygia/core/dist/runtime').length,
 	{ setup: () => ({ marks: marks_of(120) }), scale: (_ctx, k) => ({ marks: marks_of(120 * k) }) }
 );

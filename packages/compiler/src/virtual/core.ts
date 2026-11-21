@@ -3,6 +3,7 @@ import path from 'node:path';
 import { cache } from '@ogygia/machine';
 import { csrTrueRouteIds, errorCsrTrueRouteIds, rootLayoutCsrTrue } from '../kit.ts';
 import {
+	generateFeatureCodeSource,
 	generateHydrateFeaturesSource,
 	generateRuntimeEntrySource,
 	generateRuntimeFlagsSource,
@@ -32,6 +33,7 @@ import type { CompileCtx } from '../ctx.ts';
 import type { ClientRealmFile, ServerRealm } from '../link/caps.ts';
 import type { Program } from '../program.ts';
 import {
+	type FeatureCodeModule,
 	type HookBitsModule,
 	type HooksModule,
 	type DevtoolsBootUrlModule,
@@ -231,6 +233,27 @@ export const hydrate_features: Family<HydrateFeaturesModule> = virtual.family({
 		}
 		app.prescan();
 		return generateHydrateFeaturesSource(program.runtime_marks, ctx.runtime_dir).code;
+	}
+});
+
+/** The boot features' modules the region element calls directly (link/runtime-entry.ts
+ *  `generateFeatureCodeSource`). */
+export const feature_code: Family<FeatureCodeModule> = virtual.family({
+	realm: 'boot',
+	id: 'feature-code',
+	load(app: CoreApp) {
+		const { ctx } = app;
+		if (!ctx.is_build) {
+			const rt = dev_runtime_of(ctx.runtime_dir);
+			return generateFeatureCodeSource(
+				{},
+				rt?.dir ?? ctx.runtime_dir,
+				true,
+				rt?.ts ? '.ts' : '.js'
+			);
+		}
+		app.prescan();
+		return generateFeatureCodeSource(app.program.runtime_marks, ctx.runtime_dir);
 	}
 });
 
@@ -675,6 +698,7 @@ export const CORE_VIRTUALS: readonly Entry<CoreApp>[] = [
 	transport,
 	transportables,
 	hydrate_features,
+	feature_code,
 	hooks,
 	hook_bits,
 	hmr,

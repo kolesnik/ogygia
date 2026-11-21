@@ -145,18 +145,11 @@ export class LakeState {
 /** The document's lakes, on the runtime's session. */
 export const lake_state: LakeState = new LakeState(runtime_session);
 
-/** Feature entry: fill the `lakes` slot so core holds/releases frozen regions. */
+/** Feature entry: fill the `lakes` slot, so the lazy chunks (the hydrate core, the router's
+ *  navigation) hold, release and settle lakes. The region element calls this module directly
+ *  (`ogygia:boot/feature-code`). */
 export function install(): void {
-	slots.lakes = {
-		on_frozen_connect,
-		wait_for_boundary,
-		hold,
-		release,
-		settle_in,
-		mark_frozen_settled,
-		after_html_swap,
-		after_fetch_exhausted
-	};
+	slots.lakes = { hold, release, settle_in };
 }
 
 export function settle_in(root: ParentNode): void {

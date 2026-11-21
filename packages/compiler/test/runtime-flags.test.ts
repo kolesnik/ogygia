@@ -3,9 +3,18 @@
 // select it: the element's fetch / apply / morph path is only ever reached through the frame store,
 // so a build without the store must not ship that path, and a build with it must keep it.
 import { describe, expect, it } from 'vitest';
-import { FEATURE_BITS, F_FRAMES, F_LAKES, F_LIVE, type FeatureName } from '@ogygia/core/contract';
 import {
+	dedent,
+	FEATURE_BITS,
+	F_FRAMES,
+	F_LAKES,
+	F_LIVE,
+	type FeatureName
+} from '@ogygia/core/contract';
+import {
+	FEATURE_CODE,
 	FEATURE_ORDER,
+	generateFeatureCodeSource,
 	generateRuntimeFlagsSource,
 	generateServerFlagsSource,
 	generateProgramsSource,
@@ -102,5 +111,37 @@ describe('runtime flags', () => {
 			for (const all of [false, true])
 				expect(server_word(marks, all), JSON.stringify(marks)).toBe(word(marks, all));
 		expect(server_word({ complete: true, hydrate: ['load'] }) & F_FRAMES).toBe(0);
+	});
+
+	it("the element's feature code is a feature's module exactly where the word holds its bit", () => {
+		const code = (marks: RuntimeMarks, all = false, ext?: string) =>
+			generateFeatureCodeSource(marks, RUNTIME_DIR, all, ext);
+		const cases: RuntimeMarks[] = [
+			{ complete: true, hydrate: ['load'] },
+			{ complete: true, hydrate: ['load'], defer: ['idle'] },
+			{ complete: true, hydrate: ['none'] },
+			{ complete: true, lakes: true },
+			{ complete: true, live: true },
+			{ complete: true, foreign: true },
+			{}
+		];
+		for (const marks of cases)
+			for (const all of [false, true])
+				for (const id of FEATURE_CODE) {
+					const on = (word(marks, all) & FEATURE_BITS[id]) !== 0;
+					expect(code(marks, all), `${id} ${JSON.stringify(marks)} ${all}`).toContain(
+						on ? `export * as ${id} from "${RUNTIME_DIR}/${id}.js";` : `export const ${id} = null;`
+					);
+				}
+		// a plain island app imports neither module: no lake or frame-store state in its boot
+		expect(code({ complete: true, hydrate: ['load'] })).toBe(
+			`${dedent`
+				export const lakes = null;
+				export const frames = null;
+			`}\n`
+		);
+		expect(code({ complete: true, hydrate: ['load'] }, true, '.ts')).toContain(
+			`export * as lakes from "${RUNTIME_DIR}/lakes.ts";`
+		);
 	});
 });

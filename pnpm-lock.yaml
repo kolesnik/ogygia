@@ -1694,6 +1694,9 @@ importers:
       '@typescript/native':
         specifier: catalog:tsgo
         version: typescript@7.0.2
+      ogygia-internal-macros:
+        specifier: workspace:*
+        version: link:../../internal/macros
       svelte:
         specifier: 'catalog:'
         version: 5.57.3
@@ -1871,6 +1874,9 @@ importers:
       '@typescript/native':
         specifier: catalog:tsgo
         version: typescript@7.0.2
+      ogygia-internal-macros:
+        specifier: workspace:*
+        version: link:../../internal/macros
       svelte:
         specifier: 'catalog:'
         version: 5.57.3
