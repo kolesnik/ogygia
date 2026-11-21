@@ -11,6 +11,7 @@ import { class_at, PRIORITY, type LoadClass } from './load-class.ts';
 import { on_screen, watch_viewport } from './viewport.ts';
 import type { CriticalOutcome } from '../contract/runtime-hooks.ts';
 import { slots } from './slots.ts';
+import { downloaded, hear_responses } from './import-again.ts';
 
 export { fetch_priority_of, type LoadClass } from './load-class.ts';
 
@@ -163,6 +164,7 @@ class LoadScheduler {
 const scheduler = new LoadScheduler();
 
 if (typeof document !== 'undefined') {
+	hear_responses();
 	for (const type of ['pointerdown', 'keydown'] as const)
 		// oxlint-disable-next-line ogygia/owned-effects -- the visitor's first click or key, once for the document (`once`): it ends whichever critical wait is up
 		addEventListener(type, () => scheduler.on_first_input(), {
@@ -190,7 +192,7 @@ function pending_critical(): Element[] {
 		if (link.media && !matchMedia(link.media).matches) continue;
 		const urls = preload_urls(link);
 		if (!urls.length) continue;
-		if (urls.some((u) => performance.getEntriesByName?.(u).length)) continue;
+		if (urls.some(downloaded)) continue;
 		out.push(link);
 	}
 	return out;
