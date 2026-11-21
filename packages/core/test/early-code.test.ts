@@ -185,6 +185,15 @@ describe('the handle writes the early start where nothing can be hurt by it', ()
 		expect(csp).toBe("script-src 'self'");
 	});
 
+	it('a page with a deferred hole (its content waits for the runtime, which the early code would delay): none', async () => {
+		const { html, csp } = await page([HEAD + BODY], (tail) => {
+			load_island(tail);
+			tail.note_hole('h1', 'load', null, 0);
+		});
+		expect(files_of(html)).toBe(null);
+		expect(csp).toBe("script-src 'self'");
+	});
+
 	it('a page with no island that wakes at load: none', async () => {
 		const { html, csp } = await page([HEAD + BODY], () => {});
 		expect(files_of(html)).toBe(null);
