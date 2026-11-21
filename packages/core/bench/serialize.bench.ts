@@ -35,6 +35,24 @@ bench(
 );
 
 bench(
+	'island fingerprint: forty-eight small props texts and the header config',
+	({ small, big }) => {
+		let n = 0;
+		for (let i = 0; i < small.length; i++)
+			n += region_fingerprint(island_entry(i), small[i]!).length;
+		return n + region_fingerprint(island_entry(99), big).length;
+	},
+	{
+		setup: () => ({
+			small: Array.from({ length: 48 }, (_, i) =>
+				JSON.stringify({ label: `Card ${i}`, n: i, tone: i % 2 ? 'warm' : 'cool', on: true })
+			),
+			big: new PropsWire(header(), 'header').canonical
+		})
+	}
+);
+
+bench(
 	'props wire: live snippet entries in a devalue payload',
 	({ text }) => props_wire.live_entries_in(text),
 	{
