@@ -1269,7 +1269,12 @@ describe('the build legs', () => {
 		expect(own[0]).toContain('maroon');
 		write(
 			path.relative(root, handoff()),
-			server_handoff_json([], 'k', [{ iid: 'late', abs: path.join(root, 'src/lib/Late.svelte') }])
+			server_handoff_json(
+				[],
+				'k',
+				[{ iid: 'late', abs: path.join(root, 'src/lib/Late.svelte') }],
+				null
+			)
 		);
 		const handed = await holes();
 		expect(handed).toHaveLength(1);
@@ -1325,7 +1330,7 @@ describe('the build legs', () => {
 
 	it('an island whose host the server leg never loaded gets no chunk; with no handoff, every island does', async () => {
 		app();
-		write(path.relative(root, handoff()), server_handoff_json([], 'k', []));
+		write(path.relative(root, handoff()), server_handoff_json([], 'k', [], null));
 		const { p } = await setup('build');
 		const gated = hook_this('client');
 		await p.buildStart.call(gated);

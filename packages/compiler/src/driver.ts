@@ -1023,6 +1023,11 @@ export class Compiler implements CoreApp {
 		return [...this.program.ssr_transformed].sort();
 	}
 
+	/** The feature word the server bundle was made with, for the handoff (null: it never loaded). */
+	server_word(): number | null {
+		return this.program.server_word;
+	}
+
 	/**
 	 * Client leg: the runtime chunk + one deterministic chunk per deduped hydrate region. `loaded` —
 	 * the server leg's transformed-module set (the handoff the plugin reads) — gates the emit to

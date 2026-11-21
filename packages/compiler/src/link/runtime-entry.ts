@@ -343,6 +343,12 @@ export function generateRuntimeFlagsSource(
 	`}\n`;
 }
 
+/** The server's feature word for `marks` (`all`: every feature), as
+ *  {@link generateServerFlagsSource} writes it. */
+export function server_feature_word(marks: RuntimeMarks, all = false): number {
+	return feature_word(all ? FEATURE_ORDER : resolveFeatures(marks));
+}
+
 /**
  * Emit `ogygia:server/runtime-flags`: the same feature word as the browser's `HAS`
  * ({@link generateRuntimeFlagsSource}), for the server build. The server's code for a feature (a
@@ -351,7 +357,7 @@ export function generateRuntimeFlagsSource(
  * the server leg reads them first, so its word never holds a feature the browser's lacks.
  */
 export function generateServerFlagsSource(marks: RuntimeMarks, all = false): string {
-	return `export const HAS = ${feature_word(all ? FEATURE_ORDER : resolveFeatures(marks))};\n`;
+	return `export const HAS = ${server_feature_word(marks, all)};\n`;
 }
 
 /**

@@ -136,6 +136,7 @@ import {
 } from '../link/island-deps.ts';
 import { report_seed_shaping } from '../link/build-output.ts';
 import { unpatched } from '../link/relocations.ts';
+import { bundler_reshake, shake_server_bundle, type ShakeBundle } from '../link/dead-exports.ts';
 import { emit_island_deps_handoff, refuse_client_secrets } from '../link/build-output.ts';
 import {
 	server_handoff_path,
@@ -809,7 +810,8 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 							server_handoff_json(
 								compiler.ssr_transformed_hosts(),
 								build_secret,
-								compiler.server_island_css_roots()
+								compiler.server_island_css_roots(),
+								compiler.server_word()
 							)
 						);
 					} catch (e) {
@@ -1027,7 +1029,10 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 				const chunks = Object.values(bundle).filter((item) => item.type === 'chunk');
 				for (const r of unpatched(leg.server, chunks))
 					warn('relocation_unpatched', { name: r.name, leg: leg.name });
-				if (leg.server) return;
+				if (leg.server) {
+					await shake_server_bundle(bundle as unknown as ShakeBundle, await bundler_reshake());
+					return;
+				}
 				for (const file of compiler.location_maps(leg, (ref) => this.getFileName(ref)))
 					this.emitFile({ type: 'asset', fileName: file.fileName, source: file.source });
 				const modules = markup.flatMap((m) => (m.modules ? [...m.modules] : []));

@@ -3687,6 +3687,66 @@
 			"name": "a registry with no marks is returned unchanged; an unparsable one is null"
 		},
 		{
+			"site": "packages/compiler/src/link/dead-exports.ts > read_chunk > not-ok:0",
+			"reason": "a chunk that does not parse stops the whole pass (what it imports is unknown) and is said as failed; proved: the !ok check made never true turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a chunk that does not parse: nothing changes anywhere"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > catch:0",
+			"reason": "a re-shake that throws leaves the chunk as written, its reason said; proved: the catch made to rethrow turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:0",
+			"reason": "the failed re-shake's result: the chunk kept, failed true; the test reads its reason",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:1",
+			"reason": "a re-shake with no map says nothing of what it kept: the chunk kept, failed true; the test reads its reason",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:2",
+			"reason": "a re-shake that drops what the chunk still exports disagrees with the chunk: kept, failed true; the test reads its reason",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:3",
+			"reason": "a chunk that calls eval keeps every export by rule; proved: the eval check made never true turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a chunk that calls eval keeps every export"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:4",
+			"reason": "a cut chunk whose statements read differently (no semicolons: two lines join) is not written; proved: the reread check made never true turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a cut that would join the lines around it into one statement (no semicolons) leaves the chunk as written"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > drop_dead_exports > not-ok:0",
+			"reason": "a chunk the shake refused keeps its text and is settled; proved: the !ok check made never true turns four tests red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > import:0",
+			"reason": "a bundler path that does not load gives no re-shake (the build says server_exports_kept); the test hands it a missing file",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a bundler that cannot be found or loaded gives no re-shake"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > catch:0",
+			"reason": "a bundler that cannot be found or loaded gives null, never a throw out of the build; proved: the catch made to rethrow turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a bundler that cannot be found or loaded gives no re-shake"
+		},
+		{
 			"site": "packages/compiler/src/parse/oxc.ts > parse_module > catch:0",
 			"reason": "`catch { return { program: null, ok: false, comments: [] }; }`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/compiler/test/oxc-parse.test.ts",

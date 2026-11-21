@@ -57,15 +57,21 @@ describe('the handoff file', () => {
 		);
 		const server_regions = [{ iid: 'r1', abs: join(root, 'lib/Slow.svelte') }];
 		const handoff = parse_server_handoff(
-			server_handoff_json([...loaded].sort(), 'k'.repeat(64), server_regions)
+			server_handoff_json([...loaded].sort(), 'k'.repeat(64), server_regions, null)
 		);
 		expect(handoff.hosts).toEqual(loaded);
 		expect(handoff.build_key).toBe('k'.repeat(64));
 		expect(handoff.server_regions).toEqual(server_regions);
 	});
 
+	it("carries the server bundle's feature word, or null when the server never loaded it", () => {
+		expect(parse_server_handoff(server_handoff_json([], 'k', [], 92992)).word).toBe(92992);
+		expect(parse_server_handoff(server_handoff_json([], 'k', [], null)).word).toBeNull();
+		expect(parse_server_handoff('{"word":"92992"}').word).toBeNull();
+	});
+
 	it('tolerates a malformed handoff (nothing gated, never a throw on shape)', () => {
-		const empty = { hosts: new Set(), build_key: '', server_regions: [] };
+		const empty = { hosts: new Set(), build_key: '', server_regions: [], word: null };
 		expect(parse_server_handoff('{"not":"an array"}')).toEqual(empty);
 		expect(parse_server_handoff('null')).toEqual(empty);
 		const mixed = parse_server_handoff(
@@ -78,7 +84,8 @@ describe('the handoff file', () => {
 		expect(mixed).toEqual({
 			hosts: new Set(['/a/b.svelte']),
 			build_key: '',
-			server_regions: [{ iid: 'r2', abs: '/a/c.svelte' }]
+			server_regions: [{ iid: 'r2', abs: '/a/c.svelte' }],
+			word: null
 		});
 	});
 

@@ -813,6 +813,20 @@ const WARNED = {
 			bundler starts. Move the file there, or declare it in its package's \`ogygia.files\`.
 		`
 	},
+	server_exports_kept: {
+		text: (a: { file: string; reason: string }): string => prose`
+			the server build kept what ${a.file} exports and nothing imports: ${a.reason}. The server
+			works as built; it is only larger than it needs to be. Please report it.
+		`,
+		details: (): string => prose`
+			The bundler fixes a shared server chunk's exports before the build's feature word removes
+			the code that used some of them, so after the bundle is made ogygia drops each export no
+			chunk imports, and the code only those exports reached, by having the bundler shake the
+			chunk again. When a step of that fails, the chunk is left exactly as the bundler wrote it:
+			nothing is lost but bytes. This is an ogygia bug, or another plugin wrote code the pass
+			cannot read.
+		`
+	},
 	relocation_unpatched: {
 		text: (a: { name: string; leg: string }): string => prose`
 			the ${a.name} in the ${a.leg} build was left unpatched: a value the build fills in at the end

@@ -187,15 +187,13 @@ const BROWSER_ONLY: readonly string[] = [
 	'core/runtime/frame-store',
 	'core/runtime/html-ranges'
 ];
-const WORD_RE = /\b(?:var|const|let) HAS(?:\$\d+)? = (\d+);/;
-
-/** The server's feature word, as its build wrote it. */
+/** The server's feature word, as its build recorded it in the server handoff (the bundle's own
+ *  `HAS` line is gone once nothing reads it: the compiler's dead-export pass). */
 function server_word(): number | null {
-	for (const file of js_files(SERVER)) {
-		const m = WORD_RE.exec(readFileSync(file, 'utf8'));
-		if (m) return Number(m[1]);
-	}
-	return null;
+	const handoff = join(APP, '.svelte-kit/og-server-handoff.json');
+	if (!existsSync(handoff)) return null;
+	const { word } = JSON.parse(readFileSync(handoff, 'utf8')) as { word?: unknown };
+	return typeof word === 'number' ? word : null;
 }
 
 function leaks_of(r: Report, word: number): string[] {
@@ -216,7 +214,9 @@ function leaks_of(r: Report, word: number): string[] {
 const report = measure();
 const word = server_word();
 const leaks =
-	word === null ? ['no server feature word found in the output (HAS = …)'] : leaks_of(report, word);
+	word === null
+		? ['no server feature word in .svelte-kit/og-server-handoff.json (its `word`)']
+		: leaks_of(report, word);
 for (const leak of leaks) console.error(`server-size: ${relative(REPO, APP)}: ${leak}`);
 if (AS_JSON) {
 	console.log(JSON.stringify(report, null, 2));
