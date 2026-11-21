@@ -27,6 +27,7 @@ async function painted(): Promise<void> {
 	document.body.append(p);
 	if (!PAINT) return;
 	await expect
+		// oxlint-disable-next-line ogygia/downloads-heard -- a paint entry, not a download: the 250-entry cap is the resource buffer's
 		.poll(() => performance.getEntriesByName('first-contentful-paint').length, { timeout: 5_000 })
 		.toBeGreaterThan(0);
 }
