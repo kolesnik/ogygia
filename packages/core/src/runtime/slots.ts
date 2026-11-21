@@ -282,6 +282,8 @@ export type Slots = {
 	interaction_link: InteractionLink | null;
 	/** The region element's state and the boot's helpers for the live program (see {@link LiveLink}). */
 	live_link: LiveLink | null;
+	/** A held region's ticks, set by the live feature's install in the hydrate core (./live.ts). */
+	live_program: typeof import('./live-program.ts').apply_live | null;
 	/** The region element's state and the boot's helpers for an island's wake (see {@link WakeLink}). */
 	wake_link: WakeLink | null;
 	/** Morph's attribute sync, for the navigation's body reconcile. */
@@ -306,6 +308,7 @@ export const slots: Slots = {
 	router_link: null,
 	interaction_link: null,
 	live_link: null,
+	live_program: null,
 	wake_link: null,
 	sync_attributes: null
 };

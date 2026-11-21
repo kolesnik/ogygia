@@ -345,22 +345,8 @@ export function generateRuntimeFlagsSource(
 	`}\n`;
 }
 
-/** A module the region element calls directly (`ogygia:boot/feature-code`): its export name, the
- *  feature that brings it, and its file in the runtime directory. */
-export interface FeatureCode {
-	readonly name: string;
-	readonly feature: FeatureId;
-	readonly module: string;
-}
-
-/** The modules the region element calls directly, each in a boot exactly when its feature is. The
- *  live load is the `import()` of the live program's lazy chunk: written in core it would emit the
- *  chunk in every build, guarded or not. */
-export const FEATURE_CODE: readonly FeatureCode[] = [
-	{ name: 'lakes', feature: 'lakes', module: 'lakes.js' },
-	{ name: 'frames', feature: 'frames', module: 'frames.js' },
-	{ name: 'live_load', feature: 'live', module: 'live-load.js' }
-];
+/** The boot features whose module the region element calls directly (`ogygia:boot/feature-code`). */
+export const FEATURE_CODE: readonly FeatureId[] = ['lakes', 'frames'];
 
 /**
  * Emit `ogygia:boot/feature-code`: each of {@link FEATURE_CODE}'s modules as a namespace where the
@@ -378,11 +364,11 @@ export function generateFeatureCodeSource(
 	ext = '.js'
 ): string {
 	const features = all ? FEATURE_ORDER : resolveFeatures(marks);
-	const lines = FEATURE_CODE.map(({ name, feature, module }) => {
-		const file = module.replace(JS_EXT, ext);
-		return features.includes(feature)
-			? `export * as ${name} from ${JSON.stringify(runtime_path(runtimeDir, file))};`
-			: `export const ${name} = null;`;
+	const lines = FEATURE_CODE.map((id) => {
+		const file = FEATURES[id].module!.replace(JS_EXT, ext);
+		return features.includes(id)
+			? `export * as ${id} from ${JSON.stringify(runtime_path(runtimeDir, file))};`
+			: `export const ${id} = null;`;
 	});
 	return `${lines.join('\n')}\n`;
 }

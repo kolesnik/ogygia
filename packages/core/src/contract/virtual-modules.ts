@@ -131,7 +131,6 @@ export interface RuntimeFlagsModule {
 export interface FeatureCodeModule {
 	readonly lakes: typeof import('../runtime/lakes.ts');
 	readonly frames: typeof import('../runtime/frames.ts');
-	readonly live_load: typeof import('../runtime/live-load.ts');
 }
 
 /** `ogygia:boot/hooks`: each runtime hook the app's client realms subscribe to, as the function the

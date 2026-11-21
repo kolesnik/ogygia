@@ -1,6 +1,6 @@
-// The live program (runtime/live-program.ts) runs a held region's ticks. A tick keeps its place in
-// the frame store's order from the moment its turn starts, not from when it painted: a frame written
-// at its address meanwhile is the newer one.
+// The live program is a lazy chunk (runtime/live-program.ts), loaded by a held region's first tick.
+// A tick keeps its place in the frame store's order from the moment its turn starts, not from when
+// the program arrived: a frame written at its address while the program loads is the newer one.
 import { afterEach, expect, test } from 'vitest';
 import { bootDev } from '../../src/runtime/full.ts';
 import { _reset, stamp, write } from '../_frames.ts';

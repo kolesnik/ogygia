@@ -80,7 +80,7 @@ import {
 	region_schedule
 } from './region-attrs.ts';
 import { slots, type LiveLink, type LiveTick, type WakeLink } from './slots.ts';
-import { frames, lakes, live_load } from 'ogygia:boot/feature-code';
+import { frames, lakes } from 'ogygia:boot/feature-code';
 import { say_reload_needed } from './reload-needed.ts';
 import {
 	create_answer,
@@ -1387,15 +1387,14 @@ class OgygiaRegion extends HTMLElement {
 		slots.live_link ??= OgygiaRegion.#live_link();
 		if (HAS & F_FRAMES && desc.url && !(desc.hydrate && desc.module))
 			desc.written ??= { v: frames.ticket(frameAddress(desc.url)) };
-		if (!(HAS & F_LIVE)) return;
-		if (live_load.loaded === null)
+		if (slots.live_program === null)
 			try {
-				$await(turn.wait(live_load.load()));
+				$await(turn.wait(hydrate_core.get()));
 			} catch (error) {
 				say_island_failed(this.getAttribute('entry'), error);
 				return;
 			}
-		return live_load.loaded?.apply_live(this, desc, turn);
+		return slots.live_program?.(this, desc, turn);
 	}
 
 	static #wake_link(): WakeLink {

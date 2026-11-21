@@ -1,8 +1,8 @@
 /**
  * A held region's live program: its ticks (`applyLive`), applied as static HTML morphed in place
- * or as an interactive island hydrated and fed props. Its own lazy chunk, loaded by a held region's
- * first tick (./core.ts `#apply_live`): a build without held regions never ships it, and a page
- * without one never downloads it. It reaches the element's state and the boot's helpers through
+ * or as an interactive island hydrated and fed props. Part of the live feature (./live.ts), which
+ * the hydrate core installs: a build without held regions never ships it, and the boot keeps only
+ * the call (./core.ts `#apply_live`). It reaches the element's state and the boot's helpers through
  * `slots.live_link` (./slots.ts `LiveLink`), set by the element before its first tick.
  *
  * @internal

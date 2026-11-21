@@ -127,25 +127,18 @@ describe('runtime flags', () => {
 		];
 		for (const marks of cases)
 			for (const all of [false, true])
-				for (const { name, feature, module } of FEATURE_CODE) {
-					const on = (word(marks, all) & FEATURE_BITS[feature]) !== 0;
-					expect(code(marks, all), `${name} ${JSON.stringify(marks)} ${all}`).toContain(
-						on
-							? `export * as ${name} from "${RUNTIME_DIR}/${module}";`
-							: `export const ${name} = null;`
+				for (const id of FEATURE_CODE) {
+					const on = (word(marks, all) & FEATURE_BITS[id]) !== 0;
+					expect(code(marks, all), `${id} ${JSON.stringify(marks)} ${all}`).toContain(
+						on ? `export * as ${id} from "${RUNTIME_DIR}/${id}.js";` : `export const ${id} = null;`
 					);
 				}
-		// a plain island app imports none of them: no lake, frame-store or live-program load in its boot
+		// a plain island app imports neither module: no lake or frame-store state in its boot
 		expect(code({ complete: true, hydrate: ['load'] })).toBe(
 			`${dedent`
 				export const lakes = null;
 				export const frames = null;
-				export const live_load = null;
 			`}\n`
-		);
-		// a build with held regions: the boot holds the live program's load
-		expect(code({ complete: true, live: true })).toContain(
-			`export * as live_load from "${RUNTIME_DIR}/live-load.js";`
 		);
 		expect(code({ complete: true, hydrate: ['load'] }, true, '.ts')).toContain(
 			`export * as lakes from "${RUNTIME_DIR}/lakes.ts";`
