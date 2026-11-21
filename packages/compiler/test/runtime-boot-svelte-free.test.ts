@@ -2,7 +2,7 @@
 // never statically reaches Svelte. In a real app Svelte's client runtime is ONE shared chunk (~200 KB);
 // anything in the boot's static graph downloads first thing in `<head>`, ahead of the page's LCP image,
 // before a single island needs it (field: +1 s LCP on a content page). Svelte must arrive with the first
-// hydrate (the lazy hydrate core + `slots.hydrate_features`), when `hydrate()` needs it anyway.
+// hydrate (the lazy hydrate core + `ogygia:boot/hydrate-features`), when `hydrate()` needs it anyway.
 //
 // It regressed four ways before this test existed: a string constant imported through a server-side
 // module that imports `svelte`, a rune (`$effect.root`) in a module core imported statically, the
@@ -16,9 +16,11 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { dedent } from '@ogygia/core/contract';
 import {
 	FEATURES,
 	generateHydrateFeaturesSource,
+	generateRemoteSeedsSource,
 	generateRuntimeEntrySource
 } from '../src/link/runtime-entry.ts';
 
@@ -239,15 +241,26 @@ describe('the compiler splits features into two static phases', () => {
 		expect(features).toContain('router'); // boot-phase ones are still there
 	});
 
-	it('the hydrate-phase module imports exactly the hydrate features the marks select', () => {
+	it('the hydrate-phase modules import exactly the hydrate features the marks select', () => {
 		const used = generateHydrateFeaturesSource(EVERYTHING, '/rt');
-		expect(used.features.sort()).toEqual(['context', 'live', 'page', 'remote-seeds', 'wire']);
+		expect(used.features.sort()).toEqual(['context', 'live', 'page', 'wire']);
+		expect(generateRemoteSeedsSource(EVERYTHING, '/rt')).toContain(
+			'export * as remote_seeds from "/rt/remote-seeds.js";'
+		);
 		const plain = generateHydrateFeaturesSource(
 			{ complete: true, hydrate: ['load'], remoteSeeds: false, page: false },
 			'/rt'
 		);
 		expect(plain.features).toEqual([]); // a plain app ships none of them
-		expect(plain.code).toContain('export function install()');
+		expect(plain.code).not.toContain('/rt/');
+		expect(plain.code).toContain('export const page_on = false;');
+		const no_remote = generateRemoteSeedsSource({ complete: true, remoteSeeds: false }, '/rt');
+		expect(no_remote).toBe(
+			`${dedent`
+			export const remote_seeds = null;
+			export const remote_seeds_on = false;
+		`}\n`
+		);
 	});
 });
 
@@ -299,9 +312,24 @@ describe('island-side modules reach the runtime only through its handles', () =>
 		expect(reached.has(path.join(SRC, 'region-parts/head.svelte.ts'))).toBe(true);
 	});
 
-	it('the check is not vacuous: the boot set holds the router and the slots registry', () => {
+	it('the check is not vacuous: the boot set holds the router and the boot link', () => {
 		expect(boot.has(path.join(RUNTIME, 'router.ts'))).toBe(true);
-		expect(boot.has(path.join(RUNTIME, 'slots.ts'))).toBe(true);
+		expect(boot.has(path.join(RUNTIME, 'boot-link.ts'))).toBe(true);
+	});
+
+	// The boot HANDS its link to each lazy chunk as it imports one (runtime/boot-link.ts `linked`);
+	// the lazy realm keeps it (runtime/lazy-link.ts). A boot module that read the lazy link would read
+	// a global the boot never filled (no lazy chunk has loaded yet) and bring the holder into the boot.
+	it('the boot never reaches the lazy link: it hands the link, it never reads it', () => {
+		const lazy_link = path.join(RUNTIME, 'lazy-link.ts');
+		expect(boot.get(lazy_link)?.join(' > ')).toBeUndefined();
+	});
+
+	it('the lazy check is not vacuous: every lazy chunk reaches the lazy link', () => {
+		for (const lazy of ['hydrate-core.ts', 'router-nav.ts', 'interaction-replay.ts'])
+			expect(static_files(path.join(RUNTIME, lazy)).has(path.join(RUNTIME, 'lazy-link.ts'))).toBe(
+				true
+			);
 	});
 
 	// THE RUNTIME'S OWN LAZY CHUNKS never import a boot module either — except the few Kit's client
@@ -309,7 +337,7 @@ describe('island-side modules reach the runtime only through its handles', () =>
 	// those modules are a shared chunk regardless). Kit builds the client with
 	// `preserveEntrySignatures: 'strict'`: the runtime chunk may not export a module to a lazy chunk,
 	// so every boot module a lazy chunk imports is split into a file of its own — the boot arrived as
-	// nine. Lazy chunks reach boot helpers through the registry (runtime/slots.ts `BootLink`).
+	// nine. Lazy chunks get boot helpers handed in (runtime/boot-link.ts `BootLink`).
 	const kit_transport_shared = new Set(static_files(path.join(SRC, 'transport.ts')).keys());
 	const boot_names = boot_realm_names(boot.keys());
 	for (const lazy of ['hydrate-core.ts', 'router-nav.ts', 'interaction-replay.ts']) {
@@ -355,14 +383,17 @@ describe('island-side modules reach the runtime only through its handles', () =>
 		expect(hydrate.has('ogygia:boot/hook-bits')).toBe(true);
 	});
 
-	it('the ogygia:boot check is not vacuous: the boot reads the feature word, the hydrate core its features', () => {
+	it('the ogygia:boot check is not vacuous: the boot reads the feature word and its features’ code, the hydrate core its own features', () => {
 		expect(boot_names.has('HAS')).toBe(true);
-		const hydrate = boot_realm_names(static_files(path.join(RUNTIME, 'hydrate-core.ts')).keys());
-		expect(hydrate.has('install_hydrate_features')).toBe(true);
+		expect(boot_modules.has('ogygia:boot/feature-code')).toBe(true);
+		const hydrate = boot_realm_modules(static_files(path.join(RUNTIME, 'hydrate-core.ts')).keys());
+		expect(hydrate.has('ogygia:boot/hydrate-features')).toBe(true);
+		expect(hydrate.has('ogygia:boot/remote-seeds')).toBe(true);
 	});
 
-	it('Kit’s transport really does share the registry (so it is the allowed exception, not a loophole)', () => {
-		expect(kit_transport_shared.has(path.join(RUNTIME, 'slots.ts'))).toBe(true);
+	it('Kit’s transport really does share what it lets through (so it is the allowed exception, not a loophole)', () => {
+		expect(kit_transport_shared.has(path.join(SRC, 'wire-markup.ts'))).toBe(true);
+		expect(boot.has(path.join(SRC, 'wire-markup.ts'))).toBe(true);
 		expect(kit_transport_shared.has(path.join(RUNTIME, 'router.ts'))).toBe(false);
 	});
 

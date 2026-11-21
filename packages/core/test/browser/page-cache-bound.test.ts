@@ -4,6 +4,7 @@
 // a page makes: a kept page answers with none, a page that went fetches again.
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { reset_load_scheduler } from '../../src/runtime/load-scheduler.ts';
 import { reset_document_painted } from '../../src/runtime/schedule.ts';
 
@@ -16,7 +17,7 @@ const sizes = new Map<string, number>();
 beforeEach(async () => {
 	reset_load_scheduler();
 	reset_document_painted();
-	link_boot();
+	init(link_boot());
 	asked.length = 0;
 	sizes.clear();
 	window.fetch = async (input) => {

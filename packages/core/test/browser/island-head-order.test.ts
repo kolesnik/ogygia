@@ -9,7 +9,7 @@ import { beforeAll, expect, inject, test } from 'vitest';
 import { from_b64 } from './b64.ts';
 import type { Component } from 'svelte';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { boot_link } from '../../src/runtime/slots.ts';
+import { boot_link, init } from '../../src/runtime/lazy-link.ts';
 import { L_RUNTIME_SESSION } from '../../src/runtime/boot-link-index.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
 import {
@@ -24,7 +24,7 @@ const decode = (key: 'head_style_head_b64' | 'head_style_body_b64') => from_b64(
 const as_module = (c: unknown) => ({ default: c as Component<Record<string, unknown>> });
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
 });
 

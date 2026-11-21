@@ -21,7 +21,7 @@
  * It lives here, on the boot side: the navigation chunk reaches it through the router (`r.nav`),
  * and `STALE` and the soft refresh's machine (./soft-refresh.ts) through `boot_link()`. A chunk that
  * imported `@ogygia/machine` itself would share it with the boot, and the bundler would split it
- * into a boot file of its own (./slots.ts `BootLink`).
+ * into a boot file of its own (./boot-link.ts `BootLink`).
  */
 import type { MachineGraph } from '@ogygia/machine';
 import type { Run } from '@ogygia/machine';

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, vi } from 'vitest';
 import { commands } from 'vitest/browser';
 import { it_with_network_routes } from './_browsers.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { region_fragment } from './_html.ts';
 
@@ -24,7 +25,7 @@ const settled = (p: Promise<unknown>) => {
 beforeEach(() => {
 	vi.stubEnv('DEV', false);
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
-	link_boot();
+	init(link_boot());
 });
 afterEach(async () => {
 	vi.useRealTimers();

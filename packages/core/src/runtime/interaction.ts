@@ -4,22 +4,26 @@ import type { Life, Run } from '@ogygia/machine';
 import * as fsm from '@ogygia/machine';
 import { LoadSlot } from './load-scheduler.ts';
 import { import_again } from './import-again.ts';
-import { slots } from './slots.ts';
+import { linked } from './boot-link.ts';
 import { warm_island_module } from './island-warm.ts';
 import { island_entry_of } from './entry-locations.ts';
 import { OgygiaError } from '../messages/core.ts';
 import { download } from '../policies.ts';
 import { OG_WOKE } from '../wire-markup.ts';
 
-/** Feature entry: fill the `interaction` slot — wake a cold island on first use, warm on hover. */
-export function install(): void {
-	slots.interaction = (el, fire, owner) => {
-		const warm = () => {
-			const entry = island_entry_of(el);
-			if (entry) warm_island_module(entry, undefined, 'user');
-		};
-		return arm_interaction(el, warm, fire, owner);
+/**
+ * Wake a cold island when interaction lands inside it, and warm its module on hover; returns a
+ * disarm fn (`over`: the region left while it was waking: the clicks it queued are dropped, not
+ * replayed). `fire` gets what replays the visitor's input ({@link WakeFn}): the island goes live
+ * once it is in. `owner`: the region's lifetime in the page, which the replay's frame belongs to.
+ * The region element calls it (`ogygia:boot/feature-code`).
+ */
+export function arm(el: HTMLElement, fire: WakeFn, owner: Life): void | ((over?: boolean) => void) {
+	const warm = () => {
+		const entry = island_entry_of(el);
+		if (entry) warm_island_module(entry, undefined, 'user');
 	};
+	return arm_interaction(el, warm, fire, owner);
 }
 
 const WAKE_EVENTS = ['pointerdown', 'keydown', 'focusin', 'click'] as const;
@@ -130,13 +134,13 @@ const armed = registry.keyed<Element, Armed>();
 let installed = false;
 
 type Replay = typeof import('./interaction-replay.ts');
+const import_replay = import_again(() => import('./interaction-replay.ts'));
 const load_replay = plainFlights({
 	name: 'interaction replay',
-	run: import_again(() => import('./interaction-replay.ts')),
+	run: () => import_replay().then(linked),
 	retry: download
 });
 function replay(): Promise<Replay | Stale> {
-	slots.interaction_link ??= { resolve_address };
 	return load_replay.get();
 }
 

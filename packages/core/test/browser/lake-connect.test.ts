@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from 'vitest';
 import { hold, on_frozen_connect, release } from '../../src/runtime/lakes.ts';
-import { lake_state } from '../../src/runtime/lakes.ts';
-import type { LakeArm } from '../../src/runtime/slots.ts';
+import { lake_state, type LakeArm } from '../../src/runtime/lakes.ts';
 
 let next = 0;
 const unique = (name: string) => `lake-connect-${name}-${next++}`;

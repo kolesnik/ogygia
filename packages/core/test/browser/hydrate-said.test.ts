@@ -10,6 +10,7 @@ import type { RegionMismatchedEvent } from '../../src/contract/runtime-hooks.ts'
 
 (globalThis as unknown as { __OGYGIA_DEVTOOLS__: boolean }).__OGYGIA_DEVTOOLS__ = true;
 const { link_boot } = await import('../../src/runtime/boot-link.ts');
+const { init } = await import('../../src/runtime/lazy-link.ts');
 const { load_devalue } = await import('../../src/runtime/devalue-lane.ts');
 const { hear, hear_none } = await import('../_hooks.ts');
 const { snapshot, clear, configure } = await import('../../src/events/bus.ts');
@@ -29,7 +30,7 @@ const events = (name: string) =>
 		});
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
 });
 beforeEach(() => {

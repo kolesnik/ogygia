@@ -216,8 +216,8 @@ test.describe('dev: an installed (not linked) ogygia runs as one copy in the bro
 			(p) => p.includes('/node_modules/ogygia/') || p.includes('/node_modules/@ogygia/core/')
 		);
 		check(
-			'the page loads ogygia’s runtime and its slots from ogygia’s own files',
-			own.some((p) => p.endsWith('/runtime/slots.js')) &&
+			'the page loads ogygia’s runtime and its lazy chunks’ link from ogygia’s own files',
+			own.some((p) => p.endsWith('/runtime/lazy-link.js')) &&
 				own.some((p) => p.endsWith('/runtime/hydrate-core.js')),
 			`${own.length} files`
 		);

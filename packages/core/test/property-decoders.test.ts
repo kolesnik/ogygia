@@ -14,12 +14,13 @@ import { build_parcel, done_parcel } from '../src/server/stream-regions.ts';
 import { PropsWire } from '../src/server/props-wire.ts';
 import { parse_wire_text } from '../src/runtime/wire-format.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
+import { init } from '../src/runtime/lazy-link.ts';
 import { load_devalue } from '../src/runtime/devalue-lane.ts';
 import { foreign_region_prop_revivers } from '../src/runtime/foreign-props.ts';
 import { encode_island_graph } from '../src/island-graph.ts';
 import { decode_island_graph, decode_island_locations } from '../src/island-graph-read.ts';
 
-link_boot();
+init(link_boot());
 await load_devalue();
 
 /** Every run draws the same inputs (314, as the sim, unless `OGYGIA_SIM_SEED` says): an input that

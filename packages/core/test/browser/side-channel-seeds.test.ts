@@ -7,16 +7,15 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { page_seed_of, prepare_spa_document, seed_page_once } from '../../src/runtime/seeds.ts';
-import { install as install_remote_seeds } from '../../src/runtime/remote-seeds.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { seed_once } from '../../src/runtime/remote-seeds.ts';
 import { page_state } from '../../src/shims/page-store.svelte.ts';
 import { query_responses } from '../../src/shims/kit-remote/client-stub.ts';
 import { collect_provided_context, serialize_provided_context } from '../../src/context-bridge.ts';
 import { hole_facts_of } from '../../src/runtime/hole-facts.ts';
 
-link_boot();
-install_remote_seeds();
+init(link_boot());
 
 /** The attribute the handle writes the response's mark in (contract/response-mark.ts). */
 const MARK_ATTR = 'data-og-mark';
@@ -97,7 +96,7 @@ it("islands read the server's remote seed, not one the page markup carries befor
 	script(markup_block(), REMOTE, stringify({ q: { 'q/key': 'markup' } }), null);
 	script(document.body, REMOTE, stringify({ q: { 'q/key': 'server' } }), MARK);
 
-	slots.remoteSeeds!.seed_once();
+	seed_once();
 
 	expect(query_responses['q/key']).toBe('server');
 });

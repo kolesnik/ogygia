@@ -9,8 +9,9 @@
 // beside this one in the same browser page.)
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
-import { boot_link } from '../../src/runtime/slots.ts';
+import { boot_link } from '../../src/runtime/lazy-link.ts';
 import { L_LOAD_DEVALUE } from '../../src/runtime/boot-link-index.ts';
 
 const real_fetch = window.fetch;
@@ -18,7 +19,7 @@ const real_report = window.reportError;
 const home = location.href;
 
 beforeEach(() => {
-	link_boot();
+	init(link_boot());
 	window.reportError = () => {};
 	window.fetch = async () =>
 		new Response(

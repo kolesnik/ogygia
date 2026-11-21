@@ -8,13 +8,21 @@ import { it_with_network_routes } from './_browsers.ts';
 import { history_room } from './_history-budget.ts';
 import { in_head } from './_in-head.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { set_remote_seeds } from '../_stubs/boot.remote-seeds.ts';
+import * as remote_seeds from '../../src/runtime/remote-seeds.ts';
 import { hear, hear_none } from '../_hooks.ts';
-import { L_IS_WARMED_MODULE, L_SOFT, L_YIELD_TASK } from '../../src/runtime/boot-link-index.ts';
+import {
+	L_FORMS_RESTORE,
+	L_FORMS_SNAPSHOT,
+	L_FRAMES_STREAM,
+	L_IS_WARMED_MODULE,
+	L_SOFT,
+	L_YIELD_TASK
+} from '../../src/runtime/boot-link-index.ts';
 import { scope } from '@ogygia/machine';
 import { patch } from '../_patch.ts';
 import type { PageGlobals } from '../../src/page-globals.ts';
@@ -81,8 +89,7 @@ let handed_moves: string[];
 
 beforeEach(async () => {
 	await history_room();
-	link_boot();
-	install_morph();
+	init(link_boot());
 	pages = {};
 	fetched.length = 0;
 	asked.length = 0;
@@ -515,7 +522,7 @@ test('an error page the server renders as HTML goes in without a full load', asy
 });
 
 test('a modulepreload for a module the page already warmed is not put in the head again', async () => {
-	const boot = slots.boot!;
+	const boot = link_boot();
 	const real = boot[L_IS_WARMED_MODULE];
 	boot[L_IS_WARMED_MODULE] = (entry) => entry.endsWith('/warm.js');
 	pages['/rn-modulepreload'] = {
@@ -611,14 +618,12 @@ it_with_network_routes(
 	async () => {
 		const answer = gate();
 		const visits: Life[] = [];
-		const frames = slots.frames;
-		slots.frames = {
-			...frames,
-			stream: (_endpoints: string[], visit: Life) => {
-				visits.push(visit);
-				return Promise.resolve();
-			}
-		} as never;
+		const link = link_boot();
+		const stream = link[L_FRAMES_STREAM];
+		link[L_FRAMES_STREAM] = (_endpoints: string[], visit: Life) => {
+			visits.push(visit);
+			return Promise.resolve();
+		};
 		const held = '/rn-called-off.css';
 		await commands.hold_downloads(held);
 		pages['/rn-called-off'] = {
@@ -638,7 +643,7 @@ it_with_network_routes(
 			await newer;
 			await expect.poll(() => r.nav.now.kind).toBe('idle');
 		} finally {
-			slots.frames = frames;
+			link[L_FRAMES_STREAM] = stream;
 			await commands.keep_downloads(held);
 		}
 	}
@@ -706,7 +711,7 @@ test('a region of the next page names its files against that page’s address', 
 
 test('the transition starts after the build yields its task', async () => {
 	const order: string[] = [];
-	const boot = slots.boot!;
+	const boot = link_boot();
 	const real_yield = boot[L_YIELD_TASK];
 	boot[L_YIELD_TASK] = () => {
 		order.push('yield');
@@ -747,7 +752,7 @@ test('a soft refresh of the page being left never lands on the next page', async
 	answer.open();
 	await soft;
 	expect(document.head.querySelector('meta[name="rn-soft"]')?.getAttribute('content')).toBe('b');
-	expect(slots.boot![L_SOFT].now.kind).toBe('idle');
+	expect(link_boot()[L_SOFT].now.kind).toBe('idle');
 });
 
 test('a commit that fails after it wrote the history entry hands that entry to the browser', async () => {
@@ -801,15 +806,14 @@ test('a navigation fires before-swap, after-swap and page-load once each, in ord
 
 test('form continuity: the page left is read before the swap, the next page is given back its fields after', async () => {
 	const calls: string[] = [];
-	const forms = slots.forms;
-	slots.forms = {
-		snapshot: (root, key) =>
-			void calls.push(
-				`snapshot ${key} ${(root as Element).querySelector('#next') ? 'next' : 'first'}`
-			),
-		restore: (key) =>
-			void calls.push(`restore ${key} ${document.getElementById('next') ? 'next' : 'first'}`)
-	};
+	const link = link_boot();
+	const forms = [link[L_FORMS_SNAPSHOT], link[L_FORMS_RESTORE]] as const;
+	link[L_FORMS_SNAPSHOT] = (root, key) =>
+		void calls.push(
+			`snapshot ${key} ${(root as Element).querySelector('#next') ? 'next' : 'first'}`
+		);
+	link[L_FORMS_RESTORE] = (key) =>
+		void calls.push(`restore ${key} ${document.getElementById('next') ? 'next' : 'first'}`);
 	history.replaceState(null, '', '/rn-forms-left');
 	r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation(() => {});
@@ -817,7 +821,7 @@ test('form continuity: the page left is read before the swap, the next page is g
 	try {
 		await go('/rn-forms');
 	} finally {
-		slots.forms = forms;
+		[link[L_FORMS_SNAPSHOT], link[L_FORMS_RESTORE]] = forms;
 	}
 	expect(calls).toEqual(['snapshot /rn-forms-left first', 'restore /rn-forms next']);
 });
@@ -841,17 +845,18 @@ test('a late chunk’s stylesheet goes into the head', async () => {
 
 test('after the swap, the kit remotes the page left are let go', async () => {
 	let released = 0;
-	const remote = slots.remoteSeeds;
 	// (the remote seeds feature, doing nothing but counting its release)
-	slots.remoteSeeds = new Proxy(
-		{},
-		{ get: (_, key) => (key === 'release_remote_instances' ? () => void released++ : () => {}) }
-	) as never;
+	set_remote_seeds(
+		new Proxy(
+			{},
+			{ get: (_, key) => (key === 'release_remote_instances' ? () => void released++ : () => {}) }
+		) as never
+	);
 	pages['/rn-remotes'] = { body: '<p>next</p>' };
 	try {
 		await go('/rn-remotes');
 	} finally {
-		slots.remoteSeeds = remote;
+		set_remote_seeds(remote_seeds);
 	}
 	expect(released).toBe(1);
 });

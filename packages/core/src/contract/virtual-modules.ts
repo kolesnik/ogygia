@@ -114,9 +114,28 @@ export interface KitTransportModule {
 	transport: CodecMap;
 }
 
+/** `ogygia:boot/hydrate-features`: the hydrate-phase features' modules, each `null` where the build
+ *  leaves the feature out, and `<name>_on`, which says so (the hydrate core tests it before every
+ *  use). Only the hydrate core imports it (the remote seeds are `ogygia:boot/remote-seeds`), so the
+ *  features ride the hydrate core's one `import()`. */
 export interface HydrateFeaturesModule {
-	/** installs the hydrate-phase features the app's marks selected */
-	install(): void;
+	readonly page: typeof import('../runtime/seeds.ts');
+	readonly page_on: boolean;
+	readonly wire: typeof import('../live-transport.ts');
+	readonly wire_on: boolean;
+	readonly live: typeof import('../runtime/live.ts');
+	readonly live_on: boolean;
+	readonly context: typeof import('../runtime/context.ts');
+	readonly context_on: boolean;
+}
+
+/** `ogygia:boot/remote-seeds`: the remote-seeds feature's module, `null` where the build leaves it
+ *  out (`remote_seeds_on` says so). Its readers are the hydrate core and the page feature, which the
+ *  navigation chunk imports too, so it is a module of its own (the navigation never loads the other
+ *  hydrate features). */
+export interface RemoteSeedsModule {
+	readonly remote_seeds: typeof import('../runtime/remote-seeds.ts');
+	readonly remote_seeds_on: boolean;
 }
 
 export interface RuntimeFlagsModule {
@@ -127,13 +146,19 @@ export interface RuntimeFlagsModule {
 	load_wire_codec: (() => Promise<{ install(): void }>) | null;
 }
 
-/** `ogygia:boot/feature-code`: the boot features' modules the region element calls directly, each
- *  `null` where the build leaves the feature out (its bit is off in `HAS`, which the element tests
- *  before every call). Only the boot imports it, so a feature's module, its state included, is in a
- *  boot exactly when its bit is. */
+/** `ogygia:boot/feature-code`: the boot features' modules the boot calls directly, each `null` where
+ *  the build leaves the feature out (its bit is off in `HAS`, which the boot tests before every
+ *  call). Only the boot imports it, so a feature's module, its state included, is in a boot exactly
+ *  when its bit is. */
 export interface FeatureCodeModule {
-	readonly lakes: typeof import('../runtime/lakes.ts');
+	readonly wire_classes: typeof import('../runtime/wire-classes.ts');
 	readonly frames: typeof import('../runtime/frames.ts');
+	readonly lakes: typeof import('../runtime/lakes.ts');
+	readonly morph: typeof import('../runtime/morph.ts');
+	readonly interaction: typeof import('../runtime/interaction.ts');
+	readonly forms: typeof import('../runtime/form-continuity.ts');
+	readonly mpa_nav: typeof import('../runtime/nav-handle.ts');
+	readonly router: typeof import('../runtime/router.ts');
 }
 
 /** `ogygia:boot/hooks`: each runtime hook the app's client realms subscribe to, as the function the
@@ -264,6 +289,7 @@ export interface VirtualModules {
 	'ogygia:boot/runtime-entry': SideEffectModule;
 	'ogygia:boot/runtime-flags': RuntimeFlagsModule;
 	'ogygia:boot/hydrate-features': HydrateFeaturesModule;
+	'ogygia:boot/remote-seeds': RemoteSeedsModule;
 	'ogygia:boot/feature-code': FeatureCodeModule;
 	'ogygia:boot/hooks': HooksModule;
 	'ogygia:boot/hook-bits': HookBitsModule;

@@ -1,22 +1,19 @@
 // A side-channel script's two lanes, read back (src/runtime/wire-format.ts): the JSON lane is
 // `JSON.parse`d and never asks for devalue; the devalue lane parses with the caller's revivers.
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { parse, stringify } from 'devalue';
-import { slots, type BootLink } from '../src/runtime/slots.ts';
+import type { BootLink } from '../src/runtime/boot-link.ts';
+import { init } from '../src/runtime/lazy-link.ts';
 import { L_DEVALUE } from '../src/runtime/boot-link-index.ts';
 import { parse_sidecar_text, parse_wire_text, wire_is_json } from '../src/runtime/wire-format.ts';
 
-const was = slots.boot;
-afterEach(() => {
-	slots.boot = was;
-});
-
-/** A boot whose devalue is the real one, counting how often it is asked for. */
+/** A boot whose devalue is the real one, counting how often it is asked for: the link it hands the
+ *  lazy chunks. */
 function boot() {
 	const devalue = vi.fn(() => ({ parse }));
 	const link: unknown[] = [];
 	link[L_DEVALUE] = devalue;
-	slots.boot = link as unknown as BootLink;
+	init(link as unknown as BootLink);
 	return { devalue };
 }
 

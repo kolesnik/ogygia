@@ -4,8 +4,14 @@
 import { expect, test } from 'vitest';
 import { STALE } from '@ogygia/machine';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { slots } from '../../src/runtime/slots.ts';
 import * as index from '../../src/runtime/boot-link-index.ts';
+import { morph_children, sync_attributes } from '../../src/runtime/morph.ts';
+import { hold, release, settle_in } from '../../src/runtime/lakes.ts';
+import { arm_form_restore, snapshot_forms } from '../../src/runtime/form-continuity.ts';
+import { peek, stream, subscribe, ticket } from '../../src/runtime/frames.ts';
+import { fragment_target, jump_to_hash } from '../../src/runtime/router.ts';
+import { resolve_address } from '../../src/runtime/interaction.ts';
+import { wire_codec } from '../../src/runtime/wire-on-use.ts';
 import { kit_hydrates_page } from '../../src/runtime/kit-boot.ts';
 import { KitBoot } from '../../src/wire-markup.ts';
 import { ABSOLUTE_URL_SCHEME } from '../../src/runtime/region-endpoint-url.ts';
@@ -50,8 +56,7 @@ import {
 } from '../../src/runtime/devalue-lane.ts';
 import { OgygiaError, warn } from '../../src/messages/core.ts';
 
-link_boot();
-const link = slots.boot!;
+const link = link_boot();
 
 test('each place in the boot link holds the helper its number names', () => {
 	const want: Record<string, unknown> = {
@@ -96,7 +101,24 @@ test('each place in the boot link holds the helper its number names', () => {
 		L_IS_DEFERRED: is_deferred,
 		L_OURS_ON_KIT_DOCUMENT: ours_on_kit_document,
 		// (dev's alone: a production build's place holds null)
-		L_REGION_SSR_TRUNCATED: region_ssr_truncated
+		L_REGION_SSR_TRUNCATED: region_ssr_truncated,
+		// (the boot features: the test build has every one; a build without one holds null)
+		L_MORPH: morph_children,
+		L_SYNC_ATTRIBUTES: sync_attributes,
+		L_LAKE_HOLD: hold,
+		L_LAKE_RELEASE: release,
+		L_LAKE_SETTLE_IN: settle_in,
+		L_FORMS_SNAPSHOT: snapshot_forms,
+		L_FORMS_RESTORE: arm_form_restore,
+		L_FRAMES_SUBSCRIBE: subscribe,
+		L_FRAMES_PEEK: peek,
+		L_FRAMES_TICKET: ticket,
+		L_FRAMES_STREAM: stream,
+		L_ROUTER: 1,
+		L_JUMP_TO_HASH: jump_to_hash,
+		L_FRAGMENT_TARGET: fragment_target,
+		L_RESOLVE_ADDRESS: resolve_address,
+		L_WIRE_CODEC: wire_codec
 	};
 	const places = index as unknown as Record<string, number>;
 	for (const [name, helper] of Object.entries(want)) expect(link[places[name]], name).toBe(helper);
@@ -104,6 +126,10 @@ test('each place in the boot link holds the helper its number names', () => {
 	expect(link[index.L_SOFT].now.kind).toBe('idle');
 	expect(Object.keys(places).sort()).toEqual([...Object.keys(want), 'L_SOFT'].sort());
 	expect(link).toHaveLength(Object.keys(places).length);
+});
+
+test('the boot makes its link once: every lazy chunk it hands one gets the same list', () => {
+	expect(link_boot()).toBe(link);
 });
 
 test('every place is a different number, from 0 up with no gap', () => {

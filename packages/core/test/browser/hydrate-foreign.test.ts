@@ -6,10 +6,11 @@ import { from_b64 } from './b64.ts';
 import { flushSync, type Component } from 'svelte';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
-import { install as install_live } from '../../src/runtime/live.ts';
 import { current_region, foreign_hydrate } from '../../src/current-region.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { reset_hydrate_features, set_hydrate_feature } from '../_stubs/boot.hydrate-features.ts';
+import * as seeds from '../../src/runtime/seeds.ts';
 import { hydrate_island, hydrate_live, read_region_props } from '../../src/runtime/hydrate-core.ts';
 import { og_entry_hydrate, og_entry_unmount } from '../../src/entry-hydrate.ts';
 import Counter from './fixtures/Counter.svelte';
@@ -55,9 +56,8 @@ function region_with(html: string, props: unknown = { obj: { a: 1 } }): HTMLElem
 }
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
-	install_live();
 });
 beforeEach(() => {
 	document.body.innerHTML = '';
@@ -92,12 +92,11 @@ test('a foreign island whose strict hydrate throws is hydrated again with its ow
 test('a foreign island is handed the context the page provides it, for its own build to hydrate with', () => {
 	const { mod, calls } = foreign_module();
 	const provided = new Map<string | symbol, unknown>([['theme', 'ocean']]);
-	const bridge = slots.context;
-	slots.context = () => provided;
+	set_hydrate_feature('context', { collect_provided_context: () => provided });
 	try {
 		hydrate_island(region_with('<p>peer</p>'), FOREIGN, mod, null, false);
 	} finally {
-		slots.context = bridge;
+		reset_hydrate_features();
 	}
 	expect(calls[0].options).toEqual({ recover: false, context: provided });
 });
@@ -150,15 +149,14 @@ test('a foreign entry is foreign whatever its module: one with no hydrate of its
 test('a seed reference in a foreign island’s props is not read from this page’s seed', () => {
 	const el = region_with('<p>peer</p>');
 	el.nextElementSibling!.textContent = '[{"s":1},["OgygiaSeedRef",2],[3],"counter"]';
-	const page = slots.page;
-	slots.page = { ...page!, seed_data_of: () => ({ counter: 'this page' }) };
+	set_hydrate_feature('page', { ...seeds, seed_data_of: () => ({ counter: 'this page' }) });
 	try {
 		expect(read_region_props(el, false), 'an island of ours reads it').toEqual({
 			s: 'this page'
 		});
 		expect(() => read_region_props(el, true)).toThrow();
 	} finally {
-		slots.page = page;
+		reset_hydrate_features();
 	}
 });
 
@@ -186,14 +184,13 @@ function peer_label() {
 test('a foreign live region is hydrated by its own build, with the context the page provides it', () => {
 	const { mod, calls, app } = foreign_module();
 	const provided = new Map<string | symbol, unknown>([['theme', 'ocean']]);
-	const bridge = slots.context;
-	slots.context = () => provided;
+	set_hydrate_feature('context', { collect_provided_context: () => provided });
 	const el = region_with('<p>peer</p>');
 	let handle;
 	try {
 		handle = hydrate_live(el, FOREIGN, mod, { text: 'one' })!;
 	} finally {
-		slots.context = bridge;
+		reset_hydrate_features();
 	}
 	expect(calls).toHaveLength(1);
 	expect(calls[0].region).toBe(el);

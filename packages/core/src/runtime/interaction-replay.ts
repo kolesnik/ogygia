@@ -1,11 +1,14 @@
 import type { Life } from '@ogygia/machine';
 import type { FieldSnapshot, QueuedClick, Touched } from './interaction.ts';
-import { interaction_link } from './slots.ts';
+import { boot_link } from './lazy-link.ts';
+import { L_RESOLVE_ADDRESS } from './boot-link-index.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import { OG_FP } from '../wire-markup.ts';
 
+export { init } from './lazy-link.ts';
+
 const resolve_address = (region: Element, addr: number[]) =>
-	interaction_link().resolve_address(region, addr);
+	boot_link()[L_RESOLVE_ADDRESS]!(region, addr);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 

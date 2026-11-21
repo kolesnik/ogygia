@@ -6,6 +6,7 @@
 // hydration failed on them.
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { reset_load_scheduler } from '../../src/runtime/load-scheduler.ts';
 import { reset_document_painted } from '../../src/runtime/schedule.ts';
 
@@ -18,7 +19,7 @@ const known: (string | null)[] = [];
 beforeEach(() => {
 	reset_load_scheduler();
 	reset_document_painted();
-	link_boot();
+	init(link_boot());
 	known.length = 0;
 	window.fetch = async (_input, init) => {
 		const asked = new Headers(init?.headers).get('x-ogygia-known');

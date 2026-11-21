@@ -2,6 +2,7 @@
 // `regionMismatched`: with one, it is told why.
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { hear, hear_none } from '../_hooks.ts';
 import { hydrate_island } from '../../src/runtime/hydrate-core.ts';
 import type { RegionMismatchedEvent } from '../../src/contract/runtime-hooks.ts';
@@ -10,7 +11,7 @@ import { claims } from './_walk.ts';
 const claims_one = claims(1);
 
 beforeAll(() => {
-	link_boot();
+	init(link_boot());
 });
 beforeEach(() => {
 	document.body.innerHTML = '';

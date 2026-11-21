@@ -29,7 +29,7 @@ function ensure_ctx_kinds(): void {
 import { boundary_problems } from './boundary.ts';
 import { record_ctx, type SetContextOptions } from './context-registry.ts';
 import { key_label, key_name, key_of } from './contract/context-key.ts';
-import { boot_link } from './runtime/slots.ts';
+import { boot_link } from './runtime/lazy-link.ts';
 import { L_SERVER_CHANNEL } from './runtime/boot-link-index.ts';
 import { OGYGIA_PROVIDE, OGYGIA_PROVIDE_PAGE } from './wire-markup.ts';
 import { escape_script_text } from './escape.ts';

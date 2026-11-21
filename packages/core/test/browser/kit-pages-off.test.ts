@@ -40,14 +40,12 @@ test("an island wakes, and the runtime's answer is no, without probing the page"
 });
 
 test("the page feature hands no wait for Kit's page: nothing in the app waits for one", async () => {
-	const { install } = await import('../../src/runtime/seeds.ts');
-	const { slots } = await import('../../src/runtime/slots.ts');
+	const { page_kit_thread } = await import('../../src/runtime/seeds.ts');
 	// (Kit's bridge up, its page not applied yet: with Kit pages this is a real wait)
 	const KIT_PAGE_KEY = Symbol.for('ogygia.kit-page');
 	(globalThis as unknown as Record<symbol, unknown>)[KIT_PAGE_KEY] = { page: { status: -1 } };
 	try {
-		install();
-		expect(slots.page?.kit_page_thread(new AbortController().signal)).toBeNull();
+		expect(page_kit_thread(new AbortController().signal)).toBeNull();
 	} finally {
 		delete (globalThis as unknown as Record<symbol, unknown>)[KIT_PAGE_KEY];
 	}

@@ -7,7 +7,8 @@ import { _reset, ensure, peek } from '../_frames.ts';
 import { frameAddress } from '../../src/frame.ts';
 import { build_parcel, done_parcel } from '../../src/server/stream-regions.ts';
 import { install as install_frames } from '../../src/runtime/frames.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { link_boot } from '../../src/runtime/boot-link.ts';
+import { L_FRAMES_STREAM } from '../../src/runtime/boot-link-index.ts';
 import { scope } from '@ogygia/machine';
 
 // (the address is the call — id + props — so each hole gets its own props)
@@ -94,7 +95,7 @@ describe('join_batch', () => {
 		install_frames();
 		const frag = `/og/frag?peer=dash&kind=widget&search=org%3D1&exp=9&sig=w1`;
 		// (what router-nav's batch_regions hands the frames feature: every load hole of the next page)
-		await slots.frames!.stream!([frag, ep('n1'), ep('n2')], lifeOf(scope()), location.href);
+		await link_boot()[L_FRAMES_STREAM]!([frag, ep('n1'), ep('n2')], lifeOf(scope()), location.href);
 		expect(urls).toEqual(['/__ogygia__']);
 		expect(posts).toEqual([[ep('n1'), ep('n2')]]);
 	});

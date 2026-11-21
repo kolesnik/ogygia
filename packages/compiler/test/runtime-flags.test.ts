@@ -14,6 +14,7 @@ import {
 import {
 	FEATURE_CODE,
 	FEATURE_ORDER,
+	FEATURES,
 	generateFeatureCodeSource,
 	generateRuntimeFlagsSource,
 	generateServerFlagsSource,
@@ -129,15 +130,35 @@ describe('runtime flags', () => {
 			for (const all of [false, true])
 				for (const id of FEATURE_CODE) {
 					const on = (word(marks, all) & FEATURE_BITS[id]) !== 0;
+					const name = id.replace('-', '_');
 					expect(code(marks, all), `${id} ${JSON.stringify(marks)} ${all}`).toContain(
-						on ? `export * as ${id} from "${RUNTIME_DIR}/${id}.js";` : `export const ${id} = null;`
+						on
+							? `export * as ${name} from "${RUNTIME_DIR}/${FEATURES[id].module}";`
+							: `export const ${name} = null;`
 					);
 				}
-		// a plain island app imports neither module: no lake or frame-store state in its boot
+		// every boot-phase feature with a module, and nothing else
+		expect(FEATURE_CODE).toEqual([
+			'wire-classes',
+			'frames',
+			'lakes',
+			'morph',
+			'interaction',
+			'forms',
+			'mpa-nav',
+			'router'
+		]);
+		// a plain island app imports only its two features: no lake or frame-store state in its boot
 		expect(code({ complete: true, hydrate: ['load'] })).toBe(
 			`${dedent`
-				export const lakes = null;
+				export const wire_classes = null;
 				export const frames = null;
+				export const lakes = null;
+				export const morph = null;
+				export * as interaction from "${RUNTIME_DIR}/interaction.js";
+				export const forms = null;
+				export * as mpa_nav from "${RUNTIME_DIR}/nav-handle.js";
+				export const router = null;
 			`}\n`
 		);
 		expect(code({ complete: true, hydrate: ['load'] }, true, '.ts')).toContain(

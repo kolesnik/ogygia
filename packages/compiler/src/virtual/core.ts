@@ -5,6 +5,7 @@ import { csrTrueRouteIds, errorCsrTrueRouteIds, rootLayoutCsrTrue } from '../kit
 import {
 	generateFeatureCodeSource,
 	generateHydrateFeaturesSource,
+	generateRemoteSeedsSource,
 	generateRuntimeEntrySource,
 	generateRuntimeFlagsSource,
 	generateServerFlagsSource,
@@ -48,6 +49,7 @@ import {
 	type SessionCookieModule,
 	type VirtualConstants,
 	type HydrateFeaturesModule,
+	type RemoteSeedsModule,
 	type KitTransportModule,
 	type KitWireModule,
 	type RegionDepsModule,
@@ -220,19 +222,40 @@ export const programs: Family<ProgramsModule> = virtual.family({
 	}
 });
 
+/** The hydrate-phase features' modules the hydrate core reads (link/runtime-entry.ts
+ *  `generateHydrateFeaturesSource`). */
 export const hydrate_features: Family<HydrateFeaturesModule> = virtual.family({
 	realm: 'boot',
 	id: 'hydrate-features',
-	exports: { install_hydrate_features: 'install' },
 	load(app: CoreApp) {
 		const { ctx, program } = app;
 		if (!ctx.is_build) {
 			const rt = dev_runtime_of(ctx.runtime_dir);
-			const code = generateHydrateFeaturesSource({}, rt?.dir ?? ctx.runtime_dir, true).code;
-			return rt?.ts ? code.split('.js";').join('.ts";') : code;
+			const dir = rt?.dir ?? ctx.runtime_dir;
+			return generateHydrateFeaturesSource({}, dir, true, rt?.ts ? '.ts' : '.js').code;
 		}
 		app.prescan();
 		return generateHydrateFeaturesSource(program.runtime_marks, ctx.runtime_dir).code;
+	}
+});
+
+/** The remote-seeds feature's module (link/runtime-entry.ts `generateRemoteSeedsSource`). */
+export const remote_seeds: Family<RemoteSeedsModule> = virtual.family({
+	realm: 'boot',
+	id: 'remote-seeds',
+	load(app: CoreApp) {
+		const { ctx, program } = app;
+		if (!ctx.is_build) {
+			const rt = dev_runtime_of(ctx.runtime_dir);
+			return generateRemoteSeedsSource(
+				{},
+				rt?.dir ?? ctx.runtime_dir,
+				true,
+				rt?.ts ? '.ts' : '.js'
+			);
+		}
+		app.prescan();
+		return generateRemoteSeedsSource(program.runtime_marks, ctx.runtime_dir);
 	}
 });
 
@@ -699,6 +722,7 @@ export const CORE_VIRTUALS: readonly Entry<CoreApp>[] = [
 	transport,
 	transportables,
 	hydrate_features,
+	remote_seeds,
 	feature_code,
 	hooks,
 	hook_bits,

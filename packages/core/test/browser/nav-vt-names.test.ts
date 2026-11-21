@@ -5,7 +5,7 @@
 // next same-shell navigation does not animate them.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { scope } from '@ogygia/machine';
@@ -50,8 +50,7 @@ function transition(seen: Captured[]): () => void {
 }
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.body.innerHTML =
 		'<a id="both" style="view-transition-name: chip">chip</a><a id="here" style="view-transition-name: row-1">row</a>';
 	prepare_spa_document();

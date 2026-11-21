@@ -13,6 +13,7 @@ import { brotliCompressSync } from 'node:zlib';
 import { rolldown } from 'rolldown';
 import { dedent } from '../src/contract/dedent.ts';
 import { core_macros } from '../macros.config.ts';
+import { feature_code } from './_boot-bundle.ts';
 
 const SRC = fileURLToPath(new URL('../src/', import.meta.url));
 const RUNTIME_RULES = [
@@ -39,8 +40,9 @@ async function build(entry: string, rules: boolean): Promise<string> {
 	const bundle = await rolldown({
 		input: file,
 		external: [/^svelte(\/|$)/, /^\$app\//, 'esm-env', /\.svelte$/, /^node:/],
-		// core's source as core's build compiles it (its `$rules` functions behind the rules gate)
-		plugins: [core_macros()],
+		// core's source as core's build compiles it (its `$rules` functions behind the rules gate), its
+		// boot with the router and the lakes
+		plugins: [core_macros(), feature_code(SRC, ['router', 'lakes'])],
 		transform: {
 			define: {
 				'import.meta.env.DEV': 'false',
@@ -58,9 +60,7 @@ async function build(entry: string, rules: boolean): Promise<string> {
 
 const RUNTIME_ENTRY = `${dedent`
 	import { boot } from ${JSON.stringify(`${SRC}runtime/core.ts`)};
-	import { install } from ${JSON.stringify(`${SRC}runtime/router.ts`)};
-	import { install as lakes } from ${JSON.stringify(`${SRC}runtime/lakes.ts`)};
-	boot([install, lakes]);
+	boot();
 `}\n`;
 // The response path, and the checks installed as the handle installs them (hooks.ts: its `RULES`
 // guard, word for word; the handle itself reads virtual modules a bare build cannot resolve).

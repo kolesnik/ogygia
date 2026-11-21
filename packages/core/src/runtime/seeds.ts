@@ -5,8 +5,14 @@ import { install_page_defer, page_defer_revivers } from './page-defer.ts';
 import { transport_decoders } from './app-transport.ts';
 import { capture_region_ids } from './region-ids.ts';
 import { kit_page_thread } from './kit-page-thread.svelte.ts';
-import { boot_link, slots } from './slots.ts';
-import { L_RUNTIME_SESSION, L_SERVER_CHANNEL, L_WITH_DEVALUE } from './boot-link-index.ts';
+import { boot_link } from './lazy-link.ts';
+import { remote_seeds, remote_seeds_on } from 'ogygia:boot/remote-seeds';
+import {
+	L_ROUTER,
+	L_RUNTIME_SESSION,
+	L_SERVER_CHANNEL,
+	L_WITH_DEVALUE
+} from './boot-link-index.ts';
 import { warn } from '../messages/lazy.ts';
 import { PAGE_SEED_SELECTOR } from '../page-seed-selector.ts';
 import { OGYGIA_PAGE_UNSHIPPED } from '../wire-markup.ts';
@@ -27,18 +33,17 @@ export { parse_sidecar_text };
 /**
  * The PAGE feature (link/runtime-entry.ts, hydrate phase): what island code sees of its page — the
  * page seed behind `$app/state` / `$app/stores`, the seed references in island props, and, on a
- * Kit-hydrated document, the wait for Kit's own page (an app with pages Kit hydrates only). Installed
- * only when island code can reach Kit's world (the driver's island-closure walk, failing open on
- * anything it cannot follow): an app whose islands never read their page gets no seed from the
- * server and ships none of this.
+ * Kit-hydrated document, the wait for Kit's own page (an app with pages Kit hydrates only), this:
+ * the wait for as long as `signal` (the waiting region's visit) lasts, `null` once Kit applied its
+ * page. Selected only when island code can reach Kit's world (the driver's island-closure walk,
+ * failing open on anything it cannot follow): an app whose islands never read their page gets no
+ * seed from the server and ships none of this. The hydrate core reads it
+ * (`ogygia:boot/hydrate-features`).
  */
-export function install(): void {
-	slots.page = {
-		seed_page_once,
-		seed_data_of,
-		kit_page_thread: KIT_PAGES ? kit_page_thread : no_kit_wait
-	};
-}
+export const page_kit_thread: (signal?: AbortSignal) => Promise<unknown> | null = KIT_PAGES
+	? kit_page_thread
+	: no_kit_wait;
+
 type PageSeed = Partial<Omit<PageSnapshot, 'url'> & { url: string | URL }>;
 
 let parses = 0;
@@ -55,7 +60,7 @@ function parse_page_seed(el: Element): PageSeed | null {
 			el.ownerDocument,
 			() => parse_sidecar_text(el, page_defer_revivers(transport_decoders)) as PageSeed
 		);
-		if (slots.nav && !DEVTOOLS) el.textContent = '';
+		if (boot_link()[L_ROUTER] && !DEVTOOLS) el.textContent = '';
 		watch_unshipped(raw, el.getAttribute(OGYGIA_PAGE_UNSHIPPED));
 		return raw;
 	} catch (e) {
@@ -131,7 +136,7 @@ export function seed_data_of(doc: Document): unknown {
 
 function apply_remote_seed_text(text: string | null | undefined): void {
 	if (!text) return;
-	slots.remoteSeeds?.seed_query_responses(text);
+	if (remote_seeds_on) remote_seeds.seed_query_responses(text);
 }
 
 /** Document-level page seed (one script from ogygiaHandle) — once per document; then any page facts
@@ -202,7 +207,7 @@ function merge_page_facts(): void {
  */
 export function apply_soft_invalidate_doc(doc: Document): void {
 	if (typeof document === 'undefined') return;
-	slots.remoteSeeds?.clear_remote_seeds();
+	if (remote_seeds_on) remote_seeds.clear_remote_seeds();
 	apply_remote_seed_text(server_channel(doc, REMOTE_SEED_SELECTOR)?.textContent);
 	session().mark_remote_seeded();
 	apply_page_seed(page_seed_of(doc));
@@ -221,7 +226,7 @@ export function apply_soft_invalidate_doc(doc: Document): void {
  */
 export function prepare_spa_document(next?: import('./session.ts').PageVisit): void {
 	session().reset(next);
-	slots.remoteSeeds?.clear_remote_seeds();
+	if (remote_seeds_on) remote_seeds.clear_remote_seeds();
 	reset_page();
 }
 
@@ -232,5 +237,5 @@ export function prepare_spa_document(next?: import('./session.ts').PageVisit): v
  * keep running (#817, e2e/live-query-kept.spec.ts).
  */
 export function finish_spa_document(): void {
-	slots.remoteSeeds?.release_remote_instances();
+	if (remote_seeds_on) remote_seeds.release_remote_instances();
 }

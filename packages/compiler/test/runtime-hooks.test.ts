@@ -17,7 +17,9 @@ import {
 } from '@ogygia/core/contract';
 import { generateHookBitsSource, generateHooksSource } from '../src/link/hooks.ts';
 import {
+	generateFeatureCodeSource,
 	generateHydrateFeaturesSource,
+	generateRemoteSeedsSource,
 	generateRuntimeEntrySource,
 	generateRuntimeFlagsSource,
 	type RuntimeMarks
@@ -88,11 +90,12 @@ function boot_realm(clients: readonly ClientRealmFile[]): Plugin {
 	const ids: Record<string, string> = {
 		'ogygia:boot': dedent`
 			export { HAS, load_wire_codec } from 'ogygia:boot/runtime-flags';
-			export { install as install_hydrate_features } from 'ogygia:boot/hydrate-features';
 			export const region_names = {};
 		`,
 		'ogygia:boot/runtime-flags': generateRuntimeFlagsSource(MARKS, RUNTIME_DIR),
+		'ogygia:boot/feature-code': generateFeatureCodeSource(MARKS, RUNTIME_DIR),
 		'ogygia:boot/hydrate-features': generateHydrateFeaturesSource(MARKS, RUNTIME_DIR).code,
+		'ogygia:boot/remote-seeds': generateRemoteSeedsSource(MARKS, RUNTIME_DIR),
 		'ogygia:boot/hooks': hooks,
 		'ogygia:boot/hook-bits': generateHookBitsSource(clients)
 	};

@@ -39,6 +39,7 @@ import { RuntimeSession } from '../src/runtime/session.ts';
 import { mark_head, record_island_head } from '../src/runtime/head-copies.ts';
 import island_module from '../test/_stubs/island-module.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
+import { init } from '../src/runtime/lazy-link.ts';
 import { __heisenbench as core_private, boot } from '../src/runtime/core.ts';
 import { import_entry, note_entry_location } from '../src/runtime/entry-locations.ts';
 import {
@@ -48,10 +49,17 @@ import {
 	sequence_differs,
 	type IslandModule
 } from '../src/runtime/hydrate-core.ts';
+import { __heisenbench as interaction_private } from '../src/runtime/interaction.ts';
+import { HAS, set_feature_word } from '../test/_stubs/boot.runtime-flags.ts';
 import {
-	__heisenbench as interaction_private,
-	install as install_interaction
-} from '../src/runtime/interaction.ts';
+	F_FORMS,
+	F_FRAMES,
+	F_LAKES,
+	F_MORPH,
+	F_MPA_NAV,
+	F_ROUTER,
+	F_WIRE_CLASSES
+} from '../src/contract/features.ts';
 import { once_on_screen } from '../src/runtime/viewport.ts';
 import { flights } from '@ogygia/machine';
 import * as life from '@ogygia/machine';
@@ -69,6 +77,10 @@ import {
 	hydrate_turn,
 	register_region
 } from '../src/runtime/schedule.ts';
+
+// The build of these pages (islands, waking on load or on a visitor): no lakes, no morph, no router,
+// no form continuity, no transportable classes. Its boot's link and its element hold none of them.
+set_feature_word(HAS & ~F_LAKES & ~F_MORPH & ~F_ROUTER & ~F_MPA_NAV & ~F_FORMS & ~F_WIRE_CLASSES);
 
 const MOD = { default: island_module } as unknown as IslandModule;
 /** The page the scheduler's regions are on: their viewport snapshots are its. */
@@ -100,7 +112,11 @@ function boot_page({ page }: Booted): Promise<number> {
 		// (a wake that never comes fails the case instead of ending it early)
 		setTimeout(() => reject(new Error(`${hydrated} of ${expected} islands hydrated`)), 60_000);
 	});
-	boot([install_interaction]);
+	// (a boot that installs no feature of its own: the page's islands and their interaction alone)
+	const word = HAS;
+	set_feature_word(word & ~F_FRAMES);
+	boot();
+	set_feature_word(word);
 	for (const r of regions) if (r.touched) edit_while_asleep(r.el);
 	const tap = regions[0].el.querySelector('button')!;
 	tap.dispatchEvent(new Event('pointerdown', { bubbles: true }));
@@ -150,7 +166,7 @@ bench('region element: a page boots and wakes as it grows', boot_page, {
 
 /** Every island of the page, each hydrated against the server copy it connected with. */
 function hydrate_all(regions: PageRegion[]): number {
-	link_boot();
+	init(link_boot());
 	let n = 0;
 	for (const r of regions)
 		if (hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, r.touched)) n++;
@@ -160,7 +176,7 @@ function hydrate_all(regions: PageRegion[]): number {
 bench(
 	'hydrate_island: the header island (a large props config, edited while it slept)',
 	({ regions }) => {
-		link_boot();
+		init(link_boot());
 		const r = regions[0];
 		return hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, true) !== null;
 	},
@@ -199,7 +215,7 @@ function mismatched_grid(cards: number): { r: PageRegion } {
 bench(
 	'hydrate_island: a grid island Svelte re-renders, as its root cards grow',
 	({ r }) => {
-		link_boot();
+		init(link_boot());
 		return hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, false) !== null;
 	},
 	{
@@ -223,7 +239,7 @@ function ab_edited(rows: number): { region: Element; want: Element } {
 bench(
 	'drift check and repair: an edited block island as its rows grow',
 	({ region, want }) => {
-		link_boot();
+		init(link_boot());
 		if (!sequence_differs(region, want)) return false;
 		hydrate_core.repair_markup(region as HTMLElement, want);
 		return sequence_differs(region, want);

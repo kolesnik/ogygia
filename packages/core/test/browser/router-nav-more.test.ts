@@ -8,13 +8,13 @@ import { it_with_network_routes } from './_browsers.ts';
 import { history_room } from './_history-budget.ts';
 import { in_head } from './_in-head.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { connected_regions } from '../../src/runtime/connected.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
 import { hold_scroll } from '../../src/runtime/router-nav.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { L_FRAMES_STREAM } from '../../src/runtime/boot-link-index.ts';
 import { hear, hear_none } from '../_hooks.ts';
 import { patch } from '../_patch.ts';
 
@@ -75,8 +75,7 @@ let handed: string[];
 
 beforeEach(async () => {
 	await history_room();
-	link_boot();
-	install_morph();
+	init(link_boot());
 	pages = {};
 	fetched.length = 0;
 	handed = [];
@@ -305,14 +304,12 @@ it_with_network_routes(
 
 test('only the next page’s load-timed holes join the navigation’s batch', async () => {
 	const asked: string[][] = [];
-	const frames = slots.frames;
-	slots.frames = {
-		...frames,
-		stream: (endpoints: string[]) => {
-			asked.push(endpoints);
-			return Promise.resolve();
-		}
-	} as never;
+	const link = link_boot();
+	const stream = link[L_FRAMES_STREAM];
+	link[L_FRAMES_STREAM] = (endpoints: string[]) => {
+		asked.push(endpoints);
+		return Promise.resolve();
+	};
 	const ep = (id: string) => `/__ogygia__?id=${id}&props=W3t9XQ&exp=9999999999&sig=stub`;
 	pages['/rn-batch'] = {
 		body: `<ogygia-region render="defer" endpoint="${ep('load')}"></ogygia-region><ogygia-region render="defer" when="visible" endpoint="${ep('visible')}"></ogygia-region>`
@@ -320,7 +317,7 @@ test('only the next page’s load-timed holes join the navigation’s batch', as
 	try {
 		await go('/rn-batch');
 	} finally {
-		slots.frames = frames;
+		link[L_FRAMES_STREAM] = stream;
 	}
 	expect(asked).toEqual([[ep('load')]]);
 });

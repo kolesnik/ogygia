@@ -7,15 +7,16 @@
 import { expect, test, vi } from 'vitest';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { devalue } from '../../src/runtime/devalue-lane.ts';
 import { region_fragment } from './_html.ts';
 import { prepare_spa_document, seed_page_once } from '../../src/runtime/seeds.ts';
-import { boot_link } from '../../src/runtime/slots.ts';
+import { boot_link } from '../../src/runtime/lazy-link.ts';
 import { L_LOAD_DEVALUE } from '../../src/runtime/boot-link-index.ts';
 import { page_state } from '../../src/shims/page-store.svelte.ts';
 
 test('facts a hole brought before devalue loaded join page.data once it has, never dropped', async () => {
-	link_boot();
+	init(link_boot());
 	document.body.innerHTML = '<p>page</p>';
 	prepare_spa_document();
 	expect(() => devalue()).toThrow(/devalue_not_loaded/);

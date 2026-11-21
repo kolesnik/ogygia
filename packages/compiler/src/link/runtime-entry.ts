@@ -258,8 +258,9 @@ export function phaseFeatures(marks: RuntimeMarks, phase: FeaturePhase): Feature
 }
 
 /**
- * Emit the BOOT entry: core + the selected boot-phase features (see {@link FeaturePhase}). The
- * entry boots and exports nothing.
+ * Emit the BOOT entry: core, booted with the plugins' browser halves. Core installs the selected
+ * boot-phase features itself (see {@link FeaturePhase}), from `ogygia:boot/feature-code`
+ * ({@link generateFeatureCodeSource}, the same marks). The entry boots and exports nothing.
  * @param runtimeDir Absolute directory containing `core.js` + the feature modules.
  * @param clientPlugins the plugins' browser halves, in plugin order
  */
@@ -273,44 +274,73 @@ export function generateRuntimeEntrySource(
 	const lines: string[] = [];
 	lines.push(`/** generated ogygia runtime — features: ${features.join(', ') || '(core only)'} */`);
 	lines.push(`import { boot } from ${JSON.stringify(runtime_path(runtimeDir, 'core.js'))};`);
-	for (const id of features) {
-		lines.push(
-			`import * as ${to_alias(id)} from ${JSON.stringify(runtime_path(runtimeDir, FEATURES[id].module!))};`
-		);
-	}
 	if (cp.imports) lines.push(cp.imports.slice(0, -1));
 	lines.push('');
-	lines.push('boot([');
-	for (const id of features) lines.push(`  ${to_alias(id)}.install,`);
-	lines.push(cp.list ? `], ${cp.list});` : ']);');
+	lines.push(cp.list ? `boot(${cp.list});` : 'boot();');
+	return { code: `${lines.join('\n')}\n`, features };
+}
+
+/** The hydrate-phase features the hydrate core reads (`ogygia:boot/hydrate-features`); remote
+ *  seeds are a module of their own ({@link generateRemoteSeedsSource}). */
+export const HYDRATE_CODE: readonly FeatureId[] = FEATURE_ORDER.filter(
+	(id) => FEATURES[id].phase === 'hydrate' && id !== 'remote-seeds'
+);
+
+function feature_modules(
+	ids: readonly FeatureId[],
+	marks: RuntimeMarks,
+	runtimeDir: string,
+	all: boolean,
+	ext: string,
+	on = false
+): { code: string; features: FeatureId[] } {
+	const selected = all ? FEATURE_ORDER : resolveFeatures(marks);
+	const features = ids.filter((id) => selected.includes(id));
+	const lines = ids.flatMap((id) => {
+		const file = FEATURES[id].module!.replace(JS_EXT, ext);
+		const name = to_alias(id);
+		const has = features.includes(id);
+		const code = has
+			? `export * as ${name} from ${JSON.stringify(runtime_path(runtimeDir, file))};`
+			: `export const ${name} = null;`;
+		return on ? [code, `export const ${name}_on = ${has};`] : [code];
+	});
 	return { code: `${lines.join('\n')}\n`, features };
 }
 
 /**
- * Emit the HYDRATE-phase feature module (`ogygia:boot/hydrate-features`), which the hydrate core
- * imports statically and installs as its chunk evaluates — so these features ride the hydrate core's
- * one existing `import()`, sized by the same marks as the boot. `all` (dev / no marks): every one.
+ * Emit the HYDRATE-phase feature module (`ogygia:boot/hydrate-features`): {@link HYDRATE_CODE}'s
+ * modules, each `null` where the build leaves the feature out (a hyphen in an id is an underscore
+ * in its name), and each as a boolean, `<name>_on`, which the hydrate core tests in place of `HAS`
+ * (a namespace tested as a value is built as an object; a boolean is inlined into every chunk that
+ * reads it). The hydrate core imports it statically, so these features ride its one existing
+ * `import()`, sized by the same marks as the boot. `all` (dev / no marks): every one.
  * @param runtimeDir Absolute directory containing the feature modules.
+ * @param ext the modules' extension (`.ts` where the dev server serves core's source)
  */
 export function generateHydrateFeaturesSource(
 	marks: RuntimeMarks,
 	runtimeDir: string,
-	all = false
+	all = false,
+	ext = '.js'
 ): { code: string; features: FeatureId[] } {
-	const features = all
-		? FEATURE_ORDER.filter((id) => FEATURES[id].phase === 'hydrate')
-		: phaseFeatures(marks, 'hydrate');
-	const lines: string[] = [];
-	lines.push(`/** generated ogygia hydrate-phase features: ${features.join(', ') || '(none)'} */`);
-	for (const id of features) {
-		lines.push(
-			`import * as ${to_alias(id)} from ${JSON.stringify(runtime_path(runtimeDir, FEATURES[id].module!))};`
-		);
-	}
-	lines.push('export function install() {');
-	for (const id of features) lines.push(`  ${to_alias(id)}.install();`);
-	lines.push('}');
-	return { code: `${lines.join('\n')}\n`, features };
+	return feature_modules(HYDRATE_CODE, marks, runtimeDir, all, ext, true);
+}
+
+/**
+ * Emit `ogygia:boot/remote-seeds`: the remote-seeds feature's module, or `null` where the build leaves
+ * it out. The hydrate core and the page feature read it; the navigation chunk imports the page
+ * feature too, and seeds the next page's remote queries whether or not an island woke before.
+ * @param runtimeDir Absolute directory containing the feature modules.
+ * @param ext the modules' extension (`.ts` where the dev server serves core's source)
+ */
+export function generateRemoteSeedsSource(
+	marks: RuntimeMarks,
+	runtimeDir: string,
+	all = false,
+	ext = '.js'
+): string {
+	return feature_modules(['remote-seeds'], marks, runtimeDir, all, ext, true).code;
 }
 
 /**
@@ -345,15 +375,18 @@ export function generateRuntimeFlagsSource(
 	`}\n`;
 }
 
-/** The boot features whose module the region element calls directly (`ogygia:boot/feature-code`). */
-export const FEATURE_CODE: readonly FeatureId[] = ['lakes', 'frames'];
+/** The boot features whose module the boot calls directly (`ogygia:boot/feature-code`): every
+ *  boot-phase feature with a module. */
+export const FEATURE_CODE: readonly FeatureId[] = FEATURE_ORDER.filter(
+	(id) => (FEATURES[id].phase ?? 'boot') === 'boot' && FEATURES[id].module !== undefined
+);
 
 /**
  * Emit `ogygia:boot/feature-code`: each of {@link FEATURE_CODE}'s modules as a namespace where the
- * build selects the feature, else `null`. The region element calls them under the feature's bit in
- * `HAS` ({@link generateRuntimeFlagsSource}, the same marks), so the bundler binds each call to the
- * function itself, and a build without the feature imports nothing of its module: no call, no state.
- * `all` (dev / no marks): every one.
+ * build selects the feature, else `null` (`mpa-nav` as `mpa_nav`). The boot calls them under the
+ * feature's bit in `HAS` ({@link generateRuntimeFlagsSource}, the same marks), so the bundler binds
+ * each call to the function itself, and a build without the feature imports nothing of its module:
+ * no call, no state. `all` (dev / no marks): every one.
  * @param runtimeDir Absolute directory containing the feature modules.
  * @param ext the modules' extension (`.ts` where the dev server serves core's source)
  */
@@ -363,14 +396,7 @@ export function generateFeatureCodeSource(
 	all = false,
 	ext = '.js'
 ): string {
-	const features = all ? FEATURE_ORDER : resolveFeatures(marks);
-	const lines = FEATURE_CODE.map((id) => {
-		const file = FEATURES[id].module!.replace(JS_EXT, ext);
-		return features.includes(id)
-			? `export * as ${id} from ${JSON.stringify(runtime_path(runtimeDir, file))};`
-			: `export const ${id} = null;`;
-	});
-	return `${lines.join('\n')}\n`;
+	return feature_modules(FEATURE_CODE, marks, runtimeDir, all, ext).code;
 }
 
 /** The server's feature word for `marks` (`all`: every feature), as
