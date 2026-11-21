@@ -130,7 +130,6 @@ abstract class Line<J> implements Queue<J> {
 	protected readonly _max: number;
 	protected readonly _start: (job: J, place: Place) => void;
 	protected readonly _now: () => number;
-	/** Its owner, if any: it ended once `this._owner?._closed` (no owner reads `undefined`). */
 	protected readonly _owner: Life | null;
 	protected readonly _jobs: Array<J | typeof GONE> = [];
 	protected readonly _deadlines: number[] = [];

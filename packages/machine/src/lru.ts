@@ -44,14 +44,10 @@ export interface Lru<K, V> {
 	[Symbol.dispose](): void;
 }
 
-/** No key (a key may be any value, `undefined` too). */
 const NO_KEY = {};
 
 class Bounded<K, V> implements Lru<K, V> {
-	/** Least recently used first. */
 	#held = new Map<K, V>();
-	/** The key set or used last, and its value: `#held`'s last, so its use moves nothing and needs
-	 *  no lookup. */
 	#newest: unknown = NO_KEY;
 	#newest_value: V | undefined = undefined;
 	#room: number;

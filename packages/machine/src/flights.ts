@@ -169,7 +169,6 @@ export interface Flights<I, V, K = I> {
 
 /** The most total weight a flights keeps when its options do not say (1000 answers). */
 const DEFAULT_MAX = 1000;
-/** A kept answer: the entry's `kept` state itself, so an observer reads the answer off the move. */
 type Kept = {
 	readonly kind: 'kept';
 	answer: unknown;
@@ -185,27 +184,17 @@ type Kept = {
 const FLYING_NOW = { kind: 'flying' } as const;
 const GONE_NOW = { kind: 'gone' } as const;
 
-/** The steps an entry may take, as data: the simulator's coverage reads this table for every
- *  flights' targets, and a rules build refuses any other move (`_move`). */
 const ENTRY_STEPS: { readonly [K in 'flying' | 'kept' | 'gone']: readonly string[] } = {
 	flying: ['flying', 'kept', 'gone'],
 	kept: ['flying', 'gone'],
 	gone: []
 };
 
-/**
- * A key's entry: `flying` (a flight out, with the answer kept before it beside it, if any), `kept`
- * (an answer, `flight` null) or `gone` (out of the flights). It moves flying → kept | flying | gone,
- * kept → flying | gone, and each move is told to `observe()`'s observers under the flights' name.
- */
 class Entry {
 	now: { readonly kind: 'flying' | 'kept' | 'gone' } = FLYING_NOW;
 	flight: Flight | null;
-	/** The flight's work: closing it aborts the run and makes its answer `STALE`. */
 	work: Life | null;
-	/** The answer it keeps: its own once kept; while flying, the one kept before the flight. */
 	held: Kept | null;
-	/** Its last use, in the flights' count of uses: the least recently used go first past `max`. */
 	used = 0;
 
 	constructor(flight: Flight, work: Life, held: Kept | null) {
@@ -609,7 +598,6 @@ export function makers<O, KO>(
 	) as never;
 }
 
-/** What a plain flights leaves out: those are `flights()`'s. */
 type Plain = { world?: never; weigh?: never; touches?: never };
 
 /** Makes a keyed plain flights over input `I`: its key one field at most. */

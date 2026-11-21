@@ -183,7 +183,6 @@ class Store<K, V> implements CacheStore<K, V> {
 	_timer_at = Infinity;
 	/** When the timer last swept (`-Infinity`: never). */
 	_swept_at = -Infinity;
-	/** A value with an age was ever kept: until then a sweep would find nothing past its age. */
 	_ages = false;
 	/** Notices due, and whether they are being told (a notice's own set or delete queues behind). */
 	_due: Array<[K, V, EvictWhy]> = [];
@@ -271,7 +270,6 @@ class Store<K, V> implements CacheStore<K, V> {
 		t.later(fire, Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS), this as Store<unknown, unknown>);
 	}
 
-	/** Clears the age timer (its own life). */
 	_stop(): void {
 		const t = this._stop_timer;
 		this._stop_timer = null;

@@ -54,7 +54,6 @@ function key_part(v: unknown): string {
 	}
 }
 
-/** The flights `flights()` makes (see ./flights.ts and its module comment). */
 class Full<I, V, K> extends Flown<I, V, K> {
 	_touches: ((answer: V) => Iterable<unknown>) | undefined;
 
@@ -72,8 +71,6 @@ class Full<I, V, K> extends Flown<I, V, K> {
 		}
 	}
 
-	/** A keyed flights' key of no field or of two or more: its key fields, in their order,
-	 *  spelled one way. */
 	override _spell(fields: readonly PropertyKey[], input: unknown): unknown {
 		const of = input as Record<PropertyKey, unknown>;
 		let key = '';
