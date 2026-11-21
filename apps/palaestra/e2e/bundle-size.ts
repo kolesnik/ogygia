@@ -52,6 +52,7 @@ const {
 	generateRuntimeFlagsSource,
 	generateHydrateFeaturesSource,
 	generateFeatureCodeSource,
+	generateRemoteSeedsSource,
 	resolveFeatures
 } = (await import(
 	pathToFileURL(COMPILER_ENTRY ?? join(CORE, 'dist/compiler/link/runtime-entry.js')).href
@@ -120,6 +121,8 @@ const OUT = arg('--out');
 /** A profile may grow this much over its baseline before the gate fails: over the snapshot, the
  *  build's own noise; over the base branch's build (same tool, same machine), almost nothing. */
 const TOLERANCE = COMPARE ? 0.005 : 0.02;
+/** A string only the router's navigation carries in a lazy chunk: its view transition. */
+const ROUTER_NAVIGATION_MARKER = 'startViewTransition';
 
 const update = process.argv.includes('--update');
 const asJson = process.argv.includes('--json');
@@ -254,14 +257,22 @@ function boot_realm(marks: RuntimeMarks, realms: readonly ClientRealmFile[]): Pl
 	// lazy chunks' bits, as the plugin serves them)
 	const hooks = () => hooks_gen?.generateHooksSource(realms, RUNTIME_DIR) ?? '';
 	const bits = () => hooks_gen?.generateHookBitsSource(realms) ?? '';
+	const hydrate = () => generateHydrateFeaturesSource(marks, RUNTIME_DIR).code;
+	// (a checkout whose hydrate core installs its features through the realm module's re-export)
+	const installs = () =>
+		hydrate().includes('export function install')
+			? "export { install as install_hydrate_features } from 'ogygia:boot/hydrate-features';"
+			: '';
 	const ids: Record<string, () => string> = {
 		'ogygia:boot': () => dedent`
 			export { ${names(flags())} } from 'ogygia:boot/runtime-flags';
-			export { install as install_hydrate_features } from 'ogygia:boot/hydrate-features';
+			${installs()}
 			export const region_names = {};
 		`,
 		'ogygia:boot/runtime-flags': flags,
-		'ogygia:boot/hydrate-features': () => generateHydrateFeaturesSource(marks, RUNTIME_DIR).code,
+		'ogygia:boot/hydrate-features': hydrate,
+		// (a checkout whose page feature reads its remote seeds by a module of their own)
+		'ogygia:boot/remote-seeds': () => generateRemoteSeedsSource?.(marks, RUNTIME_DIR) ?? '',
 		'ogygia:boot/hooks': hooks,
 		'ogygia:boot/hook-bits': bits,
 		// (a checkout whose element calls its features' modules directly)
@@ -282,7 +293,10 @@ async function measure(
 	kit: boolean,
 	profile: string
 ): Promise<
-	Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'> & { boot_code: string }
+	Pick<Row, 'boot' | 'total' | 'lazy' | 'modules' | 'lazy_modules'> & {
+		boot_code: string;
+		lazy_code: string;
+	}
 > {
 	const realms: ClientRealmFile[] = clients.map((module, i) => {
 		const name = `size-client-${i}`;
@@ -393,12 +407,19 @@ async function measure(
 		for (const [id, bytes] of minified_lengths(c))
 			if (boot_set.has(c.fileName)) modules[module_name(id)] = bytes;
 			else lazy_modules.push(module_name(id));
-	return { boot, total, lazy, modules, lazy_modules, boot_code };
+	const lazy_code = chunks
+		.filter((c) => !boot_set.has(c.fileName))
+		.map((c) => c.code)
+		.join('\n');
+	return { boot, total, lazy, modules, lazy_modules, boot_code, lazy_code };
 }
 
 /** The minified bytes of `chunk` each source module wrote, by its sourcemap. */
 function minified_lengths(chunk: OutputChunk): Map<string, number> {
 	const map = chunk.map;
+	// (rolldown's own helpers, a namespace object's maker, come in a chunk of their own with no source)
+	if (!map && chunk.fileName.startsWith('rolldown-runtime'))
+		return new Map([['rolldown:runtime', Buffer.byteLength(chunk.code)]]);
 	if (!map) throw new Error(`bundle-size: no sourcemap for ${chunk.fileName}`);
 	const out = new Map<string, number>();
 	for (const [id, text] of mapped_text(chunk.code, map)) out.set(id, Buffer.byteLength(text));
@@ -422,9 +443,11 @@ function module_name(id: string): string {
 const rows: Row[] = [];
 /** Each profile's boot code, by its name (for the leak gate's strings). */
 const boot_codes = new Map<string, string>();
+/** Each profile's lazy chunks' code, by its name (for the lazy gate's strings). */
+const lazy_codes = new Map<string, string>();
 for (const p of PROFILES) {
 	const kit = p.kit === true;
-	const { boot_code, ...m } = await measure(
+	const { boot_code, lazy_code, ...m } = await measure(
 		p.marks,
 		p.name === 'Everything',
 		p.clients ?? [],
@@ -432,6 +455,7 @@ for (const p of PROFILES) {
 		p.name
 	);
 	boot_codes.set(p.name, boot_code);
+	lazy_codes.set(p.name, lazy_code);
 	rows.push({
 		name: p.name,
 		blurb: p.blurb,
@@ -482,6 +506,17 @@ if (!arg('--core')) {
 					leaks.push(`${r.name}: its boot holds ${p.name} ('${text}'), which its marks never run`);
 			}
 		}
+	// The navigation chunk without the router is the soft refresh alone: the boot that imports it for
+	// a refresh names what it uses, so the router's navigation (its view transition) is left out.
+	for (const r of rows) {
+		const navigates = (lazy_codes.get(r.name) ?? '').includes(ROUTER_NAVIGATION_MARKER);
+		if (r.features.includes('router') !== navigates)
+			leaks.push(
+				navigates
+					? `${r.name}: a lazy chunk holds the router's navigation, which its marks never run`
+					: `${r.name}: selects router, but no lazy chunk holds its navigation`
+			);
+	}
 	for (const p of PROFILES) {
 		const r = rows.find((row) => row.name === p.name)!;
 		if (r.boot.brotli > p.budget)
