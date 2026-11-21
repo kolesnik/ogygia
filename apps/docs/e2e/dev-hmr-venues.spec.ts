@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { test, check, sleep, REPO as root } from '@ogygia/tooling/e2e';
 import { spawn_server, type SpawnedServer } from '@ogygia/tooling/e2e/servers.ts';
+import { hear_downloads } from '@ogygia/tooling/e2e/downloads.ts';
 import { dedent } from '@ogygia/core/plugin/utils';
 
 const docs = fileURLToPath(new URL('..', import.meta.url));
@@ -122,14 +123,13 @@ test.describe('dev HMR venues under csr=false (docs app): page/layout shell full
 	test('five venues: +page.svelte, +layout.svelte, SideNav.svelte, toc-items.ts, app.css', async ({
 		page
 	}) => {
+		await hear_downloads(page);
 		await page.goto(`${base}/`, { waitUntil: 'networkidle', timeout: 30000 });
 		await sleep(1500);
 
 		const bridge = await page.evaluate(() => ({
 			hmrScript: !!document.querySelector('script[data-ogygia-dev-hmr]'),
-			viteClient: performance
-				.getEntriesByType('resource')
-				.some((r) => r.name.includes('@vite/client'))
+			viteClient: window.__og_downloads!().some((r) => r.name.includes('@vite/client'))
 		}));
 		console.log('bridge', bridge);
 		if (!bridge.hmrScript && !bridge.viteClient) {
