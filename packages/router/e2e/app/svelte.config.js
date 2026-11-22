@@ -9,6 +9,7 @@ const config = {
 	},
 	kit: {
 		adapter: adapter(),
+		outDir: process.env.OGYGIA_E2E_OUT_DIR,
 		experimental: { remoteFunctions: true }
 	}
 };

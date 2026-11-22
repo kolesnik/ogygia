@@ -13,6 +13,7 @@
 				"$TURBO_ROOT$/internal/repro-hole-css-kit/**",
 				"!$TURBO_ROOT$/apps/**/node_modules/**",
 				"!$TURBO_ROOT$/apps/**/.svelte-kit/**",
+				"!$TURBO_ROOT$/apps/**/.svelte-kit-e2e/**",
 				"!$TURBO_ROOT$/apps/**/.vercel/**",
 				"!$TURBO_ROOT$/apps/**/.turbo/**",
 				"!$TURBO_ROOT$/apps/**/.ogygia/**",

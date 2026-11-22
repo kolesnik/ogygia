@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FullConfig } from '@playwright/test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import global_build, { build_app } from '../src/e2e/build.ts';
+import global_build, { build_app, E2E_OUT_DIR } from '../src/e2e/build.ts';
 
 const SCRIPT = fileURLToPath(new URL('../src/e2e/build.ts', import.meta.url));
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
@@ -47,10 +47,26 @@ describe('e2e build', () => {
 		mkdirSync(join(dir, 'node_modules/vite/bin'), { recursive: true });
 		writeFileSync(
 			join(dir, 'node_modules/vite/bin/vite.js'),
-			"require('node:fs').writeFileSync('seen.txt', String(process.env.OGYGIA_RULES));"
+			"const fs = require('node:fs'); fs.writeFileSync('seen.txt', String(process.env.OGYGIA_RULES)); fs.mkdirSync(process.env.OGYGIA_E2E_OUT_DIR + '/output', { recursive: true });"
 		);
 		build_app(dir);
 		expect(readFileSync(join(dir, 'seen.txt'), 'utf8')).toBe('1');
+	});
+
+	it("the build lands in its own folder, never over the app's production build in .svelte-kit", () => {
+		vi.stubEnv('E2E_NO_BUILD', '');
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		const dir = temp();
+		mkdirSync(join(dir, 'node_modules/vite/bin'), { recursive: true });
+		writeFileSync(
+			join(dir, 'node_modules/vite/bin/vite.js'),
+			"require('node:fs').writeFileSync('out.txt', String(process.env.OGYGIA_E2E_OUT_DIR)); require('node:fs').mkdirSync('.svelte-kit/output', { recursive: true });"
+		);
+		expect(() => build_app(dir)).toThrow(
+			`e2e build wrote no ${E2E_OUT_DIR}/output in ${dir}: its svelte.config must set kit.outDir`
+		);
+		expect(readFileSync(join(dir, 'out.txt'), 'utf8')).toBe(E2E_OUT_DIR);
+		expect(E2E_OUT_DIR).not.toBe('.svelte-kit');
 	});
 
 	it('as a globalSetup it builds the app in metadata.build', () => {

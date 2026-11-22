@@ -8,7 +8,8 @@ const config = {
 		experimental: { async: true }
 	},
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		outDir: process.env.OGYGIA_E2E_OUT_DIR
 	}
 };
 

@@ -21,6 +21,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assert_e2e_output, E2E_BUILD_ENV } from '@ogygia/tooling/e2e/build.ts';
 
 const app = fileURLToPath(new URL('..', import.meta.url));
 // (a production build prints the warning as its code's link: messages/server.ts `build_key_prerender`)
@@ -54,7 +55,7 @@ if (existsSync(env_bak) && !existsSync(env_file)) renameSync(env_bak, env_file);
 
 console.log('▸ Building palaestra (warn-path probe: secret hidden)');
 {
-	const child_env = { ...process.env };
+	const child_env = { ...process.env, ...E2E_BUILD_ENV };
 	delete child_env.OGYGIA_SECRET;
 	const had_env_file = existsSync(env_file);
 	if (had_env_file) renameSync(env_file, env_bak);
@@ -74,9 +75,14 @@ console.log('▸ Building palaestra (production — this is what the preview ser
 {
 	// with ogygia's rules on itself built in: every spec reads them at its end (@ogygia/tooling/e2e
 	// `rules`), and a build without the flag ships none (core's test/rules-stripped.test.ts)
-	const real = build_palaestra({ ...process.env, OGYGIA_RULES: '1' });
+	const real = build_palaestra({ ...process.env, ...E2E_BUILD_ENV });
 	process.stdout.write(real.out);
 	if (!real.ok) fail('palaestra build failed');
+	try {
+		assert_e2e_output(app);
+	} catch (e) {
+		fail((e as Error).message);
+	}
 	if (WARN_RE.test(real.out)) fail('stable OGYGIA_SECRET present, but the build still warned');
 	console.log('PASS  stable secret → build is silent about prerendered capabilities');
 }
