@@ -27,7 +27,7 @@ export { app_path } from './app-base.ts';
 
 let asset_request: (() => object | null) | null = null;
 let asset_check: ((path: string, ours: string, kits: string) => void) | null = null;
-const prefixes = new WeakMap<object, string | null>();
+const prefixes = new WeakMap<object, RequestAssets | null>();
 const PROBE = '/_app';
 
 /** Installs the reader of the request `asset()` answers for (the server's handle), and with rules on
@@ -50,23 +50,38 @@ function plain_path(file: string): boolean {
 export function kit_asset(file: string): string {
 	if (asset_request !== null && wants_slash !== null) {
 		const request = asset_request();
-		if (request !== null && file.startsWith('/') && plain_path(file)) {
-			let prefix = prefixes.get(request);
-			if (prefix === undefined) prefixes.set(request, (prefix = asset_prefix(wants_slash)));
-			if (prefix !== null) {
-				const out = prefix + (wants_slash ? file : file.slice(1));
-				if (asset_check !== null) asset_check(file, out, kit_call(file));
-				return out;
+		if (request !== null) {
+			let assets = prefixes.get(request);
+			const known = assets?.urls.get(file);
+			if (known !== undefined) return known;
+			if (file.startsWith('/') && plain_path(file)) {
+				if (assets === undefined) prefixes.set(request, (assets = request_assets(wants_slash)));
+				if (assets !== null) {
+					const out = assets.prefix + (wants_slash ? file : file.slice(1));
+					if (asset_check !== null) asset_check(file, out, kit_call(file));
+					assets.urls.set(file, out);
+					return out;
+				}
 			}
 		}
 	}
 	return kit_call(file);
 }
 
-function asset_prefix(slash: boolean): string | null {
+/** One request's answers to `kit_asset`: the prefix Kit gave its probe, and each plain path's URL,
+ *  made once, so every list, set and map the page's URLs pass through holds the same string. */
+class RequestAssets {
+	readonly prefix: string;
+	readonly urls: Map<string, string> = new Map();
+	constructor(prefix: string) {
+		this.prefix = prefix;
+	}
+}
+
+function request_assets(slash: boolean): RequestAssets | null {
 	const arg = slash ? PROBE : PROBE.slice(1);
 	const out = (asset as (f: string) => string)(arg);
-	return out.endsWith(arg) ? out.slice(0, out.length - arg.length) : null;
+	return out.endsWith(arg) ? new RequestAssets(out.slice(0, out.length - arg.length)) : null;
 }
 
 function kit_call(file: string): string {

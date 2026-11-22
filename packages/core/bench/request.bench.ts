@@ -40,6 +40,7 @@ import {
 } from '../src/server/request-stats.ts';
 import { merge_seed_ask, shape_page_data, type SeedAsk } from '../src/server/seed-shape.ts';
 import { kit_asset } from '../src/kit-paths.ts';
+import { graph_hrefs as graph_hrefs_of } from '../src/region-parts/locate.ts';
 import { set_island_deps } from '../test/_stubs/server.region-deps.ts';
 import { csr_true_routes } from '../test/_stubs/server.route-csr.ts';
 import {
@@ -720,5 +721,32 @@ bench(
 	{
 		setup: () => ({ urls: page_urls(40), ...event_of(false) }),
 		scale: (_ctx, k) => ({ urls: page_urls(40 * k), ...event_of(false) })
+	}
+);
+
+/** An island of `live` live snippets as a router page renders it: its module's eight chunks, and each
+ *  live module's chunk and twenty chunks, most of them shared with the island's and each other's. */
+function live_island(live: number): { entry: string; self: string; live: string[] } {
+	const entry = '/_app/immutable/entry/island-live.js';
+	const deps: Record<string, string[]> = { [entry]: graph_hrefs(900) };
+	const modules: string[] = [];
+	for (let m = 0; m < live; m++) {
+		const id = `src/lib/Live${m}.svelte`;
+		modules.push(id);
+		deps[id] = [...graph_hrefs(900), ...graph_hrefs(901 + (m % 3), 12)];
+	}
+	set_island_deps(deps);
+	return { entry, self: entry, live: modules };
+}
+
+bench(
+	'graph_hrefs: an island with six live snippets, in one request',
+	({ island, event, state }) =>
+		with_request_store({ event, state }, () =>
+			graph_hrefs_of(island.entry, island.self, island.live)
+		).length,
+	{
+		setup: () => ({ island: live_island(6), ...event_of(false) }),
+		scale: (_ctx, k) => ({ island: live_island(6 * k), ...event_of(false) })
 	}
 );
