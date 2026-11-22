@@ -13,14 +13,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { test, expect } from '@ogygia/tooling/e2e';
-import { build_app } from '@ogygia/tooling/e2e/build.ts';
+import { build_app, e2e_output } from '@ogygia/tooling/e2e/build.ts';
 import { spawn_server, port, type SpawnedServer } from '@ogygia/tooling/e2e/servers.ts';
 import { PROGRAMS } from './_programs.ts';
 
 const repo = fileURLToPath(new URL('../../..', import.meta.url));
 const app = path.join(repo, 'apps/plain-islands');
-const immutable_of = (dir: string): string =>
-	path.join(dir, '.svelte-kit/output/client/_app/immutable');
+const immutable_of = (dir: string): string => e2e_output(dir, 'client/_app/immutable');
 const PORT = port(3062);
 const BASE = `http://localhost:${PORT}`;
 const RUNTIME_RE = /^og-runtime[.-][^/]*\.js$/;

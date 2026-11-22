@@ -8,10 +8,8 @@
 // Usage: pnpm exec playwright test named-regions
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test, check, sleep } from '@ogygia/tooling/e2e';
-
-const repo = fileURLToPath(new URL('../../..', import.meta.url));
+import { built } from './_built.ts';
 
 test.describe('marked named imports: barrel islands SSR+hydrate; unused barrel exports tree-shaken', () => {
 	test.use({ viewport: { width: 1000, height: 900 } });
@@ -67,7 +65,7 @@ test.describe('marked named imports: barrel islands SSR+hydrate; unused barrel e
 
 	// ── 3. build-output: tree-shaking canaries must be ABSENT from the client build ────────────────────
 	test('build-output: tree-shaking canaries must be ABSENT from the client build', () => {
-		const clientDir = path.join(repo, 'apps/palaestra/.svelte-kit/output/client');
+		const clientDir = built('client');
 		function client_contains(marker: string): string[] {
 			const hits: string[] = [];
 			const walk = (d: string) => {

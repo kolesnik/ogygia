@@ -1,6 +1,7 @@
 import { defineConfig, type PlaywrightTestConfig } from '@playwright/test';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { E2E_BUILD_ENV } from './build.ts';
 import { SERVER_LOG_ENV } from './server-log.ts';
 import { port } from './servers.ts';
 
@@ -104,6 +105,7 @@ export function suite(opts: SuiteOptions): PlaywrightTestConfig {
 						url: base + (opts.ready ?? '/'),
 						env: {
 							ORIGIN: base,
+							...E2E_BUILD_ENV,
 							...opts.env,
 							OGYGIA_E2E_SERVE_COMMAND: serve_command,
 							[SERVER_LOG_ENV]: process.env[SERVER_LOG_ENV]!

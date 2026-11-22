@@ -18,11 +18,9 @@
 // see KIT_PAGE_THREAD in vite/index.ts), and the shims read through it whenever it exists.
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test, expect } from '@playwright/test';
 import { FAVICON_RE } from '@ogygia/tooling/e2e/re.ts';
-
-const repo = fileURLToPath(new URL('../../..', import.meta.url));
+import { built } from './_built.ts';
 const CHUNK_IMPORT_RE = /import[^'"]*['"](\.[^'"]+\.js)['"]/g;
 const text = async (page: import('@playwright/test').Page, sel: string) =>
 	((await page.locator(sel).textContent()) ?? '').trim();
@@ -110,7 +108,7 @@ test.describe('$app/stores split brain', () => {
 		// `$app/stores`'s real client reads `getContext('__svelte__')`; on a csr=false island that store
 		// is never populated → `page.url` undefined → the crash. With the eager walk the header (and its
 		// transitive deps) are shimmed in EVERY chunk that carries them, so none bundle `__svelte__`.
-		const clientDir = path.join(repo, 'apps/palaestra/.svelte-kit/output/client/_app/immutable');
+		const clientDir = built('client/_app/immutable');
 		expect(fs.existsSync(clientDir), `client output exists at ${clientDir}`).toBe(true);
 		const MARKER = 'og-e2e-split-brain';
 		const withMarker: string[] = [];
