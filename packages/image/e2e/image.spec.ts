@@ -106,6 +106,17 @@ test.describe("macro images (/)", () => {
     await expect(page.getByTestId("gallery")).toHaveCount(3);
   });
 
+  test("a 300px gallery image on a 1x screen downloads the 320px file, not a 600px one", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const first = page.getByTestId("gallery").first();
+    await first.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
+      .toMatch(/-320\.[\w-]+\.avif$/);
+  });
+
   test("an SVG passes through as one file, with no <picture>", async ({
     page,
   }) => {

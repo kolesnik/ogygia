@@ -2,7 +2,7 @@ import fs from "node:fs";
 import sharp from "sharp";
 import { beforeAll, describe, expect, test } from "vitest";
 import { plan_image, settle, write_variant } from "../src/vite/encode.ts";
-import { ladder } from "../src/vite/options.ts";
+import { DEFAULT_BREAKPOINTS, ladder } from "../src/vite/options.ts";
 import { placeholder_style } from "../src/placeholder.ts";
 import { make_images } from "./fixtures.ts";
 
@@ -25,6 +25,12 @@ describe("ladder", () => {
   test("an image under every breakpoint is written once, at its own width", () => {
     expect(ladder(500, [640, 960], undefined)).toEqual([500]);
   });
+  test("the default ladder starts small, so a listing thumbnail or avatar at 1× is not sent 640 pixels", () => {
+    expect(ladder(2400, DEFAULT_BREAKPOINTS, undefined)).toEqual([
+      320, 480, 640, 960, 1280, 1600, 2048,
+    ]);
+  });
+
   test("a display width writes 1×, 2× and the breakpoints between", () => {
     expect(ladder(4000, [640, 960, 1280, 1600, 2048], 720)).toEqual([
       720, 960, 1280, 1440,
@@ -41,11 +47,15 @@ describe("plan_image", () => {
       false,
     ]);
     expect(plan.variants.map((v) => v.name)).toEqual([
+      "harbor-dusk-320.avif",
+      "harbor-dusk-480.avif",
       "harbor-dusk-640.avif",
       "harbor-dusk-960.avif",
       "harbor-dusk-1280.avif",
       "harbor-dusk-1600.avif",
       "harbor-dusk-2048.avif",
+      "harbor-dusk-320.webp",
+      "harbor-dusk-480.webp",
       "harbor-dusk-640.webp",
       "harbor-dusk-960.webp",
       "harbor-dusk-1280.webp",
@@ -96,8 +106,8 @@ describe("plan_image", () => {
     fs.copyFileSync(img.jpg, twin);
     const a = await plan_image(img.jpg, settle({}, {}));
     const b = await plan_image(twin, settle({}, {}));
-    expect(a.variants[0]!.name).toBe("harbor-dusk-640.avif");
-    expect(b.variants[0]!.name).toBe("twin-copy-640.avif");
+    expect(a.variants[0]!.name).toBe("harbor-dusk-320.avif");
+    expect(b.variants[0]!.name).toBe("twin-copy-320.avif");
   });
 
   test("a transparent image gets no placeholder: the blur would show through it", async () => {
@@ -164,7 +174,7 @@ describe("plan_image", () => {
     expect([plan.width, plan.height]).toEqual([1600, 1600]);
     const out = await write_variant(img.jpg, plan, plan.variants[0]!, s);
     const meta = await sharp(out).metadata();
-    expect([meta.width, meta.height]).toEqual([640, 640]);
+    expect([meta.width, meta.height]).toEqual([320, 320]);
   });
 
   test("a variant is written at its width in its format", async () => {
