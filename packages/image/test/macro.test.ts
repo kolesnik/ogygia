@@ -4,8 +4,20 @@ import path from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { dedent } from '@ogygia/core/plugin/utils';
 import type { MacroHandler } from '@ogygia/compiler/vite';
-import { options_of_query, rewrite_image_calls } from '../src/vite/macro.ts';
+import { image_call_edits, options_of_query } from '../src/vite/macro.ts';
 import { image } from '../src/vite/index.ts';
+
+/** `src` with the macro's edits applied, as ogygia's pipeline applies them. */
+function rewrite_image_calls(...args: Parameters<typeof image_call_edits>): string {
+	const src = args[0];
+	let out = '';
+	let last = 0;
+	for (const e of image_call_edits(...args)) {
+		out += src.slice(last, e.start) + e.text;
+		last = e.end;
+	}
+	return out + src.slice(last);
+}
 
 let dir: string;
 beforeAll(() => {
@@ -142,5 +154,22 @@ describe('the image macro in dev', () => {
 			});
 		await expect(run()).rejects.toThrow(/later\.jpg/);
 		expect(watched).toContain(path.join(dir, 'later.jpg'));
+	});
+
+	test('the macro answers with edits, so a module that uses it keeps its source map', async () => {
+		const src = `const hero = import.meta.og.image('./hero.jpg');\nexport { hero };\n`;
+		const edits = (await handler()(src, {
+			id: mod(),
+			rel: 'page.ts',
+			root: dir,
+			alias: [],
+			markupExts: ['.svelte'],
+			watch: () => {}
+		})) as { start: number; end: number; text: string }[];
+		expect(Array.isArray(edits)).toBe(true);
+		const call = edits.find((e) => e.start !== e.end)!;
+		expect(src.slice(call.start, call.end)).toBe(`import.meta.og.image('./hero.jpg')`);
+		expect(call.text).toBe('__og_image_0');
+		expect(edits.every((e) => e === call || e.start === e.end)).toBe(true);
 	});
 });

@@ -184,4 +184,3 @@ describe('markdown body images', () => {
 		);
 	});
 });
-

@@ -12,10 +12,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
 	find_og_calls,
+	line_of,
+	literal_of,
+	NOT_LITERAL,
 	og_js_regions,
 	og_member,
 	parse_module,
-	type AstNode
+	walk_ast,
+	type AstNode,
+	type Edit
 } from '@ogygia/compiler';
 import { OgygiaError } from '../messages.ts';
 import { check_image_options, type ImageOptions } from './options.ts';
@@ -44,85 +49,6 @@ export function options_of_query(query: string): ImageOptions {
 	}
 }
 
-function walk(node: Node, visit: (n: Node) => void): void {
-	visit(node);
-	for (const key in node) {
-		if (key === 'type' || key === 'start' || key === 'end') continue;
-		const child = node[key];
-		if (Array.isArray(child)) {
-			for (const c of child)
-				if (c && typeof c === 'object' && typeof c.type === 'string') walk(c, visit);
-		} else if (child && typeof child === 'object' && typeof child.type === 'string') {
-			walk(child, visit);
-		}
-	}
-}
-
-function line_of(src: string, offset: number): number {
-	let line = 1;
-	for (let i = 0; i < offset && i < src.length; i++) if (src[i] === '\n') line++;
-	return line;
-}
-
-const NOT_LITERAL: unique symbol = Symbol('not literal');
-
-/** The value a literal expression writes, or NOT_LITERAL. */
-function literal(n: Node): unknown {
-	switch (n.type) {
-		case 'Literal':
-			return n.regex ? NOT_LITERAL : n.value;
-		case 'TemplateLiteral':
-			return (n.expressions as Node[]).length === 0
-				? (n.quasis as Node[]).map((q) => q.value.cooked).join('')
-				: NOT_LITERAL;
-		case 'UnaryExpression': {
-			if (n.operator !== '-' && n.operator !== '+') return NOT_LITERAL;
-			const v = literal(n.argument as Node);
-			if (typeof v !== 'number') return NOT_LITERAL;
-			return n.operator === '-' ? -v : v;
-		}
-		case 'BinaryExpression': {
-			const l = literal(n.left as Node);
-			const r = literal(n.right as Node);
-			if (typeof l !== 'number' || typeof r !== 'number') return NOT_LITERAL;
-			if (n.operator === '/') return l / r;
-			if (n.operator === '*') return l * r;
-			return NOT_LITERAL;
-		}
-		case 'ArrayExpression': {
-			const out: unknown[] = [];
-			for (const e of n.elements as (Node | null)[]) {
-				if (!e || e.type === 'SpreadElement') return NOT_LITERAL;
-				const v = literal(e);
-				if (v === NOT_LITERAL) return NOT_LITERAL;
-				out.push(v);
-			}
-			return out;
-		}
-		case 'ObjectExpression': {
-			const out: Record<string, unknown> = {};
-			for (const p of n.properties as Node[]) {
-				if (p.type !== 'Property' || p.computed || p.kind !== 'init' || p.method)
-					return NOT_LITERAL;
-				let key: string;
-				if (p.key.type === 'Identifier') key = p.key.name as string;
-				else if (typeof p.key.value === 'string') key = p.key.value as string;
-				else return NOT_LITERAL;
-				const v = literal(p.value as Node);
-				if (v === NOT_LITERAL) return NOT_LITERAL;
-				out[key] = v;
-			}
-			return out;
-		}
-		case 'TSAsExpression':
-		case 'TSSatisfiesExpression':
-		case 'ParenthesizedExpression':
-			return literal(n.expression as Node);
-		default:
-			return NOT_LITERAL;
-	}
-}
-
 type Call = {
 	start: number;
 	end: number;
@@ -146,7 +72,7 @@ function find_calls(src: string, id: string, markup_exts: readonly string[]): Ca
 		const as = markup_exts.some((x) => id.endsWith(x)) ? `${id}.ts` : id;
 		const { program, ok } = parse_module(region.code, as);
 		if (!ok || !program) continue;
-		walk(program, (n) => {
+		walk_ast(program, (n) => {
 			if (n.type !== 'CallExpression') return;
 			const callee = n.callee as Node;
 			let glob = false;
@@ -165,7 +91,7 @@ function find_calls(src: string, id: string, markup_exts: readonly string[]): Ca
 			const args = (n.arguments as Node[] | undefined) ?? [];
 			if (args.length < 1 || args.length > 2)
 				throw new OgygiaError('image_macro_arity', { file: rel, line });
-			const path_value = literal(args[0]!);
+			const path_value = literal_of(args[0]!);
 			if (typeof path_value !== 'string')
 				throw new OgygiaError('image_macro_not_literal', {
 					file: rel,
@@ -174,7 +100,7 @@ function find_calls(src: string, id: string, markup_exts: readonly string[]): Ca
 				});
 			let options: unknown = undefined;
 			if (args[1]) {
-				options = literal(args[1]);
+				options = literal_of(args[1]);
 				if (options === NOT_LITERAL)
 					throw new OgygiaError('image_macro_not_literal', {
 						file: rel,
@@ -210,21 +136,21 @@ function refuse_markup_calls(src: string, id: string, calls: readonly Call[]): v
 			});
 }
 
-/** Rewrite every image call in `src` (module `id`). Returns `src` itself when there is none. */
-export function rewrite_image_calls(
+/** The edits that rewrite every image call in `src` (module `id`): none when there is no call. */
+export function image_call_edits(
 	src: string,
 	id: string,
 	markup_exts: readonly string[] = ['.svelte'],
 	watch: (file: string) => void = () => {}
-): string {
-	if (!src.includes(MARKER)) return src;
+): Edit[] {
+	if (!src.includes(MARKER)) return [];
 	const calls = find_calls(src, id, markup_exts);
 	if (markup_exts.some((x) => id.endsWith(x))) refuse_markup_calls(src, id, calls);
-	if (!calls.length) return src;
+	if (!calls.length) return [];
 	const dir = path.dirname(id);
 	const rel = path.basename(id);
 
-	const edits: { start: number; end: number; text: string }[] = [];
+	const edits: Edit[] = [];
 	const heads = new Map<number, string[]>();
 	calls.forEach((c, i) => {
 		if (REMOTE_RE.test(c.src) || c.src.startsWith('data:'))
@@ -253,13 +179,5 @@ export function rewrite_image_calls(
 	});
 	for (const [at, lines] of heads)
 		edits.push({ start: at, end: at, text: `\n${lines.join('\n')}\n` });
-	edits.sort((a, b) => a.start - b.start || (a.end === a.start ? -1 : 1));
-
-	let out = '';
-	let last = 0;
-	for (const e of edits) {
-		out += src.slice(last, e.start) + e.text;
-		last = e.end;
-	}
-	return out + src.slice(last);
+	return edits.sort((a, b) => a.start - b.start || (a.end === a.start ? -1 : 1));
 }

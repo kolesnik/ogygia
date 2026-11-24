@@ -20,7 +20,7 @@ import type { ImageDescriptor } from '../descriptor.ts';
 import { mime_of } from '../layout.ts';
 import { plan_image, settle, write_variant, type Plan, type Settings } from './encode.ts';
 import { EXTENSION_API, markdown_extension } from './markdown.ts';
-import { rewrite_image_calls, options_of_query, QUERY } from './macro.ts';
+import { image_call_edits, options_of_query, QUERY } from './macro.ts';
 import { check_image_options, check_plugin_options, type ImagePluginOptions } from './options.ts';
 
 export type { ImageOps, ImageOptions, ImagePluginOptions, OutputFormat } from './options.ts';
@@ -42,7 +42,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const ogygia: OgygiaPlugin = definePlugin({
 		name: '@ogygia/image',
 		build(b) {
-			b.macro('image', (code, m) => rewrite_image_calls(code, m.id, m.markupExts, m.watch));
+			b.macro('image', (code, m) => image_call_edits(code, m.id, m.markupExts, m.watch));
 		}
 	});
 
