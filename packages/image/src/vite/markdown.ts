@@ -87,6 +87,7 @@ function path_of_url(filename: string, src: string): string {
 
 /** `rel` (a file path, never a URL) as an import specifier relative to `filename`, which must exist. */
 function local_specifier(filename: string, rel: string, shown: string): string {
+	if (!path.isAbsolute(filename)) throw new OgygiaError('image_markdown_no_file', { src: shown });
 	if (!fs.existsSync(path.resolve(path.dirname(filename), rel)))
 		throw new OgygiaError('image_not_found', { file: path.basename(filename), src: shown });
 	return rel.startsWith('.') ? rel : `./${rel}`;

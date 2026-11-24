@@ -69,6 +69,18 @@ export const IMAGE_ERRORS = {
 			the folder, and that the file is committed.
 		`
 	},
+	image_markdown_no_file: {
+		text: (a: { src: string }): string => prose`
+			markdown with no file of its own (\`import.meta.og.md(text)\`) names the local image
+			'${a.src}', which has nothing to resolve against.
+		`,
+		details: (): string => prose`
+			A local image in markdown resolves against the markdown file, like an import. Markdown
+			rendered from a string has no file, so there is nowhere to look. Use a site-absolute or
+			remote URL there (\`/images/x.png\`), or move the markdown into a \`.md\` file beside the
+			image.
+		`
+	},
 	image_path_malformed: {
 		text: (a: { file: string; src: string }): string =>
 			`${a.file}: the image path '${a.src}' could not be decoded (a %-escape that is not UTF-8).`,
