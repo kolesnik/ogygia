@@ -61,11 +61,21 @@ function attr(value: string): string {
 		.replace(/</g, '&lt;');
 }
 
-function resolve_local(filename: string, src: string): string {
-	const abs = path.resolve(path.dirname(filename), decodeURI(src.split(/[?#]/)[0]!));
-	if (!fs.existsSync(abs))
-		throw new OgygiaError('image_not_found', { file: path.basename(filename), src });
-	return abs;
+/** A markdown image's URL → the file path it names: `./my%20photo.jpg` → `./my photo.jpg`. */
+function path_of_url(filename: string, src: string): string {
+	const bare = src.split(/[?#]/)[0]!;
+	try {
+		return decodeURI(bare);
+	} catch {
+		throw new OgygiaError('image_path_malformed', { file: path.basename(filename), src });
+	}
+}
+
+/** `rel` (a file path, never a URL) as an import specifier relative to `filename`, which must exist. */
+function local_specifier(filename: string, rel: string, shown: string): string {
+	if (!fs.existsSync(path.resolve(path.dirname(filename), rel)))
+		throw new OgygiaError('image_not_found', { file: path.basename(filename), src: shown });
+	return rel.startsWith('.') ? rel : `./${rel}`;
 }
 
 let code_hash: string | undefined;
@@ -119,9 +129,9 @@ export function install_markdown_bridge(opts: ImagePluginOptions): void {
 						typeof src === 'string' &&
 						is_local_image(src)
 					) {
-						resolve_local(filename, src);
+						const rel = local_specifier(filename, path_of_url(filename, src), src);
 						const name = `__og_md_image_${imports.length}`;
-						const spec = image_specifier(src.startsWith('.') ? src : `./${src}`, own);
+						const spec = image_specifier(rel, own);
 						imports.push([name, spec]);
 						const alt = typeof child.properties?.alt === 'string' ? child.properties.alt : '';
 						const title = child.properties?.title;
@@ -166,12 +176,10 @@ export function install_markdown_bridge(opts: ImagePluginOptions): void {
 				const names: string[] = [];
 				const emit = (value: unknown): string => {
 					if (typeof value === 'string' && is_local_image(value)) {
-						resolve_local(filename, value);
+						const spec = image_specifier(local_specifier(filename, value, value));
 						const name = `__og_fm_image_${n++}`;
 						names.push(name);
-						lines.push(
-							`import ${name} from ${JSON.stringify(image_specifier(value.startsWith('.') ? value : `./${value}`))};`
-						);
+						lines.push(`import ${name} from ${JSON.stringify(spec)};`);
 						return name;
 					}
 					if (Array.isArray(value)) return `[${value.map(emit).join(',')}]`;

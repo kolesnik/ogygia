@@ -48,6 +48,15 @@ export const IMAGE_ERRORS = {
 			the folder, and that the file is committed.
 		`
 	},
+	image_path_malformed: {
+		text: (a: { file: string; src: string }): string =>
+			`${a.file}: the image path '${a.src}' could not be decoded (a %-escape that is not UTF-8).`,
+		details: (): string => prose`
+			Markdown writes an image path as a URL, so a space is \`%20\` and an accent is its UTF-8
+			bytes, like \`%C3%A9\`. This path has an escape that does not decode to text. Write the file
+			name as it is (\`![](<./my photo.jpg>)\`), or escape it as UTF-8.
+		`
+	},
 	image_glob_empty: {
 		text: (a: { file: string; pattern: string }): string =>
 			`${a.file}: import.meta.og.image.glob('${a.pattern}') matched no file.`,
