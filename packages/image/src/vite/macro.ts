@@ -37,7 +37,11 @@ export function image_specifier(src: string, options: ImageOptions = {}): string
 export function options_of_query(query: string): ImageOptions {
 	const value = new URLSearchParams(query).get(QUERY);
 	if (!value) return {};
-	return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as ImageOptions;
+	try {
+		return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as ImageOptions;
+	} catch {
+		throw new OgygiaError('image_query_invalid', { query });
+	}
 }
 
 function walk(node: Node, visit: (n: Node) => void): void {

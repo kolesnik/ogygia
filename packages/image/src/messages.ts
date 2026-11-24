@@ -42,6 +42,15 @@ export const IMAGE_ERRORS = {
 			\`<Img of={hero} alt="…" />\`.
 		`
 	},
+	image_query_invalid: {
+		text: (a: { query: string }): string =>
+			`the og-image query '?${a.query}' does not hold the options import.meta.og.image() writes.`,
+		details: (): string => prose`
+			The \`og-image\` query is written by the image macro, its options encoded inside. Import
+			images through \`import.meta.og.image('./x.jpg', { … })\` instead of writing the query by
+			hand.
+		`
+	},
 	image_remote_unsupported: {
 		text: (a: { file: string; src: string }): string => prose`
 			${a.file}: import.meta.og.image('${a.src}') — remote images are not supported yet. Download the
