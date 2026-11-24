@@ -190,7 +190,11 @@ export function check_plugin_options(o: unknown): ImagePluginOptions {
 		if (!is_object(opts.presets)) invalid(where, 'presets', 'an object of named presets');
 		for (const [name, preset] of Object.entries(opts.presets)) {
 			if (!PRESET_NAME_RE.test(name))
-				invalid(where, `presets.${name}`, 'a name of letters, digits, - and _, starting with a letter');
+				invalid(
+					where,
+					`presets.${name}`,
+					'a name of letters, digits, - and _, starting with a letter'
+				);
 			check_preset(name, preset);
 		}
 	}

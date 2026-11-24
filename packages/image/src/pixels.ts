@@ -22,7 +22,7 @@ export function shown_size(
 ): { width: number; height: number } {
 	let w = meta.width;
 	let h = animated && meta.pageHeight ? meta.pageHeight : meta.height;
-	// @why EXIF orientations 5–8 store the picture turned a quarter, so its stored width is its shown height (test: packages/image/test/encode.test.ts › EXIF orientation is applied: a portrait stored sideways reports its shown size)
+	// @why EXIF orientations 5–8 store the picture turned a quarter, so its stored width is its shown height (test: packages/image/test/plan.test.ts › EXIF orientation is applied: a portrait stored sideways reports its shown size)
 	if ((meta.orientation ?? 1) >= 5) [w, h] = [h, w];
 	if (ops.rotate && Math.abs(ops.rotate) % 180 === 90) [w, h] = [h, w];
 	return { width: w, height: h };

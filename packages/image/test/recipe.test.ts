@@ -12,7 +12,9 @@ describe('recipes', () => {
 			ops: { grayscale: true, rotate: 90 }
 		};
 		const path = recipe_path(full, '_app/immutable/assets/hero.B1.jpg');
-		expect(path).toMatch(/^abc_-1-640x360-q70-pattention-o[\w-]+\/_app\/immutable\/assets\/hero\.B1\.jpg\.avif$/);
+		expect(path).toMatch(
+			/^abc_-1-640x360-q70-pattention-o[\w-]+\/_app\/immutable\/assets\/hero\.B1\.jpg\.avif$/
+		);
 		expect(parse_recipe(path)).toEqual({
 			id: 'abc_-1',
 			tail: '_app/immutable/assets/hero.B1.jpg',

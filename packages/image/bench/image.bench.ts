@@ -47,7 +47,11 @@ function descriptor(i: number): ImageDescriptor {
 	};
 }
 
-const CFG: RenderConfig = { formats: DEFAULT_FORMATS, breakpoints: DEFAULT_BREAKPOINTS, presets: {} };
+const CFG: RenderConfig = {
+	formats: DEFAULT_FORMATS,
+	breakpoints: DEFAULT_BREAKPOINTS,
+	presets: {}
+};
 const PREFIXES: readonly string[] = ['', ''];
 
 /** A file's URL as the minter writes one (its signature stood in for by a fixed string). */

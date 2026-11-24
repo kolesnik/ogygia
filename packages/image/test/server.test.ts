@@ -30,7 +30,10 @@ const app = { sign } as never;
 
 type Req = NonNullable<typeof server.request>;
 async function get(url: string): Promise<Response | undefined> {
-	const ctx = { event: { url: new URL(url, 'http://localhost') }, app } as unknown as Parameters<Req>[0];
+	const ctx = {
+		event: { url: new URL(url, 'http://localhost') },
+		app
+	} as unknown as Parameters<Req>[0];
 	return (await server.request!(ctx)) ?? undefined;
 }
 

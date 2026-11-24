@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { read } from '$app/server';
-import { flights, queue, STALE, type Place } from '@ogygia/machine';
+import { flights, queue, random, STALE, type Place } from '@ogygia/machine';
 import { mime_of } from './layout.ts';
 import { warn } from './messages.ts';
 import { encode, ENCODER_VERSION, metadata_of, VIPS_VERSION } from './pixels.ts';
@@ -61,7 +61,7 @@ const makes = flights.keyed<{ out: string; recipe: ParsedRecipe; original: strin
 			const meta = await metadata_of(bytes);
 			const data = await encode(bytes, recipe, (meta.pages ?? 1) > 1);
 			fs.mkdirSync(path.dirname(out), { recursive: true });
-			const tmp = `${out}.${process.pid}.${crypto.randomUUID()}.tmp`;
+			const tmp = `${out}.${process.pid}.${random.uuid()}.tmp`;
 			fs.writeFileSync(tmp, data);
 			fs.renameSync(tmp, out);
 			return data;

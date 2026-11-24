@@ -20,6 +20,7 @@
  */
 import path from 'node:path';
 import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
+import { dedent } from '@ogygia/core/contract';
 import { definePlugin, type OgygiaPlugin } from '@ogygia/compiler/vite';
 import type { ImageDescriptor } from '../descriptor.ts';
 import { DEFAULT_BREAKPOINTS, DEFAULT_FORMATS, type RenderConfig } from '../config.ts';
@@ -42,7 +43,8 @@ export type {
 const QUERY_RE = new RegExp(`[?&]${QUERY}(?:=|&|$)`);
 const CONFIG_ID = 'virtual:ogygia-image/config';
 const SOURCES_ID = 'virtual:ogygia-image/sources';
-const RASTER_GLOB = '/src/**/*.{png,PNG,jpg,JPG,jpeg,JPEG,webp,WEBP,avif,AVIF,gif,GIF,tif,TIF,tiff,TIFF}';
+const RASTER_GLOB =
+	'/src/**/*.{png,PNG,jpg,JPG,jpeg,JPEG,webp,WEBP,avif,AVIF,gif,GIF,tif,TIF,tiff,TIFF}';
 
 /** The render settings `<Img>` reads, from the plugin's options. */
 export function render_config(opts: ImagePluginOptions): RenderConfig {
@@ -60,11 +62,10 @@ export function descriptor_module(
 	plan: Omit<ImageDescriptor, 'src' | 'alt'>
 ): string {
 	const data = JSON.stringify(plan).slice(1, -1);
-	return [
-		`import __src from ${JSON.stringify(`${file}?no-inline`)};`,
-		`export default {"src":__src,${data}};`,
-		''
-	].join('\n');
+	return dedent`
+		import __src from ${JSON.stringify(`${file}?no-inline`)};
+		export default {"src":__src,${data}};
+	`;
 }
 
 /** The image plugin. */
@@ -94,7 +95,8 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			return null;
 		},
 		async load(id) {
-			if (id === `\0${CONFIG_ID}`) return `export default ${JSON.stringify(render_config(opts))};\n`;
+			if (id === `\0${CONFIG_ID}`)
+				return `export default ${JSON.stringify(render_config(opts))};\n`;
 			if (id === `\0${SOURCES_ID}`)
 				return `export default import.meta.glob(${JSON.stringify(RASTER_GLOB)}, { query: '?no-inline', import: 'default', eager: true });\n`;
 			const q = id.indexOf('?');
@@ -102,7 +104,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			const file = id.slice(0, q);
 			const own = check_image_options(path.basename(file), options_of_query(id.slice(q + 1)));
 			if (config) {
-				const src = path.join(config.root, 'src') + path.sep;
+				const src = `${path.join(config.root, 'src')}${path.sep}`;
 				if (!file.startsWith(src))
 					throw new OgygiaError('image_outside_src', {
 						file: path.relative(config.root, file),

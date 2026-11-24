@@ -27,8 +27,7 @@ describe('lay_out', () => {
 		expect(laid.sources).toEqual([
 			{
 				type: 'image/avif',
-				srcset:
-					'/600x400.avif 600w, /640x427.avif 640w, /960x640.avif 960w, /1200x800.avif 1200w'
+				srcset: '/600x400.avif 600w, /640x427.avif 640w, /960x640.avif 960w, /1200x800.avif 1200w'
 			}
 		]);
 		expect(laid.srcset).toBe(

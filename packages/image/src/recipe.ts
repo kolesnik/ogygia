@@ -107,11 +107,13 @@ function decode_tail(raw: string): string | null {
 /** The recipe's path below {@link IMAGE_PREFIX} and its signature: `<id>-<w>x<h>…/<tail>.<ext>`,
  *  `tail` (decoded) written as escaped path segments. */
 export function recipe_path(r: Recipe, tail: string): string {
-	let head = `${r.id}-${r.width}x${r.height}`;
-	if (r.quality !== undefined) head += `-q${r.quality}`;
-	if (r.position !== undefined) head += `-p${r.position}`;
-	if (r.ops !== undefined && Object.keys(r.ops).length) head += `-o${b64url_encode(JSON.stringify(r.ops))}`;
-	return `${head}/${encode_tail(tail)}.${EXT[r.format]}`;
+	const q = r.quality === undefined ? '' : `-q${r.quality}`;
+	const p = r.position === undefined ? '' : `-p${r.position}`;
+	const o =
+		r.ops === undefined || !Object.keys(r.ops).length
+			? ''
+			: `-o${b64url_encode(JSON.stringify(r.ops))}`;
+	return `${r.id}-${r.width}x${r.height}${q}${p}${o}/${encode_tail(tail)}.${EXT[r.format]}`;
 }
 
 /** What a recipe path asks for. The original is named by its tail (decoded). */

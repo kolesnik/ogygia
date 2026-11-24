@@ -307,7 +307,10 @@ test.describe('the image endpoint', () => {
 		const url = html.match(IMAGE_URL_RE)!.find((u) => /-48x48\//.test(u))!;
 		const wider = url.replace('-48x48/', '-2000x2000/');
 		const sig = /\/image\/([0-9a-f]{32})\//.exec(url)![1]!;
-		const resigned = url.replace(sig, sig.replace(/^./, (c) => (c === '0' ? '1' : '0')));
+		const resigned = url.replace(
+			sig,
+			sig.replace(/^./, (c) => (c === '0' ? '1' : '0'))
+		);
 		for (const bad of [wider, resigned, url.replace(`/${sig}/`, '/')]) {
 			const res = await request.get(bad);
 			expect(res.status(), bad).toBe(MODE === 'static' ? 404 : 403);

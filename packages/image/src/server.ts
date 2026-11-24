@@ -21,14 +21,14 @@ import {
 declare const __SVELTEKIT_PATHS_BASE__: string;
 declare const __SVELTEKIT_PATHS_ASSETS__: string;
 
-const BASE: string = typeof __SVELTEKIT_PATHS_BASE__ !== 'undefined' ? __SVELTEKIT_PATHS_BASE__ : '';
+const BASE: string =
+	typeof __SVELTEKIT_PATHS_BASE__ !== 'undefined' ? __SVELTEKIT_PATHS_BASE__ : '';
 const ASSETS: string =
 	typeof __SVELTEKIT_PATHS_ASSETS__ !== 'undefined' ? __SVELTEKIT_PATHS_ASSETS__ : '';
 const PREFIXES: readonly string[] = [ASSETS, BASE];
 const SIG_LENGTH = 32;
 const SIG_RE = /^[0-9a-f]{32}$/;
 
-/** Every original the endpoint may read, by the tail a recipe names it with. */
 const ORIGINALS: ReadonlySet<string> = new Set(
 	Object.values(sources).map((url) => source_tail(url, PREFIXES))
 );
@@ -67,8 +67,7 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		const slash = rest.indexOf('/');
 		const sig = rest.slice(0, slash);
 		const path = rest.slice(slash + 1);
-		if (slash === -1 || !SIG_RE.test(sig) || !same(sig, signature(app, path)))
-			return refused(403);
+		if (slash === -1 || !SIG_RE.test(sig) || !same(sig, signature(app, path))) return refused(403);
 		const recipe = parse_recipe(path);
 		if (recipe === null || !ORIGINALS.has(recipe.tail)) return refused(404);
 		const { settle } = await import('./settle.ts');
