@@ -35,8 +35,9 @@ export interface ImageDescriptor {
 }
 
 /** Is `value` an image descriptor? For a schema: `v.custom<ImageDescriptor>(isImage)` (valibot) or
- *  `z.custom<ImageDescriptor>(isImage)` (zod) for a frontmatter image field. A path that did not
- *  resolve to a file stays a string, and fails this. */
+ *  `z.custom<ImageDescriptor>(isImage)` (zod) for a frontmatter image field. Only a frontmatter value
+ *  written with `./` or `../` and an image extension becomes a descriptor (a missing file fails the
+ *  build); any other string (`images/share.png`) stays a string, and fails this. */
 export function isImage(value: unknown): value is ImageDescriptor {
 	if (value === null || typeof value !== 'object') return false;
 	const v = value as Partial<ImageDescriptor>;

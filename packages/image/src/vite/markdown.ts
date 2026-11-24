@@ -51,6 +51,12 @@ function is_local_image(src: string): boolean {
 	return IMAGE_EXT_RE.test(src.split(/[?#]/)[0]!) && !NOT_LOCAL_RE.test(src);
 }
 
+/** Is a frontmatter value a path to an image beside the file? Only an explicit `./` or `../` says so:
+ *  `images/share.png` or `diagram.png` may name something else, so they stay strings. */
+function is_frontmatter_image(value: string): boolean {
+	return (value.startsWith('./') || value.startsWith('../')) && IMAGE_EXT_RE.test(value);
+}
+
 /** Escape a value for a Svelte attribute in quotes: no expression braces, no closing quote. */
 function attr(value: string): string {
 	return value
@@ -175,7 +181,7 @@ export function install_markdown_bridge(opts: ImagePluginOptions): void {
 				let n = 0;
 				const names: string[] = [];
 				const emit = (value: unknown): string => {
-					if (typeof value === 'string' && is_local_image(value)) {
+					if (typeof value === 'string' && is_frontmatter_image(value)) {
 						const spec = image_specifier(local_specifier(filename, value, value));
 						const name = `__og_fm_image_${n++}`;
 						names.push(name);
