@@ -124,6 +124,20 @@ describe('markdown body images', () => {
 		);
 	});
 
+	test('a raw HTML <img> naming a local file fails the build, pointing at ![]()', () => {
+		for (const value of ['<img src="./harbor.jpg" alt="x">', "<p><img alt='y' src=harbor.jpg /></p>"]) {
+			const tree: Hast = { type: 'root', children: [{ type: 'raw', value }] };
+			expect(() => bridge().rehype()(tree, { filename: post })).toThrow(/!\[alt\]\(/);
+		}
+	});
+
+	test('a raw HTML <img> of a remote or site-absolute file is left alone', () => {
+		const value = '<img src="https://example.com/a.jpg"><img src="/static/a.jpg">';
+		const tree: Hast = { type: 'root', children: [{ type: 'raw', value }] };
+		bridge().rehype()(tree, { filename: post });
+		expect(tree.children![0]!.value).toBe(value);
+	});
+
 	test('a remote or site-absolute image is left as a plain <img>', () => {
 		for (const src of ['https://example.com/a.jpg', '/static/a.jpg']) {
 			const tree = tree_of({ src, alt: '' });
