@@ -39,11 +39,11 @@ describe('rewrite_image_calls', () => {
 
 	test('options travel in the query, read back as written', () => {
 		const out = rewrite_image_calls(
-			`const hero = import.meta.og.image('./hero.jpg', { quality: 70, ops: { aspect: 16 / 9, grayscale: true } });`,
+			`const hero = import.meta.og.image('./hero.jpg', { quality: 70, ops: { rotate: 90, grayscale: true } });`,
 			mod()
 		);
 		const q = /\?(og-image=[^"]+)/.exec(out)![1]!;
-		expect(options_of_query(q)).toEqual({ quality: 70, ops: { aspect: 16 / 9, grayscale: true } });
+		expect(options_of_query(q)).toEqual({ quality: 70, ops: { rotate: 90, grayscale: true } });
 	});
 
 	test('in a component the import lands in the script that calls', () => {

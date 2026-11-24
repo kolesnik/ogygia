@@ -1,138 +1,126 @@
 /**
  * `image()`: images for an ogygia app, listed beside `ogygia()`
- * (`plugins: [ogygia(), image(), sveltekit()]`).
+ * (`plugins: [ogygia(), image({ presets }), sveltekit()]`).
  *
- *   const hero = import.meta.og.image('./hero.jpg');   // → an ImageDescriptor
- *   <Img of={hero} alt="…" />                           // from '@ogygia/image'
+ *   const hero = import.meta.og.image('./hero.jpg');   // → an ImageDescriptor (a SOURCE)
+ *   <Img of={hero} preset="cover" alt="…" />            // from '@ogygia/image'
  *
- * - The macro (./macro.ts) turns each call into an import of the file under the `og-image` query.
- * - `load` turns that import into the descriptor. At build every variant is encoded (kept in the build
- *   cache) and imported as an asset, so Vite names, hashes and ships it like any other. In dev nothing
- *   is encoded up front: the variants point at `/@og-image/…`, encoded on first request.
- * - With `@ogygia/content`, markdown images and frontmatter image paths become descriptors too
- *   (./markdown.ts).
+ * Three moments:
+ * - COMPILE: the macro (./macro.ts) turns each call into an import of the file under the `og-image`
+ *   query; `load` turns that into the source's descriptor: its id, size, placeholder, and the
+ *   original shipped as an ordinary asset. Nothing is encoded.
+ * - RENDER: `<Img>` picks the files from the layout or preset and signs one URL per file (../server.ts).
+ * - SETTLE: the server realm's endpoint makes each file on first request: in dev, in Kit's prerender
+ *   (saved as a static file) and on a live server.
+ *
+ * With `@ogygia/content`, markdown images and frontmatter image paths become descriptors too
+ * (./markdown.ts).
  *
  * @packageDocumentation
  */
-import fs from 'node:fs';
 import path from 'node:path';
 import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
 import { definePlugin, type OgygiaPlugin } from '@ogygia/compiler/vite';
 import type { ImageDescriptor } from '../descriptor.ts';
-import { mime_of } from '../layout.ts';
-import { plan_image, settle, write_variant, type Plan, type Settings } from './encode.ts';
+import { DEFAULT_BREAKPOINTS, DEFAULT_FORMATS, type RenderConfig } from '../config.ts';
+import { OgygiaError } from '../messages.ts';
+import { plan_image, settle } from './plan.ts';
 import { EXTENSION_API, markdown_extension } from './markdown.ts';
 import { image_call_edits, options_of_query, QUERY } from './macro.ts';
 import { check_image_options, check_plugin_options, type ImagePluginOptions } from './options.ts';
 
-export type { ImageOps, ImageOptions, ImagePluginOptions, OutputFormat } from './options.ts';
+export type {
+	ImageLayout,
+	ImageOps,
+	ImageOptions,
+	ImagePluginOptions,
+	ImagePosition,
+	ImagePreset,
+	OutputFormat
+} from './options.ts';
 
 const QUERY_RE = new RegExp(`[?&]${QUERY}(?:=|&|$)`);
-const DEV_PREFIX = '@og-image/';
+const CONFIG_ID = 'virtual:ogygia-image/config';
+const SOURCES_ID = 'virtual:ogygia-image/sources';
+const RASTER_GLOB = '/src/**/*.{png,PNG,jpg,JPG,jpeg,JPEG,webp,WEBP,avif,AVIF,gif,GIF,tif,TIF,tiff,TIFF}';
 
-type DevEntry = { file: string; plan: Plan; settings: Settings };
+/** The render settings `<Img>` reads, from the plugin's options. */
+export function render_config(opts: ImagePluginOptions): RenderConfig {
+	return {
+		formats: opts.formats ?? DEFAULT_FORMATS,
+		breakpoints: opts.breakpoints ?? DEFAULT_BREAKPOINTS,
+		...(opts.quality !== undefined ? { quality: opts.quality } : {}),
+		presets: opts.presets ?? {}
+	};
+}
+
+/** The descriptor module of one source: its original imported as an asset, its plan as data. */
+export function descriptor_module(
+	file: string,
+	plan: Omit<ImageDescriptor, 'src' | 'alt'>
+): string {
+	const data = JSON.stringify(plan).slice(1, -1);
+	return [
+		`import __src from ${JSON.stringify(`${file}?no-inline`)};`,
+		`export default {"src":__src,${data}};`,
+		''
+	].join('\n');
+}
 
 /** The image plugin. */
 export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const opts = check_plugin_options(options);
 	let config: ResolvedConfig | undefined;
-	const dev = new Map<string, DevEntry>();
-	const dev_keys = new Map<string, readonly string[]>();
 	const markdown = markdown_extension(opts);
 
 	const ogygia: OgygiaPlugin = definePlugin({
 		name: '@ogygia/image',
+		server: import.meta.resolve('../server.ts'),
 		build(b) {
 			b.macro('image', (code, m) => image_call_edits(code, m.id, m.markupExts, m.watch));
 		}
 	});
 
-	const base = (): string => {
-		const b = config?.base ?? '/';
-		if (!b.startsWith('/')) return '/';
-		return b.endsWith('/') ? b : `${b}/`;
-	};
-
 	const loader: VitePlugin = {
 		name: '@ogygia/image:load',
 		enforce: 'pre',
 		...(markdown ? { api: { [EXTENSION_API]: markdown } } : {}),
+		config: () => ({ optimizeDeps: { exclude: ['@ogygia/image'] } }),
 		configResolved(c) {
 			config = c;
 		},
+		resolveId(id) {
+			if (id === CONFIG_ID || id === SOURCES_ID) return `\0${id}`;
+			return null;
+		},
 		async load(id) {
+			if (id === `\0${CONFIG_ID}`) return `export default ${JSON.stringify(render_config(opts))};\n`;
+			if (id === `\0${SOURCES_ID}`)
+				return `export default import.meta.glob(${JSON.stringify(RASTER_GLOB)}, { query: '?no-inline', import: 'default', eager: true });\n`;
 			const q = id.indexOf('?');
 			if (q === -1 || !QUERY_RE.test(id.slice(q))) return null;
 			const file = id.slice(0, q);
 			const own = check_image_options(path.basename(file), options_of_query(id.slice(q + 1)));
+			if (config) {
+				const src = path.join(config.root, 'src') + path.sep;
+				if (!file.startsWith(src))
+					throw new OgygiaError('image_outside_src', {
+						file: path.relative(config.root, file),
+						src: path.relative(config.root, src)
+					});
+			}
 			const settings = settle(opts, own);
 			this.addWatchFile(file);
 			const plan = await plan_image(file, settings);
-			const descriptor: Omit<ImageDescriptor, 'variants'> = {
+			return descriptor_module(file, {
 				id: plan.id,
 				width: plan.width,
 				height: plan.height,
+				format: plan.format,
 				...(plan.ph ? { ph: plan.ph } : {}),
-				...(plan.animated ? { animated: true } : {})
-			};
-			const head = JSON.stringify(descriptor).slice(0, -1);
-			if (config?.command === 'serve') {
-				const old = dev_keys.get(id) ?? [];
-				dev_keys.delete(id);
-				for (const key of old)
-					if (![...dev_keys.values()].some((keys) => keys.includes(key))) dev.delete(key);
-				const keys: string[] = [];
-				const variants = plan.variants.map((v) => {
-					const key = `${plan.id}/${v.name}`;
-					keys.push(key);
-					dev.set(key, { file, plan, settings });
-					return { src: `${base()}${DEV_PREFIX}${key}`, format: v.format, width: v.width };
-				});
-				dev_keys.set(id, keys);
-				return `export default ${head},"variants":${JSON.stringify(variants)}};\n`;
-			}
-			const paths = await Promise.all(
-				plan.variants.map((v) => write_variant(file, plan, v, settings))
-			);
-			const imports = paths.map(
-				(p, i) => `import __v${i} from ${JSON.stringify(`${p}?no-inline`)};`
-			);
-			const variants = plan.variants.map(
-				(v, i) => `{"src":__v${i},"format":${JSON.stringify(v.format)},"width":${v.width}}`
-			);
-			return [...imports, `export default ${head},"variants":[${variants.join(',')}]};`, ''].join(
-				'\n'
-			);
-		},
-		configureServer(server) {
-			server.middlewares.use((req, res, next) => {
-				const url = req.url ?? '';
-				const at = url.indexOf(`/${DEV_PREFIX}`);
-				if (at === -1) return next();
-				const key = url.slice(at + DEV_PREFIX.length + 1).split('?')[0]!;
-				const entry = dev.get(key);
-				const variant = entry?.plan.variants.find((v) => `${entry.plan.id}/${v.name}` === key);
-				if (!entry || !variant) {
-					res.statusCode = 404;
-					res.end();
-					return;
-				}
-				write_variant(entry.file, entry.plan, variant, entry.settings).then(
-					(out) => {
-						const file = fs.createReadStream(out);
-						res.once('close', () => file.destroy());
-						file.once('open', () => {
-							res.setHeader('content-type', mime_of(variant.format));
-							res.setHeader('cache-control', 'public, max-age=31536000, immutable');
-							file.pipe(res);
-						});
-						file.once('error', (e) => {
-							if (res.headersSent) res.destroy(e);
-							else next(e);
-						});
-					},
-					(e: unknown) => next(e)
-				);
+				...(plan.animated ? { animated: true } : {}),
+				...(settings.quality !== undefined ? { quality: settings.quality } : {}),
+				...(Object.keys(settings.ops).length ? { ops: settings.ops } : {})
 			});
 		}
 	};

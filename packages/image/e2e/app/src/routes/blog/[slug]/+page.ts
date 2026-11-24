@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { blog } from '$lib/server/blog.ts';
+import { blog } from '$lib/blog.ts';
 
 export const load = async ({ params }) => {
 	const entry = await blog.get(params.slug);

@@ -3,14 +3,29 @@
  *
  *   throw new OgygiaError('image_not_found', { file, src });
  *
- * The plugin runs in Node, never in a page, so the wording always prints, then the code's page.
+ * The plugin and the image endpoint run in Node, never in a page, so the wording always prints, then
+ * the code's page. What `<Img>` itself says lives in ./render-messages.ts (it can run in a page).
  *
  * @packageDocumentation
  */
 import { define_messages, prose, type MessagesOf } from '@ogygia/core/internal/messages';
 
+/** `<Img>`'s own errors, for the docs' message pages. */
+export { IMAGE_RENDER_ERRORS } from './render-messages.ts';
+
 /** The errors: `throw new OgygiaError(code, args)`. */
 export const IMAGE_ERRORS = {
+	image_outside_src: {
+		text: (a: { file: string; src: string }): string => prose`
+			${a.file}: an image must sit under ${a.src}/ for the image endpoint to read it.
+		`,
+		details: (): string => prose`
+			Files are made from an image when a page asks for them, by the server, which reads the
+			original with Kit's \`read()\`. Kit can only read an asset its server bundle carries; the
+			image plugin makes every image under \`src/\` one of them. Move the file under \`src/\` (a
+			\`$lib\` folder, or beside the page or document that shows it).
+		`
+	},
 	image_macro_arity: {
 		text: (a: { file: string; line: number }): string =>
 			`${a.file}:${a.line} — import.meta.og.image(src, options?) takes a path and, at most, an options object.`,
@@ -125,14 +140,6 @@ export const IMAGE_ERRORS = {
 			The option has a value the encoder cannot use. The message names the rule it breaks.
 		`
 	},
-	image_encode_dropped: {
-		text: (a: { file: string; variant: string }): string =>
-			`${a.file}: the encode of ${a.variant} was dropped before it finished.`,
-		details: (): string => prose`
-			The encode of one image file was given up while it ran (its build or dev server was closing).
-			Run the build again; if it repeats, report it with the file.
-		`
-	},
 	image_decode_failed: {
 		text: (a: { file: string; reason: string }): string =>
 			`${a.file}: the image could not be read (${a.reason}).`,
@@ -143,10 +150,22 @@ export const IMAGE_ERRORS = {
 	}
 };
 
-/** The warnings. */
-export const IMAGE_WARNINGS = {};
+/** The warnings: `warn(code, args)`. */
+export const IMAGE_WARNINGS = {
+	image_settle_failed: {
+		text: (a: { path: string; reason: string }): string =>
+			`the image endpoint could not make ${a.path} (${a.reason}); it answered 500.`,
+		details: (): string => prose`
+			A page asked for a file its signed URL describes, and making it failed: the original could
+			not be read (Kit's \`read()\`), or the encoder (sharp) could not decode or write it. The page
+			keeps its placeholder. In a prerender the 500 fails the build, naming the page that asked.
+		`
+	}
+};
 
 type Own = MessagesOf<typeof IMAGE_ERRORS, typeof IMAGE_WARNINGS>;
 const own: Own = define_messages(IMAGE_ERRORS, IMAGE_WARNINGS);
 /** `throw new OgygiaError(code, args)`. */
 export const OgygiaError: Own['OgygiaError'] = own.OgygiaError;
+/** `warn(code, args)`. */
+export const warn: Own['warn'] = own.warn;

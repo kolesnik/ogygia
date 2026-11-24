@@ -27,8 +27,11 @@ type Extension = NonNullable<ReturnType<typeof markdown_extension>>;
 type Bridge = Omit<Extension, 'rehype'> & { rehype: Extension['rehype'][0]['plugin'] };
 
 /** The extension `image()` offers content, its one rehype entry unwrapped. */
-function bridge(width?: number): Bridge {
-	const ext = markdown_extension(width === undefined ? {} : { markdown: { width } })!;
+function bridge(width?: number, prose?: boolean): Bridge {
+	const ext = markdown_extension({
+		...(width === undefined ? {} : { markdown: { width } }),
+		...(prose ? { presets: { prose: { width: 720 } } } : {})
+	})!;
 	return { ...ext, rehype: ext.rehype[0].plugin };
 }
 
@@ -105,12 +108,16 @@ describe('markdown body images', () => {
 		expect(lines).toContain('import __og_md_image_0 from "./harbor.jpg?og-image";');
 	});
 
-	test('the prose width rides as the image width and as the encode width', () => {
+	test('markdown.width rides as the image width; the source import carries no width', () => {
 		const { body, lines } = compile(tree_of({ src: 'harbor.jpg', alt: '' }), bridge(720));
 		expect(body).toContain('width={720}');
-		expect(lines.at(-1)).toMatch(
-			/^import __og_md_image_0 from "\.\/harbor\.jpg\?og-image=[\w-]+";$/
-		);
+		expect(lines.at(-1)).toBe('import __og_md_image_0 from "./harbor.jpg?og-image";');
+	});
+
+	test('a prose preset, when the config has one, is how a body image is shown', () => {
+		const { body } = compile(tree_of({ src: './harbor.jpg', alt: '' }), bridge(720, true));
+		expect(body).toContain('preset="prose"');
+		expect(body).not.toContain('width=');
 	});
 
 	test('alt and title text cannot close the attribute or open an expression', () => {

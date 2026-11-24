@@ -125,7 +125,9 @@ function shipped_code(): string {
 export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExtension | null {
 	if (opts.markdown === false) return null;
 	const width = opts.markdown?.width;
-	const own = width !== undefined ? { width } : {};
+	let shown = '';
+	if (opts.presets?.prose) shown = ' preset="prose"';
+	else if (width !== undefined) shown = ` width={${width}}`;
 	const key = `${shipped_code()}:${JSON.stringify(opts)}`;
 	const rehype: ImageRehype = () => (tree, file) => {
 		const filename = file.filename ?? file.path;
@@ -146,15 +148,14 @@ export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExten
 				) {
 					const rel = local_specifier(filename, path_of_url(filename, src), src);
 					const name = `__og_md_image_${imports.length}`;
-					const spec = image_specifier(rel, own);
+					const spec = image_specifier(rel);
 					imports.push([name, spec]);
 					const alt = typeof child.properties?.alt === 'string' ? child.properties.alt : '';
 					const title = child.properties?.title;
 					const extra = typeof title === 'string' ? ` title="${attr(title)}"` : '';
-					const sized = width !== undefined ? ` width={${width}}` : '';
 					children[i] = {
 						type: 'raw',
-						value: `<${COMPONENT} of={${name}} alt="${attr(alt)}"${extra}${sized} />`
+						value: `<${COMPONENT} of={${name}} alt="${attr(alt)}"${extra}${shown} />`
 					};
 				} else visit(child);
 			}

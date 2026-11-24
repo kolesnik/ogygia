@@ -57,6 +57,7 @@ const TABLES: Array<[Kind, Table]> = [
 	['error', flags.FLAGS_BUILD_ERRORS],
 	['warning', flags.FLAGS_BUILD_WARNINGS],
 	['error', image.IMAGE_ERRORS],
+	['error', image.IMAGE_RENDER_ERRORS],
 	['warning', image.IMAGE_WARNINGS],
 	['error', jumpstart.JUMPSTART_ERRORS],
 	['warning', jumpstart.JUMPSTART_WARNINGS],

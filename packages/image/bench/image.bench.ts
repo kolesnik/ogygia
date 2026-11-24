@@ -1,9 +1,10 @@
 // The image package's hot paths: laying out a page of images (every `<Img>` render on the server
-// calls lay_out and placeholder_style), the markdown rewrite of a long post (the rehype step over
+// calls lay_out and placeholder_style, and names each file by its recipe), reading a recipe back (every
+// image request), the markdown rewrite of a long post (the rehype step over
 // its tree, then `finish` over mdsvex's output with a frontmatter cover), the macro over a module
-// with many calls, and the option checks and width ladder the plugin runs per image.
+// with many calls, and the option checks the plugin runs per image and per preset.
 //
-// Inputs are generated: descriptors shaped like the encoder's, a post tree shaped like
+// Inputs are generated: descriptors shaped like the plan's, a post tree shaped like
 // mdast-util-to-hast's, empty image files in a fixed scratch folder (the macro and markdown check
 // each file exists; their bytes are never read). The markdown extension is made in setup: making it
 // hashes the package's own files once per process.
@@ -12,17 +13,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { bench } from '@bench/heisenbench/bench';
 import { dedent } from '@ogygia/core/contract';
-import { isImage, type ImageDescriptor, type ImageFormat } from '../src/descriptor.ts';
-import { lay_out, mime_of, type ImageLayout } from '../src/layout.ts';
+import { DEFAULT_BREAKPOINTS, DEFAULT_FORMATS, type RenderConfig } from '../src/config.ts';
+import { isImage, type ImageDescriptor } from '../src/descriptor.ts';
+import { lay_out, mime_of, type LayoutRequest } from '../src/layout.ts';
 import { placeholder_style } from '../src/placeholder.ts';
+import { parse_recipe, recipe_path, source_tail, type Recipe } from '../src/recipe.ts';
 import { image_call_edits, options_of_query, image_specifier } from '../src/vite/macro.ts';
 import { markdown_extension } from '../src/vite/markdown.ts';
-import {
-	check_image_options,
-	check_plugin_options,
-	DEFAULT_BREAKPOINTS,
-	ladder
-} from '../src/vite/options.ts';
+import { check_image_options, check_plugin_options } from '../src/vite/options.ts';
 
 const DIR = path.join(os.tmpdir(), 'og-image-bench');
 const QUERY_RE = /\?(og-image=[^"]+)/g;
@@ -36,51 +34,71 @@ function files(n: number): void {
 	}
 }
 
-/** A descriptor as the encoder makes one: AVIF and WebP over the default ladder. */
+/** A source descriptor as the plan makes one. */
 function descriptor(i: number): ImageDescriptor {
 	const width = 1200 + (i % 5) * 400;
-	const height = Math.round((width * 9) / 16);
-	const widths = ladder(width, DEFAULT_BREAKPOINTS, undefined);
-	const formats: ImageFormat[] = ['avif', 'webp'];
 	return {
-		id: `img-${i}`,
+		id: `img${i}abcdefghijk`,
+		src: `/_app/immutable/assets/img-${i}.B1c2D3e4.jpg`,
 		width,
-		height,
-		ph: 'data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADQAQCdASoQAAkAAUAmJaQAA3AA/v89WAAA',
-		variants: formats.flatMap((format) =>
-			widths.map((w) => ({
-				src: `/_app/immutable/assets/img-${i}-${w}.${format}`,
-				format,
-				width: w
-			}))
-		)
+		height: Math.round((width * 9) / 16),
+		format: 'jpeg',
+		ph: 'data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADQAQCdASoQAAkAAUAmJaQAA3AA/v89WAAA'
 	};
 }
 
-const LAYOUTS: ReadonlyArray<{ layout: ImageLayout; width?: number; height?: number }> = [
-	{ layout: 'fullWidth' },
+const CFG: RenderConfig = { formats: DEFAULT_FORMATS, breakpoints: DEFAULT_BREAKPOINTS, presets: {} };
+const PREFIXES: readonly string[] = ['', ''];
+
+/** A file's URL as the minter writes one (its signature stood in for by a fixed string). */
+const url = (r: Recipe): string =>
+	`/__ogygia__/image/0123456789abcdef0123456789abcdef/${recipe_path(r, source_tail(r.src, PREFIXES))}`;
+
+const LAYOUTS: readonly LayoutRequest[] = [
+	{ layout: 'fullWidth', aspect: '16/9' },
 	{ layout: 'constrained', width: 720 },
 	{ layout: 'constrained' },
 	{ layout: 'fixed', width: 48, height: 48 },
-	{ layout: 'constrained', width: 400, height: 400 }
+	{ layout: 'constrained', width: 400, aspect: 1, position: 'attention' }
 ];
 
 bench(
-	'lay_out: a page of forty images over every layout, with their placeholders',
+	'lay_out: a page of forty images over every layout, each file named by its recipe, with their placeholders',
 	({ images }) => {
 		let n = 0;
 		for (let i = 0; i < images.length; i++) {
 			const d = images[i]!;
 			if (!isImage(d)) continue;
-			const laid = lay_out(d, LAYOUTS[i % LAYOUTS.length]!);
+			const laid = lay_out(d, LAYOUTS[i % LAYOUTS.length]!, CFG, url);
 			n += laid.src.length + (laid.srcset?.length ?? 0) + laid.sources.length;
-			n += placeholder_style(d.ph).length + mime_of(d.variants[0]!.format).length;
+			n += placeholder_style(d.ph).length + mime_of(d.format).length;
 		}
 		return n;
 	},
 	{
 		setup: () => ({ images: Array.from({ length: 40 }, (_, i) => descriptor(i)) }),
 		scale: (_ctx, k) => ({ images: Array.from({ length: 40 * k }, (_, i) => descriptor(i)) })
+	}
+);
+
+bench(
+	'parse_recipe: the image endpoint reading a page’s worth of file paths',
+	({ paths }) => {
+		let n = 0;
+		for (const p of paths) n += parse_recipe(p)?.width ?? 0;
+		return n;
+	},
+	{
+		setup: () => {
+			const paths: string[] = [];
+			for (let i = 0; i < 40; i++) {
+				const laid = lay_out(descriptor(i), LAYOUTS[i % LAYOUTS.length]!, CFG, url);
+				for (const c of (laid.srcset ?? '').split(', '))
+					paths.push(c.split(' ')[0]!.slice('/__ogygia__/image/'.length + 33));
+			}
+			return { paths };
+		},
+		scale: (ctx, k) => ({ paths: Array.from({ length: k }, () => ctx.paths).flat() })
 	}
 );
 
@@ -156,7 +174,7 @@ function module_source(calls: number): string {
 	for (let i = 0; i < calls; i++)
 		src +=
 			i % 4 === 0
-				? `export const a${i} = import.meta.og.image('./img-${i % 12}.jpg', { quality: 70, width: 600, ops: { aspect: 16 / 9 } });\n`
+				? `export const a${i} = import.meta.og.image('./img-${i % 12}.jpg', { quality: 70, ops: { rotate: 90 } });\n`
 				: `export const a${i} = import.meta.og.image('./img-${i % 12}.jpg');\n`;
 	return src;
 }
@@ -180,23 +198,27 @@ bench(
 );
 
 bench(
-	'image options: the plugin options, then each image’s options, specifier and width ladder',
+	'image options: the plugin options with their presets, then each image’s options and specifier',
 	({ images }) => {
 		const plugin = check_plugin_options({
 			quality: 70,
 			formats: ['avif', 'webp'],
 			breakpoints: [320, 640, 960, 1280, 1920],
+			presets: {
+				cover: { layout: 'fullWidth', aspect: '16/9', priority: true },
+				thumb: { width: 400, aspect: '1/1', position: 'attention' },
+				avatar: { layout: 'fixed', width: 48, height: 48 },
+				prose: { width: 720 }
+			},
 			markdown: { width: 720 }
 		});
 		let n = plugin.breakpoints?.length ?? 0;
 		for (let i = 0; i < images; i++) {
 			const own = check_image_options(`page.ts:${i}`, {
 				quality: 50 + (i % 40),
-				width: 300 + i * 10,
-				ops: { aspect: i % 2 ? '16/9' : 4 / 3, position: 'attention', grayscale: i % 3 === 0 }
+				ops: { rotate: i % 2 ? 90 : 0, grayscale: i % 3 === 0 }
 			});
 			n += image_specifier(`./img-${i}.jpg`, own).length;
-			n += ladder(1600 + i * 20, plugin.breakpoints ?? DEFAULT_BREAKPOINTS, own.width).length;
 		}
 		return n;
 	},

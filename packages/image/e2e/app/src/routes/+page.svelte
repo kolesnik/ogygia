@@ -12,10 +12,15 @@
 </script>
 
 <h1>images</h1>
-<a href="/blog/first-post" id="to-post">The first post</a>
+<nav>
+	<a href="/blog/first-post" id="to-post">The first post</a>
+	<a href="/blog/second-post">The second post</a>
+	<a href="/blog/third-post">The third post</a>
+</nav>
 <Counter />
-<Img of={hero} layout="fullWidth" priority alt="Hills at dusk" id="hero" />
-<p><Img of={avatar} layout="fixed" width={48} alt="An avatar" id="avatar" /></p>
+<Img of={hero} preset="cover" alt="Hills at dusk" id="hero" />
+<p><Img of={avatar} preset="avatar" alt="An avatar" id="avatar" /></p>
+<p><Img of={hero} preset="thumb" alt="Hills, as a thumbnail" id="thumb" /></p>
 <div class="spacer"></div>
 <Img of={portrait} width={400} alt="A tall picture" id="portrait" title="Tall" />
 <Img of={hero} width={400} height={400} alt="Hills, cropped square" id="crop" />

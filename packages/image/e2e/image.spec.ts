@@ -1,7 +1,14 @@
-// @ogygia/image against a real Kit build: macro images on `/`, a markdown blog on `/blog/[slug]`.
+// @ogygia/image against a real Kit app: macro images on `/`, a markdown blog on `/blog/[slug]`. The
+// same specs run in three modes (playwright.config.ts): built with adapter-node and served, every page
+// prerendered with adapter-static and served as plain files (no server at all), and the dev server.
 // `pnpm --filter @ogygia/image e2e`.
-import type { Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
+import sharp from 'sharp';
 import { test, expect } from '@ogygia/tooling/e2e';
+
+const MODE = process.env.IMAGE_E2E_MODE ?? 'node';
+const PAGES = ['/', '/blog/first-post', '/blog/second-post', '/blog/third-post'];
+const IMAGE_URL_RE = /\/__ogygia__\/image\/[^\s",]+/g;
 
 /** Scroll every lazy image into view, then wait until each has decoded pixels. */
 async function every_image_loads(page: Page): Promise<void> {
@@ -25,11 +32,38 @@ async function attrs(img: Locator): Promise<Record<string, string | null>> {
 		for (const name of ['src', 'srcset', 'sizes', 'width', 'height', 'loading', 'fetchpriority'])
 			out[name] = el.getAttribute(name);
 		out.background = el.style.backgroundImage || null;
+		out.transition = el.style.viewTransitionName || null;
 		out.picture = el.parentElement?.tagName === 'PICTURE' ? 'yes' : null;
 		out.avif =
 			el.parentElement?.querySelector('source[type="image/avif"]')?.getAttribute('srcset') ?? null;
 		return out;
 	});
+}
+
+/** The URLs of a srcset, in order. */
+function urls(srcset: string | null): string[] {
+	return (srcset ?? '')
+		.split(', ')
+		.map((c) => c.split(' ')[0]!)
+		.filter(Boolean);
+}
+
+/** One file's bytes and decoded size. */
+async function fetch_file(
+	request: APIRequestContext,
+	url: string
+): Promise<{ type: string; bytes: Buffer; width: number; height: number; pages: number }> {
+	const res = await request.get(url);
+	expect(res.status(), url).toBe(200);
+	const bytes = await res.body();
+	const meta = await sharp(bytes, { animated: true }).metadata();
+	return {
+		type: res.headers()['content-type'] ?? '',
+		bytes,
+		width: meta.width,
+		height: meta.pageHeight ?? meta.height,
+		pages: meta.pages ?? 1
+	};
 }
 
 test.describe('macro images (/)', () => {
@@ -39,8 +73,8 @@ test.describe('macro images (/)', () => {
 		await page.goto('/');
 		const a = await attrs(page.locator('#portrait'));
 		expect(a.picture).toBe('yes');
-		expect(a.avif).toMatch(/\.avif 640w, .+\.avif 800w$/);
-		expect(a.srcset).toMatch(/\.webp 640w, .+\.webp 800w$/);
+		expect(a.avif).toMatch(/\.avif 400w, .+\.avif 800w$/);
+		expect(a.srcset).toMatch(/\.webp 400w, .+\.webp 800w$/);
 		expect(a.sizes).toBe('(min-width: 400px) 400px, 100vw');
 		expect([a.width, a.height]).toEqual(['400', '500']);
 		expect(a.loading).toBe('lazy');
@@ -59,12 +93,14 @@ test.describe('macro images (/)', () => {
 
 	test('a placeholder costs the page at most 400 bytes of HTML', async ({ request }) => {
 		const html = await (await request.get('/')).text();
-		const urls = html.match(/data:image\/[a-z]+;base64,[\w+/=]+/g) ?? [];
-		expect(urls.length).toBeGreaterThan(0);
-		for (const url of urls) expect(url.length).toBeLessThanOrEqual(400);
+		const found = html.match(/data:image\/[a-z]+;base64,[\w+/=]+/g) ?? [];
+		expect(found.length).toBeGreaterThan(0);
+		for (const url of found) expect(url.length).toBeLessThanOrEqual(400);
 	});
 
-	test('the priority hero is preloaded from the head and fetched first', async ({ page }) => {
+	test('the cover preset is the priority hero: preloaded from the head and fetched first', async ({
+		page
+	}) => {
 		await page.goto('/');
 		const hero = await attrs(page.locator('#hero'));
 		expect(hero.fetchpriority).toBe('high');
@@ -76,26 +112,62 @@ test.describe('macro images (/)', () => {
 		expect(await preload.getAttribute('fetchpriority')).toBe('high');
 	});
 
-	test('a fixed avatar keeps its size; a glob gallery renders each file', async ({ page }) => {
+	test('a thumb preset and a cover preset of the same source are different crops', async ({
+		page,
+		request
+	}) => {
 		await page.goto('/');
-		const avatar = await attrs(page.locator('#avatar'));
-		expect([avatar.width, avatar.height]).toEqual(['48', '48']);
-		expect(avatar.srcset).toMatch(/ 1x/);
+		const thumb = await attrs(page.locator('#thumb'));
+		const cover = await attrs(page.locator('#hero'));
+		expect([thumb.width, thumb.height]).toEqual(['200', '200']);
+		for (const url of [...urls(thumb.avif), ...urls(thumb.srcset)]) {
+			const f = await fetch_file(request, url);
+			expect(f.width, url).toBe(f.height);
+		}
+		for (const url of [...urls(cover.avif), ...urls(cover.srcset)]) {
+			const f = await fetch_file(request, url);
+			expect(Math.abs(f.width / f.height - 16 / 9), url).toBeLessThan(0.01);
+		}
+	});
+
+	test('a fixed 48px avatar never downloads a file wider than 96px', async ({ page, request }) => {
+		await page.goto('/');
+		const avatar = page.locator('#avatar');
+		const a = await attrs(avatar);
+		expect([a.width, a.height]).toEqual(['48', '48']);
+		expect(a.srcset).toMatch(/ 1x, .+ 2x$/);
+		for (const url of [...urls(a.avif), ...urls(a.srcset), a.src!]) {
+			const f = await fetch_file(request, url);
+			expect(f.width, url).toBeLessThanOrEqual(96);
+		}
+		await expect
+			.poll(() => avatar.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
+			.toBe(true);
+		expect(await avatar.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeLessThanOrEqual(
+			96
+		);
+	});
+
+	test('a glob gallery renders each file', async ({ page }) => {
+		await page.goto('/');
 		await expect(page.locator('img.gallery')).toHaveCount(3);
 	});
 
-	test('a 300px gallery image on a 1x screen downloads the 320px file, not a 600px one', async ({
+	test('a 300px gallery image on a 1x screen downloads a file between 300 and 480 pixels wide', async ({
 		page
 	}) => {
 		await page.goto('/');
 		const first = page.locator('img.gallery').first();
 		await first.scrollIntoViewIfNeeded();
 		await expect
-			.poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
-			.toMatch(/-320\.[\w-]+\.avif$/);
+			.poll(() => first.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
+			.toBe(true);
+		const natural = await first.evaluate((el: HTMLImageElement) => el.naturalWidth);
+		expect(natural).toBeGreaterThanOrEqual(300);
+		expect(natural).toBeLessThanOrEqual(480);
 	});
 
-	test('a width and height crop keeps its box after the image loads, from a source wide enough to cover it', async ({
+	test('a width and height crop keeps its box after the image loads, from a file cut to that box', async ({
 		page
 	}) => {
 		await page.goto('/');
@@ -106,16 +178,20 @@ test.describe('macro images (/)', () => {
 			.toBe(true);
 		const box = await crop.boundingBox();
 		expect([Math.round(box!.width), Math.round(box!.height)]).toEqual([400, 400]);
-		// 1800×1000 cropped to a 400 square is drawn 720 wide: a 1x screen needs at least that
-		const src = await crop.evaluate((el: HTMLImageElement) => el.currentSrc);
-		expect(Number(/-(\d+)\.[\w-]+\.avif$/.exec(src)?.[1])).toBeGreaterThanOrEqual(720);
+		const natural = await crop.evaluate((el: HTMLImageElement) => [
+			el.naturalWidth,
+			el.naturalHeight
+		]);
+		expect(natural[0]).toBe(natural[1]);
+		expect(natural[0]).toBeGreaterThanOrEqual(400);
 	});
 
-	test('an SVG passes through as one file, with no <picture>', async ({ page }) => {
+	test('an SVG passes through as its original file, with no <picture>', async ({ page }) => {
 		await page.goto('/');
 		const logo = await attrs(page.locator('#logo'));
 		expect(logo.picture).toBeNull();
-		expect(logo.src).toMatch(/\.svg$/);
+		expect(logo.src).toMatch(/\.svg(?:\?no-inline)?$/);
+		expect(logo.srcset).toBeNull();
 		expect([logo.width, logo.height]).toEqual(['120', '40']);
 	});
 
@@ -124,11 +200,10 @@ test.describe('macro images (/)', () => {
 		const spinner = await attrs(page.locator('#spinner'));
 		expect(spinner.picture).toBeNull();
 		expect(spinner.src).toMatch(/\.webp$/);
-		const res = await request.get(spinner.src!);
-		expect(res.headers()['content-type']).toBe('image/webp');
-		const bytes = await res.body();
-		// an animated WebP carries an ANIM chunk
-		expect(bytes.includes(Buffer.from('ANIM'))).toBe(true);
+		const f = await fetch_file(request, spinner.src!);
+		expect(f.type).toBe('image/webp');
+		expect(f.bytes.includes(Buffer.from('ANIM'))).toBe(true);
+		expect(f.pages).toBe(3);
 	});
 
 	test('no image carries an inline event handler, so a strict CSP has nothing to block', async ({
@@ -145,7 +220,6 @@ test.describe('macro images (/)', () => {
 	test('the named attributes reach the <img>', async ({ page }) => {
 		await page.goto('/');
 		await expect(page.locator('img#portrait')).toHaveAttribute('title', 'Tall');
-		await expect(page.locator('img.gallery')).toHaveCount(3);
 	});
 
 	test('every image on the page really loads', async ({ page }) => {
@@ -155,21 +229,21 @@ test.describe('macro images (/)', () => {
 });
 
 test.describe('markdown images (/blog/[slug])', () => {
-	test('the frontmatter cover renders through <Img> as the priority hero', async ({ page }) => {
+	test('the frontmatter cover renders through <Img> with the cover preset', async ({ page }) => {
 		await page.goto('/blog/first-post');
 		const cover = await attrs(page.locator('#cover'));
 		expect(cover.picture).toBe('yes');
-		expect(cover.avif).toMatch(/cover-\d+\.[\w-]+\.avif \d+w/);
-		expect([cover.width, cover.height]).toEqual(['1200', '630']);
+		expect(cover.avif).toMatch(/\/cover(?:\.[\w-]+)?\.jpg\.avif \d+w/);
+		expect([cover.width, cover.height]).toEqual(['1120', '630']);
 		expect(cover.fetchpriority).toBe('high');
 		await expect(page.locator('head link[rel="preload"][as="image"]')).toHaveCount(1);
 	});
 
-	test('a co-located body image renders through <Img> at the prose width', async ({ page }) => {
+	test('a co-located body image renders through <Img> with the prose preset', async ({ page }) => {
 		await page.goto('/blog/first-post');
 		const harbor = await attrs(page.getByAltText('A harbor in the evening'));
 		expect(harbor.picture).toBe('yes');
-		expect(harbor.avif).toMatch(/harbor-720\.[\w-]+\.avif 720w/);
+		expect(harbor.avif).toMatch(/-720x480\/[^ ]*harbor[^ ]*\.avif 720w/);
 		expect(harbor.sizes).toBe('(min-width: 720px) 720px, 100vw');
 		expect([harbor.width, harbor.height]).toEqual(['720', '480']);
 		expect(harbor.loading).toBe('lazy');
@@ -180,17 +254,17 @@ test.describe('markdown images (/blog/[slug])', () => {
 		await page.goto('/blog/first-post');
 		const gif = await attrs(page.getByAltText('A moving dot'));
 		expect(gif.src).toMatch(/\.webp$/);
-		const res = await request.get(gif.src!);
-		expect(res.headers()['content-type']).toBe('image/webp');
-		expect((await res.body()).includes(Buffer.from('ANIM'))).toBe(true);
+		const f = await fetch_file(request, gif.src!);
+		expect(f.type).toBe('image/webp');
+		expect(f.bytes.includes(Buffer.from('ANIM'))).toBe(true);
 	});
 
 	test("an image from another post's folder (../) resolves, title kept", async ({ page }) => {
 		await page.goto('/blog/second-post');
 		const img = page.getByAltText('The same harbor');
 		expect(await img.getAttribute('title')).toBe('Borrowed');
-		expect((await attrs(img)).avif).toMatch(/harbor-720\.[\w-]+\.avif 720w/);
-		await expect(page.locator('#cover')).toHaveAttribute('width', '1200');
+		expect((await attrs(img)).avif).toMatch(/harbor[^ ]*\.avif 720w/);
+		await expect(page.locator('#cover')).toHaveAttribute('height', '630');
 	});
 
 	test('images whose names hold a space or an accent resolve and load', async ({ page }) => {
@@ -200,7 +274,7 @@ test.describe('markdown images (/blog/[slug])', () => {
 			expect(a.picture).toBe('yes');
 			expect(a.avif).toMatch(/\.avif 500w/);
 		}
-		await expect(page.locator('#cover')).toHaveAttribute('width', '1200');
+		await expect(page.locator('#cover')).toHaveAttribute('height', '630');
 	});
 
 	for (const slug of ['first-post', 'second-post', 'third-post'])
@@ -208,6 +282,45 @@ test.describe('markdown images (/blog/[slug])', () => {
 			await page.goto(`/blog/${slug}`);
 			await every_image_loads(page);
 		});
+});
+
+test.describe('the image endpoint', () => {
+	test('every file URL every page names answers 200 with its type', async ({ request }) => {
+		const seen = new Set<string>();
+		for (const p of PAGES) {
+			const html = await (await request.get(p)).text();
+			for (const url of html.match(IMAGE_URL_RE) ?? []) seen.add(url);
+		}
+		expect(seen.size).toBeGreaterThan(40);
+		for (const url of seen) {
+			const res = await request.get(url);
+			expect(res.status(), url).toBe(200);
+			const ext = /\.(avif|webp)$/.exec(url)?.[1];
+			expect(res.headers()['content-type'], url).toBe(`image/${ext}`);
+		}
+	});
+
+	test('a file URL whose recipe was changed, or whose signature was, is refused', async ({
+		request
+	}) => {
+		const html = await (await request.get('/')).text();
+		const url = html.match(IMAGE_URL_RE)!.find((u) => /-48x48\//.test(u))!;
+		const wider = url.replace('-48x48/', '-2000x2000/');
+		const sig = /\/image\/([0-9a-f]{32})\//.exec(url)![1]!;
+		const resigned = url.replace(sig, sig.replace(/^./, (c) => (c === '0' ? '1' : '0')));
+		for (const bad of [wider, resigned, url.replace(`/${sig}/`, '/')]) {
+			const res = await request.get(bad);
+			expect(res.status(), bad).toBe(MODE === 'static' ? 404 : 403);
+		}
+		expect((await request.get(url)).status()).toBe(200);
+	});
+
+	test('a file is sent to be kept forever', async ({ request }) => {
+		test.skip(MODE === 'static', 'a static host sends its own headers');
+		const html = await (await request.get('/')).text();
+		const res = await request.get(html.match(IMAGE_URL_RE)![0]!);
+		expect(res.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
+	});
 });
 
 test.describe('with the runtime', () => {

@@ -1,21 +1,24 @@
 <!--
 @component
-One image from a descriptor. Say how it sits on the page (`layout`, and at most a `width`); the
-srcset, `sizes`, the width and height attributes, the blur placeholder and the loading hints follow.
-Server HTML only: it ships no script, and no inline event handler. Besides its own props it passes
-`class`, `id`, `style`, `title`, `crossorigin`, `referrerpolicy` and `draggable` to the `<img>`.
+One image from a descriptor. Say how it sits on the page (a `preset` from `image({ presets })`, or
+`layout` and at most a `width`, `aspect`); the files to ask for, the srcset, `sizes`, the width and
+height attributes, the blur placeholder and the loading hints follow. Its own props say over the
+preset's. Every file is a signed URL the image endpoint makes on first request. Server HTML only: it
+ships no script, and no inline event handler. Besides its own props it passes `class`, `id`,
+`style`, `title`, `crossorigin`, `referrerpolicy` and `draggable` to the `<img>`.
 
 ```svelte
-<Img of={hero} layout="fullWidth" priority alt="The harbor at dusk" />
-<Img of={post.data.cover} width={400} alt={post.data.title} />
+<Img of={hero} preset="cover" alt="The harbor at dusk" />
+<Img of={post.data.cover} preset="thumb" alt={post.data.title} />
 <Img of={avatar} layout="fixed" width={48} alt="" />
 ```
 -->
 <script lang="ts">
 	import type { HTMLImgAttributes } from 'svelte/elements';
 	import type { ImageDescriptor } from './descriptor.ts';
-	import { lay_out, type ImageLayout } from './layout.ts';
+	import type { ImageLayout, ImagePosition } from './config.ts';
 	import { placeholder_style } from './placeholder.ts';
+	import { layOut, preset_of } from './render.ts';
 
 	type Props = Pick<
 		HTMLImgAttributes,
@@ -25,12 +28,18 @@ Server HTML only: it ships no script, and no inline event handler. Besides its o
 		of: ImageDescriptor;
 		/** What the image shows, for people who cannot see it. `""` for a decorative image. */
 		alt: string;
+		/** A preset from `image({ presets })`: how this image is shown. Own props say over it. */
+		preset?: string;
 		/** How the image sits on the page. Default `constrained`. */
 		layout?: ImageLayout;
 		/** Display width, CSS pixels. */
 		width?: number;
-		/** Display height, CSS pixels. With `width`, the image fills that box, cropped. */
+		/** Display height, CSS pixels. With `width`, the image is cropped to that box. */
 		height?: number;
+		/** The box's shape (`16 / 9`, `'1/1'`): the files are cropped to it. */
+		aspect?: number | string;
+		/** Where a crop keeps. Default `center`. */
+		position?: ImagePosition;
 		/** Replaces the `sizes` the layout derives. */
 		sizes?: string;
 		/** The page's main image (its LCP): loads first, preloaded from the head. */
@@ -42,12 +51,15 @@ Server HTML only: it ships no script, and no inline event handler. Besides its o
 	let {
 		of,
 		alt,
-		layout = 'constrained',
+		preset,
+		layout,
 		width,
 		height,
+		aspect,
+		position,
 		sizes,
-		priority = false,
-		placeholder = true,
+		priority,
+		placeholder,
 		class: klass,
 		id,
 		style,
@@ -57,10 +69,15 @@ Server HTML only: it ships no script, and no inline event handler. Besides its o
 		draggable
 	}: Props = $props();
 
-	const laid = $derived(lay_out(of, { layout, width, height, sizes }));
+	const p = $derived(preset_of(preset));
+	const shown = $derived(layout ?? p.layout ?? 'constrained');
+	const first = $derived(priority ?? p.priority ?? false);
+	const laid = $derived(
+		layOut(of, { preset, layout: shown, width, height, aspect, position, sizes })
+	);
 	const css = $derived(
 		[
-			placeholder ? placeholder_style(of.ph) : '',
+			(placeholder ?? p.placeholder ?? true) ? placeholder_style(of.ph) : '',
 			laid.cover ? `object-fit:cover;aspect-ratio:${laid.width}/${laid.height}` : '',
 			typeof style === 'string' ? style : ''
 		]
@@ -70,7 +87,7 @@ Server HTML only: it ships no script, and no inline event handler. Besides its o
 </script>
 
 <svelte:head>
-	{#if priority}
+	{#if first}
 		<link
 			rel="preload"
 			as="image"
@@ -97,10 +114,10 @@ Server HTML only: it ships no script, and no inline event handler. Besides its o
 		width={laid.width}
 		height={laid.height}
 		{alt}
-		loading={priority ? 'eager' : 'lazy'}
-		decoding={priority ? 'sync' : 'async'}
-		fetchpriority={priority ? 'high' : undefined}
-		data-og-img={layout}
+		loading={first ? 'eager' : 'lazy'}
+		decoding={first ? 'sync' : 'async'}
+		fetchpriority={first ? 'high' : undefined}
+		data-og-img={shown}
 		style={css}
 	/>
 {/snippet}

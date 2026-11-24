@@ -1,31 +1,40 @@
 /**
- * Layout intent → the attributes an `<img>` / `<picture>` needs. The author says how the image sits on
- * the page (`constrained`, `fullWidth`, `fixed`) and at most a display width; the srcset, `sizes`, the
- * width and height attributes and the preload come from that and the descriptor. Pure, so the
- * component, the markdown pipeline and the tests all read the same answer.
+ * Layout intent → the files to ask for and the attributes an `<img>` / `<picture>` needs. The author
+ * says how the image sits on the page (`constrained`, `fullWidth`, `fixed`, a box's shape) and at most
+ * a display width; the candidate files (each a recipe), the srcset, `sizes`, the width and height
+ * attributes and the preload come from that, the source and the plugin's settings. Pure: the URL of
+ * each recipe comes from `url`, so the component, the markdown pipeline, the benches and the tests all
+ * read the same answer.
  *
  * @packageDocumentation
  */
-import type { ImageDescriptor, ImageFormat, ImageVariant } from './descriptor.ts';
+import type { ImageDescriptor, ImageFormat } from './descriptor.ts';
+import {
+	parse_aspect,
+	type ImageLayout,
+	type ImagePosition,
+	type OutputFormat,
+	type RenderConfig
+} from './config.ts';
+import type { Recipe } from './recipe.ts';
 
-/**
- * How the image sits on the page:
- * - `constrained` (default): as wide as `width` (the intrinsic width when left out), shrinking with
- *   its container.
- * - `fullWidth`: the container's whole width, whatever the screen.
- * - `fixed`: exactly `width` × `height` CSS pixels, at 1× and 2× density.
- */
-export type ImageLayout = 'constrained' | 'fullWidth' | 'fixed';
+export type { ImageLayout } from './config.ts';
 
 /** What the author asks for. */
 export interface LayoutRequest {
 	layout?: ImageLayout;
 	/** Display width in CSS pixels. */
 	width?: number;
-	/** Display height in CSS pixels. With `width`, the image is cropped to that box (`object-fit`). */
+	/** Display height in CSS pixels. With `width`, the image is cropped to that box. */
 	height?: number;
+	/** The box's shape (`16 / 9`, `'1/1'`): the files are cropped to it. */
+	aspect?: number | string;
+	/** Where a crop keeps. */
+	position?: ImagePosition;
 	/** Replaces the derived `sizes`. Only for a layout the three intents cannot say. */
 	sizes?: string;
+	quality?: number;
+	formats?: readonly OutputFormat[];
 }
 
 /** One `<source>`: a format's candidates. */
@@ -45,20 +54,12 @@ export interface Laid {
 	src: string;
 	srcset?: string;
 	sizes?: string;
-	/** Both a width and a height were given: the image fills that box, cropped (`object-fit: cover`). */
+	/** The box has its own shape (a width and a height, or an aspect): the files are cut to it, and
+	 *  the `<img>` keeps it (`aspect-ratio`, `object-fit: cover`). */
 	cover: boolean;
 	/** For a preload: the best format's candidates. */
 	preload: { type: string; srcset?: string; sizes?: string; href: string };
 }
-
-const FORMAT_RANK: Readonly<Record<ImageFormat, number>> = {
-	avif: 0,
-	webp: 1,
-	jpeg: 2,
-	png: 3,
-	gif: 4,
-	svg: 5
-};
 
 const MIME: Readonly<Record<ImageFormat, string>> = {
 	avif: 'image/avif',
@@ -66,7 +67,8 @@ const MIME: Readonly<Record<ImageFormat, string>> = {
 	jpeg: 'image/jpeg',
 	png: 'image/png',
 	gif: 'image/gif',
-	svg: 'image/svg+xml'
+	svg: 'image/svg+xml',
+	tiff: 'image/tiff'
 };
 
 /** The MIME type of a format. */
@@ -74,87 +76,107 @@ export function mime_of(format: ImageFormat): string {
 	return MIME[format];
 }
 
-function by_format(variants: readonly ImageVariant[]): ImageVariant[][] {
-	const groups = new Map<ImageFormat, ImageVariant[]>();
-	for (const v of variants) {
-		let g = groups.get(v.format);
-		if (!g) groups.set(v.format, (g = []));
-		g.push(v);
-	}
-	return [...groups.entries()]
-		.sort((a, b) => FORMAT_RANK[a[0]] - FORMAT_RANK[b[0]])
-		.map(([, g]) => g.sort((a, b) => a.width - b.width));
-}
+const SAME_SHAPE = 0.005;
 
-function at_least(group: readonly ImageVariant[], w: number): ImageVariant {
-	for (const v of group) if (v.width >= w) return v;
-	return group[group.length - 1]!;
-}
-
-function candidates(
-	group: readonly ImageVariant[],
-	layout: ImageLayout,
-	display: number
-): string | undefined {
-	if (group.length === 1 && group[0]!.format === 'svg') return undefined;
-	if (layout === 'fixed') {
-		const one = at_least(group, display);
-		const two = at_least(group, display * 2);
-		return one === two ? `${one.src} 1x` : `${one.src} 1x, ${two.src} 2x`;
-	}
-	let picked: readonly ImageVariant[] = group;
-	if (layout === 'constrained') {
-		const cap = display * 2;
-		const under = group.filter((v) => v.width < cap);
-		const over = group.find((v) => v.width >= cap);
-		picked = over ? [...under, over] : under;
-	}
-	return picked.map((v) => `${v.src} ${v.width}w`).join(', ');
-}
-
-function derived_sizes(
+function file_widths(
 	layout: ImageLayout,
 	width: number,
-	drawn: number,
-	scale: number
-): string | undefined {
-	if (layout === 'fixed') return undefined;
-	const vw = `${Math.round(100 * scale)}vw`;
-	if (layout === 'fullWidth') return vw;
-	return `(min-width: ${width}px) ${drawn}px, ${vw}`;
+	widest: number,
+	breakpoints: readonly number[]
+): number[] {
+	if (layout === 'fixed') {
+		const one = Math.min(width, widest);
+		const two = Math.min(width * 2, widest);
+		return one === two ? [one] : [one, two];
+	}
+	const out = new Set<number>();
+	if (layout === 'fullWidth') {
+		for (const b of breakpoints) if (b < widest) out.add(b);
+		out.add(Math.min(widest, Math.max(...breakpoints)));
+	} else {
+		const cap = width * 2;
+		for (const b of breakpoints) if (b < cap && b < widest) out.add(b);
+		out.add(Math.min(width, widest));
+		out.add(Math.min(cap, widest));
+	}
+	return [...out].sort((a, b) => a - b);
 }
 
-/** Lay out `image` the way `req` asks. */
-export function lay_out(image: ImageDescriptor, req: LayoutRequest = {}): Laid {
-	const layout = req.layout ?? 'constrained';
-	const ratio = image.height / image.width;
-	const cover = req.width !== undefined && req.height !== undefined;
-	const groups = by_format(image.variants);
-	const svg = groups.length === 1 && groups[0]![0]!.format === 'svg';
-	let width: number;
-	if (layout === 'fullWidth') width = image.width;
-	else if (req.width !== undefined) width = req.width;
-	else if (req.height !== undefined) width = Math.round(req.height / ratio);
-	else width = image.width;
-	if (layout === 'constrained' && !svg && !cover) width = Math.min(width, image.width);
-	const height = cover ? req.height! : Math.round(width * ratio);
-	const scale = cover ? Math.max(1, height / ratio / width) : 1;
-	const drawn = Math.round(width * scale);
-	const sizes = svg ? undefined : (req.sizes ?? derived_sizes(layout, width, drawn, scale));
+function derived_sizes(layout: ImageLayout, width: number): string | undefined {
+	if (layout === 'fixed') return undefined;
+	if (layout === 'fullWidth') return '100vw';
+	return `(min-width: ${width}px) ${width}px, 100vw`;
+}
 
-	const sets = groups.map((g) => ({
-		type: mime_of(g[0]!.format),
-		srcset: candidates(g, layout, drawn)
-	}));
-	const fallback_group = groups[groups.length - 1]!;
-	const fallback = at_least(fallback_group, drawn);
+/** Lay out `image` the way `req` asks, with the plugin's settings `cfg`; `url` names each file. */
+export function lay_out(
+	image: ImageDescriptor,
+	req: LayoutRequest,
+	cfg: RenderConfig,
+	url: (recipe: Recipe) => string
+): Laid {
+	const layout = req.layout ?? 'constrained';
+	const own = image.width / image.height;
+	const boxed = req.width !== undefined && req.height !== undefined;
+	const shape = boxed ? req.width! / req.height! : parse_aspect(req.aspect);
+	const ratio = shape ?? own;
+	const svg = image.format === 'svg';
+	const crop = !svg && Math.abs(ratio - own) / own > SAME_SHAPE;
+	const widest = crop ? Math.min(image.width, Math.round(image.height * ratio)) : image.width;
+
+	let width: number;
+	if (layout === 'fullWidth') width = widest;
+	else if (req.width !== undefined) width = req.width;
+	else if (req.height !== undefined) width = Math.round(req.height * ratio);
+	else width = widest;
+	if (layout === 'constrained' && !svg && !boxed) width = Math.min(width, widest);
+	const height = boxed ? req.height! : Math.round(width / ratio);
+	const cover = shape !== null;
+
+	if (svg)
+		return {
+			width,
+			height,
+			sources: [],
+			src: image.src,
+			cover,
+			preload: { type: MIME.svg, href: image.src }
+		};
+
+	const formats: readonly ImageFormat[] = image.animated ? ['webp'] : (req.formats ?? cfg.formats);
+	const quality = req.quality ?? image.quality ?? cfg.quality;
+	const position =
+		crop && req.position !== undefined && req.position !== 'center' && req.position !== 'centre'
+			? req.position
+			: undefined;
+	const widths = file_widths(layout, width, widest, cfg.breakpoints);
+	const sizes = req.sizes ?? derived_sizes(layout, width);
+
+	const recipe = (w: number, format: ImageFormat): Recipe => ({
+		id: image.id,
+		src: image.src,
+		width: w,
+		height: Math.max(1, Math.round(w / ratio)),
+		format,
+		...(quality !== undefined ? { quality } : {}),
+		...(position !== undefined ? { position } : {}),
+		...(image.ops ? { ops: image.ops } : {})
+	});
+	const at_least = (format: ImageFormat, w: number): string =>
+		url(recipe(widths.find((x) => x >= w) ?? widths[widths.length - 1]!, format));
+	const candidates = (format: ImageFormat): string =>
+		layout === 'fixed'
+			? widths.map((w, i) => `${url(recipe(w, format))} ${i + 1}x`).join(', ')
+			: widths.map((w) => `${url(recipe(w, format))} ${w}w`).join(', ');
+
+	const sets = formats.map((format) => ({ type: MIME[format], srcset: candidates(format) }));
+	const fallback = formats[formats.length - 1]!;
 	const best = sets[0]!;
 	return {
 		width,
 		height,
-		sources:
-			groups.length > 1 ? sets.slice(0, -1).map((s) => ({ type: s.type, srcset: s.srcset! })) : [],
-		src: fallback.src,
+		sources: sets.slice(0, -1),
+		src: at_least(fallback, width),
 		srcset: sets[sets.length - 1]!.srcset,
 		sizes,
 		cover,
@@ -162,7 +184,7 @@ export function lay_out(image: ImageDescriptor, req: LayoutRequest = {}): Laid {
 			type: best.type,
 			srcset: best.srcset,
 			sizes,
-			href: at_least(groups[0]!, drawn).src
+			href: at_least(formats[0]!, width)
 		}
 	};
 }
