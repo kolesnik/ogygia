@@ -7,8 +7,10 @@
  * mdsvex and `finish` on mdsvex's output. With no image plugin listed there is no bridge, and
  * markdown images stay plain `<img>`.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { image_specifier } from './macro.ts';
 import { OgygiaError } from '../messages.ts';
 import type { ImagePluginOptions } from './options.ts';
@@ -66,6 +68,30 @@ function resolve_local(filename: string, src: string): string {
 	return abs;
 }
 
+let code_hash: string | undefined;
+
+/** A hash of this package's shipped code (`src` in the workspace, `dist` when installed): what
+ *  content's markdown output depends on besides the options. Read once. */
+function shipped_code(): string {
+	if (code_hash !== undefined) return code_hash;
+	let top = path.dirname(fileURLToPath(import.meta.url));
+	while (!fs.existsSync(path.join(path.dirname(top), 'package.json'))) {
+		const up = path.dirname(top);
+		if (up === top) break;
+		top = up;
+	}
+	const h = crypto.createHash('sha256');
+	for (const rel of fs.readdirSync(top, { recursive: true, encoding: 'utf8' }).sort()) {
+		const p = path.join(top, rel);
+		if (!fs.statSync(p).isFile()) continue;
+		h.update(rel);
+		h.update('\0');
+		h.update(fs.readFileSync(p));
+		h.update('\0');
+	}
+	return (code_hash = h.digest('base64url').slice(0, 16));
+}
+
 /** Put the bridge up for content to find. One per process: the last `image()` wins. */
 export function install_markdown_bridge(opts: ImagePluginOptions): void {
 	const g = globalThis as { [BRIDGE]?: ImageMarkdownBridge };
@@ -76,7 +102,7 @@ export function install_markdown_bridge(opts: ImagePluginOptions): void {
 	const width = opts.markdown?.width;
 	const own = width !== undefined ? { width } : {};
 	g[BRIDGE] = {
-		key: `og-image:1:${JSON.stringify(opts)}`,
+		key: `og-image:${shipped_code()}:${JSON.stringify(opts)}`,
 		rehype: () => (tree, file) => {
 			const filename = file.filename ?? file.path;
 			if (!filename) return;
