@@ -214,7 +214,8 @@ function refuse_markup_calls(src: string, id: string, calls: readonly Call[]): v
 export function rewrite_image_calls(
 	src: string,
 	id: string,
-	markup_exts: readonly string[] = ['.svelte']
+	markup_exts: readonly string[] = ['.svelte'],
+	watch: (file: string) => void = () => {}
 ): string {
 	if (!src.includes(MARKER)) return src;
 	const calls = find_calls(src, id, markup_exts);
@@ -240,7 +241,9 @@ export function rewrite_image_calls(
 			});
 			return;
 		}
-		if (!fs.existsSync(path.resolve(dir, c.src)))
+		const file = path.resolve(dir, c.src);
+		watch(file);
+		if (!fs.existsSync(file))
 			throw new OgygiaError('image_not_found', { file: `${rel}:${c.line}`, src: c.src });
 		const name = `__og_image_${i}`;
 		let list = heads.get(c.region);

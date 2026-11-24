@@ -42,7 +42,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const ogygia: OgygiaPlugin = definePlugin({
 		name: '@ogygia/image',
 		build(b) {
-			b.macro('image', (code, m) => rewrite_image_calls(code, m.id, m.markupExts));
+			b.macro('image', (code, m) => rewrite_image_calls(code, m.id, m.markupExts, m.watch));
 		}
 	});
 
