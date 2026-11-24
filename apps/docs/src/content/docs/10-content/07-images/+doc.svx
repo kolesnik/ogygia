@@ -1,16 +1,17 @@
 ---
 title: Images
-summary: '@ogygia/image encodes your images at build: AVIF and WebP over a width ladder, a tiny blur placeholder, and a srcset worked out from how the image sits on the page. One component renders them as server HTML, with no client script. Markdown images and frontmatter covers work the same way.'
+summary: '@ogygia/image turns your image files into responsive images. Pages ask for the files they need, by layout or by preset, and the image endpoint makes each one the first time it is asked for: in dev, in a prerender, or on a live server. One component renders them as server HTML, with no client script. Markdown images and frontmatter covers work the same way.'
 related:
   - content/collections
   - content/markdown
   - reference/api
 ---
 
-`@ogygia/image` turns image files into responsive images at build time. You say how an image sits on the page. The package writes the files, the `srcset`, the `sizes`, the width and height, the placeholder and the loading hints.
+`@ogygia/image` turns image files into responsive images. You say how an image sits on the page, once in a preset or right on the component. The package works out the files, the `srcset`, the `sizes`, the width and height, the placeholder and the loading hints.
 
-- **Encoded at build.** Each image is written as AVIF and WebP at the widths the page can use. The files are hashed and shipped like any other asset.
-- **Layout intent, not numbers.** You pick `constrained`, `fullWidth` or `fixed`, and at most a width. You never write a `srcset`.
+- **Pages ask, the endpoint makes.** The build reads each image once: its size and a tiny placeholder. It encodes nothing. Each file a page needs (a width, a format, a crop) is a signed URL, and the image endpoint makes it the first time anyone asks. A prerendered page gets every file written beside it, so a static host serves them with no server.
+- **Presets, not numbers.** Name how your site shows images (`thumb`, `cover`, `avatar`) in `image({ presets })` and pick one with `<Img preset="thumb">`. The same source can be a square thumbnail on one page and a wide hero on another.
+- **Crops are real files.** A `1/1` thumbnail downloads a square file, not a wide one squeezed into a box.
 - **No layout shift.** Every image carries its width and height, so the page keeps its space.
 - **A blur placeholder** of about 100 bytes paints until the image arrives.
 - **No client JavaScript.** `<Img>` renders plain HTML on the server: a `<picture>` with its `<source>`s. It writes no inline event handler, so it passes a strict CSP.
@@ -30,7 +31,7 @@ pnpm add @ogygia/image
 
 :::
 
-List the plugin beside `ogygia()`, before `sveltekit()`:
+List the plugin beside `ogygia()`, before `sveltekit()`, with the presets your site uses:
 
 ```ts title=vite.config.ts
 import { sveltekit } from '@sveltejs/kit/vite';
@@ -40,36 +41,50 @@ import { image } from '@ogygia/image/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [ogygia(), content({ markdown: {} }), image({ markdown: { width: 720 } }), sveltekit()]
+  plugins: [
+    ogygia(),
+    content({ markdown: {} }),
+    image({
+      presets: {
+        cover: { layout: 'fullWidth', aspect: '16/9', priority: true },
+        thumb: { width: 400, aspect: '1/1' },
+        avatar: { layout: 'fixed', width: 48, height: 48 },
+        prose: { width: 720 }
+      }
+    }),
+    sveltekit()
+  ]
 });
 ```
 
-`content()` is only needed for markdown and frontmatter images. Add the macro's types next to ogygia's:
+`content()` is only needed for markdown and frontmatter images. The image endpoint runs inside ogygia's `handle`, so `hooks.server.ts` must export it (every ogygia app does). Add the macro's types next to ogygia's:
 
 ```ts title=src/ogygia.d.ts
 /// <reference types="ogygia/types" />
 /// <reference types="@ogygia/image/types" />
 ```
 
-The encoder is [sharp](https://sharp.pixelplumbing.com), installed with the package.
+The encoder is [sharp](https://sharp.pixelplumbing.com), installed with the package. Only the image endpoint loads it, on the first image request.
 
 ## An image in a component
 
-`import.meta.og.image(path)` reads an image file at build and gives you its descriptor. The path is relative to the file that calls it, like an import. Pass the descriptor to `<Img>`:
+`import.meta.og.image(path)` reads an image file at build and gives you its descriptor: the source, its size and its placeholder. The path is relative to the file that calls it, like an import. Pass the descriptor to `<Img>`:
 
 ```svelte title=src/routes/+page.svelte
 <script lang="ts">
   import { Img } from '@ogygia/image';
 
   const hero = import.meta.og.image('../lib/images/hero.jpg');
-  const avatar = import.meta.og.image('../lib/images/avatar.jpg', { width: 48 });
+  const avatar = import.meta.og.image('../lib/images/avatar.jpg');
 </script>
 
-<Img of={hero} layout="fullWidth" priority alt="The harbor at dusk" />
-<Img of={avatar} layout="fixed" width={48} alt="" />
+<Img of={hero} preset="cover" alt="The harbor at dusk" />
+<Img of={avatar} preset="avatar" alt="" />
 ```
 
 The arguments must be written out in place: a string path and an object of plain values. The build reads them before any code runs, so a variable or a `${…}` in the path is a build error (`image_macro_not_literal`). A path that does not exist fails the build too (`image_not_found`). Call the macro in the component's `<script>`, not in its markup.
+
+The file must sit under `src/` (`image_outside_src`): the endpoint reads the original with Kit's `read()`, and the plugin makes every image under `src/` one of the server's assets so it can.
 
 For many images at once, `import.meta.og.image.glob(pattern)` returns every match, keyed by path:
 
@@ -77,26 +92,44 @@ For many images at once, `import.meta.og.image.glob(pattern)` returns every matc
 const gallery = import.meta.og.image.glob('./gallery/*.jpg');
 ```
 
-A pattern that matches nothing fails the build. To pick an image at run time, make every candidate with a glob and choose among them.
+A pattern that matches nothing fails the build. To pick an image at run time, read every candidate with a glob and choose among them.
 
 ## `<Img>`
 
 ```svelte
-<Img of={hero} alt="The harbor at dusk" />
+<Img of={hero} preset="thumb" alt="The harbor at dusk" />
 ```
 
-| Prop          | Default         | What it does                                                                                  |
-| ------------- | --------------- | --------------------------------------------------------------------------------------------- |
-| `of`          | required        | The descriptor: from the macro, a markdown image, or a frontmatter image.                     |
-| `alt`         | required        | What the image shows. Use `""` for a decorative image.                                        |
-| `layout`      | `'constrained'` | How the image sits on the page (below).                                                       |
-| `width`       | none            | Display width in CSS pixels.                                                                  |
-| `height`      | none            | Display height in CSS pixels. With `width`, the image fills that box and is cropped to it.    |
-| `priority`    | `false`         | The page's main image (its LCP). It loads eagerly, at high priority, preloaded from the head. |
-| `placeholder` | `true`          | Paint the blur placeholder until the image arrives.                                           |
-| `sizes`       | derived         | Replaces the `sizes` the layout works out, for a layout the three intents cannot say.         |
+| Prop          | Default         | What it does                                                                                     |
+| ------------- | --------------- | ------------------------------------------------------------------------------------------------ |
+| `of`          | required        | The descriptor: from the macro, a markdown image, or a frontmatter image.                        |
+| `alt`         | required        | What the image shows. Use `""` for a decorative image.                                           |
+| `preset`      | none            | A preset from `image({ presets })`. The props below say over it.                                 |
+| `layout`      | `'constrained'` | How the image sits on the page (below).                                                          |
+| `width`       | none            | Display width in CSS pixels.                                                                     |
+| `height`      | none            | Display height in CSS pixels. With `width`, the files are cropped to that box.                   |
+| `aspect`      | none            | The box's shape, `16 / 9` or `'16/9'`: the files are cropped to it.                              |
+| `position`    | `'center'`      | Where a crop keeps: `'top'`, `'bottom'`, `'left'`, `'right'`, or `'attention'` / `'entropy'`.    |
+| `priority`    | `false`         | The page's main image (its LCP). It loads eagerly, at high priority, preloaded from the head.    |
+| `placeholder` | `true`          | Paint the blur placeholder until the image arrives.                                              |
+| `morph`       | `false`         | Glide into the same source on the next page in a client-side navigation (a view transition).     |
+| `sizes`       | derived         | Replaces the `sizes` the layout works out, for a layout the three intents cannot say.            |
 
 `class`, `id`, `style`, `title`, `crossorigin`, `referrerpolicy` and `draggable` pass through to the `<img>`. Other attributes do not: a spread onto an `<img>` makes Svelte write inline `onload`/`onerror` handlers, which a strict CSP blocks.
+
+An unknown preset name fails the render (`image_preset_unknown`).
+
+### Presets
+
+A preset is a name for how your site shows an image. It takes the same keys as the props above (`layout`, `width`, `height`, `aspect`, `position`, `sizes`, `priority`, `placeholder`, `morph`) plus `quality` and `formats`. Declare it once, then use it on any image:
+
+```svelte
+<Img of={post.data.cover} preset="thumb" alt={post.data.title} />   <!-- a square file, 400 wide -->
+<Img of={post.data.cover} preset="cover" alt={post.data.title} />   <!-- a 16:9 hero, preloaded -->
+<Img of={post.data.cover} preset="thumb" width={200} alt="" />      <!-- the thumb, smaller -->
+```
+
+A markdown image in a post uses the `prose` preset when there is one.
 
 ### Layouts
 
@@ -104,54 +137,74 @@ A pattern that matches nothing fails the build. To pick an image at run time, ma
 - **`fullWidth`**: the container's full width, on every screen. Use it for heroes and banners.
 - **`fixed`**: exactly `width` × `height` CSS pixels, at 1× and 2× density. Use it for avatars and icons.
 
-The `srcset` and `sizes` follow from the layout. A `constrained` image 400 pixels wide asks for about 400 pixels on a 1× screen and 800 on a 2× one, never the 2048-pixel file. With both `width` and `height`, the image is cropped to that box (`object-fit: cover`), and the files it picks cover the box's width.
+The files follow from the layout. A `constrained` image 400 pixels wide asks for a 400-pixel file and an 800-pixel one, plus the smaller steps of the width ladder for narrow screens, never the 2048-pixel file. A `fixed` 48-pixel avatar asks for exactly 48 and 96. A `fullWidth` image asks for the whole ladder. With an `aspect`, or both `width` and `height`, every file is cut to that shape, never wider than the source can cover.
 
 ### `priority`
 
 Give `priority` to the one image that is the page's largest paint, usually the hero. It turns off lazy loading, sets `fetchpriority="high"` and adds a `<link rel="preload">` for the right file to the head. Every other image loads lazily and decodes off the main thread. The profiler's page insights flag a largest paint that is still lazy (`lcp-lazy`).
 
+### `morph`
+
+With `morph` on a thumbnail and on the post hero of the same source, a client-side navigation between them names both with the same view transition, so the thumbnail glides into place. Use it on at most one image per source on a page: a name that repeats cancels the page's transition.
+
 ### What it renders
 
 ```html
 <picture>
-  <source type="image/avif" srcset="/_app/immutable/assets/hero-640.Bx1.avif 640w, …" sizes="100vw" />
-  <img src="/_app/immutable/assets/hero-1280.Cq2.webp" srcset="…webp 640w, …" sizes="100vw"
-       width="2400" height="1350" alt="The harbor at dusk" loading="lazy" decoding="async"
-       data-og-img="fullWidth" style="background-image:url(data:image/webp;base64,…)" />
+  <source type="image/avif" srcset="/__ogygia__/image/3f9a…/Xk2j-640x360/_app/immutable/assets/hero.Bx1.jpg.avif 640w, …" sizes="100vw" />
+  <img src="/__ogygia__/image/7c1e…/Xk2j-1280x720/_app/immutable/assets/hero.Bx1.jpg.webp" srcset="…webp 640w, …"
+       sizes="100vw" width="1600" height="900" alt="The harbor at dusk" loading="lazy" decoding="async"
+       data-og-img="fullWidth" style="background-image:url(data:image/webp;base64,…);aspect-ratio:1600/900" />
 </picture>
 ```
 
 The layout's own CSS is a zero-specificity rule on `data-og-img`, so any class of yours wins over it.
 
+## The image endpoint
+
+Each file URL is a recipe: the source, the width and height, the format, and any crop or quality, all in the URL's path. The server signs it with the app's key (the same key that signs ogygia's regions: `handle({ secret })` or `OGYGIA_SECRET`), so nobody can ask the endpoint for a size no page asked for. A changed or unsigned URL is refused with a 403, and the placeholder stays painted.
+
+The endpoint makes the file the first time it is asked for, keeps it on disk, and sends it with `cache-control: public, max-age=31536000, immutable`. The URL names the source's content hash, so a changed image gets new URLs and a CDN can keep the old ones forever.
+
+- **In dev**, the browser asks and the dev server makes each file. Repeats are a file read.
+- **In a prerender**, Kit's crawler follows every `src` and `srcset` a page names and saves each answer as a file beside the page. A site built with `adapter-static` has every image file it uses, and serves them with no server at all.
+- **On a live server**, a visitor's first request makes the file; a CDN in front keeps it after that.
+
+Without `OGYGIA_SECRET`, each build signs with its own random key, so a new build has new image URLs (its pages are new too). Set the secret to keep URLs across deploys.
+
 ## Formats and options
 
-By default each image is written as AVIF (quality 60) and WebP (quality 80), and the `<img>` fallback is WebP. Some files are special:
+By default each image is offered as AVIF (quality 60) and WebP (quality 80), and the `<img>` fallback is WebP. Some files are special:
 
-- **An animated GIF or WebP** is written as animated WebP only.
-- **An SVG** is passed through as it is: it already scales.
+- **An animated GIF or WebP** is offered as animated WebP only.
+- **An SVG** is served as it is: it already scales.
 - **A transparent image** gets no blur placeholder, since the blur would show through.
 
-The plugin's options are every image's defaults. One image's own options, in the macro's second argument, win over them:
+The plugin's options:
 
-| Option        | Where         | Default                                  | What it does                                                                                       |
-| ------------- | ------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `quality`     | plugin, image | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                         |
-| `formats`     | plugin, image | `['avif', 'webp']`                       | The formats to write, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                           |
-| `placeholder` | plugin, image | `true`                                   | Make the blur placeholder.                                                                         |
-| `breakpoints` | plugin        | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is written at, capped at the image's own width.                |
-| `markdown`    | plugin        | `{}`                                     | Markdown images: `{ width }` is the prose column's width in CSS pixels; `false` turns them off.    |
-| `width`       | image         | none                                     | The widest this image is ever shown. Only widths up to twice it are written, not the whole ladder. |
-| `ops`         | image         | none                                     | Pixel operations, applied before resizing (below).                                                 |
+| Option        | Default                                  | What it does                                                                                    |
+| ------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `presets`     | `{}`                                     | Named ways to show an image (above).                                                            |
+| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                      |
+| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                        |
+| `placeholder` | `true`                                   | Make the blur placeholder.                                                                      |
+| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.             |
+| `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `false` turns them off. |
+
+A source's own options, in the macro's second argument, belong to the file whatever page shows it:
+
+| Option        | Default | What it does                                                    |
+| ------------- | ------- | --------------------------------------------------------------- |
+| `quality`     | plugin  | Encoder quality for every file made from this source.           |
+| `placeholder` | plugin  | Make the blur placeholder.                                      |
+| `ops`         | none    | Pixel operations, applied before any resize or crop (below).    |
 
 An unknown option or a wrong value fails the build with the key it did not expect (`image_option_unknown`, `image_option_invalid`), so a typo never goes unnoticed.
 
-`ops` takes sharp's operations of the same names: `aspect` (crop to a ratio such as `16 / 9` or `'16/9'`) with `position` (`'center'`, `'top'`, `'bottom'`, `'left'`, `'right'`, or the smart crops `'attention'` and `'entropy'`), `rotate` (a multiple of 90), `flip`, `flop`, `grayscale`, `blur`, `sharpen`, `normalize`, `negate`, `gamma`, `tint` and `modulate`.
+`ops` takes sharp's operations of the same names: `rotate` (a multiple of 90), `flip`, `flop`, `grayscale`, `blur`, `sharpen`, `normalize`, `negate`, `gamma`, `tint` and `modulate`. Crops are not an op: they belong to how a page shows the image (`aspect`, `position`).
 
 ```ts
-const card = import.meta.og.image('./team.jpg', {
-  quality: 70,
-  ops: { aspect: 4 / 3, position: 'attention', grayscale: true }
-});
+const team = import.meta.og.image('./team.jpg', { quality: 70, ops: { grayscale: true } });
 ```
 
 ## Markdown images
@@ -169,7 +222,7 @@ cover: ./cover.jpg
 
 - **Paths are relative to the post**, like an import. `../other-post/diagram.png` reaches into another folder. A name with spaces or accents works, written as is or URL-encoded (`./my%20photo.jpg`).
 - **A missing file fails the build** (`image_not_found`), naming the post and the path.
-- **`markdown.width`** is your prose column's width. Every markdown image is laid out as `constrained` at that width, so a phone and a laptop each get a file that fits. Leave it out and each image is as wide as itself.
+- **The `prose` preset** (or `markdown.width` without one) is how every body image is shown, so a phone and a laptop each get a file that fits. Leave both out and each image is as wide as itself.
 - **Remote and site-absolute images** (`https://…`, `/static/x.png`) stay plain `<img>` tags, and the `img` slot of `site({ components })` still gets them.
 - **HTML `<img>` tags in markdown** that name a local file fail the build (`image_markdown_html`): they would ship as a broken link. Write them as `![alt](./photo.jpg)`.
 - **`import.meta.og.md(text)`** renders markdown from a string, which has no file to resolve against, so a local image there fails the build (`image_markdown_no_file`). Use a site-absolute URL there, or move the markdown into a `.md` file.
@@ -182,49 +235,47 @@ To turn markdown images off, pass `image({ markdown: false })`. Markdown images 
 
 A frontmatter value that starts with `./` or `../` and ends in an image extension becomes a descriptor at build, wherever it sits (a nested object or a list works too). Other strings stay strings: `images/share.png` or `diagram.png` are left alone. A missing file fails the build.
 
-In the collection's schema, accept the descriptor with `isImage`:
+In the collection's schema, accept the descriptor with `image()`, a check that says how to write the path when a value is still a string:
 
-```ts title=src/lib/server/blog.ts
+```ts title=src/lib/blog.ts
 import { content, markdown } from '@ogygia/content';
-import { isImage, type ImageDescriptor } from '@ogygia/image';
+import { image, type ImageDescriptor } from '@ogygia/image';
 import * as v from 'valibot';
 
 export const blog = content({
-  loader: markdown(import.meta.glob('../../content/blog/*/+post.md', { eager: true }), {
+  loader: markdown(import.meta.glob('../content/blog/*/+post.md', { eager: true }), {
     id: (key) => key.split('/').at(-2) ?? key
   }),
   schema: v.object({
     title: v.string(),
-    cover: v.custom<ImageDescriptor>(isImage)
+    cover: v.custom<ImageDescriptor>(image())
   })
 });
 ```
 
+`image()` is a Standard Schema too, for a schema library that takes one. `isImage(value)` is the same check as a plain function.
+
 Then render it like any other image:
 
 ```svelte title=src/routes/blog/[slug]/+page.svelte
-<Img of={data.cover} layout="fullWidth" priority alt={data.title} />
+<Img of={data.cover} preset="cover" alt={data.title} />
 ```
 
 ## Outside `<Img>`
 
-`layOut(descriptor, { layout, width, height, sizes })` returns what `<Img>` renders: `src`, `srcset`, `sizes`, `width`, `height`, the `<source>` list and the preload. Use it for a CSS background, an Open Graph tag or a component of your own:
+`layOut(descriptor, { preset, layout, width, aspect, … })` returns what `<Img>` renders: `src`, `srcset`, `sizes`, `width`, `height`, the `<source>` list and the preload, with signed file URLs. Use it for a CSS background, an Open Graph tag or a component of your own. Like `<Img>`, it signs on the server:
 
 ```svelte
 <script lang="ts">
   import { layOut } from '@ogygia/image';
-  const photo = import.meta.og.image('./photo.jpg', { width: 1200 });
-  const laid = layOut(photo, { layout: 'fullWidth' });
+  const photo = import.meta.og.image('./photo.jpg');
+  const laid = layOut(photo, { preset: 'cover' });
 </script>
 
 <section style="background-image: url({laid.src})">…</section>
 ```
 
-## Dev and build
-
-In dev nothing is encoded up front. Each variant's URL points at `/@og-image/…`, and the dev server encodes it the first time the browser asks, then keeps it in the build cache (`node_modules/.ogygia`). An edit to the image file gives it a new URL.
-
-At build every variant is encoded once, cached by the file's content and the options, and imported as an asset, so Vite names, hashes and ships it under `_app/immutable/assets`. A second build reuses the cache.
+An `<Img>` inside an island keeps the server's file URLs when it hydrates. A render that only ever happens in the browser has no key to sign with, so it shows the original file.
 
 ## Moving from Astro's `astro:assets`
 
@@ -233,17 +284,19 @@ At build every variant is encoded once, cached by the file's content and the opt
 | `import hero from './hero.jpg'`                     | `const hero = import.meta.og.image('./hero.jpg')`               |
 | `<Image src={hero} alt="…" />`                      | `<Img of={hero} alt="…" />`                                     |
 | `<Picture formats={['avif', 'webp']} />`            | `<Img>`: AVIF and WebP are the default                          |
-| `widths={[600, 1200]}`, `sizes="…"`                 | `layout` and `width`; `sizes` only as an escape hatch           |
+| `widths={[600, 1200]}`, `sizes="…"`                 | a preset, or `layout` and `width`; `sizes` only as an escape hatch |
 | `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`              |
 | `loading="eager"` + `fetchpriority="high"`          | `priority`                                                      |
 | `getImage({ src })`                                 | `layOut(descriptor, { … })`                                     |
-| `image()` in a content schema                       | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path |
+| `image()` in a content schema                       | `v.custom<ImageDescriptor>(image())`, with a `./` or `../` path |
 | `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                          |
 | `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed     |
+| images encoded at build                             | files made on first request, saved as files by a prerender      |
 
 A few differences to know when you move a site:
 
 - **Frontmatter paths need `./` or `../`.** Astro's `image()` reads any path; here a bare `cover.png` stays a string. Astro posts usually write `./cover.png` already.
+- **Images live under `src/`.** A file outside it fails the build (`image_outside_src`).
 - **Animated GIFs** become animated WebP, never AVIF. There is no option to turn them off.
 - **Remote images** are not supported yet: a URL in the macro fails the build (`image_remote_unsupported`). Markdown leaves remote images as plain `<img>`.
 - **`<Img>` takes a fixed set of attributes** (listed above). A `data-*` or `aria-*` attribute is not passed through.

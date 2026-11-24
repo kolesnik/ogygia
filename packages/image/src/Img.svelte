@@ -46,6 +46,9 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 		priority?: boolean;
 		/** Paint the blur placeholder until the image arrives. Default `true`. */
 		placeholder?: boolean;
+		/** Glide into the same source on the next page in a client-side navigation (a view
+		 *  transition named by the source). At most one per source on a page. */
+		morph?: boolean;
 	};
 
 	let {
@@ -60,6 +63,7 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 		sizes,
 		priority,
 		placeholder,
+		morph,
 		class: klass,
 		id,
 		style,
@@ -79,6 +83,7 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 		[
 			(placeholder ?? p.placeholder ?? true) ? placeholder_style(of.ph) : '',
 			laid.cover ? `object-fit:cover;aspect-ratio:${laid.width}/${laid.height}` : '',
+			(morph ?? p.morph) ? `view-transition-name:og-img-${of.id}` : '',
 			typeof style === 'string' ? style : ''
 		]
 			.filter(Boolean)

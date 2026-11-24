@@ -47,6 +47,10 @@ export interface ImagePreset {
 	priority?: boolean;
 	/** Paint the blur placeholder until the image arrives. Default `true`. */
 	placeholder?: boolean;
+	/** Name the image for a view transition by its source, so on a client-side navigation it glides
+	 *  into the same source on the next page (a thumbnail into the post's hero). At most one per
+	 *  source on a page: a name that repeats cancels the page's transition. */
+	morph?: boolean;
 	/** Encoder quality, 1–100. */
 	quality?: number;
 	/** The formats to offer, best first. */

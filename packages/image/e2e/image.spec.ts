@@ -351,6 +351,24 @@ test.describe('with the runtime', () => {
 		expect(errors).toEqual([]);
 	});
 
+	test('a morph thumbnail and the post hero of the same source share one view-transition name, and the navigation runs clean', async ({
+		page
+	}) => {
+		const errors: string[] = [];
+		page.on('pageerror', (e) => errors.push(e.message));
+		page.on('console', (m) => {
+			if (m.type() === 'error') errors.push(m.text());
+		});
+		await page.goto('/');
+		const thumb = await attrs(page.locator('#post-thumb'));
+		expect(thumb.transition).toMatch(/^og-img-[\w-]+$/);
+		expect((await attrs(page.locator('#thumb'))).transition).toBeNull();
+		await page.locator('#to-post').click();
+		await expect(page.locator('#cover')).toBeVisible();
+		expect((await attrs(page.locator('#cover'))).transition).toBe(thumb.transition);
+		expect(errors).toEqual([]);
+	});
+
 	test("a client-side navigation swaps the head's preload for the new page's priority image", async ({
 		page
 	}) => {

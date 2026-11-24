@@ -5,7 +5,7 @@
 </script>
 
 <article>
-	<Img of={data.cover} preset="cover" alt={data.title} id="cover" />
+	<Img of={data.cover} preset="cover" morph alt={data.title} id="cover" />
 	<h1>{data.title}</h1>
 	<Region of={data.body} />
 </article>

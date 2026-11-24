@@ -89,6 +89,7 @@ const PRESET_KEYS: ReadonlySet<string> = new Set([
 	'sizes',
 	'priority',
 	'placeholder',
+	'morph',
 	'quality',
 	'formats'
 ]);
@@ -164,6 +165,7 @@ export function check_preset(name: string, o: unknown): ImagePreset {
 	if (p.sizes !== undefined && typeof p.sizes !== 'string') invalid(where, 'sizes', 'a string');
 	check_boolean(where, 'priority', p.priority);
 	check_boolean(where, 'placeholder', p.placeholder);
+	check_boolean(where, 'morph', p.morph);
 	check_quality(where, p.quality);
 	check_formats(where, p.formats);
 	return p;

@@ -9,6 +9,7 @@
 	const logo = import.meta.og.image('../lib/images/logo.svg');
 	const spinner = import.meta.og.image('../lib/images/spinner.gif');
 	const badge = import.meta.og.image('../lib/images/badge.png');
+	const first_cover = import.meta.og.image('../content/blog/first-post/cover.jpg');
 </script>
 
 <h1>images</h1>
@@ -21,6 +22,7 @@
 <Img of={hero} preset="cover" alt="Hills at dusk" id="hero" />
 <p><Img of={avatar} preset="avatar" alt="An avatar" id="avatar" /></p>
 <p><Img of={hero} preset="thumb" alt="Hills, as a thumbnail" id="thumb" /></p>
+<p><Img of={first_cover} preset="thumb" morph alt="The first post" id="post-thumb" /></p>
 <div class="spacer"></div>
 <Img of={portrait} width={400} alt="A tall picture" id="portrait" title="Tall" />
 <Img of={hero} width={400} height={400} alt="Hills, cropped square" id="crop" />

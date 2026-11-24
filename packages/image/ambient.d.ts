@@ -7,10 +7,11 @@
 // A compile construct: the `image()` plugin rewrites each call at transform time.
 interface ImportMetaOg {
 	/**
-	 * Read an image file at build and get its descriptor, for `<Img of={…}>` from `@ogygia/image`.
-	 * The path is relative to this file, like an import; the options are literals. At build every
-	 * variant is encoded (AVIF and WebP over a width ladder) with a blur placeholder; in dev nothing
-	 * is encoded until the browser asks. Needs `image()` from `@ogygia/image/vite` beside `ogygia()`.
+	 * Read an image file at build and get its source descriptor, for `<Img of={…}>` from
+	 * `@ogygia/image`. The path is relative to this file, like an import, and the file sits under
+	 * `src/`; the options are literals and belong to the source (quality, placeholder, ops). Only the
+	 * size and a blur placeholder are made at build: each file a page shows is made on first request.
+	 * Needs `image()` from `@ogygia/image/vite` beside `ogygia()`.
 	 *
 	 *   const hero = import.meta.og.image('./hero.jpg', { quality: 70 });
 	 */
