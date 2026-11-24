@@ -115,6 +115,20 @@ function candidates(
 	return picked.map((v) => `${v.src} ${v.width}w`).join(', ');
 }
 
+/** The `sizes` a layout derives: the drawn width in CSS pixels, `scale` times the box width (above 1
+ *  only for a crop, whose image is drawn wider than its box). */
+function derived_sizes(
+	layout: ImageLayout,
+	width: number,
+	drawn: number,
+	scale: number
+): string | undefined {
+	if (layout === 'fixed') return undefined;
+	const vw = `${Math.round(100 * scale)}vw`;
+	if (layout === 'fullWidth') return vw;
+	return `(min-width: ${width}px) ${drawn}px, ${vw}`;
+}
+
 /** Lay out `image` the way `req` asks. */
 export function lay_out(image: ImageDescriptor, req: LayoutRequest = {}): Laid {
 	const layout = req.layout ?? 'constrained';
@@ -130,21 +144,16 @@ export function lay_out(image: ImageDescriptor, req: LayoutRequest = {}): Laid {
 	// a constrained raster never shows wider than its pixels: it would only blur
 	if (layout === 'constrained' && !svg && !cover) width = Math.min(width, image.width);
 	const height = cover ? req.height! : Math.round(width * ratio);
-	const sizes = svg
-		? undefined
-		: (req.sizes ??
-			(layout === 'fixed'
-				? undefined
-				: layout === 'fullWidth'
-					? '100vw'
-					: `(min-width: ${width}px) ${width}px, 100vw`));
+	const scale = cover ? Math.max(1, height / ratio / width) : 1;
+	const drawn = Math.round(width * scale);
+	const sizes = svg ? undefined : (req.sizes ?? derived_sizes(layout, width, drawn, scale));
 
 	const sets = groups.map((g) => ({
 		type: mime_of(g[0]!.format),
-		srcset: candidates(g, layout, width)
+		srcset: candidates(g, layout, drawn)
 	}));
 	const fallback_group = groups[groups.length - 1]!;
-	const fallback = at_least(fallback_group, width);
+	const fallback = at_least(fallback_group, drawn);
 	const best = sets[0]!;
 	return {
 		width,
@@ -159,7 +168,7 @@ export function lay_out(image: ImageDescriptor, req: LayoutRequest = {}): Laid {
 			type: best.type,
 			srcset: best.srcset,
 			sizes,
-			href: at_least(groups[0]!, width).src
+			href: at_least(groups[0]!, drawn).src
 		}
 	};
 }

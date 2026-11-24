@@ -52,7 +52,7 @@ Server HTML only: it ships no script.
 	const css = $derived(
 		[
 			placeholder ? placeholder_style(of.ph) : '',
-			laid.cover ? 'object-fit:cover' : '',
+			laid.cover ? `object-fit:cover;aspect-ratio:${laid.width}/${laid.height}` : '',
 			typeof style === 'string' ? style : ''
 		]
 			.filter(Boolean)
