@@ -19,7 +19,9 @@ function copy(name: string, edit: (source: string) => string): string {
 }
 
 async function key_of(dir: string): Promise<string> {
-	const mod = (await import(path.join(dir, 'src/vite/markdown.ts'))) as typeof import('../src/vite/markdown.ts');
+	const mod = (await import(
+		path.join(dir, 'src/vite/markdown.ts')
+	)) as typeof import('../src/vite/markdown.ts');
 	mod.install_markdown_bridge({});
 	return (globalThis as { [k: symbol]: ImageMarkdownBridge })[mod.BRIDGE]!.key;
 }
@@ -27,7 +29,7 @@ async function key_of(dir: string): Promise<string> {
 describe('the markdown bridge key', () => {
 	test('a change to the image plugin’s code is a new key, so content never serves a doc it compiled before', async () => {
 		const before = copy('before', (s) => s);
-		const after = copy('after', (s) => `${s}\nexport const changed = 1;\n`);
+		const after = copy('after', (s) => s.replace('const COMPONENT = ', 'const COMPONENT =  '));
 		expect(await key_of(after)).not.toBe(await key_of(before));
 	});
 });

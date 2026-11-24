@@ -10,7 +10,11 @@ import { image } from '../src/vite/index.ts';
 import { variant_path } from '../src/vite/encode.ts';
 import { make_images } from './fixtures.ts';
 
-type Handler = (req: http.IncomingMessage, res: http.ServerResponse, next: (e?: unknown) => void) => void;
+type Handler = (
+	req: http.IncomingMessage,
+	res: http.ServerResponse,
+	next: (e?: unknown) => void
+) => void;
 
 let img: Awaited<ReturnType<typeof make_images>>;
 let loader: VitePlugin;

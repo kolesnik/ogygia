@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
+import { dedent } from '@ogygia/core/plugin/utils';
 import { options_of_query, rewrite_image_calls } from '../src/vite/macro.ts';
 
 let dir: string;
@@ -32,7 +33,12 @@ describe('rewrite_image_calls', () => {
 	});
 
 	test('in a component the import lands in the script that calls', () => {
-		const src = `<script lang="ts">\n\tconst hero = import.meta.og.image('./hero.jpg') as const;\n</script>\n<p>x</p>\n`;
+		const src = `${dedent`
+			<script lang="ts">
+				const hero = import.meta.og.image('./hero.jpg') as const;
+			</script>
+			<p>x</p>
+		`}\n`;
 		const out = rewrite_image_calls(src, path.join(dir, 'Page.svelte'));
 		expect(out).toMatch(
 			/^<script lang="ts">\nimport __og_image_0 from "\.\/hero\.jpg\?og-image";\n/
@@ -86,10 +92,16 @@ describe('rewrite_image_calls', () => {
 
 	test('a call in a component template fails the build instead of shipping as code', () => {
 		const svelte = path.join(dir, 'Card.svelte');
-		for (const call of [`import.meta.og.image('./hero.jpg')`, `import.meta.og.image.glob('./gallery/*.jpg')`])
-			expect(() => rewrite_image_calls(`<script>let a = 1;</script>\n<p>{${call}}</p>\n`, svelte)).toThrow(
-				/in the template/
-			);
+		for (const call of [
+			`import.meta.og.image('./hero.jpg')`,
+			`import.meta.og.image.glob('./gallery/*.jpg')`
+		]) {
+			const src = dedent`
+				<script>let a = 1;</script>
+				<p>{${call}}</p>
+			`;
+			expect(() => rewrite_image_calls(src, svelte)).toThrow(/in the template/);
+		}
 	});
 
 	test('the words in a component template’s text are not a call', () => {

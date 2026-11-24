@@ -2,9 +2,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
+import { dedent } from '@ogygia/core/plugin/utils';
 import { BRIDGE, install_markdown_bridge, type ImageMarkdownBridge } from '../src/vite/markdown.ts';
 
-type Hast = { type?: string; tagName?: string; value?: string; properties?: Record<string, unknown>; children?: Hast[] };
+type Hast = {
+	type?: string;
+	tagName?: string;
+	value?: string;
+	properties?: Record<string, unknown>;
+	children?: Hast[];
+};
 
 let dir: string;
 let post: string;
@@ -45,7 +52,12 @@ function compile(tree: Hast, b = bridge()): { body: string; lines: string[] } {
 
 /** mdsvex's module script for a document with this frontmatter, through `finish`. */
 function frontmatter(data: Record<string, unknown>): { code: string; lines: string[] } {
-	const code = `<script context="module">\n\texport const metadata = ${JSON.stringify(data)};\n</script>\n<p>x</p>`;
+	const code = dedent`
+		<script context="module">
+			export const metadata = ${JSON.stringify(data)};
+		</script>
+		<p>x</p>
+	`;
 	const done = bridge().finish(code, post);
 	return { code: done.code, lines: done.lines };
 }
@@ -91,7 +103,9 @@ describe('markdown body images', () => {
 	test('the prose width rides as the image width and as the encode width', () => {
 		const { body, lines } = compile(tree_of({ src: 'harbor.jpg', alt: '' }), bridge(720));
 		expect(body).toContain('width={720}');
-		expect(lines.at(-1)).toMatch(/^import __og_md_image_0 from "\.\/harbor\.jpg\?og-image=[\w-]+";$/);
+		expect(lines.at(-1)).toMatch(
+			/^import __og_md_image_0 from "\.\/harbor\.jpg\?og-image=[\w-]+";$/
+		);
 	});
 
 	test('alt and title text cannot close the attribute or open an expression', () => {
@@ -125,7 +139,10 @@ describe('markdown body images', () => {
 	});
 
 	test('a raw HTML <img> naming a local file fails the build, pointing at ![]()', () => {
-		for (const value of ['<img src="./harbor.jpg" alt="x">', "<p><img alt='y' src=harbor.jpg /></p>"]) {
+		for (const value of [
+			'<img src="./harbor.jpg" alt="x">',
+			"<p><img alt='y' src=harbor.jpg /></p>"
+		]) {
 			const tree: Hast = { type: 'root', children: [{ type: 'raw', value }] };
 			expect(() => bridge().rehype()(tree, { filename: post })).toThrow(/!\[alt\]\(/);
 		}

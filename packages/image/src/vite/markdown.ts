@@ -210,10 +210,7 @@ export function install_markdown_bridge(opts: ImagePluginOptions): void {
 				};
 				const js = emit(data);
 				if (names.length)
-					code =
-						code.slice(0, meta.index) +
-						`export const metadata = ${js};` +
-						code.slice(meta.index + meta[0].length);
+					code = `${code.slice(0, meta.index)}export const metadata = ${js};${code.slice(meta.index + meta[0].length)}`;
 			}
 			return { code, lines, components: found !== null };
 		}

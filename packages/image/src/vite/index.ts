@@ -48,7 +48,8 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 
 	const base = (): string => {
 		const b = config?.base ?? '/';
-		return b.startsWith('/') ? (b.endsWith('/') ? b : `${b}/`) : '/';
+		if (!b.startsWith('/')) return '/';
+		return b.endsWith('/') ? b : `${b}/`;
 	};
 
 	const loader: VitePlugin = {
@@ -97,7 +98,9 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			const variants = plan.variants.map(
 				(v, i) => `{"src":__v${i},"format":${JSON.stringify(v.format)},"width":${v.width}}`
 			);
-			return `${imports.join('\n')}\nexport default ${head},"variants":[${variants.join(',')}]};\n`;
+			return [...imports, `export default ${head},"variants":[${variants.join(',')}]};`, ''].join(
+				'\n'
+			);
 		},
 		configureServer(server) {
 			server.middlewares.use((req, res, next) => {

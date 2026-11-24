@@ -78,7 +78,8 @@ function literal(n: Node): unknown {
 		case 'UnaryExpression': {
 			if (n.operator !== '-' && n.operator !== '+') return NOT_LITERAL;
 			const v = literal(n.argument as Node);
-			return typeof v === 'number' ? (n.operator === '-' ? -v : v) : NOT_LITERAL;
+			if (typeof v !== 'number') return NOT_LITERAL;
+			return n.operator === '-' ? -v : v;
 		}
 		case 'BinaryExpression': {
 			const l = literal(n.left as Node);
@@ -103,13 +104,10 @@ function literal(n: Node): unknown {
 			for (const p of n.properties as Node[]) {
 				if (p.type !== 'Property' || p.computed || p.kind !== 'init' || p.method)
 					return NOT_LITERAL;
-				const key =
-					p.key.type === 'Identifier'
-						? (p.key.name as string)
-						: typeof p.key.value === 'string'
-							? (p.key.value as string)
-							: null;
-				if (key === null) return NOT_LITERAL;
+				let key: string;
+				if (p.key.type === 'Identifier') key = p.key.name as string;
+				else if (typeof p.key.value === 'string') key = p.key.value as string;
+				else return NOT_LITERAL;
 				const v = literal(p.value as Node);
 				if (v === NOT_LITERAL) return NOT_LITERAL;
 				out[key] = v;
