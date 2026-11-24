@@ -100,20 +100,20 @@ A pattern that matches nothing fails the build. To pick an image at run time, re
 <Img of={hero} preset="thumb" alt="The harbor at dusk" />
 ```
 
-| Prop          | Default         | What it does                                                                                     |
-| ------------- | --------------- | ------------------------------------------------------------------------------------------------ |
-| `of`          | required        | The descriptor: from the macro, a markdown image, or a frontmatter image.                        |
-| `alt`         | required        | What the image shows. Use `""` for a decorative image.                                           |
-| `preset`      | none            | A preset from `image({ presets })`. The props below say over it.                                 |
-| `layout`      | `'constrained'` | How the image sits on the page (below).                                                          |
-| `width`       | none            | Display width in CSS pixels.                                                                     |
-| `height`      | none            | Display height in CSS pixels. With `width`, the files are cropped to that box.                   |
-| `aspect`      | none            | The box's shape, `16 / 9` or `'16/9'`: the files are cropped to it.                              |
-| `position`    | `'center'`      | Where a crop keeps: `'top'`, `'bottom'`, `'left'`, `'right'`, or `'attention'` / `'entropy'`.    |
-| `priority`    | `false`         | The page's main image (its LCP). It loads eagerly, at high priority, preloaded from the head.    |
-| `placeholder` | `true`          | Paint the blur placeholder until the image arrives.                                              |
-| `morph`       | `false`         | Glide into the same source on the next page in a client-side navigation (a view transition).     |
-| `sizes`       | derived         | Replaces the `sizes` the layout works out, for a layout the three intents cannot say.            |
+| Prop          | Default         | What it does                                                                                  |
+| ------------- | --------------- | --------------------------------------------------------------------------------------------- |
+| `of`          | required        | The descriptor: from the macro, a markdown image, or a frontmatter image.                     |
+| `alt`         | required        | What the image shows. Use `""` for a decorative image.                                        |
+| `preset`      | none            | A preset from `image({ presets })`. The props below say over it.                              |
+| `layout`      | `'constrained'` | How the image sits on the page (below).                                                       |
+| `width`       | none            | Display width in CSS pixels.                                                                  |
+| `height`      | none            | Display height in CSS pixels. With `width`, the files are cropped to that box.                |
+| `aspect`      | none            | The box's shape, `16 / 9` or `'16/9'`: the files are cropped to it.                           |
+| `position`    | `'center'`      | Where a crop keeps: `'top'`, `'bottom'`, `'left'`, `'right'`, or `'attention'` / `'entropy'`. |
+| `priority`    | `false`         | The page's main image (its LCP). It loads eagerly, at high priority, preloaded from the head. |
+| `placeholder` | `true`          | Paint the blur placeholder until the image arrives.                                           |
+| `morph`       | `false`         | Glide into the same source on the next page in a client-side navigation (a view transition).  |
+| `sizes`       | derived         | Replaces the `sizes` the layout works out, for a layout the three intents cannot say.         |
 
 `class`, `id`, `style`, `title`, `crossorigin`, `referrerpolicy` and `draggable` pass through to the `<img>`. Other attributes do not: a spread onto an `<img>` makes Svelte write inline `onload`/`onerror` handlers, which a strict CSP blocks.
 
@@ -182,22 +182,22 @@ By default each image is offered as AVIF (quality 60) and WebP (quality 80), and
 
 The plugin's options:
 
-| Option        | Default                                  | What it does                                                                                    |
-| ------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `presets`     | `{}`                                     | Named ways to show an image (above).                                                            |
-| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                      |
-| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                        |
-| `placeholder` | `true`                                   | Make the blur placeholder.                                                                      |
-| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.             |
+| Option        | Default                                  | What it does                                                                                                      |
+| ------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `presets`     | `{}`                                     | Named ways to show an image (above).                                                                              |
+| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                                        |
+| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                                          |
+| `placeholder` | `true`                                   | Make the blur placeholder.                                                                                        |
+| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.                               |
 | `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `false` turns them off. |
 
 A source's own options, in the macro's second argument, belong to the file whatever page shows it:
 
-| Option        | Default | What it does                                                    |
-| ------------- | ------- | --------------------------------------------------------------- |
-| `quality`     | plugin  | Encoder quality for every file made from this source.           |
-| `placeholder` | plugin  | Make the blur placeholder.                                      |
-| `ops`         | none    | Pixel operations, applied before any resize or crop (below).    |
+| Option        | Default | What it does                                                 |
+| ------------- | ------- | ------------------------------------------------------------ |
+| `quality`     | plugin  | Encoder quality for every file made from this source.        |
+| `placeholder` | plugin  | Make the blur placeholder.                                   |
+| `ops`         | none    | Pixel operations, applied before any resize or crop (below). |
 
 An unknown option or a wrong value fails the build with the key it did not expect (`image_option_unknown`, `image_option_invalid`), so a typo never goes unnoticed.
 
@@ -279,19 +279,19 @@ An `<Img>` inside an island keeps the server's file URLs when it hydrates. A ren
 
 ## Moving from Astro's `astro:assets`
 
-| Astro                                               | ogygia                                                          |
-| --------------------------------------------------- | --------------------------------------------------------------- |
-| `import hero from './hero.jpg'`                     | `const hero = import.meta.og.image('./hero.jpg')`               |
-| `<Image src={hero} alt="…" />`                      | `<Img of={hero} alt="…" />`                                     |
-| `<Picture formats={['avif', 'webp']} />`            | `<Img>`: AVIF and WebP are the default                          |
+| Astro                                               | ogygia                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------ |
+| `import hero from './hero.jpg'`                     | `const hero = import.meta.og.image('./hero.jpg')`                  |
+| `<Image src={hero} alt="…" />`                      | `<Img of={hero} alt="…" />`                                        |
+| `<Picture formats={['avif', 'webp']} />`            | `<Img>`: AVIF and WebP are the default                             |
 | `widths={[600, 1200]}`, `sizes="…"`                 | a preset, or `layout` and `width`; `sizes` only as an escape hatch |
-| `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`              |
-| `loading="eager"` + `fetchpriority="high"`          | `priority`                                                      |
-| `getImage({ src })`                                 | `layOut(descriptor, { … })`                                     |
-| `image()` in a content schema                       | `v.custom<ImageDescriptor>(image())`, with a `./` or `../` path |
-| `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                          |
-| `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed     |
-| images encoded at build                             | files made on first request, saved as files by a prerender      |
+| `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`                 |
+| `loading="eager"` + `fetchpriority="high"`          | `priority`                                                         |
+| `getImage({ src })`                                 | `layOut(descriptor, { … })`                                        |
+| `image()` in a content schema                       | `v.custom<ImageDescriptor>(image())`, with a `./` or `../` path    |
+| `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                             |
+| `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed        |
+| images encoded at build                             | files made on first request, saved as files by a prerender         |
 
 A few differences to know when you move a site:
 

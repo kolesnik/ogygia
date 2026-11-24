@@ -6913,12 +6913,176 @@
 			"reason": "a message's one line for the build error: a template over its detail, printed once when the build fails"
 		},
 		{
-			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_encode_dropped > details",
+			"id": "packages/image/src/descriptor.ts > image",
+			"reason": "a schema field check, run once per frontmatter document when a collection loads; isImage, the work it does, is measured by the lay_out bench"
+		},
+		{
+			"id": "packages/image/src/descriptor.ts > image > check",
+			"reason": "a schema field check, run once per frontmatter document when a collection loads; isImage, the work it does, is measured by the lay_out bench"
+		},
+		{
+			"id": "packages/image/src/descriptor.ts > image > validate",
+			"reason": "a schema field check, run once per frontmatter document when a collection loads; isImage, the work it does, is measured by the lay_out bench"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_outside_src > details",
 			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
 		},
 		{
-			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_encode_dropped > text",
-			"reason": "a message's one line for the build error: a template over its detail, printed once when the build fails"
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_outside_src > text",
+			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_settle_failed > details",
+			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_settle_failed > text",
+			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
+		},
+		{
+			"id": "packages/image/src/pixels.ts > encode",
+			"reason": "the sharp encoder (native, reads and writes image bytes), once per source at build and once per file at settle, then cached on disk; test/plan.test.ts and test/server.test.ts run it"
+		},
+		{
+			"id": "packages/image/src/pixels.ts > metadata_of",
+			"reason": "the sharp encoder (native, reads and writes image bytes), once per source at build and once per file at settle, then cached on disk; test/plan.test.ts and test/server.test.ts run it"
+		},
+		{
+			"id": "packages/image/src/pixels.ts > pipeline",
+			"reason": "the sharp encoder (native, reads and writes image bytes), once per source at build and once per file at settle, then cached on disk; test/plan.test.ts and test/server.test.ts run it"
+		},
+		{
+			"id": "packages/image/src/pixels.ts > placeholder_of",
+			"reason": "the sharp encoder (native, reads and writes image bytes), once per source at build and once per file at settle, then cached on disk; test/plan.test.ts and test/server.test.ts run it"
+		},
+		{
+			"id": "packages/image/src/recipe.ts > b64url_decode > from:1~1e2ecf",
+			"reason": "the process's minter slot (hidden state by design) and the ops decode of a rare recipe; recipe_path and parse_recipe, the work, are measured by the lay_out and parse_recipe benches"
+		},
+		{
+			"id": "packages/image/src/recipe.ts > mint",
+			"reason": "the process's minter slot (hidden state by design) and the ops decode of a rare recipe; recipe_path and parse_recipe, the work, are measured by the lay_out and parse_recipe benches"
+		},
+		{
+			"id": "packages/image/src/recipe.ts > slot:0~986c11 > make",
+			"reason": "the process's minter slot (hidden state by design) and the ops decode of a rare recipe; recipe_path and parse_recipe, the work, are measured by the lay_out and parse_recipe benches"
+		},
+		{
+			"id": "packages/image/src/render-messages.ts > IMAGE_RENDER_ERRORS > image_no_server > details",
+			"reason": "a message's prose for its docs page and render error: constant text, printed once when a render fails"
+		},
+		{
+			"id": "packages/image/src/render-messages.ts > IMAGE_RENDER_ERRORS > image_no_server > text",
+			"reason": "a message's prose for its docs page and render error: constant text, printed once when a render fails"
+		},
+		{
+			"id": "packages/image/src/render-messages.ts > IMAGE_RENDER_ERRORS > image_preset_unknown > details",
+			"reason": "a message's prose for its docs page and render error: constant text, printed once when a render fails"
+		},
+		{
+			"id": "packages/image/src/render-messages.ts > IMAGE_RENDER_ERRORS > image_preset_unknown > text",
+			"reason": "a message's prose for its docs page and render error: constant text, printed once when a render fails"
+		},
+		{
+			"id": "packages/image/src/render.ts > file_url",
+			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
+		},
+		{
+			"id": "packages/image/src/render.ts > layOut",
+			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
+		},
+		{
+			"id": "packages/image/src/render.ts > layOut > lay_out:3~9cf762",
+			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
+		},
+		{
+			"id": "packages/image/src/render.ts > preset_of",
+			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
+		},
+		{
+			"id": "packages/image/src/server.ts > defineServer:0~c760f5 > request",
+			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > defineServer:0~c760f5 > setup",
+			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > defineServer:0~c760f5 > setup > set_minter:0~430c99",
+			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > map:0~de6d9d",
+			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > refused",
+			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > same",
+			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > signature",
+			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > cached_file",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > call:0~51b419 > run",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > call:0~51b419 > run > limited:0~12e893",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > failed",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > limited",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > limited > Promise:0~a24756",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > limited > Promise:0~a24756 > push:0~6c2f06 > run",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > queue:0~c992e9 > start",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > queue:0~c992e9 > start > finally:0~4717e4",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > settle",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/index.ts > descriptor_module",
+			"reason": "a plugin hook, config-time: once per config, or once per source per build"
+		},
+		{
+			"id": "packages/image/src/vite/index.ts > render_config",
+			"reason": "a plugin hook, config-time: once per config, or once per source per build"
+		},
+		{
+			"id": "packages/image/src/vite/plan.ts > plan_image",
+			"reason": "build only: sharp metadata and the placeholder, once per source per build, cached by content hash; test/plan.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/plan.ts > plan_image > catch:0~b2002b",
+			"reason": "build only: sharp metadata and the placeholder, once per source per build, cached by content hash; test/plan.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_glob_empty > details",
@@ -7017,99 +7181,7 @@
 			"reason": "a message's one line for the build error: a template over its detail, printed once when the build fails"
 		},
 		{
-			"id": "packages/image/src/vite/encode.ts > base_of",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > call:0~824304 > run",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > call:0~824304 > run > limited:0~7b283a",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > call:0~824304 > run > limited:0~7b283a > catch:0~4773ee",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > digest",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > files_dir",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > limited",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > limited > Promise:0~a24756",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > limited > Promise:0~a24756 > push:0~6c2f06 > run",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > pipeline",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > placeholder_of",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > plan_image",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > plan_image > catch:0~4773ee",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > plan_image > limited:0~5a1c68",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > queue:0~c992e9 > start",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > queue:0~c992e9 > start > finally:0~4717e4",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > settle",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > shaped",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > variant_path",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/encode.ts > write_variant",
-			"reason": "build only: the sharp encoder (native, reads and writes image files), once per image and variant per build, cached by content hash; packages/image/test/encode.test.ts runs it"
-		},
-		{
 			"id": "packages/image/src/vite/index.ts > image",
-			"reason": "the plugin's factory and hooks, once per config load or build: constant work around the measured macro and markdown readers"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > base",
-			"reason": "the plugin's factory and hooks, once per config load or build: constant work around the measured macro and markdown readers"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > definePlugin:0~3e873a > build",
-			"reason": "the plugin's factory and hooks, once per config load or build: constant work around the measured macro and markdown readers"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > definePlugin:0~3e873a > build > macro:1~c1af26",
 			"reason": "the plugin's factory and hooks, once per config load or build: constant work around the measured macro and markdown readers"
 		},
 		{
@@ -7117,59 +7189,7 @@
 			"reason": "the plugin's factory and hooks, once per config load or build: constant work around the measured macro and markdown readers"
 		},
 		{
-			"id": "packages/image/src/vite/index.ts > image > loader > configureServer",
-			"reason": "dev only: the dev route answering one image request (a file stream), once per request; packages/image/test/dev.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > configureServer > use:0~3b66e7",
-			"reason": "dev only: the dev route answering one image request (a file stream), once per request; packages/image/test/dev.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > configureServer > use:0~3b66e7 > find:0~503001",
-			"reason": "dev only: the dev route answering one image request (a file stream), once per request; packages/image/test/dev.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > configureServer > use:0~3b66e7 > then:0~a3d9ee",
-			"reason": "dev only: the dev route answering one image request (a file stream), once per request; packages/image/test/dev.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > configureServer > use:0~3b66e7 > then:0~a3d9ee > once:1~049813",
-			"reason": "dev only: the dev route answering one image request (a file stream), once per request; packages/image/test/dev.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > configureServer > use:0~3b66e7 > then:0~a3d9ee > once:1~4a9dad",
-			"reason": "dev only: the dev route answering one image request (a file stream), once per request; packages/image/test/dev.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > configureServer > use:0~3b66e7 > then:0~a3d9ee > once:1~f03d4d",
-			"reason": "dev only: the dev route answering one image request (a file stream), once per request; packages/image/test/dev.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > configureServer > use:0~3b66e7 > then:1~e7ce45",
-			"reason": "dev only: the dev route answering one image request (a file stream), once per request; packages/image/test/dev.test.ts runs it"
-		},
-		{
 			"id": "packages/image/src/vite/index.ts > image > loader > load",
-			"reason": "build only: one og-image module's load, its cost the encoder's (exempt above), once per image per build; packages/image/e2e runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > load > map:0~226424",
-			"reason": "build only: one og-image module's load, its cost the encoder's (exempt above), once per image per build; packages/image/e2e runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > load > map:0~262541",
-			"reason": "build only: one og-image module's load, its cost the encoder's (exempt above), once per image per build; packages/image/e2e runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > load > map:0~710912",
-			"reason": "build only: one og-image module's load, its cost the encoder's (exempt above), once per image per build; packages/image/e2e runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > load > map:0~f25f4e",
-			"reason": "build only: one og-image module's load, its cost the encoder's (exempt above), once per image per build; packages/image/e2e runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > image > loader > load > some:0~21ce67",
 			"reason": "build only: one og-image module's load, its cost the encoder's (exempt above), once per image per build; packages/image/e2e runs it"
 		},
 		{
