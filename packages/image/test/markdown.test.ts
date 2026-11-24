@@ -176,4 +176,12 @@ describe('markdown body images', () => {
 		expect(offer({})).toHaveLength(1);
 		expect(offer({ markdown: false })).toEqual([]);
 	});
+
+	test('a markdown snippet (no file of its own) naming a local image fails with its own code, not image_not_found', () => {
+		const tree = tree_of({ src: './harbor.jpg', alt: '' });
+		expect(() => bridge().rehype()(tree, { filename: 'og-md-snippet.md' })).toThrow(
+			/image_markdown_no_file/
+		);
+	});
 });
+
