@@ -80,6 +80,20 @@ describe('rewrite_image_calls', () => {
 		).toThrow(/remote images are not supported yet/);
 	});
 
+	test('a call in a component template fails the build instead of shipping as code', () => {
+		const svelte = path.join(dir, 'Card.svelte');
+		for (const call of [`import.meta.og.image('./hero.jpg')`, `import.meta.og.image.glob('./gallery/*.jpg')`])
+			expect(() => rewrite_image_calls(`<script>let a = 1;</script>\n<p>{${call}}</p>\n`, svelte)).toThrow(
+				/in the template/
+			);
+	});
+
+	test('the words in a component template’s text are not a call', () => {
+		const svelte = path.join(dir, 'Doc.svelte');
+		const src = '<p>Use import.meta.og.image to read a file.</p>\n';
+		expect(rewrite_image_calls(src, svelte)).toBe(src);
+	});
+
 	test('a module without the marker is returned as it is', () => {
 		const src = 'const x = 1;';
 		expect(rewrite_image_calls(src, mod())).toBe(src);

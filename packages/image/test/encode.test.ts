@@ -188,6 +188,15 @@ describe("plan_image", () => {
     expect([meta.format, meta.width, meta.height]).toEqual(["heif", 640, 427]);
   });
 
+  test("an image whose header reads but whose pixels do not fails with its code", async () => {
+    const whole = fs.readFileSync(img.jpg);
+    const cut = `${img.dir}/cut.jpg`;
+    fs.writeFileSync(cut, whole.subarray(0, Math.floor(whole.length / 3)));
+    await expect(plan_image(cut, settle({}, {}))).rejects.toThrow(
+      /could not be read/,
+    );
+  });
+
   test("a file that is not an image fails with its code", async () => {
     fs.writeFileSync(`${img.dir}/broken.png`, "not a png");
     await expect(
