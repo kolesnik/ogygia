@@ -94,6 +94,26 @@ describe('rewrite_image_calls', () => {
 		).toThrow(/unknown image option 'qualty'/);
 	});
 
+	test('warm names presets the config declares, one or a list; any other name fails the build', () => {
+		const presets = ['cover', 'thumb'];
+		const call = (opts: string) =>
+			rewrite_image_calls(
+				`import.meta.og.image('./hero.jpg', ${opts});`,
+				mod(),
+				['.svelte'],
+				() => {},
+				presets
+			);
+		expect(options_of_query(call(`{ warm: 'cover' }`).split('?')[1]!.split('"')[0]!)).toEqual({
+			warm: 'cover'
+		});
+		expect(() => call(`{ warm: ['thumb'] }`)).not.toThrow();
+		expect(() => call(`{ warm: 'covr' }`)).toThrow(
+			/warm names the preset 'covr', which image\(\{ presets \}\) does not declare\. Declared: cover, thumb/
+		);
+		expect(() => call(`{ warm: [] }`)).toThrow(/image option 'warm' must be a preset name/);
+	});
+
 	test('a remote URL fails with what to do instead', () => {
 		expect(() =>
 			rewrite_image_calls(`import.meta.og.image('https://example.com/a.jpg');`, mod())

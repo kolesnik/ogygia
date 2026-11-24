@@ -8,7 +8,8 @@ import { test, expect } from '@ogygia/tooling/e2e';
 
 const MODE = process.env.IMAGE_E2E_MODE ?? 'node';
 const PAGES = ['/', '/blog/first-post', '/blog/second-post', '/blog/third-post'];
-const IMAGE_URL_RE = /\/__ogygia__\/image\/[^\s",]+/g;
+const IMAGE_URL_RE = /\/(?:__ogygia__\/i|_app\/immutable\/og)\/[^\s",]+/g;
+const SIGNED_URL_RE = /\/__ogygia__\/i\/[^\s",]+/g;
 
 /** Scroll every lazy image into view, then wait until each has decoded pixels. */
 async function every_image_loads(page: Page): Promise<void> {
@@ -328,9 +329,9 @@ test.describe('the image endpoint', () => {
 		request
 	}) => {
 		const html = await (await request.get('/')).text();
-		const url = html.match(IMAGE_URL_RE)!.find((u) => /-48x48\//.test(u))!;
+		const url = html.match(SIGNED_URL_RE)!.find((u) => /-48x48\//.test(u))!;
 		const wider = url.replace('-48x48/', '-2000x2000/');
-		const sig = /\/image\/([0-9a-f]{32})\//.exec(url)![1]!;
+		const sig = /\/i\/([^/]+)\//.exec(url)![1]!;
 		const resigned = url.replace(
 			sig,
 			sig.replace(/^./, (c) => (c === '0' ? '1' : '0'))
@@ -338,6 +339,7 @@ test.describe('the image endpoint', () => {
 		for (const bad of [wider, resigned, url.replace(`/${sig}/`, '/')]) {
 			const res = await request.get(bad);
 			expect(res.status(), bad).toBe(MODE === 'static' ? 404 : 403);
+			if (MODE !== 'static') expect(res.headers()['x-ogygia-deny'], bad).toBe('sig');
 		}
 		expect((await request.get(url)).status()).toBe(200);
 	});
@@ -345,8 +347,33 @@ test.describe('the image endpoint', () => {
 	test('a file is sent to be kept forever', async ({ request }) => {
 		test.skip(MODE === 'static', 'a static host sends its own headers');
 		const html = await (await request.get('/')).text();
-		const res = await request.get(html.match(IMAGE_URL_RE)![0]!);
+		const res = await request.get(html.match(SIGNED_URL_RE)![0]!);
 		expect(res.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
+	});
+
+	test('a CSS background from layOut() is made in every mode, though no crawler reads a style', async ({
+		request
+	}) => {
+		const html = await (await request.get('/')).text();
+		const style = /id="backdrop" style="([^"]+)"/.exec(html)![1]!;
+		const url = /url\(([^)]+)\)/.exec(style)![1]!;
+		expect(url).toMatch(/^\/__ogygia__\/i\/.+-120x60\/.+\.webp$/);
+		const f = await fetch_file(request, url);
+		expect([f.type, f.width, f.height]).toEqual(['image/webp', 120, 60]);
+	});
+
+	test("a warmed preset's files are static files the build made", async ({ page, request }) => {
+		await page.goto('/');
+		const a = await attrs(page.locator('#warmed'));
+		const all = [...urls(a.avif), ...urls(a.srcset), a.src!];
+		for (const url of all)
+			expect(url).toMatch(
+				MODE === 'dev' ? /^\/__ogygia__\/i\// : /^\/_app\/immutable\/og\/[\w-]+\.(avif|webp)$/
+			);
+		for (const url of all) {
+			const f = await fetch_file(request, url);
+			expect(f.width, url).toBe(f.height);
+		}
 	});
 });
 

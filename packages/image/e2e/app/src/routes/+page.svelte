@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Img } from '@ogygia/image';
+	import { Img, layOut } from '@ogygia/image';
 	import Counter from '$lib/islands/Counter.svelte' with { wake: 'load' };
 
 	const hero = import.meta.og.image('../lib/images/hero.jpg');
@@ -10,6 +10,8 @@
 	const spinner = import.meta.og.image('../lib/images/spinner.gif');
 	const badge = import.meta.og.image('../lib/images/badge.png');
 	const first_cover = import.meta.og.image('../content/blog/first-post/cover.jpg');
+	const warmed = import.meta.og.image('../lib/images/portrait.jpg', { warm: 'thumb' });
+	const backdrop = layOut(hero, { layout: 'fixed', width: 120, height: 60 });
 </script>
 
 <h1>images</h1>
@@ -24,6 +26,8 @@
 <p><Img of={avatar} preset="avatar" alt="An avatar" id="avatar" /></p>
 <p><Img of={hero} preset="thumb" alt="Hills, as a thumbnail" id="thumb" /></p>
 <p><Img of={first_cover} preset="thumb" morph alt="The first post" id="post-thumb" /></p>
+<p><Img of={warmed} preset="thumb" alt="A tall picture, warmed" id="warmed" /></p>
+<div id="backdrop" style="background-image:url({backdrop.src});width:120px;height:60px"></div>
 <div class="spacer"></div>
 <Img of={portrait} width={400} alt="A tall picture" id="portrait" title="Tall" />
 <Img of={hero} width={400} height={400} alt="Hills, cropped square" id="crop" />
