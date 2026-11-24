@@ -59,6 +59,9 @@ export interface ServerApp<Options = undefined> {
 	sign(message: string): string;
 	/** Check a signature `sign` made (constant-time). */
 	verify(message: string, signature: string): boolean;
+	/** The signing key's fingerprint (8 characters, the same on every instance sharing the key, and
+	 *  telling nothing of it): for a refusal to name the key it checked with (`x-ogygia-key`). */
+	keyFingerprint(): string;
 	/** Signed capabilities for an endpoint the plugin serves, held to the rules of region holes. */
 	readonly capability: PluginCapabilities;
 	/** Record a server-realm event into the current request's devtools stream (a no-op unless

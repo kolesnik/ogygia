@@ -63,6 +63,7 @@ export class LivePlugins {
 			observeReads: (event) => observe_reads(event, facts_of(event.request).reads),
 			sign: own.plain.sign,
 			verify: own.plain.verify,
+			keyFingerprint: () => own.plain.fingerprint(),
 			capability: plugin_capabilities(own.capabilities),
 			devtools: record_server_event,
 			keepAlive: keep_alive,
