@@ -1,9 +1,10 @@
-// @ogygia/image's e2e suite against its fixture app (e2e/app), in one of three modes, the same pages
-// and specs each time (`IMAGE_E2E_MODE`):
+// @ogygia/image's e2e suite against its fixture app (e2e/app), in one of four modes (`IMAGE_E2E_MODE`):
 // - `node` (default): built with adapter-node and served (`vite preview`): files made on request;
 // - `static`: every page prerendered with adapter-static and served as plain files, no server;
-// - `dev`: the dev server.
-// `pnpm --filter @ogygia/image e2e` runs all three.
+// - `dev`: the dev server;
+// those three run image.spec.ts, the same pages and specs each time;
+// - `base`: prerendered under `paths.base` (`/base`) and served as plain files there (base.spec.ts).
+// `pnpm --filter @ogygia/image e2e` runs all four.
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { suite } from '@ogygia/tooling/e2e/config.ts';
 import { port } from '@ogygia/tooling/e2e/servers.ts';
@@ -12,14 +13,23 @@ import { fileURLToPath } from 'node:url';
 const app = fileURLToPath(new URL('./e2e/app', import.meta.url));
 const build = fileURLToPath(import.meta.resolve('@ogygia/tooling/e2e/build.ts'));
 const serve_static = fileURLToPath(new URL('./e2e/serve-static.ts', import.meta.url));
+const IGNORED = ['**/node_modules/**', '**/app/**'];
 
-function config(mode: string): PlaywrightTestConfig {
+function served(mode: string): PlaywrightTestConfig {
 	if (mode === 'static')
 		return suite({
 			port: 3064,
 			serve: app,
 			env: { IMAGE_E2E_STATIC: '1' },
 			command: `node ${build} && node ${serve_static} build/static ${port(3064)}`
+		});
+	if (mode === 'base')
+		return suite({
+			port: 3065,
+			serve: app,
+			ready: '/base/',
+			env: { IMAGE_E2E_STATIC: '1', IMAGE_E2E_BASE: '/base' },
+			command: `node ${build} && node ${serve_static} build/static ${port(3065)} /base`
 		});
 	if (mode === 'dev')
 		return suite({
@@ -28,6 +38,14 @@ function config(mode: string): PlaywrightTestConfig {
 			command: `node node_modules/vite/bin/vite.js dev --port ${port(3063)} --strictPort`
 		});
 	return suite({ port: 3062, serve: app });
+}
+
+function config(mode: string): PlaywrightTestConfig {
+	const base = mode === 'base';
+	return {
+		...served(mode),
+		testIgnore: [...IGNORED, base ? '**/image.spec.ts' : '**/base.spec.ts']
+	};
 }
 
 export default config(process.env.IMAGE_E2E_MODE ?? 'node');

@@ -2,12 +2,16 @@
 // `<path>/index.html`), the type comes from the extension, and nothing else answers. No Kit, no
 // ogygia, no image endpoint: what the prerender did not write is a 404.
 //
-//   node e2e/serve-static.ts <dir> <port>
+//   node e2e/serve-static.ts <dir> <port> [base]   (base: the app's paths.base, `/base`)
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 
-const [dir, port] = [path.resolve(process.argv[2]!), Number(process.argv[3])];
+const [dir, port, base] = [
+	path.resolve(process.argv[2]!),
+	Number(process.argv[3]),
+	process.argv[4] ?? ''
+];
 const TYPES: Readonly<Record<string, string>> = {
 	'.html': 'text/html; charset=utf-8',
 	'.js': 'text/javascript',
@@ -38,7 +42,11 @@ function file_of(pathname: string): string | null {
 
 http
 	.createServer((req, res) => {
-		const file = file_of(new URL(req.url ?? '/', 'http://x').pathname);
+		const pathname = new URL(req.url ?? '/', 'http://x').pathname;
+		const file =
+			pathname === base || pathname.startsWith(`${base}/`)
+				? file_of(pathname.slice(base.length) || '/')
+				: null;
 		if (!file) {
 			res.writeHead(404).end('not found');
 			return;

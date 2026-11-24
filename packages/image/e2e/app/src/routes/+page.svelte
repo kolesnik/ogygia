@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Img, layOut } from '@ogygia/image';
 	import Counter from '$lib/islands/Counter.svelte' with { wake: 'load' };
 
@@ -16,10 +17,10 @@
 
 <h1>images</h1>
 <nav>
-	<a href="/blog/first-post" id="to-post">The first post</a>
-	<a href="/blog/second-post">The second post</a>
-	<a href="/blog/third-post">The third post</a>
-	<a href="/island">An island's priority image</a>
+	<a href={resolve('/blog/[slug]', { slug: 'first-post' })} id="to-post">The first post</a>
+	<a href={resolve('/blog/[slug]', { slug: 'second-post' })}>The second post</a>
+	<a href={resolve('/blog/[slug]', { slug: 'third-post' })}>The third post</a>
+	<a href={resolve('/island')}>An island's priority image</a>
 </nav>
 <Counter />
 <Img of={hero} preset="cover" alt="Hills at dusk" id="hero" />
