@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Img } from '@ogygia/image';
+	import Counter from '$lib/islands/Counter.svelte' with { wake: 'load' };
 
 	const hero = import.meta.og.image('../lib/images/hero.jpg');
 	const portrait = import.meta.og.image('../lib/images/portrait.jpg');
@@ -11,6 +12,8 @@
 </script>
 
 <h1>images</h1>
+<a href="/blog/first-post" id="to-post">The first post</a>
+<Counter />
 <Img of={hero} layout="fullWidth" priority alt="Hills at dusk" id="hero" />
 <p><Img of={avatar} layout="fixed" width={48} alt="An avatar" id="avatar" /></p>
 <div class="spacer"></div>

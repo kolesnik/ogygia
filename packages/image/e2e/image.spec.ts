@@ -209,3 +209,50 @@ test.describe('markdown images (/blog/[slug])', () => {
 			await every_image_loads(page);
 		});
 });
+
+test.describe('with the runtime', () => {
+	test('an <Img> inside a hydrated island renders the same, loads, and the island still works', async ({
+		page
+	}) => {
+		const errors: string[] = [];
+		page.on('pageerror', (e) => errors.push(e.message));
+		page.on('console', (m) => {
+			if (m.type() === 'error') errors.push(m.text());
+		});
+		await page.goto('/');
+		const img = page.locator('#island-img');
+		const before = await attrs(img);
+		expect(before.srcset).toMatch(/\.webp 1x/);
+		const button = page.locator('#island-count');
+		await expect(async () => {
+			await button.click();
+			await expect(button).not.toHaveText('0', { timeout: 200 });
+		}).toPass();
+		expect(await attrs(img)).toEqual(before);
+		await expect
+			.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
+			.toBe(true);
+		expect(errors).toEqual([]);
+	});
+
+	test("a client-side navigation swaps the head's preload for the new page's priority image", async ({
+		page
+	}) => {
+		await page.goto('/');
+		const preload = page.locator('head link[rel="preload"][as="image"]');
+		await expect(preload).toHaveCount(1);
+		const home = await preload.getAttribute('imagesrcset');
+		await page.evaluate(() => ((window as { __same_page?: boolean }).__same_page = true));
+		await page.locator('#to-post').click();
+		await expect(page.locator('#cover')).toBeVisible();
+		expect(await page.evaluate(() => (window as { __same_page?: boolean }).__same_page)).toBe(true);
+		await expect(preload).toHaveCount(1);
+		const post = await preload.getAttribute('imagesrcset');
+		expect(post).not.toBe(home);
+		expect(post).toBe((await attrs(page.locator('#cover'))).avif);
+		const cover = page.locator('#cover');
+		await expect
+			.poll(() => cover.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
+			.toBe(true);
+	});
+});
