@@ -29,10 +29,14 @@ export interface MacroContext {
 	watch: (file: string) => void;
 }
 
+/** What a macro answers: the new code (the same string when nothing changed), or the edits that make
+ *  it, which keep the module's source map. */
+export type MacroResult = string | readonly Edit[];
+
 /** A plugin's `import.meta.og.<name>` macro (registered with `b.macro`). */
 export interface PluginMacro {
 	name: string;
-	handler: (code: string, m: MacroContext) => string | Promise<string>;
+	handler: (code: string, m: MacroContext) => MacroResult | Promise<MacroResult>;
 }
 
 const EXPORT_CONST_RE = /export\s+const/;
@@ -149,7 +153,8 @@ export async function run_module_macros(
 				profiler.prof.macroMs += performance.now() - started;
 				profiler.prof.macroN++;
 			}
-			if (rewritten !== out) {
+			if (typeof rewritten !== 'string') apply(rewritten);
+			else if (rewritten !== out) {
 				out = rewritten;
 				touched = true;
 				maps.push(null);

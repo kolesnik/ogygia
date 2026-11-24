@@ -60,6 +60,7 @@ export type {
 	BuildContext,
 	MacroHandler,
 	MacroContext,
+	MacroResult,
 	PrescanHook,
 	MarkupSource,
 	MarkupRegions,

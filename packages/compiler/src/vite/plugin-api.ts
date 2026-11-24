@@ -14,7 +14,7 @@ import {
 import { OgygiaError } from '../messages.ts';
 import type { Definers } from './definers.ts';
 import { parse_module, type AstNode } from '../parse/oxc.ts';
-import type { MacroContext } from '../macros/pipeline.ts';
+import type { MacroContext, MacroResult } from '../macros/pipeline.ts';
 import type { PrescanHook } from '../ctx.ts';
 
 /** Where `definePlugin` puts the definition on the Vite plugin it returns. A registered symbol, so a
@@ -51,10 +51,11 @@ export interface PluginDefinition<Options = unknown> {
 
 /** A `import.meta.og.<name>` macro: rewrites a module that contains the marker (it is called only
  *  then), before the island transform or region minting see it. Returns the new code (the same
- *  string when nothing changed). */
-export type MacroHandler = (code: string, m: MacroContext) => string | Promise<string>;
+ *  string when nothing changed), or the edits that make it: edits keep the module's source map, a
+ *  string loses it. */
+export type MacroHandler = (code: string, m: MacroContext) => MacroResult | Promise<MacroResult>;
 
-export type { MacroContext, PrescanHook };
+export type { MacroContext, MacroResult, PrescanHook };
 
 /** A source format that becomes Svelte only through a preprocessor (markdown → Svelte): how its
  *  islands and its modules' CSS reach the build. */
