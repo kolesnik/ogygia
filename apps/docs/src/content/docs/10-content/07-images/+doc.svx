@@ -84,7 +84,7 @@ The encoder is [sharp](https://sharp.pixelplumbing.com), installed with the pack
 
 The arguments must be written out in place: a string path and an object of plain values. The build reads them before any code runs, so a variable or a `${…}` in the path is a build error (`image_macro_not_literal`). A path that does not exist fails the build too (`image_not_found`). Call the macro in the component's `<script>`, not in its markup.
 
-The file must sit under `src/` (`image_outside_src`): the endpoint reads the original with Kit's `read()`, and the plugin makes every image under `src/` one of the server's assets so it can.
+The file must sit under `src/`, outside `src/lib/server/` and test files (`image_outside_src`): the endpoint reads the original with Kit's `read()`, and the plugin makes every other image under `src/` one of the server's assets so it can.
 
 For many images at once, `import.meta.og.image.glob(pattern)` returns every match, keyed by path:
 
@@ -151,8 +151,8 @@ With `morph` on a thumbnail and on the post hero of the same source, a client-si
 
 ```html
 <picture>
-  <source type="image/avif" srcset="/__ogygia__/image/3f9a…/Xk2j-640x360/_app/immutable/assets/hero.Bx1.jpg.avif 640w, …" sizes="100vw" />
-  <img src="/__ogygia__/image/7c1e…/Xk2j-1280x720/_app/immutable/assets/hero.Bx1.jpg.webp" srcset="…webp 640w, …"
+  <source type="image/avif" srcset="/__ogygia__/i/3f9a…/Xk2j-640x360/_app/immutable/assets/hero.Bx1.jpg.avif 640w, …" sizes="100vw" />
+  <img src="/__ogygia__/i/7c1e…/Xk2j-1280x720/_app/immutable/assets/hero.Bx1.jpg.webp" srcset="…webp 640w, …"
        sizes="100vw" width="1600" height="900" alt="The harbor at dusk" loading="lazy" decoding="async"
        data-og-img="fullWidth" style="background-image:url(data:image/webp;base64,…);aspect-ratio:1600/900" />
 </picture>
@@ -162,13 +162,17 @@ The layout's own CSS is a zero-specificity rule on `data-og-img`, so any class o
 
 ## The image endpoint
 
-Each file URL is a recipe: the source, the width and height, the format, and any crop or quality, all in the URL's path. The server signs it with the app's key (the same key that signs ogygia's regions: `handle({ secret })` or `OGYGIA_SECRET`), so nobody can ask the endpoint for a size no page asked for. A changed or unsigned URL is refused with a 403, and the placeholder stays painted.
+Each file URL is a recipe: the source, the width and height, the format, and any crop or quality, all in the URL's path. The server signs it with the app's key (the same key that signs ogygia's regions: `handle({ secret })` or `OGYGIA_SECRET`), so nobody can ask the endpoint for a size no page asked for. A changed or unsigned URL is refused with a 403 that says why (`x-ogygia-deny: sig`) and names the key it checked with (`x-ogygia-key`, its fingerprint), and the placeholder stays painted.
 
-The endpoint makes the file the first time it is asked for, keeps it on disk, and sends it with `cache-control: public, max-age=31536000, immutable`. The URL names the source's content hash, so a changed image gets new URLs and a CDN can keep the old ones forever.
+The endpoint makes the file the first time it is asked for, keeps it on disk, and sends it with `cache-control: public, max-age=31536000, immutable`. In dev and during a build the files are kept in the build cache (`node_modules/.ogygia`), so a CI run that keeps that folder makes nothing twice. A live server keeps them in a folder under the system's temporary folder that only its user can open (`image_store_unsafe` when another user's folder, or a link, sits there). The URL names the source's content hash, so a changed image gets new URLs and a CDN can keep the old ones forever.
 
 - **In dev**, the browser asks and the dev server makes each file. Repeats are a file read.
-- **In a prerender**, Kit's crawler follows every `src` and `srcset` a page names and saves each answer as a file beside the page. A site built with `adapter-static` has every image file it uses, and serves them with no server at all.
-- **On a live server**, a visitor's first request makes the file; a CDN in front keeps it after that.
+- **In a prerender**, each file a page names starts the moment the page renders, several side by side. Kit's crawler follows every `src` and `srcset` and saves each answer as a file beside the page; when the prerender ends, the build writes every other file a page named (a `layOut()` CSS background, or all of them with `prerender.crawl: false`). A site built with `adapter-static` has every image file it uses, and serves them with no server at all. A file that cannot be made fails the build (`image_unsettled`).
+- **On a live server**, a visitor's first request makes the file; a CDN in front keeps it after that. To have a server-rendered page's files ready before anyone asks, warm its preset (below).
+
+The file URLs live under `/__ogygia__/i/` at the app's base. Kit answers a missing file under its own `appDir` (`/_app/…`) with a 404 before any hook runs, so the endpoint cannot sit there; files the build made ahead (warmed presets) do, as static files.
+
+The encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter warns (`image_adapter_no_encoder`). Prerendered pages and warmed presets work there anyway: their files are static.
 
 Without `OGYGIA_SECRET`, each build signs with its own random key, so a new build has new image URLs (its pages are new too). Set the secret to keep URLs across deploys.
 
@@ -193,11 +197,12 @@ The plugin's options:
 
 A source's own options, in the macro's second argument, belong to the file whatever page shows it:
 
-| Option        | Default | What it does                                                 |
-| ------------- | ------- | ------------------------------------------------------------ |
-| `quality`     | plugin  | Encoder quality for every file made from this source.        |
-| `placeholder` | plugin  | Make the blur placeholder.                                   |
-| `ops`         | none    | Pixel operations, applied before any resize or crop (below). |
+| Option        | Default | What it does                                                          |
+| ------------- | ------- | --------------------------------------------------------------------- |
+| `quality`     | plugin  | Encoder quality for every file made from this source.                 |
+| `placeholder` | plugin  | Make the blur placeholder.                                            |
+| `ops`         | none    | Pixel operations, applied before any resize or crop (below).          |
+| `warm`        | none    | A preset name, or a list: make those presets' files at build (below). |
 
 An unknown option or a wrong value fails the build with the key it did not expect (`image_option_unknown`, `image_option_invalid`), so a typo never goes unnoticed.
 
@@ -206,6 +211,17 @@ An unknown option or a wrong value fails the build with the key it did not expec
 ```ts
 const team = import.meta.og.image('./team.jpg', { quality: 70, ops: { grayscale: true } });
 ```
+
+## Warm presets
+
+A prerendered page needs nothing more: rendering it at build asks for every file it shows. A page rendered on a live server asks on its first visit, and that visitor waits while the files are made. `warm` makes a preset's files at build instead:
+
+```ts
+const hero = import.meta.og.image('./hero.jpg', { warm: 'cover' });
+const team = import.meta.og.image('./team.jpg', { warm: ['cover', 'thumb'] });
+```
+
+The build writes those files as static files under Kit's `_app/immutable/og/`, which every adapter and static host serves as files kept forever, and `<Img of={hero} preset="cover">` names them directly, on the server and in an island alike. Saying something over the preset (`<Img of={hero} preset="cover" width={300}>`) asks for other files, which the endpoint makes as usual. A name the config does not declare fails the build (`image_warm_unknown`). In dev every file comes from the endpoint.
 
 ## Markdown images
 

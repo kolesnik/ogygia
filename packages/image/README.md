@@ -37,4 +37,4 @@ export default defineConfig({
 <Img of={hero} preset="thumb" alt="" />
 ```
 
-Each file is a signed URL under `/__ogygia__/image/`: a tampered one is refused. Crops are real files, animated GIFs become animated WebP, SVGs are served as they are, and `<Img>` renders server HTML with no client script and no inline event handler. With `@ogygia/content`, markdown images and `./` frontmatter covers work the same way. Images live under `src/`. See the [docs](https://ogygiajs.dev/docs/content/images).
+Each file is a signed URL under `/__ogygia__/i/`: a tampered one is refused. A page rendered on a live server can have its files made at build: `import.meta.og.image('./hero.jpg', { warm: 'cover' })` writes the `cover` preset's files as static files. Crops are real files, animated GIFs become animated WebP, SVGs are served as they are, and `<Img>` renders server HTML with no client script and no inline event handler. With `@ogygia/content`, markdown images and `./` frontmatter covers work the same way. Images live under `src/`. See the [docs](https://ogygiajs.dev/docs/content/images).
