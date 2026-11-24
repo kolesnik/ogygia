@@ -278,7 +278,14 @@ export async function plan_image(
     for (const width of widths)
       variants.push({ width, format, name: `${base}-${width}.${EXT[format]}` });
   const ph = settings.placeholder
-    ? await limited(() => placeholder_of(bytes, settings.ops, size))
+    ? await limited(() => placeholder_of(bytes, settings.ops, size)).catch(
+        (e: unknown) => {
+          throw new OgygiaError("image_decode_failed", {
+            file,
+            reason: (e as Error).message,
+          });
+        },
+      )
     : undefined;
   const plan: Plan = {
     id,
@@ -339,7 +346,12 @@ const writes = flights.keyed<{
             compressionLevel: 9,
             ...(q !== undefined ? { quality: q } : {}),
           });
-        data = await img.toBuffer();
+        data = await img.toBuffer().catch((e: unknown) => {
+          throw new OgygiaError("image_decode_failed", {
+            file,
+            reason: (e as Error).message,
+          });
+        });
       }
       fs.mkdirSync(path.dirname(out), { recursive: true });
       // written beside, then renamed: a reader never sees half a file
@@ -361,8 +373,9 @@ export async function write_variant(
   if (fs.existsSync(out)) return out;
   const done = await writes.get({ out, file, plan, variant, settings });
   if (done === STALE)
-    throw new Error(
-      `the encode of ${variant.name} was dropped before it finished`,
-    );
+    throw new OgygiaError("image_encode_dropped", {
+      file,
+      variant: variant.name,
+    });
   return done;
 }

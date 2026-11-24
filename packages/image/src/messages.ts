@@ -30,6 +30,18 @@ export const IMAGE_ERRORS = {
 			choose among the results.
 		`
 	},
+	image_macro_in_markup: {
+		text: (a: { file: string }): string => prose`
+			${a.file}: import.meta.og.image() is called in the template. Call it in the component's
+			<script> and use the result in the markup.
+		`,
+		details: (): string => prose`
+			The build reads image calls from a component's script. A call in the markup would be left
+			as it is and fail when the page renders, so the build stops here instead:
+			\`const hero = import.meta.og.image('./hero.jpg');\` in the script, then
+			\`<Img of={hero} alt="…" />\`.
+		`
+	},
 	image_remote_unsupported: {
 		text: (a: { file: string; src: string }): string => prose`
 			${a.file}: import.meta.og.image('${a.src}') — remote images are not supported yet. Download the
@@ -88,6 +100,14 @@ export const IMAGE_ERRORS = {
 			`${a.where}: image option '${a.key}' must be ${a.rule}.`,
 		details: (): string => prose`
 			The option has a value the encoder cannot use. The message names the rule it breaks.
+		`
+	},
+	image_encode_dropped: {
+		text: (a: { file: string; variant: string }): string =>
+			`${a.file}: the encode of ${a.variant} was dropped before it finished.`,
+		details: (): string => prose`
+			The encode of one image file was given up while it ran (its build or dev server was closing).
+			Run the build again; if it repeats, report it with the file.
 		`
 	},
 	image_decode_failed: {

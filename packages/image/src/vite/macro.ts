@@ -10,7 +10,13 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { og_js_regions, og_member, parse_module, type AstNode } from '@ogygia/compiler';
+import {
+	find_og_calls,
+	og_js_regions,
+	og_member,
+	parse_module,
+	type AstNode
+} from '@ogygia/compiler';
 import { OgygiaError } from '../messages.ts';
 import { check_image_options, type ImageOptions } from './options.ts';
 
@@ -188,6 +194,20 @@ function find_calls(src: string, id: string, markup_exts: readonly string[]): Ca
 	return calls;
 }
 
+/** Fail on an image call in a component's markup: only its scripts are read, so `calls` (found there)
+ *  must hold every call the source makes. */
+function refuse_markup_calls(src: string, id: string, calls: readonly Call[]): void {
+	const found = [
+		...find_og_calls(src, 'import.meta.og.').filter((c) => c.method === 'image'),
+		...find_og_calls(src, `${MARKER}.`).filter((c) => c.method === 'glob')
+	];
+	for (const c of found)
+		if (!calls.some((k) => k.start === c.start))
+			throw new OgygiaError('image_macro_in_markup', {
+				file: `${path.basename(id)}:${line_of(src, c.start)}`
+			});
+}
+
 /** Rewrite every image call in `src` (module `id`). Returns `src` itself when there is none. */
 export function rewrite_image_calls(
 	src: string,
@@ -196,6 +216,7 @@ export function rewrite_image_calls(
 ): string {
 	if (!src.includes(MARKER)) return src;
 	const calls = find_calls(src, id, markup_exts);
+	if (markup_exts.some((x) => id.endsWith(x))) refuse_markup_calls(src, id, calls);
 	if (!calls.length) return src;
 	const dir = path.dirname(id);
 	const rel = path.basename(id);

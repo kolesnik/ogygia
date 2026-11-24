@@ -36,6 +36,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const opts = check_plugin_options(options);
 	let config: ResolvedConfig | undefined;
 	const dev = new Map<string, DevEntry>();
+	const dev_keys = new Map<string, readonly string[]>();
 	install_markdown_bridge(opts);
 
 	const ogygia: OgygiaPlugin = definePlugin({
@@ -73,11 +74,18 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			};
 			const head = JSON.stringify(descriptor).slice(0, -1);
 			if (config?.command === 'serve') {
+				const old = dev_keys.get(id) ?? [];
+				dev_keys.delete(id);
+				for (const key of old)
+					if (![...dev_keys.values()].some((keys) => keys.includes(key))) dev.delete(key);
+				const keys: string[] = [];
 				const variants = plan.variants.map((v) => {
 					const key = `${plan.id}/${v.name}`;
+					keys.push(key);
 					dev.set(key, { file, plan, settings });
 					return { src: `${base()}${DEV_PREFIX}${key}`, format: v.format, width: v.width };
 				});
+				dev_keys.set(id, keys);
 				return `export default ${head},"variants":${JSON.stringify(variants)}};\n`;
 			}
 			const paths = await Promise.all(
@@ -96,7 +104,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 				const url = req.url ?? '';
 				const at = url.indexOf(`/${DEV_PREFIX}`);
 				if (at === -1) return next();
-				const key = decodeURIComponent(url.slice(at + DEV_PREFIX.length + 1).split('?')[0]!);
+				const key = url.slice(at + DEV_PREFIX.length + 1).split('?')[0]!;
 				const entry = dev.get(key);
 				const variant = entry?.plan.variants.find((v) => `${entry.plan.id}/${v.name}` === key);
 				if (!entry || !variant) {
@@ -106,10 +114,18 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 				}
 				write_variant(entry.file, entry.plan, variant, entry.settings).then(
 					(out) => {
-						res.setHeader('content-type', mime_of(variant.format));
-						// the path holds the content hash: a change is a new URL
-						res.setHeader('cache-control', 'public, max-age=31536000, immutable');
-						fs.createReadStream(out).pipe(res);
+						const file = fs.createReadStream(out);
+						res.once('close', () => file.destroy());
+						file.once('open', () => {
+							res.setHeader('content-type', mime_of(variant.format));
+							// the path holds the content hash: a change is a new URL
+							res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+							file.pipe(res);
+						});
+						file.once('error', (e) => {
+							if (res.headersSent) res.destroy(e);
+							else next(e);
+						});
 					},
 					(e: unknown) => next(e)
 				);
