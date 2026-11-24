@@ -50,14 +50,14 @@ export interface ImagePluginOptions {
 	formats?: OutputFormat[];
 	placeholder?: boolean;
 	/** The width ladder a responsive image is written at (capped at the image's own width). Default
-	 *  `[640, 960, 1280, 1600, 2048]`. */
+	 *  `[320, 480, 640, 960, 1280, 1600, 2048]`. */
 	breakpoints?: number[];
 	/** Markdown images (with `@ogygia/content`): `width` is the prose column's width, in CSS pixels;
 	 *  `false` leaves markdown images as plain `<img>`. Default `{}` (each image as wide as itself). */
 	markdown?: { width?: number } | false;
 }
 
-export const DEFAULT_BREAKPOINTS: readonly number[] = [640, 960, 1280, 1600, 2048];
+export const DEFAULT_BREAKPOINTS: readonly number[] = [320, 480, 640, 960, 1280, 1600, 2048];
 export const DEFAULT_FORMATS: readonly OutputFormat[] = ['avif', 'webp'];
 
 const OUTPUT_FORMATS: ReadonlySet<string> = new Set(['avif', 'webp', 'png', 'jpeg']);
