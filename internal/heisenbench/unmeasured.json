@@ -7175,6 +7175,26 @@
 		{
 			"id": "packages/image/src/vite/markdown.ts > shipped_code",
 			"reason": "reads the package's own files once per process to key content's markdown cache; packages/image/test/markdown-cache-key.test.ts runs it"
+		},
+		{
+			"id": "packages/content/src/markdown/index.ts > ogygiaPreprocess > doc_sig > map:0~16553b",
+			"reason": "one markdown extension's name and cache key joined into the document key, once per extension per markdown compile, constant work; packages/content/test/markdown-extensions.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/macro.ts > refuse_markup_calls > filter:0~3e5092",
+			"reason": "build only: one method-name compare per og call in a component that calls the image macro, inside the measured macro pass; packages/image/test/macro.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/macro.ts > refuse_markup_calls > filter:0~abed74",
+			"reason": "build only: one method-name compare per og.image.* call in a component, inside the measured macro pass; packages/image/test/macro.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/macro.ts > refuse_markup_calls > some:0~185308",
+			"reason": "build only: one offset compare per script call, per call found in a component, inside the measured macro pass; packages/image/test/macro.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > invalid",
+			"reason": "error path: builds the coded error for one bad option value, once, when the build fails"
 		}
 	]
 }

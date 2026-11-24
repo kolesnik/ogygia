@@ -11,6 +11,8 @@
  *   is encoded up front: the variants point at `/@og-image/…`, encoded on first request.
  * - With `@ogygia/content`, markdown images and frontmatter image paths become descriptors too
  *   (./markdown.ts).
+ *
+ * @packageDocumentation
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,7 +30,6 @@ export type { ImageOps, ImageOptions, ImagePluginOptions, OutputFormat } from '.
 const QUERY_RE = new RegExp(`[?&]${QUERY}(?:=|&|$)`);
 const DEV_PREFIX = '@og-image/';
 
-/** A dev variant: what the dev route encodes when its URL is asked for. */
 type DevEntry = { file: string; plan: Plan; settings: Settings };
 
 /** The image plugin. */
@@ -122,7 +123,6 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 						res.once('close', () => file.destroy());
 						file.once('open', () => {
 							res.setHeader('content-type', mime_of(variant.format));
-							// the path holds the content hash: a change is a new URL
 							res.setHeader('cache-control', 'public, max-age=31536000, immutable');
 							file.pipe(res);
 						});

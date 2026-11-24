@@ -1,6 +1,8 @@
 /**
  * The options: the plugin's defaults (`image({ … })`) and one image's own (`import.meta.og.image(src,
  * { … })`). Both are plain JSON, checked here, so a typo fails the build instead of being ignored.
+ *
+ * @packageDocumentation
  */
 import { OgygiaError } from '../messages.ts';
 

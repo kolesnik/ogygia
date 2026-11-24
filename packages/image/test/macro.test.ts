@@ -157,7 +157,10 @@ describe('the image macro in dev', () => {
 	});
 
 	test('the macro answers with edits, so a module that uses it keeps its source map', async () => {
-		const src = `const hero = import.meta.og.image('./hero.jpg');\nexport { hero };\n`;
+		const src = `${dedent`
+			const hero = import.meta.og.image('./hero.jpg');
+			export { hero };
+		`}\n`;
 		const edits = (await handler()(src, {
 			id: mod(),
 			rel: 'page.ts',

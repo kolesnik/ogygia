@@ -5,10 +5,12 @@ import { parse_module, type AstNode } from '../src/parse/oxc.ts';
 import { line_of, literal_of, NOT_LITERAL, walk_ast } from '../src/parse/ast.ts';
 
 function module_source(calls: number): string {
-	let src = `import { x } from './x';\n`;
+	const lines = [`import { x } from './x';`];
 	for (let i = 0; i < calls; i++)
-		src += `export const v${i} = call('./a-${i}.jpg', { quality: ${i % 100}, ops: { aspect: 16 / 9, flip: ${i % 2 === 0} }, list: [1, -2, \`t\`] } as const);\n`;
-	return src;
+		lines.push(
+			`export const v${i} = call('./a-${i}.jpg', { quality: ${i % 100}, ops: { aspect: 16 / 9, flip: ${i % 2 === 0} }, list: [1, -2, \`t\`] } as const);`
+		);
+	return `${lines.join('\n')}\n`;
 }
 
 bench(

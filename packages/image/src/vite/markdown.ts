@@ -7,6 +7,8 @@
  * plugin, and its markdown preprocessor runs `rehype` inside mdsvex and `finish` on mdsvex's output.
  * With no image plugin listed (or `markdown: false`) nothing is offered, and markdown images stay
  * plain `<img>`.
+ *
+ * @packageDocumentation
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -54,18 +56,14 @@ const IMPORTS_RE = /<!--og-image:([A-Za-z0-9_-]*)-->/;
 const METADATA_RE = /export const metadata = (\{.*?\});(?=\s*(?:\n|<\/script>|$))/s;
 const COMPONENT = 'Og__Img';
 
-/** Is `src` a path to an image beside the file (not a URL, not a site-absolute path)? */
 function is_local_image(src: string): boolean {
 	return IMAGE_EXT_RE.test(src.split(/[?#]/)[0]!) && !NOT_LOCAL_RE.test(src);
 }
 
-/** Is a frontmatter value a path to an image beside the file? Only an explicit `./` or `../` says so:
- *  `images/share.png` or `diagram.png` may name something else, so they stay strings. */
 function is_frontmatter_image(value: string): boolean {
 	return (value.startsWith('./') || value.startsWith('../')) && IMAGE_EXT_RE.test(value);
 }
 
-/** Escape a value for a Svelte attribute in quotes: no expression braces, no closing quote. */
 function attr(value: string): string {
 	return value
 		.replace(/&/g, '&amp;')
@@ -75,7 +73,6 @@ function attr(value: string): string {
 		.replace(/</g, '&lt;');
 }
 
-/** A markdown image's URL → the file path it names: `./my%20photo.jpg` → `./my photo.jpg`. */
 function path_of_url(filename: string, src: string): string {
 	const bare = src.split(/[?#]/)[0]!;
 	try {
@@ -85,7 +82,6 @@ function path_of_url(filename: string, src: string): string {
 	}
 }
 
-/** `rel` (a file path, never a URL) as an import specifier relative to `filename`, which must exist. */
 function local_specifier(filename: string, rel: string, shown: string): string {
 	if (!path.isAbsolute(filename)) throw new OgygiaError('image_markdown_no_file', { src: shown });
 	if (!fs.existsSync(path.resolve(path.dirname(filename), rel)))
@@ -93,7 +89,6 @@ function local_specifier(filename: string, rel: string, shown: string): string {
 	return rel.startsWith('.') ? rel : `./${rel}`;
 }
 
-/** Fail on an HTML `<img>` in markdown that names a local image: it would ship as a broken link. */
 function refuse_html_images(filename: string, html: string): void {
 	if (!/<img/i.test(html)) return;
 	for (let tag = next_any_tag(html, 0); tag !== null; tag = next_any_tag(html, tag.next)) {
@@ -106,8 +101,6 @@ function refuse_html_images(filename: string, html: string): void {
 
 let code_hash: string | undefined;
 
-/** A hash of this package's shipped code (`src` in the workspace, `dist` when installed): what
- *  content's markdown output depends on besides the options. Read once. */
 function shipped_code(): string {
 	if (code_hash !== undefined) return code_hash;
 	let top = path.dirname(fileURLToPath(import.meta.url));

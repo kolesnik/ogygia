@@ -4,6 +4,8 @@
  *   throw new OgygiaError('image_not_found', { file, src });
  *
  * The plugin runs in Node, never in a page, so the wording always prints, then the code's page.
+ *
+ * @packageDocumentation
  */
 import { define_messages, prose, type MessagesOf } from '@ogygia/core/internal/messages';
 

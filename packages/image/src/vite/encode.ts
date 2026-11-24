@@ -3,6 +3,8 @@
  * each variant's bytes. sharp does the pixels. Everything is content-addressed: the plan is kept in the
  * build cache by the image's id (its bytes, its options, the encoder's version), and each encoded file
  * is kept beside it, so a warm build or a dev restart encodes nothing it already has.
+ *
+ * @packageDocumentation
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -25,7 +27,7 @@ import {
 } from './options.ts';
 
 /** Bump when the encoder's output changes for the same input: every cached image is made again. */
-const ENCODER_VERSION = 2;
+export const ENCODER_VERSION = 2;
 
 /** One file the plan writes. */
 export interface PlannedVariant {
@@ -89,7 +91,6 @@ const EXT: Readonly<Record<ImageFormat, string>> = {
 	svg: 'svg'
 };
 
-/** A file's base name, safe for a URL: `My Photo.JPG` → `my-photo`. */
 function base_of(file: string): string {
 	const base = path.basename(file).replace(/\.[^.]+$/, '');
 	return (
@@ -109,7 +110,6 @@ function digest(parts: readonly (string | Uint8Array)[]): string {
 	return h.digest('base64url').slice(0, 16);
 }
 
-/** At most this many encodes run at once: each holds a decoded image in memory. */
 const MAX_ENCODES = Math.max(2, Math.min(8, Math.floor(os.availableParallelism() / 2)));
 
 type Job = { run: () => Promise<void> };
@@ -122,14 +122,12 @@ const encodes = queue<Job>({
 	}
 });
 
-/** Run `work` when a place is free. */
 function limited<T>(work: () => Promise<T>): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
 		encodes.push({ run: () => work().then(resolve, reject) });
 	});
 }
 
-/** The size after orientation and the operations that change it. */
 function shaped(
 	meta: Metadata,
 	ops: ImageOps,
@@ -137,7 +135,7 @@ function shaped(
 ): { width: number; height: number } {
 	let w = meta.width;
 	let h = animated && meta.pageHeight ? meta.pageHeight : meta.height;
-	// EXIF orientations 5–8 turn the picture a quarter: its stored width is its shown height
+	// @why EXIF orientations 5–8 store the picture turned a quarter, so its stored width is its shown height (test: packages/image/test/encode.test.ts › EXIF orientation is applied: a portrait stored sideways reports its shown size)
 	if ((meta.orientation ?? 1) >= 5) [w, h] = [h, w];
 	if (ops.rotate && Math.abs(ops.rotate) % 180 === 90) [w, h] = [h, w];
 	const aspect = parse_aspect(ops.aspect);
@@ -148,7 +146,6 @@ function shaped(
 	return { width: w, height: h };
 }
 
-/** The pipeline for one output: orientation, the operations, then the resize. */
 function pipeline(
 	bytes: Uint8Array,
 	ops: ImageOps,
@@ -181,10 +178,8 @@ function pipeline(
 	});
 }
 
-/** How wide the placeholder is, in pixels: the browser scales it up, smoothly, to the image's box. */
 const PLACEHOLDER_WIDTH = 16;
 
-/** The placeholder of an opaque image: a tiny WebP as a data URL. Undefined for a transparent one. */
 async function placeholder_of(
 	bytes: Uint8Array,
 	ops: ImageOps,
@@ -286,7 +281,6 @@ export async function plan_image(file: string, settings: Settings): Promise<Plan
 	return plan;
 }
 
-/** One encode per variant file at a time: callers of the same file share it. */
 const writes = flights.keyed<{
 	out: string;
 	file: string;
@@ -333,7 +327,6 @@ const writes = flights.keyed<{
 				});
 			}
 			fs.mkdirSync(path.dirname(out), { recursive: true });
-			// written beside, then renamed: a reader never sees half a file
 			const tmp = `${out}.${process.pid}.tmp`;
 			fs.writeFileSync(tmp, data);
 			fs.renameSync(tmp, out);

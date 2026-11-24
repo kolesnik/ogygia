@@ -2,6 +2,8 @@
  * The image descriptor: what a page holds for one image. Plain data (JSON-safe), so it crosses island
  * props, rides `refs()`, sits in frontmatter and is written into a module as a literal. The pixels are
  * the files its `variants` name; the browser pays for those by URL.
+ *
+ * @packageDocumentation
  */
 
 /** An encoded format a variant is written in. `svg` and `gif` are passed through, never re-encoded

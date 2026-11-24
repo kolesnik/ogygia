@@ -4,6 +4,8 @@
  * `api.ogygiaMarkdown`; `content()` reads the resolved plugin list and holds each offer in the
  * bridge, owned by that config, so a config that stops listing the plugin (or offers nothing) drops
  * it, and the preprocessor reads the live set on every compile.
+ *
+ * @packageDocumentation
  */
 import { scope } from '@ogygia/machine';
 import { bridge } from '../bridge.ts';

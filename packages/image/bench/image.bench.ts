@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { bench } from '@bench/heisenbench/bench';
+import { dedent } from '@ogygia/core/contract';
 import { isImage, type ImageDescriptor, type ImageFormat } from '../src/descriptor.ts';
 import { lay_out, mime_of, type ImageLayout } from '../src/layout.ts';
 import { placeholder_style } from '../src/placeholder.ts';
@@ -47,7 +48,11 @@ function descriptor(i: number): ImageDescriptor {
 		height,
 		ph: 'data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADQAQCdASoQAAkAAUAmJaQAA3AA/v89WAAA',
 		variants: formats.flatMap((format) =>
-			widths.map((w) => ({ src: `/_app/immutable/assets/img-${i}-${w}.${format}`, format, width: w }))
+			widths.map((w) => ({
+				src: `/_app/immutable/assets/img-${i}-${w}.${format}`,
+				format,
+				width: w
+			}))
 		)
 	};
 }
@@ -114,7 +119,11 @@ function compiled(body: string): string {
 		tags: ['a', 'b'],
 		gallery: [{ src: './img-1.jpg' }, { src: 'not-an-image' }]
 	});
-	return `<script context="module">\n\texport const metadata = ${meta};\n</script>\n${body}`;
+	return `${dedent`
+		<script context="module">
+			export const metadata = ${meta};
+		</script>
+	`}\n${body}`;
 }
 
 bench(
@@ -129,7 +138,7 @@ bench(
 		};
 		walk(tree);
 		const done = ext.finish(compiled(body), post);
-		return done.code.length + done.lines.length;
+		return done.code.length + done.lines.length + ext.cache_key().length;
 	},
 	{
 		setup: () => {

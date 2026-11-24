@@ -1,7 +1,3 @@
-/**
- * Small readers over an oxc AST, for macros: visit every node, find the line of an offset, and read
- * the value an expression writes when it is written out in place.
- */
 import type { AstNode } from './oxc.ts';
 
 /** Calls `visit` on `node` and on every node below it, parents first, in source order. */

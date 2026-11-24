@@ -1,6 +1,8 @@
 /**
  * A placeholder → the CSS that paints it. The placeholder is a tiny image made at build and kept in
  * the descriptor as a data URL, so rendering it is string work: no decode, no client script.
+ *
+ * @packageDocumentation
  */
 
 /** The inline style that paints the placeholder `url` behind the image, or '' for none. */

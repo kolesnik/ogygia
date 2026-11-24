@@ -3,6 +3,8 @@
  * the page (`constrained`, `fullWidth`, `fixed`) and at most a display width; the srcset, `sizes`, the
  * width and height attributes and the preload come from that and the descriptor. Pure, so the
  * component, the markdown pipeline and the tests all read the same answer.
+ *
+ * @packageDocumentation
  */
 import type { ImageDescriptor, ImageFormat, ImageVariant } from './descriptor.ts';
 
@@ -49,7 +51,6 @@ export interface Laid {
 	preload: { type: string; srcset?: string; sizes?: string; href: string };
 }
 
-/** Best first: a browser takes the first `<source>` it can decode. */
 const FORMAT_RANK: Readonly<Record<ImageFormat, number>> = {
 	avif: 0,
 	webp: 1,
@@ -73,7 +74,6 @@ export function mime_of(format: ImageFormat): string {
 	return MIME[format];
 }
 
-/** Variants grouped by format, best format first, each group by width ascending. */
 function by_format(variants: readonly ImageVariant[]): ImageVariant[][] {
 	const groups = new Map<ImageFormat, ImageVariant[]>();
 	for (const v of variants) {
@@ -86,13 +86,11 @@ function by_format(variants: readonly ImageVariant[]): ImageVariant[][] {
 		.map(([, g]) => g.sort((a, b) => a.width - b.width));
 }
 
-/** The smallest variant at least `w` wide, else the widest there is. */
 function at_least(group: readonly ImageVariant[], w: number): ImageVariant {
 	for (const v of group) if (v.width >= w) return v;
 	return group[group.length - 1]!;
 }
 
-/** The candidates a layout offers from one format's variants. */
 function candidates(
 	group: readonly ImageVariant[],
 	layout: ImageLayout,
@@ -106,7 +104,6 @@ function candidates(
 	}
 	let picked: readonly ImageVariant[] = group;
 	if (layout === 'constrained') {
-		// every width under 2× the display width, and the first at or above it (a 2× screen's pick)
 		const cap = display * 2;
 		const under = group.filter((v) => v.width < cap);
 		const over = group.find((v) => v.width >= cap);
@@ -115,8 +112,6 @@ function candidates(
 	return picked.map((v) => `${v.src} ${v.width}w`).join(', ');
 }
 
-/** The `sizes` a layout derives: the drawn width in CSS pixels, `scale` times the box width (above 1
- *  only for a crop, whose image is drawn wider than its box). */
 function derived_sizes(
 	layout: ImageLayout,
 	width: number,
@@ -141,7 +136,6 @@ export function lay_out(image: ImageDescriptor, req: LayoutRequest = {}): Laid {
 	else if (req.width !== undefined) width = req.width;
 	else if (req.height !== undefined) width = Math.round(req.height / ratio);
 	else width = image.width;
-	// a constrained raster never shows wider than its pixels: it would only blur
 	if (layout === 'constrained' && !svg && !cover) width = Math.min(width, image.width);
 	const height = cover ? req.height! : Math.round(width * ratio);
 	const scale = cover ? Math.max(1, height / ratio / width) : 1;

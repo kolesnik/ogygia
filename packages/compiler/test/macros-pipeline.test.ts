@@ -11,6 +11,7 @@ import {
 } from '../src/macros/pipeline.ts';
 import type { Profiler } from '../src/driver.ts';
 import { __set_build_cache_root } from '../src/build-cache.ts';
+import { dedent } from '@ogygia/core/contract';
 import { TraceMap, originalPositionFor, type EncodedSourceMap } from '@jridgewell/trace-mapping';
 
 __set_build_cache_root(fs.mkdtempSync(path.join(os.tmpdir(), 'og-macro-pipe-cache-')));
@@ -169,14 +170,22 @@ describe('a macro its plugin brings', () => {
 	});
 
 	it('one that answers with edits keeps the module’s source map: each name maps to where it was written', async () => {
-		const src = 'export const v = import.meta.og.bake(() => 6 * 7);\nexport const w = v;\n';
+		const src = `${dedent`
+			export const v = import.meta.og.bake(() => 6 * 7);
+			export const w = v;
+		`}\n`;
 		const at = src.indexOf('import.meta.og.bake');
 		const edits: PluginMacro = {
 			name: 'bake',
 			handler: () => [{ start: at, end: src.indexOf(';', at), text: '42' }]
 		};
 		const out = await run_module_macros(src, APP, ctx({ macros: [edits] }), NO_PROFILE);
-		expect(out.code).toBe('export const v = 42;\nexport const w = v;\n');
+		expect(out.code).toBe(
+			`${dedent`
+			export const v = 42;
+			export const w = v;
+		`}\n`
+		);
 		expect(out.maps).toHaveLength(1);
 		const step = out.maps[0];
 		expect(step).not.toBeNull();

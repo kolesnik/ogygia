@@ -7,6 +7,8 @@
  * The call becomes an import of the file under the plugin's query; the plugin's `load` turns that into
  * the descriptor (./plugin.ts). Arguments are literals, read from the AST before any code runs, so an
  * option is real JS (numbers, arrays, `16 / 9`) instead of a string inside an import attribute.
+ *
+ * @packageDocumentation
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -52,7 +54,6 @@ export function options_of_query(query: string): ImageOptions {
 type Call = {
 	start: number;
 	end: number;
-	/** where the import goes: the start of the JS region holding the call */
 	region: number;
 	glob: boolean;
 	src: string;
@@ -60,7 +61,6 @@ type Call = {
 	line: number;
 };
 
-/** Find every call, its literal arguments read and checked. */
 function find_calls(src: string, id: string, markup_exts: readonly string[]): Call[] {
 	const regions = og_js_regions(src, id, markup_exts);
 	if (!regions) return [];
@@ -68,7 +68,6 @@ function find_calls(src: string, id: string, markup_exts: readonly string[]): Ca
 	const rel = path.basename(id);
 	for (const region of regions) {
 		if (!region.code.includes(MARKER)) continue;
-		// a component's script is parsed as TypeScript: `lang="ts"` or not, TS is a superset here
 		const as = markup_exts.some((x) => id.endsWith(x)) ? `${id}.ts` : id;
 		const { program, ok } = parse_module(region.code, as);
 		if (!ok || !program) continue;
@@ -122,8 +121,6 @@ function find_calls(src: string, id: string, markup_exts: readonly string[]): Ca
 	return calls;
 }
 
-/** Fail on an image call in a component's markup: only its scripts are read, so `calls` (found there)
- *  must hold every call the source makes. */
 function refuse_markup_calls(src: string, id: string, calls: readonly Call[]): void {
 	const found = [
 		...find_og_calls(src, 'import.meta.og.').filter((c) => c.method === 'image'),

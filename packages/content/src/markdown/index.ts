@@ -115,6 +115,9 @@ export type StagedPlugin =
 			dependencies?: (filename: string) => string[];
 	  };
 
+type Staged = ReturnType<typeof split_staged>;
+type RehypeChain = NonNullable<MdsvexOptions['rehypePlugins']>;
+
 /** Split a staged chain into pre/post halves + the generator hooks (cache identity, file deps). */
 function split_staged(list: Array<StagedPlugin> | undefined): {
 	pre: UnifiedEntry[];
@@ -381,7 +384,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 
 	const remark_staged = split_staged(remark);
 	const own_rehype = split_staged(rehypeExtra);
-	const rehype_staged = (): ReturnType<typeof split_staged> => {
+	const rehype_staged = (): Staged => {
 		const exts = markdown_extensions();
 		if (!exts.length) return own_rehype;
 		const theirs = split_staged(exts.flatMap((e) => e.rehype ?? []));
@@ -407,10 +410,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 	// The document REGION rides ogygia's core RegionStore — markdown is one producer harnessing the
 	// shared currency, not the owner of a private format. Same address as the module-code entry.
 	const docs_store = new RegionStore('docs');
-	const doc_sig = (
-		rehype_now: ReturnType<typeof split_staged>,
-		extensions_now: readonly MarkdownExtension[]
-	) =>
+	const doc_sig = (rehype_now: Staged, extensions_now: readonly MarkdownExtension[]) =>
 		[
 			String(region_mode),
 			String(headingIds),
@@ -474,16 +474,13 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 		}
 	};
 
-	const rehype_chain = (
-		staged: ReturnType<typeof split_staged>
-	): NonNullable<MdsvexOptions['rehypePlugins']> =>
-		[
-			...staged.pre,
-			...(override_tags.length ? [[rehypeOverrides, override_tags]] : []),
-			...staged.post,
-			// LAST so the anchor `<a>` it adds isn't swept into the ogygia slot by `rehypeOverrides`.
-			...(headingAnchors ? [rehypeHeadingAnchors] : [])
-		] as NonNullable<MdsvexOptions['rehypePlugins']>;
+	const rehype_chain = (staged: Staged): RehypeChain => [
+		...staged.pre,
+		...(override_tags.length ? [[rehypeOverrides, override_tags]] : []),
+		...staged.post,
+		// LAST so the anchor `<a>` it adds isn't swept into the ogygia slot by `rehypeOverrides`.
+		...(headingAnchors ? [rehypeHeadingAnchors] : [])
+	];
 	if (layout !== undefined) mdsvex_opts.layout = layout;
 
 	// Construct mdsvex lazily and once. The config above needs no mdsvex; only the instance does. A
