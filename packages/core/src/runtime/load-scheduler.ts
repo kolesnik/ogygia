@@ -200,12 +200,12 @@ function pending_critical(): Element[] {
 	return out;
 }
 
-/** The URLs a preload link may fetch: its `href`, else each `imagesrcset` candidate's. */
+/** The URLs a preload link may fetch: each `imagesrcset` candidate's (the browser picks one), and its `href`. */
 export function preload_urls(link: HTMLLinkElement): string[] {
-	if (link.href) return [link.href];
-	const set = link.getAttribute('imagesrcset');
-	if (!set) return [];
 	const out: string[] = [];
+	if (link.href) out.push(link.href);
+	const set = link.getAttribute('imagesrcset');
+	if (!set) return out;
 	for (const part of set.split(',')) {
 		const candidate = part.trim();
 		let end = 0;
@@ -213,7 +213,8 @@ export function preload_urls(link: HTMLLinkElement): string[] {
 		const url = candidate.slice(0, end);
 		if (!url) continue;
 		try {
-			out.push(new URL(url, document.baseURI).href);
+			const href = new URL(url, document.baseURI).href;
+			if (!out.includes(href)) out.push(href);
 			// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: the candidate is skipped
 		} catch {}
 	}
