@@ -488,6 +488,9 @@ importers:
       '@ogygia/flags':
         specifier: workspace:*
         version: link:../../packages/flags
+      '@ogygia/image':
+        specifier: workspace:*
+        version: link:../../packages/image
       '@ogygia/insights':
         specifier: workspace:*
         version: link:../../packages/insights
