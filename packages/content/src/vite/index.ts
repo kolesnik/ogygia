@@ -20,6 +20,7 @@ import type { Plugin as VitePlugin } from 'vite';
 import { definePlugin, type OgygiaPlugin } from '@ogygia/compiler/vite';
 import { bridge } from '../bridge.ts';
 import { ogygiaPresetPreprocess, type MarkdownOptions } from '../markdown/index.ts';
+import { hold_markdown_extensions } from '../markdown/extensions.ts';
 import { snippet_macros } from '../macros/snippets.ts';
 import { rewrite_loaders } from '../macros/loaders.ts';
 import { rewrite_regions } from '../macros/regions.ts';
@@ -125,6 +126,9 @@ function content_checks(get_root: () => string, exts: readonly string[]): VitePl
 	return {
 		name: 'ogygia:content-checks',
 		enforce: 'pre',
+		configResolved(config) {
+			hold_markdown_extensions(config.plugins);
+		},
 		transform(code, id) {
 			// vite-plugin-svelte strips the query from the `filename` its preprocessors see, so the id
 			// can't carry the preset that far — this pre-transform (which DOES see the full id) tags the

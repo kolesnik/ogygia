@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, test } from 'vitest';
-import type { ImageMarkdownBridge } from '../src/vite/markdown.ts';
 
 const pkg_root = fileURLToPath(new URL('..', import.meta.url));
 const copies = fs.mkdtempSync(path.join(pkg_root, '.bridge-copies-'));
@@ -22,11 +21,10 @@ async function key_of(dir: string): Promise<string> {
 	const mod = (await import(
 		path.join(dir, 'src/vite/markdown.ts')
 	)) as typeof import('../src/vite/markdown.ts');
-	mod.install_markdown_bridge({});
-	return (globalThis as { [k: symbol]: ImageMarkdownBridge })[mod.BRIDGE]!.key;
+	return mod.markdown_extension({})!.cache_key();
 }
 
-describe('the markdown bridge key', () => {
+describe('the markdown extension cache key', () => {
 	test('a change to the image plugin’s code is a new key, so content never serves a doc it compiled before', async () => {
 		const before = copy('before', (s) => s);
 		const after = copy('after', (s) => s.replace('const COMPONENT = ', 'const COMPONENT =  '));

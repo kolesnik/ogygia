@@ -3,7 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { dedent } from '@ogygia/core/plugin/utils';
-import { BRIDGE, install_markdown_bridge, type ImageMarkdownBridge } from '../src/vite/markdown.ts';
+import { EXTENSION_API, markdown_extension } from '../src/vite/markdown.ts';
+import { image } from '../src/vite/index.ts';
 
 type Hast = {
 	type?: string;
@@ -22,9 +23,13 @@ beforeAll(() => {
 	post = path.join(dir, '+post.md');
 });
 
-function bridge(width?: number): ImageMarkdownBridge {
-	install_markdown_bridge(width === undefined ? {} : { markdown: { width } });
-	return (globalThis as { [BRIDGE]?: ImageMarkdownBridge })[BRIDGE]!;
+type Extension = NonNullable<ReturnType<typeof markdown_extension>>;
+type Bridge = Omit<Extension, 'rehype'> & { rehype: Extension['rehype'][0]['plugin'] };
+
+/** The extension `image()` offers content, its one rehype entry unwrapped. */
+function bridge(width?: number): Bridge {
+	const ext = markdown_extension(width === undefined ? {} : { markdown: { width } })!;
+	return { ...ext, rehype: ext.rehype[0].plugin };
 }
 
 /** A paragraph holding one markdown image, as mdast-util-to-hast hands it to rehype. */
@@ -161,5 +166,14 @@ describe('markdown body images', () => {
 			bridge().rehype()(tree, { filename: post });
 			expect(tree.children![0]!.children![0]!.tagName).toBe('img');
 		}
+	});
+
+	test('image() offers the extension on its Vite plugin api, and markdown: false offers none', () => {
+		const offer = (o: Parameters<typeof image>[0]) =>
+			image(o)
+				.map((p) => (p.api as Record<string, unknown> | undefined)?.[EXTENSION_API])
+				.filter(Boolean);
+		expect(offer({})).toHaveLength(1);
+		expect(offer({ markdown: false })).toEqual([]);
 	});
 });

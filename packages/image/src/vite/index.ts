@@ -19,7 +19,7 @@ import { definePlugin, type OgygiaPlugin } from '@ogygia/compiler/vite';
 import type { ImageDescriptor } from '../descriptor.ts';
 import { mime_of } from '../layout.ts';
 import { plan_image, settle, write_variant, type Plan, type Settings } from './encode.ts';
-import { install_markdown_bridge } from './markdown.ts';
+import { EXTENSION_API, markdown_extension } from './markdown.ts';
 import { rewrite_image_calls, options_of_query, QUERY } from './macro.ts';
 import { check_image_options, check_plugin_options, type ImagePluginOptions } from './options.ts';
 
@@ -37,7 +37,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	let config: ResolvedConfig | undefined;
 	const dev = new Map<string, DevEntry>();
 	const dev_keys = new Map<string, readonly string[]>();
-	install_markdown_bridge(opts);
+	const markdown = markdown_extension(opts);
 
 	const ogygia: OgygiaPlugin = definePlugin({
 		name: '@ogygia/image',
@@ -55,6 +55,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const loader: VitePlugin = {
 		name: '@ogygia/image:load',
 		enforce: 'pre',
+		...(markdown ? { api: { [EXTENSION_API]: markdown } } : {}),
 		configResolved(c) {
 			config = c;
 		},

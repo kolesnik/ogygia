@@ -2,10 +2,11 @@
  * Markdown images, for `@ogygia/content`: a local `![alt](./harbor.jpg)` renders through `<Img>`, and
  * a frontmatter value that is a path to a local image (`cover: ./cover.jpg`) becomes a descriptor.
  *
- * The two packages do not import each other. This plugin puts a bridge on a registered global symbol;
- * content's markdown preprocessor reads it at compile time and, when it is there, runs `rehype` inside
- * mdsvex and `finish` on mdsvex's output. With no image plugin listed there is no bridge, and
- * markdown images stay plain `<img>`.
+ * The two packages do not import each other. The image plugin offers a markdown extension on its
+ * Vite plugin object (`api.ogygiaMarkdown`); `content()` holds it for as long as the config lists the
+ * plugin, and its markdown preprocessor runs `rehype` inside mdsvex and `finish` on mdsvex's output.
+ * With no image plugin listed (or `markdown: false`) nothing is offered, and markdown images stay
+ * plain `<img>`.
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -16,19 +17,28 @@ import { image_specifier } from './macro.ts';
 import { OgygiaError } from '../messages.ts';
 import type { ImagePluginOptions } from './options.ts';
 
-/** The bridge content reads. Its shape is the contract between the two packages. */
-export interface ImageMarkdownBridge {
+/** The rehype step: local `<img>` elements → `<Og__Img>`. */
+export type ImageRehype = () => (
+	tree: HastNode,
+	file: { path?: string; filename?: string }
+) => void;
+
+/** The markdown extension content reads (`@ogygia/content`'s `MarkdownExtension`, by shape: the
+ *  contract between the two packages). */
+export interface ImageMarkdownExtension {
+	/** Who offers it. */
+	name: string;
 	/** What changes the compiled output: part of content's document cache key. */
-	key: string;
-	/** A rehype plugin: local `<img>` elements → `<Og__Img>`. */
-	rehype: () => (tree: HastNode, file: { path?: string; filename?: string }) => void;
+	cache_key: () => string;
+	/** One rehype entry, before content's own element overrides. */
+	rehype: readonly [{ enforce: 'pre'; plugin: ImageRehype }];
 	/** After mdsvex: frontmatter image paths → descriptors. Returns the module-script lines to add, and
 	 *  whether the body now renders `<Og__Img>` (so it is a component, not static HTML). */
-	finish: (
-		code: string,
-		filename: string
-	) => { code: string; lines: string[]; components: boolean };
+	finish: (code: string, filename: string) => { code: string; lines: string[]; dynamic: boolean };
 }
+
+/** The Vite plugin `api` key content reads a markdown extension from. */
+export const EXTENSION_API = 'ogygiaMarkdown';
 
 type HastNode = {
 	type?: string;
@@ -37,9 +47,6 @@ type HastNode = {
 	properties?: Record<string, unknown>;
 	children?: HastNode[];
 };
-
-/** The global the bridge sits on. */
-export const BRIDGE: unique symbol = Symbol.for('ogygia.image.markdown');
 
 const IMAGE_EXT_RE = /\.(?:png|jpe?g|webp|avif|gif|svg|tiff?)$/i;
 const NOT_LOCAL_RE = /^(?:[a-z][a-z0-9+.-]*:|\/|#)/i;
@@ -120,55 +127,54 @@ function shipped_code(): string {
 	return (code_hash = h.digest('base64url').slice(0, 16));
 }
 
-/** Put the bridge up for content to find. One per process: the last `image()` wins. */
-export function install_markdown_bridge(opts: ImagePluginOptions): void {
-	const g = globalThis as { [BRIDGE]?: ImageMarkdownBridge };
-	if (opts.markdown === false) {
-		delete g[BRIDGE];
-		return;
-	}
+/** The markdown extension `image(opts)` offers content, or `null` with `markdown: false`. */
+export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExtension | null {
+	if (opts.markdown === false) return null;
 	const width = opts.markdown?.width;
 	const own = width !== undefined ? { width } : {};
-	g[BRIDGE] = {
-		key: `og-image:${shipped_code()}:${JSON.stringify(opts)}`,
-		rehype: () => (tree, file) => {
-			const filename = file.filename ?? file.path;
-			if (!filename) return;
-			const imports: [string, string][] = [];
-			const visit = (node: HastNode): void => {
-				const children = node.children;
-				if (!children) return;
-				for (let i = 0; i < children.length; i++) {
-					const child = children[i]!;
-					if (child.type === 'raw' && child.value) refuse_html_images(filename, child.value);
-					const src = child.properties?.src;
-					if (
-						child.type === 'element' &&
-						child.tagName === 'img' &&
-						typeof src === 'string' &&
-						is_local_image(src)
-					) {
-						const rel = local_specifier(filename, path_of_url(filename, src), src);
-						const name = `__og_md_image_${imports.length}`;
-						const spec = image_specifier(rel, own);
-						imports.push([name, spec]);
-						const alt = typeof child.properties?.alt === 'string' ? child.properties.alt : '';
-						const title = child.properties?.title;
-						const extra = typeof title === 'string' ? ` title="${attr(title)}"` : '';
-						const sized = width !== undefined ? ` width={${width}}` : '';
-						children[i] = {
-							type: 'raw',
-							value: `<${COMPONENT} of={${name}} alt="${attr(alt)}"${extra}${sized} />`
-						};
-					} else visit(child);
-				}
-			};
-			visit(tree);
-			if (imports.length) {
-				const payload = Buffer.from(JSON.stringify(imports)).toString('base64url');
-				(tree.children ??= []).unshift({ type: 'raw', value: `<!--og-image:${payload}-->` });
+	const key = `${shipped_code()}:${JSON.stringify(opts)}`;
+	const rehype: ImageRehype = () => (tree, file) => {
+		const filename = file.filename ?? file.path;
+		if (!filename) return;
+		const imports: [string, string][] = [];
+		const visit = (node: HastNode): void => {
+			const children = node.children;
+			if (!children) return;
+			for (let i = 0; i < children.length; i++) {
+				const child = children[i]!;
+				if (child.type === 'raw' && child.value) refuse_html_images(filename, child.value);
+				const src = child.properties?.src;
+				if (
+					child.type === 'element' &&
+					child.tagName === 'img' &&
+					typeof src === 'string' &&
+					is_local_image(src)
+				) {
+					const rel = local_specifier(filename, path_of_url(filename, src), src);
+					const name = `__og_md_image_${imports.length}`;
+					const spec = image_specifier(rel, own);
+					imports.push([name, spec]);
+					const alt = typeof child.properties?.alt === 'string' ? child.properties.alt : '';
+					const title = child.properties?.title;
+					const extra = typeof title === 'string' ? ` title="${attr(title)}"` : '';
+					const sized = width !== undefined ? ` width={${width}}` : '';
+					children[i] = {
+						type: 'raw',
+						value: `<${COMPONENT} of={${name}} alt="${attr(alt)}"${extra}${sized} />`
+					};
+				} else visit(child);
 			}
-		},
+		};
+		visit(tree);
+		if (imports.length) {
+			const payload = Buffer.from(JSON.stringify(imports)).toString('base64url');
+			(tree.children ??= []).unshift({ type: 'raw', value: `<!--og-image:${payload}-->` });
+		}
+	};
+	return {
+		name: '@ogygia/image',
+		cache_key: () => key,
+		rehype: [{ enforce: 'pre', plugin: rehype }],
 		finish: (code, filename) => {
 			const lines: string[] = [];
 			const found = IMPORTS_RE.exec(code);
@@ -189,7 +195,7 @@ export function install_markdown_bridge(opts: ImagePluginOptions): void {
 					data = JSON.parse(meta[1]!);
 					// oxlint-disable-next-line ogygia/no-silent-failures -- not JSON: mdsvex wrote something else, and frontmatter images are only read from its JSON form
 				} catch {
-					return { code, lines, components: found !== null };
+					return { code, lines, dynamic: found !== null };
 				}
 				let n = 0;
 				const names: string[] = [];
@@ -212,7 +218,7 @@ export function install_markdown_bridge(opts: ImagePluginOptions): void {
 				if (names.length)
 					code = `${code.slice(0, meta.index)}export const metadata = ${js};${code.slice(meta.index + meta[0].length)}`;
 			}
-			return { code, lines, components: found !== null };
+			return { code, lines, dynamic: found !== null };
 		}
 	};
 }

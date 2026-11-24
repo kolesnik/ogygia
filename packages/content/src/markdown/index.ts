@@ -30,7 +30,7 @@ import { rehypeHeadingAnchors } from './rehype-heading-anchors.ts';
 import { parse_yaml } from './frontmatter.ts';
 import { module_script, try_region_emit } from './region-emit.ts';
 import { DEFAULT_OVERRIDE_TAGS, rehypeOverrides, SLOT_TAG } from './rehype-overrides.ts';
-import { image_bridge } from './image-bridge.ts';
+import { markdown_extensions, type MarkdownExtension } from './extensions.ts';
 import {
 	configure_shiki,
 	create_mdsvex_highlighter,
@@ -380,7 +380,18 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 		: [];
 
 	const remark_staged = split_staged(remark);
-	const rehype_staged = split_staged(rehypeExtra);
+	const own_rehype = split_staged(rehypeExtra);
+	const rehype_staged = (): ReturnType<typeof split_staged> => {
+		const exts = markdown_extensions();
+		if (!exts.length) return own_rehype;
+		const theirs = split_staged(exts.flatMap((e) => e.rehype ?? []));
+		return {
+			pre: [...own_rehype.pre, ...theirs.pre],
+			post: [...own_rehype.post, ...theirs.post],
+			cache_keys: [...own_rehype.cache_keys, ...theirs.cache_keys],
+			deps: [...own_rehype.deps, ...theirs.deps]
+		};
+	};
 
 	// ── the DOC-LEVEL cache ────────────────────────────────────────────────────────
 	// The whole markup() stage — tabs/containers → mdsvex (remark/rehype/fences/twoslash) → island
@@ -396,7 +407,10 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 	// The document REGION rides ogygia's core RegionStore — markdown is one producer harnessing the
 	// shared currency, not the owner of a private format. Same address as the module-code entry.
 	const docs_store = new RegionStore('docs');
-	const doc_sig = () =>
+	const doc_sig = (
+		rehype_now: ReturnType<typeof split_staged>,
+		extensions_now: readonly MarkdownExtension[]
+	) =>
 		[
 			String(region_mode),
 			String(headingIds),
@@ -409,8 +423,8 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			`r${remark_staged.pre.length}.${remark_staged.post.length}`,
 			// generator-plugin cache identities (a directive expander over a .d.ts set, …) — dynamic, so
 			// an input edit re-keys every doc that could have expanded it (read late, like the variants)
-			[...remark_staged.cache_keys, ...rehype_staged.cache_keys].map((k) => k()).join(','),
-			`h${rehype_staged.pre.length}.${rehype_staged.post.length}`,
+			[...remark_staged.cache_keys, ...rehype_now.cache_keys].map((k) => k()).join(','),
+			`h${rehype_now.pre.length}.${rehype_now.post.length}`,
 			cfg.lightName,
 			cfg.darkName,
 			String(cfg.defaultColor),
@@ -420,7 +434,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			// variant cache_keys are dynamic (a getter that includes the loaded TS version) — read late
 			pipeline.variants.map((g) => `${g.pref.name}:${g.cache_key ?? ''}`).join(','),
 			code?.cacheSalt ?? '',
-			image_bridge()?.key ?? ''
+			extensions_now.map((e) => `${e.name}:${e.cache_key()}`).join(',')
 		].join('\0');
 
 	const mdsvex_opts: MdsvexOptions = {
@@ -460,13 +474,13 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 		}
 	};
 
-	const rehype_chain = (): NonNullable<MdsvexOptions['rehypePlugins']> =>
+	const rehype_chain = (
+		staged: ReturnType<typeof split_staged>
+	): NonNullable<MdsvexOptions['rehypePlugins']> =>
 		[
-			...rehype_staged.pre,
-			// before the overrides: a local image becomes `<Og__Img>` before `img` could become a slot
-			...(image_bridge() ? [image_bridge()!.rehype] : []),
+			...staged.pre,
 			...(override_tags.length ? [[rehypeOverrides, override_tags]] : []),
-			...rehype_staged.post,
+			...staged.post,
 			// LAST so the anchor `<a>` it adds isn't swept into the ogygia slot by `rehypeOverrides`.
 			...(headingAnchors ? [rehypeHeadingAnchors] : [])
 		] as NonNullable<MdsvexOptions['rehypePlugins']>;
@@ -478,9 +492,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 	const get_md = flights({
 		name: 'mdsvex',
 		run: async (): Promise<PreprocessorGroup> => {
-			// the chain is read when mdsvex starts, not when preprocess() runs: the image plugin's
-			// bridge is put up by the Vite config, which may be read after svelte.config.js
-			const chain = rehype_chain();
+			const chain = rehype_chain(rehype_staged());
 			return (await load_mdsvex())(
 				chain.length ? { ...mdsvex_opts, rehypePlugins: chain } : mdsvex_opts
 			) as PreprocessorGroup;
@@ -502,12 +514,18 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			// loaded identity (the TS compiler version), so settle their `ready()` BEFORE keying — a key
 			// taken pre-load would give the same doc a second address on the next run.
 			let doc_key: string | null = null;
+			const rehype_now = rehype_staged();
+			const extensions_now = markdown_extensions();
 			if (isContent) {
 				await Promise.all(pipeline.variants.map((g) => g.ready?.() ?? Promise.resolve()));
 				// keyed by what the cached code embeds: the CSS key (`content_css_key`, the src-relative
 				// path, whose last part is the base name the source line reads), so a moved file with the
 				// same content is compiled again, never handed the old path's CSS key (#292)
-				doc_key = docs_store.key([doc_sig(), content_css_key(path), input.content]);
+				doc_key = docs_store.key([
+					doc_sig(rehype_now, extensions_now),
+					content_css_key(path),
+					input.content
+				]);
 				const hit = doc_cache.get(doc_key);
 				if (hit) return { code: hit.code, map: undefined, dependencies: hit.deps };
 			}
@@ -538,16 +556,21 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			if (md === STALE) return undefined;
 			const out = await md.markup?.(raw === input.content ? input : { ...input, content: raw });
 			let code = markup_code(out, raw);
-			// images (`@ogygia/image`): frontmatter image paths become descriptors, and the body's
-			// local images, already `<Og__Img>`, get their imports
-			const images = image_bridge()?.finish(code, input.filename ?? '');
-			if (images) code = images.code;
+			const extra: string[] = [];
+			let dynamic = false;
+			for (const ext of extensions_now) {
+				if (!ext.finish) continue;
+				const done = ext.finish(code, input.filename ?? '');
+				code = done.code;
+				extra.push(...done.lines);
+				dynamic ||= done.dynamic;
+			}
 			const islandCode = transform_islands(code, input.filename ?? '');
 			const base = islandCode ?? code;
 			// Generator-plugin file deps for THIS document (a directive expander's .d.ts set, …) —
 			// returned as preprocessor `dependencies` (vite-plugin-svelte watches them in dev) and
 			// stored beside the cached output so a warm hit still watches.
-			const gen_deps = [...remark_staged.deps, ...rehype_staged.deps].flatMap((fn) =>
+			const gen_deps = [...remark_staged.deps, ...rehype_now.deps].flatMap((fn) =>
 				fn(input.filename ?? '')
 			);
 			// Content module: carry its raw source, and (when overrides are on) import the slot the
@@ -561,7 +584,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			// content_css_key(abs) is the SAME key the emit + handoff use (derived from the absolute path
 			// on both sides), so they match without threading `root`.
 			lines.push(`export const __ogygia_css = ${JSON.stringify(content_css_key(path))};`);
-			if (images) lines.push(...images.lines);
+			lines.push(...extra);
 			// REGION path: a pure-static `.md` re-emits as a serialized region — content as data, one
 			// `{@html}` reference in the template, body pre-baked. Only when nothing dynamic touched the
 			// file: no island transform, no tab injection, no slot overrides; the emitter itself vetoes
@@ -570,7 +593,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 				region_mode &&
 				path.endsWith('.md') &&
 				islandCode == null &&
-				!images?.components &&
+				!dynamic &&
 				!inject_tabs &&
 				!override_tags.length
 			) {
