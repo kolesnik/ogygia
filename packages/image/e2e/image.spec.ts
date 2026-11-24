@@ -53,7 +53,7 @@ test.describe("macro images (/)", () => {
     page,
   }) => {
     await page.goto("/");
-    const a = await attrs(page.getByTestId("portrait"));
+    const a = await attrs(page.locator("#portrait"));
     expect(a.picture).toBe("yes");
     expect(a.avif).toMatch(/\.avif 640w, .+\.avif 800w$/);
     expect(a.srcset).toMatch(/\.webp 640w, .+\.webp 800w$/);
@@ -66,11 +66,11 @@ test.describe("macro images (/)", () => {
     page,
   }) => {
     await page.goto("/");
-    expect((await attrs(page.getByTestId("portrait"))).background).toMatch(
+    expect((await attrs(page.locator("#portrait"))).background).toMatch(
       /^url\("?data:image\/webp;base64,/,
     );
-    expect((await attrs(page.getByTestId("badge"))).background).toBeNull();
-    expect((await attrs(page.getByTestId("logo"))).background).toBeNull();
+    expect((await attrs(page.locator("#badge"))).background).toBeNull();
+    expect((await attrs(page.locator("#logo"))).background).toBeNull();
   });
 
   test("a placeholder costs the page at most 400 bytes of HTML", async ({
@@ -86,7 +86,7 @@ test.describe("macro images (/)", () => {
     page,
   }) => {
     await page.goto("/");
-    const hero = await attrs(page.getByTestId("hero"));
+    const hero = await attrs(page.locator("#hero"));
     expect(hero.fetchpriority).toBe("high");
     expect(hero.loading).toBe("eager");
     expect(hero.sizes).toBe("100vw");
@@ -100,17 +100,17 @@ test.describe("macro images (/)", () => {
     page,
   }) => {
     await page.goto("/");
-    const avatar = await attrs(page.getByTestId("avatar"));
+    const avatar = await attrs(page.locator("#avatar"));
     expect([avatar.width, avatar.height]).toEqual(["48", "48"]);
     expect(avatar.srcset).toMatch(/ 1x/);
-    await expect(page.getByTestId("gallery")).toHaveCount(3);
+    await expect(page.locator("img.gallery")).toHaveCount(3);
   });
 
   test("a 300px gallery image on a 1x screen downloads the 320px file, not a 600px one", async ({
     page,
   }) => {
     await page.goto("/");
-    const first = page.getByTestId("gallery").first();
+    const first = page.locator("img.gallery").first();
     await first.scrollIntoViewIfNeeded();
     await expect
       .poll(() => first.evaluate((el: HTMLImageElement) => el.currentSrc))
@@ -121,7 +121,7 @@ test.describe("macro images (/)", () => {
     page,
   }) => {
     await page.goto("/");
-    const crop = page.getByTestId("crop");
+    const crop = page.locator("#crop");
     await crop.scrollIntoViewIfNeeded();
     await expect
       .poll(() =>
@@ -139,7 +139,7 @@ test.describe("macro images (/)", () => {
     page,
   }) => {
     await page.goto("/");
-    const logo = await attrs(page.getByTestId("logo"));
+    const logo = await attrs(page.locator("#logo"));
     expect(logo.picture).toBeNull();
     expect(logo.src).toMatch(/\.svg$/);
     expect([logo.width, logo.height]).toEqual(["120", "40"]);
@@ -150,7 +150,7 @@ test.describe("macro images (/)", () => {
     request,
   }) => {
     await page.goto("/");
-    const spinner = await attrs(page.getByTestId("spinner"));
+    const spinner = await attrs(page.locator("#spinner"));
     expect(spinner.picture).toBeNull();
     expect(spinner.src).toMatch(/\.webp$/);
     const res = await request.get(spinner.src!);
@@ -158,6 +158,23 @@ test.describe("macro images (/)", () => {
     const bytes = await res.body();
     // an animated WebP carries an ANIM chunk
     expect(bytes.includes(Buffer.from("ANIM"))).toBe(true);
+  });
+
+  test("no image carries an inline event handler, so a strict CSP has nothing to block", async ({
+    request,
+  }) => {
+    for (const url of ["/", "/blog/first-post"]) {
+      const html = await (await request.get(url)).text();
+      const tags = html.match(/<(?:img|picture|source)\b[^>]*>/g) ?? [];
+      expect(tags.length).toBeGreaterThan(0);
+      for (const tag of tags) expect(tag).not.toMatch(/\son[a-z]+=/i);
+    }
+  });
+
+  test("the named attributes reach the <img>", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("img#portrait")).toHaveAttribute("title", "Tall");
+    await expect(page.locator("img.gallery")).toHaveCount(3);
   });
 
   test("every image on the page really loads", async ({ page }) => {
@@ -171,7 +188,7 @@ test.describe("markdown images (/blog/[slug])", () => {
     page,
   }) => {
     await page.goto("/blog/first-post");
-    const cover = await attrs(page.getByTestId("cover"));
+    const cover = await attrs(page.locator("#cover"));
     expect(cover.picture).toBe("yes");
     expect(cover.avif).toMatch(/cover-\d+\.[\w-]+\.avif \d+w/);
     expect([cover.width, cover.height]).toEqual(["1200", "630"]);
@@ -213,7 +230,7 @@ test.describe("markdown images (/blog/[slug])", () => {
     const img = page.getByAltText("The same harbor");
     expect(await img.getAttribute("title")).toBe("Borrowed");
     expect((await attrs(img)).avif).toMatch(/harbor-720\.[\w-]+\.avif 720w/);
-    await expect(page.getByTestId("cover")).toHaveAttribute("width", "1200");
+    await expect(page.locator("#cover")).toHaveAttribute("width", "1200");
   });
 
   test("images whose names hold a space or an accent resolve and load", async ({
@@ -225,7 +242,7 @@ test.describe("markdown images (/blog/[slug])", () => {
       expect(a.picture).toBe("yes");
       expect(a.avif).toMatch(/\.avif 500w/);
     }
-    await expect(page.getByTestId("cover")).toHaveAttribute("width", "1200");
+    await expect(page.locator("#cover")).toHaveAttribute("width", "1200");
   });
 
   for (const slug of ["first-post", "second-post", "third-post"])
