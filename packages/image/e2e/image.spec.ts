@@ -67,10 +67,19 @@ test.describe("macro images (/)", () => {
   }) => {
     await page.goto("/");
     expect((await attrs(page.getByTestId("portrait"))).background).toMatch(
-      /^url\("?data:image\/png;base64,/,
+      /^url\("?data:image\/webp;base64,/,
     );
     expect((await attrs(page.getByTestId("badge"))).background).toBeNull();
     expect((await attrs(page.getByTestId("logo"))).background).toBeNull();
+  });
+
+  test("a placeholder costs the page at most 400 bytes of HTML", async ({
+    request,
+  }) => {
+    const html = await (await request.get("/")).text();
+    const urls = html.match(/data:image\/[a-z]+;base64,[\w+/=]+/g) ?? [];
+    expect(urls.length).toBeGreaterThan(0);
+    for (const url of urls) expect(url.length).toBeLessThanOrEqual(400);
   });
 
   test("the priority hero is preloaded from the head and fetched first", async ({
@@ -153,7 +162,7 @@ test.describe("markdown images (/blog/[slug])", () => {
     expect(harbor.sizes).toBe("(min-width: 720px) 720px, 100vw");
     expect([harbor.width, harbor.height]).toEqual(["720", "480"]);
     expect(harbor.loading).toBe("lazy");
-    expect(harbor.background).toMatch(/^url\("?data:image\/png;base64,/);
+    expect(harbor.background).toMatch(/^url\("?data:image\/webp;base64,/);
   });
 
   test("a GIF in the body becomes an animated WebP", async ({

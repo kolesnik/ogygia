@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { beforeAll, describe, expect, test } from "vitest";
 import { plan_image, settle, write_variant } from "../src/vite/encode.ts";
 import { ladder } from "../src/vite/options.ts";
-import { placeholder_url } from "../src/placeholder.ts";
+import { placeholder_style } from "../src/placeholder.ts";
 import { make_images } from "./fixtures.ts";
 
 let img: Awaited<ReturnType<typeof make_images>>;
@@ -52,8 +52,35 @@ describe("plan_image", () => {
       "harbor-dusk-1600.webp",
       "harbor-dusk-2048.webp",
     ]);
-    expect(plan.ph).toMatch(/^thumbhash:/);
-    expect(placeholder_url(plan.ph!)).toMatch(/^data:image\/png;base64,/);
+    expect(plan.ph).toMatch(/^data:image\/webp;base64,/);
+  });
+
+  test("the placeholder is a tiny WebP made at build, its data URL at most 400 bytes, in the image's shape", async () => {
+    const w = 1200;
+    const h = 800;
+    const noise = Buffer.alloc(w * h * 3);
+    for (let i = 0; i < noise.length; i++) noise[i] = (i * 7919) % 251;
+    const noisy = `${img.dir}/noise.png`;
+    await sharp(noise, { raw: { width: w, height: h, channels: 3 } })
+      .png()
+      .toFile(noisy);
+    for (const file of [img.jpg, noisy]) {
+      const plan = await plan_image(file, settle({}, {}));
+      expect(plan.ph!.length).toBeLessThanOrEqual(400);
+      const bytes = Buffer.from(plan.ph!.split(",")[1]!, "base64");
+      const meta = await sharp(bytes).metadata();
+      expect(meta.format).toBe("webp");
+      expect(meta.width).toBe(16);
+      expect(meta.height).toBe(Math.round((16 * plan.height) / plan.width));
+    }
+  });
+
+  test("the placeholder paints as a background with no decode at render", () => {
+    const url = "data:image/webp;base64,UklGRg==";
+    expect(placeholder_style(url)).toBe(
+      `background-image:url(${url});background-size:cover;background-repeat:no-repeat`,
+    );
+    expect(placeholder_style(undefined)).toBe("");
   });
 
   test("the same file and settings plan to the same id; other settings to another", async () => {
