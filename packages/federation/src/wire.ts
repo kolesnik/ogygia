@@ -494,14 +494,23 @@ export function child_traceparent(incoming?: string | null): {
 const ABSOLUTE_RE = /^[a-z][a-z0-9+.-]*:|^\/\//i;
 // (the asset attributes' names in any case (`asset_suffix`) in any case: where an asset ref can be; a tag without one is not read)
 const ASSET_ATTR_ANY_CASE = /entry|endpoint|href|src/gi;
-const ASSET_PATH_RE = /(?:^|\/)(_app|og)\//;
-const ASSET_EXT_RE = /\.(js|css|woff2?)(\?|$)/;
+const ASSET_PATH_RE = /(?:^|\/)(_app|og|__ogygia__)\//;
+const ASSET_EXT_RE = /\.(js|css|woff2?|avif|webp|png|jpe?g|gif|svg)(\?|$)/i;
+const SRCSET_CANDIDATE_RE = /(^|,)(\s*)([^\s,]+)/g;
 
 /** One asset ref pinned to `origin`; an app-local link (or an absolute URL) as it is. */
 function pin_asset(value: string, origin: string): string {
 	if (ABSOLUTE_RE.test(value)) return value;
 	if (!ASSET_PATH_RE.test(value) && !ASSET_EXT_RE.test(value)) return value;
 	return new URL(value, `${origin}/`).href;
+}
+
+/** A `srcset` / `imagesrcset`: each candidate's URL pinned, its descriptor and spacing as written. */
+function pin_srcset(value: string, origin: string): string {
+	return value.replace(
+		SRCSET_CANDIDATE_RE,
+		(_, comma: string, space: string, url: string) => comma + space + pin_asset(url, origin)
+	);
 }
 
 // (the attribute's name in any case: where a graph script can be; a script without it is not read)
@@ -544,7 +553,16 @@ function pin_endpoint(value: string, origin: string): string {
 	return ABSOLUTE_RE.test(value) ? value : new URL(value, `${origin}/`).href;
 }
 
-/** Where the asset name (`entry`, `endpoint`, `href`, `src`, in any ASCII case) that ends
+/** How an asset name's value is pinned, by the name's length: `endpoint` (8) whatever its path,
+ *  `srcset` (6) and `imagesrcset` (11) candidate by candidate, the others as one asset ref. */
+const PIN_BY_NAME_LENGTH: Readonly<Record<number, (value: string, origin: string) => string>> = {
+	8: pin_endpoint,
+	6: pin_srcset,
+	11: pin_srcset
+};
+
+/** Where the asset name (`entry`, `endpoint`, `href`, `src`, `srcset`, `imagesrcset`, in any ASCII
+ *  case) that ends
  *  `html[ns, ne)`, an attribute's name as written, starts, or -1. An attribute holds an asset ref
  *  when its name is one, or ends in one after a character no word holds (`data-src`,
  *  `xlink:href`). */
@@ -558,7 +576,9 @@ function asset_suffix(html: string, ns: number, ne: number): number {
 		case 121 /* y */:
 			return ends_with(html, ns, ne, 'entry') ? ne - 5 : -1;
 		case 116 /* t */:
-			return ends_with(html, ns, ne, 'endpoint') ? ne - 8 : -1;
+			if (ends_with(html, ns, ne, 'endpoint')) return ne - 8;
+			if (ends_with(html, ns, ne, 'imagesrcset')) return ne - 11;
+			return ends_with(html, ns, ne, 'srcset') ? ne - 6 : -1;
 		default:
 			return -1;
 	}
@@ -619,7 +639,8 @@ export function absolutize(html: string, origin: string): string {
 		seen.push(ns, ne);
 		if (vs === ve) return;
 		const value = html.slice(vs, ve);
-		const pinned = ne - suffix === 8 ? pin_endpoint(value, origin) : pin_asset(value, origin);
+		const pin = PIN_BY_NAME_LENGTH[ne - suffix] ?? pin_asset;
+		const pinned = pin(value, origin);
 		if (pinned === value) return;
 		out += html.slice(pos, vs) + pinned;
 		pos = ve;
