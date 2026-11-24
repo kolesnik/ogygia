@@ -87,7 +87,6 @@ export function build_store_dir(cache: string): string {
 	return path.join(cache, VERSION_DIR);
 }
 
-/** Is `dir` a real folder (not a link) that only this user can read and write? */
 function owned(dir: string): boolean {
 	const stat = fs.lstatSync(dir);
 	if (!stat.isDirectory() || stat.isSymbolicLink()) return false;
@@ -125,7 +124,6 @@ export function runtime_store(tmp: string = os.tmpdir()): FileStore | null {
 	}
 }
 
-/** Remove the other encoder versions' folders under `root`, and files in `dir` older than a month. */
 async function prune(root: string, dir: string): Promise<void> {
 	const now = clock.wall();
 	try {

@@ -129,13 +129,9 @@ function regions_left_at_rest(): string | null {
 	return null;
 }
 
-// ── a view-transition name is one element's ──
-
-/** Names given inline (`style="view-transition-name: …"`, what `<Img morph>` writes) that more
- *  than one element on the page carries. `none` and `auto` name nothing. */
 function transition_names_unique(): string | null {
 	if (typeof document === 'undefined') return null;
-	const count = new Map<string, number>(); // (one per check)
+	const count = new Map<string, number>();
 	for (const el of document.querySelectorAll<HTMLElement>('[style*="view-transition-name"]')) {
 		const name = el.style.getPropertyValue('view-transition-name').trim();
 		if (!name || name === 'none' || name === 'auto') continue;

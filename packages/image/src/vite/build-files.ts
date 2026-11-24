@@ -77,7 +77,6 @@ export function save_warm(handoff: BuildHandoff, sources: Iterable<WarmSource>):
 	fs.writeFileSync(warm_list(handoff), JSON.stringify([...sources]));
 }
 
-/** Run `work` over `items`, `PARALLEL` at a time; every failure is collected. */
 async function each<T>(items: readonly T[], work: (item: T) => Promise<void>): Promise<unknown[]> {
 	const failures: unknown[] = [];
 	let next = 0;
@@ -95,7 +94,6 @@ async function each<T>(items: readonly T[], work: (item: T) => Promise<void>): P
 	return failures;
 }
 
-/** A store's file for `key`, made from `original` when it is not kept yet. */
 async function made(
 	store: FileStore,
 	key: string,

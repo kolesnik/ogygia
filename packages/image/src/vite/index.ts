@@ -56,8 +56,6 @@ export type {
 const QUERY_RE = new RegExp(`[?&]${QUERY}(?:=|&|$)`);
 const CONFIG_ID = 'virtual:ogygia-image/config';
 const SOURCES_ID = 'virtual:ogygia-image/sources';
-/** The images the server can read: every raster under `src/`, but for the server-only folder and
- *  test files (never published). */
 const SOURCE_GLOBS: readonly string[] = [
 	'/src/**/*.{png,PNG,jpg,JPG,jpeg,JPEG,webp,WEBP,avif,AVIF,gif,GIF,tif,TIF,tiff,TIFF}',
 	'!/src/lib/server/**',
@@ -65,7 +63,6 @@ const SOURCE_GLOBS: readonly string[] = [
 	'!/src/**/*.{test,spec}.*'
 ];
 const UNPUBLISHED_RE = /^src\/lib\/server\/|(?:^|\/)__tests__\/|\.(?:test|spec)\.[^/]+$/;
-/** Adapters whose runtime cannot load sharp, a native Node module. */
 const NO_NATIVE_ADAPTER_RE = /cloudflare|deno|-edge\b/i;
 
 /** The render settings `<Img>` reads, from the plugin's options. */

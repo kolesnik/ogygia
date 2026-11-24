@@ -505,7 +505,6 @@ function pin_asset(value: string, origin: string): string {
 	return new URL(value, `${origin}/`).href;
 }
 
-/** A `srcset` / `imagesrcset`: each candidate's URL pinned, its descriptor and spacing as written. */
 function pin_srcset(value: string, origin: string): string {
 	return value.replace(
 		SRCSET_CANDIDATE_RE,
@@ -553,16 +552,13 @@ function pin_endpoint(value: string, origin: string): string {
 	return ABSOLUTE_RE.test(value) ? value : new URL(value, `${origin}/`).href;
 }
 
-/** How an asset name's value is pinned, by the name's length: `endpoint` (8) whatever its path,
- *  `srcset` (6) and `imagesrcset` (11) candidate by candidate, the others as one asset ref. */
 const PIN_BY_NAME_LENGTH: Readonly<Record<number, (value: string, origin: string) => string>> = {
 	8: pin_endpoint,
 	6: pin_srcset,
 	11: pin_srcset
 };
 
-/** Where the asset name (`entry`, `endpoint`, `href`, `src`, `srcset`, `imagesrcset`, in any ASCII
- *  case) that ends
+/** Where the asset name (`entry`, `endpoint`, `href`, `src`, in any ASCII case) that ends
  *  `html[ns, ne)`, an attribute's name as written, starts, or -1. An attribute holds an asset ref
  *  when its name is one, or ends in one after a character no word holds (`data-src`,
  *  `xlink:href`). */

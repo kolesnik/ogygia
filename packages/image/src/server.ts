@@ -36,7 +36,6 @@ const ORIGINALS: ReadonlySet<string> = new Set(
 	Object.values(sources).map((url) => source_tail(url, PREFIXES))
 );
 
-/** The message a recipe path is signed as. */
 function message(path: string): string {
 	return `image|${path}`;
 }
@@ -54,8 +53,6 @@ function refused(status: 403 | 404, app: ServerApp<unknown>): Response {
 	});
 }
 
-/** Encoding is not something every runtime can do (sharp is a native module): one that cannot says
- *  so with a code, once per process, and answers 500. */
 let said_no_encoder = false;
 function no_encoder(e: unknown): Response {
 	if (!said_no_encoder) warn('image_no_encoder', { reason: (e as Error).message });
@@ -70,10 +67,8 @@ function original_of(recipe: ParsedRecipe): string {
 	return `${BASE}/${encode_tail(recipe.tail)}`;
 }
 
-/** The URLs noted while prerendering (each once). */
 const noted = new Set<string>();
 
-/** While prerendering: note `url` for the build's end, and start its file. */
 function note_minted(url: string, path: string, minted: string): void {
 	if (noted.has(url)) return;
 	noted.add(url);
