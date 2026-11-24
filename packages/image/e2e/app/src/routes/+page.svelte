@@ -17,6 +17,7 @@
 	<a href="/blog/first-post" id="to-post">The first post</a>
 	<a href="/blog/second-post">The second post</a>
 	<a href="/blog/third-post">The third post</a>
+	<a href="/island">An island's priority image</a>
 </nav>
 <Counter />
 <Img of={hero} preset="cover" alt="Hills at dusk" id="hero" />

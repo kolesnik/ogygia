@@ -6,6 +6,13 @@
 </script>
 
 <div id="island">
-	<Img of={dot} layout="fixed" width={48} alt="An avatar in an island" id="island-img" />
+	<Img
+		of={dot}
+		layout="fixed"
+		width={48}
+		alt="An avatar in an island"
+		id="island-img"
+		class={n % 2 ? 'odd' : 'even'}
+	/>
 	<button type="button" id="island-count" onclick={() => n++}>{n}</button>
 </div>

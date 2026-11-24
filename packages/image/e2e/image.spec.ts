@@ -48,6 +48,30 @@ function urls(srcset: string | null): string[] {
 		.filter(Boolean);
 }
 
+/** What the page says that it should not: errors, and Svelte's hydration warnings. */
+function listen(page: Page): string[] {
+	const said: string[] = [];
+	page.on('pageerror', (e) => said.push(e.message));
+	page.on('console', (m) => {
+		if (m.type() === 'error' || /hydration_/.test(m.text())) said.push(m.text());
+	});
+	return said;
+}
+
+/** The `src`, `srcset` and AVIF `srcset` the server wrote for the `<img id>` in `html`. */
+function server_attrs(html: string, id: string): Record<'src' | 'srcset' | 'avif', string> {
+	const at = html.indexOf(`id="${id}"`);
+	const picture = html.lastIndexOf('<picture', at);
+	const tag = html.slice(html.lastIndexOf('<img', at), html.indexOf('>', at));
+	const read = (text: string, name: string): string =>
+		new RegExp(`\\s${name}="([^"]*)"`).exec(text)![1]!.replaceAll('&amp;', '&');
+	return {
+		src: read(tag, 'src'),
+		srcset: read(tag, 'srcset'),
+		avif: read(html.slice(picture, at), 'srcset')
+	};
+}
+
 /** One file's bytes and decoded size. */
 async function fetch_file(
 	request: APIRequestContext,
@@ -327,28 +351,49 @@ test.describe('the image endpoint', () => {
 });
 
 test.describe('with the runtime', () => {
-	test('an <Img> inside a hydrated island renders the same, loads, and the island still works', async ({
-		page
+	test("an <Img> inside a hydrated island keeps the server's files through hydration and every update after, with no warning", async ({
+		page,
+		request
 	}) => {
-		const errors: string[] = [];
-		page.on('pageerror', (e) => errors.push(e.message));
-		page.on('console', (m) => {
-			if (m.type() === 'error') errors.push(m.text());
-		});
+		const said = listen(page);
+		const html = await (await request.get('/')).text();
+		const server = server_attrs(html, 'island-img');
 		await page.goto('/');
 		const img = page.locator('#island-img');
-		const before = await attrs(img);
-		expect(before.srcset).toMatch(/\.webp 1x/);
 		const button = page.locator('#island-count');
 		await expect(async () => {
 			await button.click();
 			await expect(button).not.toHaveText('0', { timeout: 200 });
 		}).toPass();
-		expect(await attrs(img)).toEqual(before);
+		await expect(img).toHaveClass('odd');
+		const after = await attrs(img);
+		expect([after.src, after.srcset, after.avif]).toEqual([server.src, server.srcset, server.avif]);
 		await expect
 			.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
 			.toBe(true);
-		expect(errors).toEqual([]);
+		expect(said).toEqual([]);
+	});
+
+	test('a priority <Img> inside an island keeps the head preload the server wrote', async ({
+		page,
+		request
+	}) => {
+		const said = listen(page);
+		const html = await (await request.get('/island')).text();
+		const preload = /<link rel="preload" as="image"[^>]*>/.exec(html)![0];
+		const server_set = /imagesrcset="([^"]+)"/.exec(preload)![1]!.replaceAll('&amp;', '&');
+		expect(server_set).toMatch(/\.avif 320w/);
+		await page.goto('/island');
+		const button = page.locator('#hero-count');
+		await expect(async () => {
+			await button.click();
+			await expect(button).not.toHaveText('0', { timeout: 200 });
+		}).toPass();
+		const link = page.locator('head link[rel="preload"][as="image"]');
+		await expect(link).toHaveCount(1);
+		expect(await link.getAttribute('imagesrcset')).toBe(server_set);
+		expect((await attrs(page.locator('#island-hero'))).avif).toBe(server_set);
+		expect(said).toEqual([]);
 	});
 
 	test('a morph thumbnail and the post hero of the same source share one view-transition name, and the navigation runs clean', async ({
