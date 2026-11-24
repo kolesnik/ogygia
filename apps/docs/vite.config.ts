@@ -65,10 +65,8 @@ export default defineConfig(({ command }) => ({
 			'ogygia > @ogygia/core > magic-string'
 		]
 	},
-	// PROFILER_SOURCEMAPS=1 pnpm build → server chunks get .map files, so the SSR profiler
-	// (@ogygia/devtools/profiler) maps bundled frames back to source files and recovers original
-	// names for anonymous functions. The site targets modern browsers only (`esnext`).
-	build: { target: 'esnext', ...(process.env.PROFILER_SOURCEMAPS ? { sourcemap: true } : {}) },
+	// The site targets modern browsers only (`esnext`).
+	build: { target: 'esnext' },
 	plugins: [
 		releaseDates(),
 		ogygia({
@@ -78,11 +76,10 @@ export default defineConfig(({ command }) => ({
 				frozenSwr: { render: 'live', wake: 'load' }
 			}
 		}),
-		// The devtools dock (launcher + Lens/Bytes/Wire/Nav/Timeline) — dev only, so the built docs
-		// site never ships the instrument graph — and the SSR profiler, always: UI at /__profiler
-		// (dev = open; prod needs ?key=<OGYGIA_PROFILER_SECRET>). Build with PROFILER_SOURCEMAPS=1 to
-		// recover original frame names (see build.sourcemap).
-		devtools({ dock: command === 'serve', profiler: true }),
+		// The devtools dock (launcher + Lens/Bytes/Wire/Nav/Timeline) and the SSR profiler (UI at
+		// /__profiler), both dev only: the site deploys to Cloudflare Workers, which has no
+		// node:inspector and no process.cpuUsage for the profiler to record with.
+		devtools({ dock: command === 'serve', profiler: command === 'serve' }),
 		content({
 			markdown: {
 				themes: { light: themes.light, dark: themes.dark },
