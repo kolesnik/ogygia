@@ -178,7 +178,19 @@ test.describe("markdown images (/blog/[slug])", () => {
     await expect(page.getByTestId("cover")).toHaveAttribute("width", "1200");
   });
 
-  for (const slug of ["first-post", "second-post"])
+  test("images whose names hold a space or an accent resolve and load", async ({
+    page,
+  }) => {
+    await page.goto("/blog/third-post");
+    for (const alt of ["A spaced name", "A name with an accent"]) {
+      const a = await attrs(page.getByAltText(alt));
+      expect(a.picture).toBe("yes");
+      expect(a.avif).toMatch(/\.avif 500w/);
+    }
+    await expect(page.getByTestId("cover")).toHaveAttribute("width", "1200");
+  });
+
+  for (const slug of ["first-post", "second-post", "third-post"])
     test(`every image on /blog/${slug} really loads`, async ({ page }) => {
       await page.goto(`/blog/${slug}`);
       await every_image_loads(page);
