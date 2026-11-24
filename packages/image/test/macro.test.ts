@@ -3,7 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { dedent } from '@ogygia/core/plugin/utils';
+import type { MacroHandler } from '@ogygia/compiler/vite';
 import { options_of_query, rewrite_image_calls } from '../src/vite/macro.ts';
+import { image } from '../src/vite/index.ts';
 
 let dir: string;
 beforeAll(() => {
@@ -113,5 +115,32 @@ describe('rewrite_image_calls', () => {
 	test('a module without the marker is returned as it is', () => {
 		const src = 'const x = 1;';
 		expect(rewrite_image_calls(src, mod())).toBe(src);
+	});
+});
+
+describe('the image macro in dev', () => {
+	/** The handler `image()` registers with ogygia, as ogygia calls it. */
+	function handler(): (code: string, m: Parameters<MacroHandler>[1]) => unknown {
+		const plugin = image()[0] as unknown as Record<symbol, { build(b: unknown): void }>;
+		let found: MacroHandler | undefined;
+		plugin[Symbol.for('ogygia.plugin')]!.build({
+			macro: (_name: string, h: MacroHandler) => (found = h)
+		});
+		return found!;
+	}
+
+	test('a call to a missing file still watches it, so adding the file transforms the module again', async () => {
+		const watched: string[] = [];
+		const run = async () =>
+			handler()(`const a = import.meta.og.image('./later.jpg');\n`, {
+				id: mod(),
+				rel: 'page.ts',
+				root: dir,
+				alias: [],
+				markupExts: ['.svelte'],
+				watch: (f) => watched.push(f)
+			});
+		await expect(run()).rejects.toThrow(/later\.jpg/);
+		expect(watched).toContain(path.join(dir, 'later.jpg'));
 	});
 });
