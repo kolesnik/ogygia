@@ -35,6 +35,16 @@ describe('absolutize', () => {
 		);
 	});
 
+	it("pins every candidate of an image's srcset and its preload's imagesrcset, built or dev", () => {
+		const one = '/__ogygia__/i/5f2a/h1-320x180/_app/immutable/assets/hero.Ab12.jpg.avif';
+		const two = '/__ogygia__/i/9c1e/h1-640x360/_app/immutable/assets/hero.Ab12.jpg.avif';
+		const dev = '/src/lib/images/hero.jpg';
+		const html = `<link rel="preload" as="image" href="${one}" imagesrcset="${one} 320w, ${two} 640w" imagesizes="100vw"><picture><source type="image/avif" srcset="${one} 320w, ${two} 640w"><img src="${dev}" srcset="${dev} 1x,${two} 2x" alt=""></picture><a href="/blog/post">a post</a>`;
+		expect(absolutize(html, O)).toBe(
+			`<link rel="preload" as="image" href="${O}${one}" imagesrcset="${O}${one} 320w, ${O}${two} 640w" imagesizes="100vw"><picture><source type="image/avif" srcset="${O}${one} 320w, ${O}${two} 640w"><img src="${O}${dev}" srcset="${O}${dev} 1x,${O}${two} 2x" alt=""></picture><a href="/blog/post">a post</a>`
+		);
+	});
+
 	it('pins each attribute whose names differ past ASCII, each in its own value (#1115)', () => {
 		// (the browser lower-cases ASCII only: `data-Äsrc` and `data-äsrc` are two attributes)
 		expect(absolutize(`<x-widget data-Äsrc="/og/a.js" data-äsrc="/og/b.js">`, O)).toBe(
