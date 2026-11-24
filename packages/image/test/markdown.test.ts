@@ -43,6 +43,43 @@ function compile(tree: Hast, b = bridge()): { body: string; lines: string[] } {
 	return { body: done.code, lines: done.lines };
 }
 
+/** mdsvex's module script for a document with this frontmatter, through `finish`. */
+function frontmatter(data: Record<string, unknown>): { code: string; lines: string[] } {
+	const code = `<script context="module">\n\texport const metadata = ${JSON.stringify(data)};\n</script>\n<p>x</p>`;
+	const done = bridge().finish(code, post);
+	return { code: done.code, lines: done.lines };
+}
+
+describe('frontmatter images', () => {
+	test('a ./ path to an image becomes a descriptor import, in place in the metadata', () => {
+		const { code, lines } = frontmatter({ title: 'T', cover: './cover.jpg' });
+		expect(lines).toEqual(['import __og_fm_image_0 from "./cover.jpg?og-image";']);
+		expect(code).toContain('export const metadata = {"title":"T","cover":__og_fm_image_0};');
+	});
+
+	test('nested and listed paths become descriptors too', () => {
+		const { code } = frontmatter({ gallery: ['./harbor.jpg', { src: './cover.jpg' }] });
+		expect(code).toContain('{"gallery":[__og_fm_image_0,{"src":__og_fm_image_1}]}');
+	});
+
+	test('a value with no ./ or ../ prefix stays a string, even when it ends in an image extension', () => {
+		const data = { share: 'images/share.png', diagram: 'diagram.png', site: '/og.png' };
+		const { code, lines } = frontmatter(data);
+		expect(lines).toEqual([]);
+		expect(code).toContain(JSON.stringify(data));
+	});
+
+	test('a ./ or ../ path to a missing image fails the build, naming it', () => {
+		expect(() => frontmatter({ cover: '../gone.jpg' })).toThrow(/'\.\.\/gone\.jpg' does not exist/);
+	});
+
+	test('a frontmatter path is a file path: a % in it is not an escape', () => {
+		fs.writeFileSync(path.join(dir, '100%.jpg'), '');
+		const { lines } = frontmatter({ cover: './100%.jpg' });
+		expect(lines).toEqual(['import __og_fm_image_0 from "./100%.jpg?og-image";']);
+	});
+});
+
 describe('markdown body images', () => {
 	test('a local image renders through <Og__Img>, imported under the og-image query', () => {
 		const { body, lines } = compile(tree_of({ src: './harbor.jpg', alt: 'A harbor' }));
