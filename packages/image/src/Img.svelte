@@ -2,7 +2,8 @@
 @component
 One image from a descriptor. Say how it sits on the page (`layout`, and at most a `width`); the
 srcset, `sizes`, the width and height attributes, the blur placeholder and the loading hints follow.
-Server HTML only: it ships no script.
+Server HTML only: it ships no script, and no inline event handler. Besides its own props it passes
+`class`, `id`, `style`, `title`, `crossorigin`, `referrerpolicy` and `draggable` to the `<img>`.
 
 ```svelte
 <Img of={hero} layout="fullWidth" priority alt="The harbor at dusk" />
@@ -16,7 +17,10 @@ Server HTML only: it ships no script.
 	import { lay_out, type ImageLayout } from './layout.ts';
 	import { placeholder_style } from './placeholder.ts';
 
-	type Props = Omit<HTMLImgAttributes, 'src' | 'srcset' | 'sizes' | 'width' | 'height' | 'alt'> & {
+	type Props = Pick<
+		HTMLImgAttributes,
+		'class' | 'id' | 'style' | 'title' | 'crossorigin' | 'referrerpolicy' | 'draggable'
+	> & {
 		/** The image: from `import.meta.og.image()`, a markdown or frontmatter image. */
 		of: ImageDescriptor;
 		/** What the image shows, for people who cannot see it. `""` for a decorative image. */
@@ -44,8 +48,13 @@ Server HTML only: it ships no script.
 		sizes,
 		priority = false,
 		placeholder = true,
+		class: klass,
+		id,
 		style,
-		...rest
+		title,
+		crossorigin,
+		referrerpolicy,
+		draggable
 	}: Props = $props();
 
 	const laid = $derived(lay_out(of, { layout, width, height, sizes }));
@@ -76,7 +85,12 @@ Server HTML only: it ships no script.
 
 {#snippet img()}
 	<img
-		{...rest}
+		class={klass}
+		{id}
+		{title}
+		{crossorigin}
+		{referrerpolicy}
+		{draggable}
 		src={laid.src}
 		srcset={laid.srcset}
 		sizes={laid.sizes}
