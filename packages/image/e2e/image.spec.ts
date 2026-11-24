@@ -117,6 +117,24 @@ test.describe("macro images (/)", () => {
       .toMatch(/-320\.[\w-]+\.avif$/);
   });
 
+  test("a width and height crop keeps its box after the image loads, from a source wide enough to cover it", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const crop = page.getByTestId("crop");
+    await crop.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        crop.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0),
+      )
+      .toBe(true);
+    const box = await crop.boundingBox();
+    expect([Math.round(box!.width), Math.round(box!.height)]).toEqual([400, 400]);
+    // 1800×1000 cropped to a 400 square is drawn 720 wide: a 1x screen needs at least that
+    const src = await crop.evaluate((el: HTMLImageElement) => el.currentSrc);
+    expect(Number(/-(\d+)\.[\w-]+\.avif$/.exec(src)?.[1])).toBeGreaterThanOrEqual(720);
+  });
+
   test("an SVG passes through as one file, with no <picture>", async ({
     page,
   }) => {

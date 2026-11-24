@@ -15,6 +15,7 @@
 <p><Img of={avatar} layout="fixed" width={48} alt="An avatar" data-testid="avatar" /></p>
 <div class="spacer"></div>
 <Img of={portrait} width={400} alt="A tall picture" data-testid="portrait" />
+<Img of={hero} width={400} height={400} alt="Hills, cropped square" data-testid="crop" />
 <Img of={badge} width={160} alt="A round badge" data-testid="badge" />
 <Img of={logo} alt="A logo" data-testid="logo" />
 <Img of={spinner} alt="A moving dot" data-testid="spinner" />

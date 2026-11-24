@@ -64,6 +64,25 @@ describe('lay_out', () => {
 		expect([laid.width, laid.height, laid.cover]).toEqual([300, 300, true]);
 	});
 
+	test('a cover crop picks candidates by the width that covers the box, not the box width', () => {
+		// a 3:2 image cropped to 400×400 is drawn 600 wide: the source must be that wide
+		const laid = lay_out(image(), { width: 400, height: 400 });
+		expect(laid.sizes).toBe('(min-width: 400px) 600px, 150vw');
+		expect(laid.srcset).toBe('/i-640.webp 640w, /i-960.webp 960w, /i-1280.webp 1280w');
+		expect(laid.src).toBe('/i-640.webp');
+		expect(laid.preload.href).toBe('/i-640.avif');
+	});
+
+	test('a cover crop wider than the image is covered by the box width itself', () => {
+		const laid = lay_out(image(), { width: 600, height: 100 });
+		expect(laid.sizes).toBe('(min-width: 600px) 600px, 100vw');
+	});
+
+	test('a fixed cover crop offers 1× and 2× of the covering width', () => {
+		const laid = lay_out(image(), { layout: 'fixed', width: 400, height: 400 });
+		expect(laid.srcset).toBe('/i-640.webp 1x, /i-1280.webp 2x');
+	});
+
 	test('a height alone keeps the aspect ratio', () => {
 		const laid = lay_out(image(), { height: 200 });
 		expect([laid.width, laid.height]).toEqual([300, 200]);
