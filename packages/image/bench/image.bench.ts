@@ -13,11 +13,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { bench } from '@bench/heisenbench/bench';
 import { dedent } from '@ogygia/core/contract';
-import { DEFAULT_BREAKPOINTS, DEFAULT_FORMATS, type RenderConfig } from '../src/config.ts';
+import {
+	DEFAULT_BREAKPOINTS,
+	DEFAULT_FORMATS,
+	type ImagePreset,
+	type RenderConfig
+} from '../src/config.ts';
 import { isImage, type ImageDescriptor } from '../src/descriptor.ts';
-import { lay_out, mime_of, type LayoutRequest } from '../src/layout.ts';
+import { lay_out, mime_of, preset_request, same_files } from '../src/layout.ts';
 import { placeholder_style } from '../src/placeholder.ts';
-import { parse_recipe, recipe_path, source_tail, type Recipe } from '../src/recipe.ts';
+import { parse_recipe, recipe_path, source_tail, warm_url, type Recipe } from '../src/recipe.ts';
 import { image_call_edits, options_of_query, image_specifier } from '../src/vite/macro.ts';
 import { markdown_extension } from '../src/vite/markdown.ts';
 import { check_image_options, check_plugin_options } from '../src/vite/options.ts';
@@ -60,7 +65,10 @@ const PREFIXES: readonly string[] = ['', ''];
 const url = (r: Recipe): string =>
 	`/__ogygia__/i/0123456789abcdef0123456789abcdef/${recipe_path(r, source_tail(r.src, PREFIXES))}`;
 
-const LAYOUTS: readonly LayoutRequest[] = [
+/** A warmed file's URL, as `<Img>` names one when the request is its preset's. */
+const warm = (r: Recipe): string => warm_url(CFG.paths, r);
+
+const LAYOUTS: readonly ImagePreset[] = [
 	{ layout: 'fullWidth', aspect: '16/9' },
 	{ layout: 'constrained', width: 720 },
 	{ layout: 'constrained' },
@@ -69,13 +77,15 @@ const LAYOUTS: readonly LayoutRequest[] = [
 ];
 
 bench(
-	'lay_out: a page of forty images over every layout, each file named by its recipe, with their placeholders',
+	'lay_out: a page of forty images over every layout, each file named by its recipe (half of them warmed), with their placeholders',
 	({ images }) => {
 		let n = 0;
 		for (let i = 0; i < images.length; i++) {
 			const d = images[i]!;
 			if (!isImage(d)) continue;
-			const laid = lay_out(d, LAYOUTS[i % LAYOUTS.length]!, CFG, url);
+			const asked = LAYOUTS[i % LAYOUTS.length]!;
+			const req = preset_request(asked, i % 2 ? {} : { width: 300 });
+			const laid = lay_out(d, req, CFG, same_files(req, preset_request(asked)) ? warm : url);
 			n += laid.src.length + (laid.srcset?.length ?? 0) + laid.sources.length;
 			n += placeholder_style(d.ph).length + mime_of(d.format).length;
 		}

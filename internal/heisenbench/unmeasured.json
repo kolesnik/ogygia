@@ -6993,24 +6993,20 @@
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/render.ts > layOut > lay_out:3~9cf762",
-			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
-		},
-		{
 			"id": "packages/image/src/render.ts > preset_of",
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~c760f5 > request",
-			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+			"id": "packages/image/src/server.ts > defineServer:0~cae47b > request",
+			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~c760f5 > setup",
-			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+			"id": "packages/image/src/server.ts > defineServer:0~cae47b > setup",
+			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~c760f5 > setup > set_minter:0~430c99",
-			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+			"id": "packages/image/src/server.ts > defineServer:0~cae47b > setup > set_minter:0~617625",
+			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/server.ts > map:0~de6d9d",
@@ -7021,24 +7017,12 @@
 			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > same",
-			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+			"id": "packages/image/src/settle.ts > call:0~e72b11 > run",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > signature",
-			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/settle.ts > cached_file",
-			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/settle.ts > call:0~51b419 > run",
-			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/settle.ts > call:0~51b419 > run > limited:0~12e893",
-			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+			"id": "packages/image/src/settle.ts > call:0~e72b11 > run > limited:0~b17f38",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/settle.ts > failed",
@@ -7067,14 +7051,6 @@
 		{
 			"id": "packages/image/src/settle.ts > settle",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > descriptor_module",
-			"reason": "a plugin hook, config-time: once per config, or once per source per build"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > render_config",
-			"reason": "a plugin hook, config-time: once per config, or once per source per build"
 		},
 		{
 			"id": "packages/image/src/vite/plan.ts > plan_image",
@@ -7213,8 +7189,188 @@
 			"reason": "build only: one offset compare per script call, per call found in a component, inside the measured macro pass; packages/image/test/macro.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/vite/options.ts > invalid",
-			"reason": "error path: builds the coded error for one bad option value, once, when the build fails"
+			"id": "packages/image/src/vite/options.ts > check_image_options > some:0~c5be01",
+			"reason": "config time, once per macro call that warms: a type check over the few preset names it lists; test/macro.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_no_kit > text",
+			"reason": "a message's one line for its warning or error: a template over its arguments, printed once when it happens"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_no_kit > details",
+			"reason": "a message's prose for its docs page and the printed message: constant text"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_unsettled > text",
+			"reason": "a message's one line for its warning or error: a template over its arguments, printed once when it happens"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_unsettled > details",
+			"reason": "a message's prose for its docs page and the printed message: constant text"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_warm_unknown > text",
+			"reason": "a message's one line for its warning or error: a template over its arguments, printed once when it happens"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_warm_unknown > details",
+			"reason": "a message's prose for its docs page and the printed message: constant text"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_adapter_no_encoder > text",
+			"reason": "a message's one line for its warning or error: a template over its arguments, printed once when it happens"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_adapter_no_encoder > details",
+			"reason": "a message's prose for its docs page and the printed message: constant text"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_no_encoder > text",
+			"reason": "a message's one line for its warning or error: a template over its arguments, printed once when it happens"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_no_encoder > details",
+			"reason": "a message's prose for its docs page and the printed message: constant text"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_store_unsafe > text",
+			"reason": "a message's one line for its warning or error: a template over its arguments, printed once when it happens"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_store_unsafe > details",
+			"reason": "a message's prose for its docs page and the printed message: constant text"
+		},
+		{
+			"id": "packages/core/src/messages/core.ts > WARNINGS > rule_transition_name_unique > text",
+			"reason": "a message's one line for the dev warning: a template over the rule's detail, printed once when the rule breaks"
+		},
+		{
+			"id": "packages/core/src/messages/core.ts > WARNINGS > rule_transition_name_unique > details",
+			"reason": "a message's prose for its docs page and dev warning: constant text, printed once when the rule breaks"
+		},
+		{
+			"id": "packages/core/src/runtime/rules.ts > transition_names_unique",
+			"reason": "browser only, dev and e2e builds: one selector query over inline view-transition names per rule check; proven in packages/core/test/browser/transition-name-unique.test.ts"
+		},
+		{
+			"id": "packages/core/src/plugin/server.ts > LivePlugins > #start > app > keyFingerprint",
+			"reason": "constant work: returns the signer's fingerprint (computed once per key), on a refusal only"
+		},
+		{
+			"id": "packages/image/src/server.ts > message",
+			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > no_encoder",
+			"reason": "a runtime without sharp: one coded warning per process, then a constant 500; test/server-no-encoder.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > note_minted",
+			"reason": "prerender only: one set lookup and one appended line per URL a page names, and an encode started; the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/server.ts > note_minted > then:0~c36919",
+			"reason": "prerender only: one set lookup and one appended line per URL a page names, and an encode started; the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/server.ts > note_minted > catch:0~a1b2d0",
+			"reason": "prerender only: one set lookup and one appended line per URL a page names, and an encode started; the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/server.ts > original_of",
+			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > prepare",
+			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/pixels.ts > encode_recipe",
+			"reason": "the encoder: sharp's metadata and encode, once per file made; test/server.test.ts and the e2e suite run it"
+		},
+		{
+			"id": "packages/image/src/vite/index.ts > kit_paths > read",
+			"reason": "config time, once per Vite config: three JSON reads of Kit's defines; test/plugin.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > constructor",
+			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > file",
+			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > find",
+			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > keep",
+			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > build_handoff",
+			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > prune",
+			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > each",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > each > lane",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > handoff_for",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > made",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > save_warm",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > settle_minted",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > settle_minted > each:1~be21a5",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > settle_minted > each:1~be21a5 > original",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > warm_files",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > warm_files > each:1~a3bb57",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > warm_files > each:1~a3bb57 > made:3~52cd60",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > warm_files > lay_out:3~77641a",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > warm_files > sort:0~8a5ae0",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > warm_list",
+			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		}
 	]
 }
