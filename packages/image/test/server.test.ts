@@ -1,10 +1,19 @@
-import crypto from 'node:crypto';
+// The image server realm, started the way the handle starts it (core's plugin test kit: the app's
+// real signer, its own key): the minter's URLs, and the endpoint that answers them.
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import sharp from 'sharp';
 import { beforeAll, describe, expect, test, vi } from 'vitest';
+import { startPlugin } from '@ogygia/core/plugin/testing';
 import { make_images } from './fixtures.ts';
 
 const files = vi.hoisted(() => new Map<string, string>());
+const store = vi.hoisted(() => {
+	const dir = `${process.env.TMPDIR ?? '/tmp'}/og-image-server-test-${process.pid}-${Date.now()}`;
+	process.env.__OGYGIA_IMAGE_BUILD = JSON.stringify({ store: dir, minted: `${dir}.minted` });
+	return dir;
+});
 
 vi.mock('virtual:ogygia-image/sources', () => ({
 	default: {
@@ -13,6 +22,10 @@ vi.mock('virtual:ogygia-image/sources', () => ({
 		'/src/lib/broken.jpg': '/_app/immutable/assets/broken.Ef56.jpg'
 	}
 }));
+vi.mock('virtual:ogygia-image/config', () => ({
+	default: { paths: { base: '', assets: '', app_dir: '_app' } }
+}));
+vi.mock('$app/environment', () => ({ building: false }));
 vi.mock('$app/server', () => ({
 	read: (asset: string) => {
 		const file = files.get(asset);
@@ -24,20 +37,15 @@ vi.mock('$app/server', () => ({
 const { default: server } = await import('../src/server.ts');
 const { mint, set_minter } = await import('../src/recipe.ts');
 
-const KEY = 'a test key';
-const sign = (m: string): string => crypto.createHmac('sha256', KEY).update(m).digest('hex');
-const app = { sign } as never;
+set_minter(null);
+const { app, ctx } = startPlugin(server, { name: '@ogygia/image' });
 
-type Req = NonNullable<typeof server.request>;
 async function get(url: string): Promise<Response | undefined> {
-	const ctx = {
-		event: { url: new URL(url, 'http://localhost') },
-		app
-	} as unknown as Parameters<Req>[0];
-	return (await server.request!(ctx)) ?? undefined;
+	return (await server.request!(ctx(new Request(new URL(url, 'http://localhost'))))) ?? undefined;
 }
 
 const HARBOR = { id: 'h1', src: '/_app/immutable/assets/harbor%20dusk.Ab12.jpg' };
+const SIG_RE = /\/__ogygia__\/i\/([^/]+)\//;
 
 beforeAll(async () => {
 	const img = await make_images();
@@ -46,16 +54,16 @@ beforeAll(async () => {
 	const broken = `${img.dir}/broken.jpg`;
 	fs.writeFileSync(broken, 'not a jpeg');
 	files.set('/_app/immutable/assets/broken.Ef56.jpg', broken);
-	set_minter(null);
-	server.setup!(app);
 });
 
 describe('the image server realm', () => {
-	test('a minted URL is a path under the image prefix, the same on every render', () => {
+	test('a minted URL is a path under /__ogygia__/i/, signed by the app, the same on every render', () => {
 		const a = mint({ ...HARBOR, width: 320, height: 213, format: 'avif' })!;
 		expect(a).toMatch(
-			/^\/__ogygia__\/image\/[0-9a-f]{32}\/h1-320x213\/_app\/immutable\/assets\/harbor%20dusk\.Ab12\.jpg\.avif$/
+			/^\/__ogygia__\/i\/[\w-]+\/h1-320x213\/_app\/immutable\/assets\/harbor%20dusk\.Ab12\.jpg\.avif$/
 		);
+		const sig = SIG_RE.exec(a)![1]!;
+		expect(app.verify(`image|${a.slice(a.indexOf(sig) + sig.length + 1)}`, sig)).toBe(true);
 		expect(mint({ ...HARBOR, width: 320, height: 213, format: 'avif' })).toBe(a);
 	});
 
@@ -67,6 +75,15 @@ describe('the image server realm', () => {
 		expect(res.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
 		const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
 		expect([meta.format, meta.width, meta.height]).toEqual(['webp', 320, 320]);
+	});
+
+	test('the second ask is read from the store, whole, with its length', async () => {
+		const url = mint({ ...HARBOR, width: 200, height: 133, format: 'avif' })!;
+		const first = Buffer.from(await (await get(url))!.arrayBuffer());
+		expect(fs.readdirSync(store).length).toBeGreaterThan(0);
+		const again = (await get(url))!;
+		expect(again.headers.get('content-length')).toBe(String(first.byteLength));
+		expect(Buffer.from(await again.arrayBuffer()).equals(first)).toBe(true);
 	});
 
 	test('an animated source stays animated', async () => {
@@ -82,16 +99,20 @@ describe('the image server realm', () => {
 		expect(meta.pages).toBe(3);
 	});
 
-	test('a URL whose recipe was changed after signing is refused', async () => {
+	test('a URL whose recipe was changed after signing is refused, naming why and the key', async () => {
 		const url = mint({ ...HARBOR, width: 48, height: 48, format: 'webp' })!;
-		expect((await get(url.replace('-48x48/', '-4000x4000/')))!.status).toBe(403);
+		const res = (await get(url.replace('-48x48/', '-4000x4000/')))!;
+		expect(res.status).toBe(403);
+		expect(res.headers.get('x-ogygia-deny')).toBe('sig');
+		expect(res.headers.get('x-ogygia-key')).toBe(app.keyFingerprint());
+		expect(res.headers.get('cache-control')).toBe('no-store');
 	});
 
 	test('a URL with no signature, or a forged one, is refused', async () => {
 		const url = mint({ ...HARBOR, width: 48, height: 48, format: 'webp' })!;
-		const sig = /image\/([0-9a-f]{32})\//.exec(url)![1]!;
+		const sig = SIG_RE.exec(url)![1]!;
 		expect((await get(url.replace(`${sig}/`, '')))!.status).toBe(403);
-		expect((await get(url.replace(sig, '0'.repeat(32))))!.status).toBe(403);
+		expect((await get(url.replace(sig, 'A'.repeat(sig.length))))!.status).toBe(403);
 	});
 
 	test('a signed recipe naming an original the app does not ship is not found', async () => {
@@ -107,11 +128,10 @@ describe('the image server realm', () => {
 
 	test('a signed path that is not a recipe is not found', async () => {
 		const bad = 'h1-48x48/_app/%E0%A4%A.jpg.webp';
-		const bad_sig = sign(`image|${bad}`).slice(0, 32);
-		expect((await get(`/__ogygia__/image/${bad_sig}/${bad}`))!.status).toBe(404);
+		expect((await get(`/__ogygia__/i/${app.sign(`image|${bad}`)}/${bad}`))!.status).toBe(404);
 	});
 
-	test('an original that cannot be decoded is a coded 500, not a hung request', async () => {
+	test('an original that cannot be decoded is a coded 500 no cache keeps, not a hung request', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const url = mint({
 			id: 'b1',
@@ -120,7 +140,9 @@ describe('the image server realm', () => {
 			height: 48,
 			format: 'webp'
 		})!;
-		expect((await get(url))!.status).toBe(500);
+		const res = (await get(url))!;
+		expect(res.status).toBe(500);
+		expect(res.headers.get('cache-control')).toBe('no-store');
 		expect(String(warn.mock.calls[0]?.[0])).toMatch(/image_settle_failed/);
 		warn.mockRestore();
 	});
@@ -128,5 +150,37 @@ describe('the image server realm', () => {
 	test('a request for any other path passes through', async () => {
 		expect(await get('/blog/first-post')).toBeUndefined();
 		expect(await get('/__ogygia__')).toBeUndefined();
+	});
+});
+
+describe('the store a live server keeps', () => {
+	test("is a folder only its user can open, and the other encoder versions' folders go", async () => {
+		const { runtime_store } = await import('../src/store.ts');
+		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-store-'));
+		const root = path.join(tmp, `ogygia-image-${process.getuid!()}`);
+		fs.mkdirSync(path.join(root, 'v0-old'), { recursive: true, mode: 0o700 });
+		const s = runtime_store(tmp)!;
+		expect(s.dir.startsWith(root)).toBe(true);
+		expect(fs.statSync(root).mode & 0o777).toBe(0o700);
+		expect(fs.statSync(s.dir).mode & 0o777).toBe(0o700);
+		await expect.poll(() => fs.existsSync(path.join(root, 'v0-old'))).toBe(false);
+	});
+
+	test('a folder at that place that others can write to, or a link, keeps nothing, and says so', async () => {
+		const { runtime_store } = await import('../src/store.ts');
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const open = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-store-'));
+		fs.mkdirSync(path.join(open, `ogygia-image-${process.getuid!()}`), { mode: 0o777 });
+		fs.chmodSync(path.join(open, `ogygia-image-${process.getuid!()}`), 0o777);
+		expect(runtime_store(open)).toBeNull();
+		const linked = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-store-'));
+		const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-elsewhere-'));
+		fs.symlinkSync(elsewhere, path.join(linked, `ogygia-image-${process.getuid!()}`));
+		expect(runtime_store(linked)).toBeNull();
+		expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([
+			expect.stringMatching(/image_store_unsafe/),
+			expect.stringMatching(/image_store_unsafe/)
+		]);
+		warn.mockRestore();
 	});
 });
