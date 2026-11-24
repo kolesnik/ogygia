@@ -57,6 +57,17 @@ export const IMAGE_ERRORS = {
 			name as it is (\`![](<./my photo.jpg>)\`), or escape it as UTF-8.
 		`
 	},
+	image_markdown_html: {
+		text: (a: { file: string; src: string }): string => prose`
+			${a.file}: <img src="${a.src}"> in markdown HTML names a local file, which would ship as a
+			broken link. Write it as ![alt](${a.src}).
+		`,
+		details: (): string => prose`
+			A markdown image (\`![alt](./x.jpg)\`) is encoded at build and rendered through \`<Img>\`. An
+			HTML \`<img>\` is copied as text, so its relative path points at nothing once the page is
+			served. Use the markdown form, or put the file in \`static/\` and name it from the site root.
+		`
+	},
 	image_glob_empty: {
 		text: (a: { file: string; pattern: string }): string =>
 			`${a.file}: import.meta.og.image.glob('${a.pattern}') matched no file.`,

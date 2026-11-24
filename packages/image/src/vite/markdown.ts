@@ -11,6 +11,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { next_any_tag, tag_name } from '@ogygia/core/contract';
 import { image_specifier } from './macro.ts';
 import { OgygiaError } from '../messages.ts';
 import type { ImagePluginOptions } from './options.ts';
@@ -84,6 +85,17 @@ function local_specifier(filename: string, rel: string, shown: string): string {
 	return rel.startsWith('.') ? rel : `./${rel}`;
 }
 
+/** Fail on an HTML `<img>` in markdown that names a local image: it would ship as a broken link. */
+function refuse_html_images(filename: string, html: string): void {
+	if (!/<img/i.test(html)) return;
+	for (let tag = next_any_tag(html, 0); tag !== null; tag = next_any_tag(html, tag.next)) {
+		if (tag_name(html, tag) !== 'img') continue;
+		const src = tag.attr('src');
+		if (src !== undefined && is_local_image(src))
+			throw new OgygiaError('image_markdown_html', { file: path.basename(filename), src });
+	}
+}
+
 let code_hash: string | undefined;
 
 /** A hash of this package's shipped code (`src` in the workspace, `dist` when installed): what
@@ -128,6 +140,7 @@ export function install_markdown_bridge(opts: ImagePluginOptions): void {
 				if (!children) return;
 				for (let i = 0; i < children.length; i++) {
 					const child = children[i]!;
+					if (child.type === 'raw' && child.value) refuse_html_images(filename, child.value);
 					const src = child.properties?.src;
 					if (
 						child.type === 'element' &&
