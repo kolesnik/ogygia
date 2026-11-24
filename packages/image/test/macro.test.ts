@@ -80,6 +80,10 @@ describe('rewrite_image_calls', () => {
 		).toThrow(/remote images are not supported yet/);
 	});
 
+	test('a hand-written og-image query that is not the macro’s fails with its code', () => {
+		expect(() => options_of_query('og-image=not-json')).toThrow(/og-image query/);
+	});
+
 	test('a call in a component template fails the build instead of shipping as code', () => {
 		const svelte = path.join(dir, 'Card.svelte');
 		for (const call of [`import.meta.og.image('./hero.jpg')`, `import.meta.og.image.glob('./gallery/*.jpg')`])
