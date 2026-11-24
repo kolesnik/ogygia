@@ -28,6 +28,8 @@
  *   first document (SPA-HEAD, ./head-deny.ts).
  * - `rule_turns_counted`: the hydration scheduler's count of pending turns is the turns it holds,
  *   each in the heap its snapshot names (./schedule.ts `turns_counted`: the drain's pick rests on it).
+ * - `rule_transition_name_unique`: no two elements on the page carry one inline view-transition
+ *   name (the browser skips the whole transition when a name repeats).
  * - `rule_seed_key_unshipped`: island code reads no `page.data` key the server had and the shaped
  *   page seed left out (seed shaping, `dataShake()`; the seed names what it left out in rules builds).
  *
@@ -52,7 +54,8 @@ type RuntimeRule =
 	| 'rule_head_adopted'
 	| 'rule_lake_restored'
 	| 'rule_turns_counted'
-	| 'rule_seed_key_unshipped';
+	| 'rule_seed_key_unshipped'
+	| 'rule_transition_name_unique';
 
 /** The runtime's rules. */
 export const runtime_rules: Rules<RuntimeRule> = /* @__PURE__ */ new Rules<RuntimeRule>();
@@ -123,6 +126,23 @@ function regions_left_at_rest(): string | null {
 		}
 		return `${entry_of(region)} left the page with ${busy.join(', ')}`;
 	}
+	return null;
+}
+
+// ── a view-transition name is one element's ──
+
+/** Names given inline (`style="view-transition-name: …"`, what `<Img morph>` writes) that more
+ *  than one element on the page carries. `none` and `auto` name nothing. */
+function transition_names_unique(): string | null {
+	if (typeof document === 'undefined') return null;
+	const count = new Map<string, number>(); // (one per check)
+	for (const el of document.querySelectorAll<HTMLElement>('[style*="view-transition-name"]')) {
+		const name = el.style.getPropertyValue('view-transition-name').trim();
+		if (!name || name === 'none' || name === 'auto') continue;
+		count.set(name, (count.get(name) ?? 0) + 1);
+	}
+	for (const [name, n] of count)
+		if (n > 1) return `${n} elements share the view-transition name ${name}`;
 	return null;
 }
 
@@ -434,6 +454,7 @@ export function install_rules(dev: boolean): void {
 	runtime_rules.add('rule_region_answer_behind', regions_show_their_answers);
 	runtime_rules.add('rule_region_left_busy', regions_left_at_rest);
 	runtime_rules.add('rule_turns_counted', turns_counted);
+	runtime_rules.add('rule_transition_name_unique', transition_names_unique);
 	watch_head();
 	(globalThis as PageGlobals).__og_parsed = note_parse;
 	runtime_rules.add('rule_seed_key_unshipped', no_unshipped_read);
