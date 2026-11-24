@@ -74,9 +74,8 @@ catalog:
   mdast-util-from-markdown: ^2.0.2
   # ui
   bits-ui: ^2.18.1
-  # image (@ogygia/image): the encoder, and the placeholder hash
+  # image (@ogygia/image): the encoder
   sharp: ^0.35.5
-  thumbhash: ^0.1.1
   '@neodrag/svelte': 3.0.0-next.12
   '@codemirror/commands': ^6.11.0
   '@codemirror/lang-html': ^6.4.12

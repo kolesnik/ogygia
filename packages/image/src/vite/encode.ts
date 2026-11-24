@@ -9,7 +9,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import sharp, { type Metadata, type Sharp } from "sharp";
-import { rgbaToThumbHash } from "thumbhash";
 import { BuildCache } from "@ogygia/compiler";
 import { flights, queue, STALE, type Place } from "@ogygia/machine";
 import type { ImageFormat } from "../descriptor.ts";
@@ -26,7 +25,7 @@ import {
 } from "./options.ts";
 
 /** Bump when the encoder's output changes for the same input: every cached image is made again. */
-const ENCODER_VERSION = 1;
+const ENCODER_VERSION = 2;
 
 /** One file the plan writes. */
 export interface PlannedVariant {
@@ -187,23 +186,28 @@ function pipeline(
   });
 }
 
-/** The placeholder token for an opaque image, or undefined (transparent, or it failed to read). */
+/** How wide the placeholder is, in pixels: the browser scales it up, smoothly, to the image's box. */
+const PLACEHOLDER_WIDTH = 16;
+
+/** The placeholder of an opaque image: a tiny WebP as a data URL. Undefined for a transparent one. */
 async function placeholder_of(
   bytes: Uint8Array,
   ops: ImageOps,
   size: { width: number; height: number },
 ): Promise<string | undefined> {
-  const scale = 100 / Math.max(size.width, size.height);
-  const w = Math.max(1, Math.round(size.width * Math.min(1, scale)));
-  const h = Math.max(1, Math.round(size.height * Math.min(1, scale)));
-  const { data, info } = await pipeline(bytes, ops, false, w, h)
+  const w = Math.min(PLACEHOLDER_WIDTH, size.width);
+  const h = Math.max(1, Math.round((w * size.height) / size.width));
+  const { data } = await pipeline(bytes, ops, false, w, h)
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
   for (let i = 3; i < data.length; i += 4)
     if (data[i] !== 255) return undefined;
-  const hash = rgbaToThumbHash(info.width, info.height, data);
-  return `thumbhash:${Buffer.from(hash).toString("base64")}`;
+  const tiny = await pipeline(bytes, ops, false, w, h)
+    .removeAlpha()
+    .webp({ quality: 50, effort: 6 })
+    .toBuffer();
+  return `data:image/webp;base64,${tiny.toString("base64")}`;
 }
 
 /** Plan one file: read it once, decide its variants, make its placeholder. Kept by id. */

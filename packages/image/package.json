@@ -75,8 +75,7 @@
 	},
 	"dependencies": {
 		"@ogygia/machine": "workspace:^",
-		"sharp": "catalog:",
-		"thumbhash": "catalog:"
+		"sharp": "catalog:"
 	},
 	"devDependencies": {
 		"@ogygia/compiler": "workspace:*",
