@@ -193,9 +193,19 @@ test('an imagesrcset preload (no href) is matched by any of its candidates', () 
 		new URL('/hero-560.jpg', document.baseURI).href,
 		new URL('/hero-1200.jpg', document.baseURI).href
 	]);
-	link.href = '/one.jpg';
-	expect(preload_urls(link)).toEqual([new URL('/one.jpg', document.baseURI).href]);
+	const bare = document.createElement('link');
+	bare.href = '/one.jpg';
+	expect(preload_urls(bare)).toEqual([new URL('/one.jpg', document.baseURI).href]);
 	expect(preload_urls(document.createElement('link'))).toEqual([]);
+});
+
+test('a preload with both href and imagesrcset is matched by its candidates, not only by href', () => {
+	const link = document.createElement('link');
+	link.href = '/hero-1280.webp';
+	link.setAttribute('imagesrcset', '/hero-640.webp 640w, /hero-1280.webp 1280w');
+	const urls = preload_urls(link);
+	expect(urls).toContain(new URL('/hero-640.webp', document.baseURI).href);
+	expect(urls).toContain(new URL('/hero-1280.webp', document.baseURI).href);
 });
 
 test('a critical image that never arrives holds island code only up to the cap', async () => {
