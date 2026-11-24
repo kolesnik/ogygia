@@ -1,0 +1,89 @@
+/**
+ * EVERY MESSAGE THE IMAGE PLUGIN PRINTS, in one place: its code, its wording, what to do about it.
+ *
+ *   throw new OgygiaError('image_not_found', { file, src });
+ *
+ * The plugin runs in Node, never in a page, so the wording always prints, then the code's page.
+ */
+import { define_messages, prose, type MessagesOf } from '@ogygia/core/internal/messages';
+
+/** The errors: `throw new OgygiaError(code, args)`. */
+export const IMAGE_ERRORS = {
+	image_macro_arity: {
+		text: (a: { file: string; line: number }): string =>
+			`${a.file}:${a.line} — import.meta.og.image(src, options?) takes a path and, at most, an options object.`,
+		details: (): string => prose`
+			\`import.meta.og.image\` reads one image file at build time:
+			\`import.meta.og.image('./hero.jpg')\`, or with options,
+			\`import.meta.og.image('./hero.jpg', { quality: 70 })\`.
+		`
+	},
+	image_macro_not_literal: {
+		text: (a: { file: string; line: number; what: string }): string => prose`
+			${a.file}:${a.line} — import.meta.og.image(): ${a.what} must be written out in place (a string
+			literal path, an object literal of plain values).
+		`,
+		details: (): string => prose`
+			The build reads the call before any code runs, so the path and options must be literals:
+			no variables, no template strings with \`\${…}\`, no function calls. To pick an image at run
+			time, make every candidate at build (\`import.meta.og.image.glob('./gallery/*.jpg')\`) and
+			choose among the results.
+		`
+	},
+	image_remote_unsupported: {
+		text: (a: { file: string; src: string }): string => prose`
+			${a.file}: import.meta.og.image('${a.src}') — remote images are not supported yet. Download the
+			file into the project, or render a plain \`<img>\` for it.
+		`,
+		details: (): string => prose`
+			This version encodes files that are part of the app. A URL on another host would need fetching
+			at build and an allowlist of hosts; that is planned, not built.
+		`
+	},
+	image_not_found: {
+		text: (a: { file: string; src: string }): string =>
+			`${a.file}: the image '${a.src}' does not exist (paths are relative to this file).`,
+		details: (): string => prose`
+			An image path resolves against the file that names it, like an import. Check the spelling and
+			the folder, and that the file is committed.
+		`
+	},
+	image_glob_empty: {
+		text: (a: { file: string; pattern: string }): string =>
+			`${a.file}: import.meta.og.image.glob('${a.pattern}') matched no file.`,
+		details: (): string => prose`
+			An empty gallery is almost always a wrong pattern, so the build stops instead of rendering
+			nothing. Patterns resolve against the file that names them.
+		`
+	},
+	image_option_unknown: {
+		text: (a: { where: string; key: string; known: string }): string =>
+			`${a.where}: unknown image option '${a.key}'. Known: ${a.known}.`,
+		details: (): string => prose`
+			A misspelled option would otherwise be ignored and the image encoded the default way.
+		`
+	},
+	image_option_invalid: {
+		text: (a: { where: string; key: string; rule: string }): string =>
+			`${a.where}: image option '${a.key}' must be ${a.rule}.`,
+		details: (): string => prose`
+			The option has a value the encoder cannot use. The message names the rule it breaks.
+		`
+	},
+	image_decode_failed: {
+		text: (a: { file: string; reason: string }): string =>
+			`${a.file}: the image could not be read (${a.reason}).`,
+		details: (): string => prose`
+			The encoder (sharp) could not decode the file: it may be damaged, empty, or in a format it
+			does not read (AVIF, WebP, PNG, JPEG, GIF, TIFF and SVG are read).
+		`
+	}
+};
+
+/** The warnings. */
+export const IMAGE_WARNINGS = {};
+
+type Own = MessagesOf<typeof IMAGE_ERRORS, typeof IMAGE_WARNINGS>;
+const own: Own = define_messages(IMAGE_ERRORS, IMAGE_WARNINGS);
+/** `throw new OgygiaError(code, args)`. */
+export const OgygiaError: Own['OgygiaError'] = own.OgygiaError;

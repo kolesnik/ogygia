@@ -42,7 +42,8 @@ const MACRO_PACKAGES: Readonly<Record<string, { package: string; plugin: string 
 	md: { package: '@ogygia/content', plugin: 'content()' },
 	loader: { package: '@ogygia/content', plugin: 'content()' },
 	regions: { package: '@ogygia/content', plugin: 'content()' },
-	bake: { package: '@ogygia/bake', plugin: 'bake()' }
+	bake: { package: '@ogygia/bake', plugin: 'bake()' },
+	image: { package: '@ogygia/image', plugin: 'image()' }
 };
 
 function calls_macro(code: string, name: string): boolean {
