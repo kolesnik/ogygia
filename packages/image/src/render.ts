@@ -1,16 +1,17 @@
 /**
- * What `<Img>` asks of the plugin at render: a preset by name, and a file's URL. On the server the URL
- * is signed (the image server realm's minter); in the browser nothing can sign, so a render that only
- * happens there shows the original file. An island's first render keeps the server's URLs (Svelte
- * does not touch `src` / `srcset` while hydrating).
+ * What `<Img>` asks of the plugin at render: a preset by name, and a file's URL. A preset the source
+ * was warmed with names the static files the build made, on the server and in the browser alike. Any
+ * other file is a signed URL on the server (the image server realm's minter); in the browser nothing
+ * can sign, so a render that only happens there shows the original file. An island keeps the
+ * server's URLs (`<Img>` reads them back from the page).
  *
  * @packageDocumentation
  */
 import config from 'virtual:ogygia-image/config';
 import type { ImagePreset } from './config.ts';
 import type { ImageDescriptor } from './descriptor.ts';
-import { lay_out, type Laid, type LayoutRequest } from './layout.ts';
-import { mint, type Recipe } from './recipe.ts';
+import { lay_out, preset_request, same_files, type Laid, type LayoutRequest } from './layout.ts';
+import { mint, warm_url, type Recipe } from './recipe.ts';
 import { RenderError } from './render-messages.ts';
 
 const NONE: ImagePreset = {};
@@ -47,19 +48,13 @@ export interface LayOutRequest extends LayoutRequest {
 export function layOut(of: ImageDescriptor, request: LayOutRequest = {}): Laid {
 	const { preset, ...own } = request;
 	const p = preset_of(preset);
-	return lay_out(
-		of,
-		{
-			layout: own.layout ?? p.layout,
-			width: own.width ?? p.width,
-			height: own.height ?? p.height,
-			aspect: own.aspect ?? p.aspect,
-			position: own.position ?? p.position,
-			sizes: own.sizes ?? p.sizes,
-			quality: own.quality ?? p.quality,
-			formats: own.formats ?? p.formats
-		},
-		config,
-		(recipe) => file_url(of, recipe)
+	const req = preset_request(p, own);
+	const warmed =
+		config.warmed &&
+		preset !== undefined &&
+		of.warm?.includes(preset) === true &&
+		same_files(req, preset_request(p));
+	return lay_out(of, req, config, (recipe) =>
+		warmed ? warm_url(config.paths, recipe) : file_url(of, recipe)
 	);
 }

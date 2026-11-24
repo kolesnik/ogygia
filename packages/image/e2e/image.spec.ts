@@ -8,8 +8,8 @@ import { test, expect } from '@ogygia/tooling/e2e';
 
 const MODE = process.env.IMAGE_E2E_MODE ?? 'node';
 const PAGES = ['/', '/blog/first-post', '/blog/second-post', '/blog/third-post'];
-const IMAGE_URL_RE = /\/(?:__ogygia__\/i|_app\/immutable\/og)\/[^\s",]+/g;
-const SIGNED_URL_RE = /\/__ogygia__\/i\/[^\s",]+/g;
+const IMAGE_URL_RE = /\/(?:__ogygia__\/i|_app\/immutable\/og)\/[^\s",)]+/g;
+const SIGNED_URL_RE = /\/__ogygia__\/i\/[^\s",)]+/g;
 
 /** Scroll every lazy image into view, then wait until each has decoded pixels. */
 async function every_image_loads(page: Page): Promise<void> {
@@ -392,7 +392,7 @@ test.describe('with the runtime', () => {
 			await button.click();
 			await expect(button).not.toHaveText('0', { timeout: 200 });
 		}).toPass();
-		await expect(img).toHaveClass('odd');
+		await expect(img).toHaveClass(/\bodd\b/);
 		const after = await attrs(img);
 		expect([after.src, after.srcset, after.avif]).toEqual([server.src, server.srcset, server.avif]);
 		await expect

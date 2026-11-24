@@ -7,7 +7,9 @@ import type { Recipe } from '../src/recipe.ts';
 const CFG: RenderConfig = {
 	formats: ['avif', 'webp'],
 	breakpoints: [640, 960, 1280, 1600, 2048],
-	presets: {}
+	presets: {},
+	paths: { base: '', assets: '', app_dir: '_app' },
+	warmed: true
 };
 
 function image(over: Partial<ImageDescriptor> = {}): ImageDescriptor {

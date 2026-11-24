@@ -57,12 +57,23 @@ export interface ImagePreset {
 	formats?: OutputFormat[];
 }
 
+/** Where the app is served from, as Kit's config says (`paths.base`, `paths.assets`, `appDir`). */
+export interface AppPaths {
+	base: string;
+	assets: string;
+	app_dir: string;
+}
+
 /** The plugin's render settings, as `<Img>` reads them. */
 export interface RenderConfig {
 	formats: readonly OutputFormat[];
 	breakpoints: readonly number[];
 	quality?: number;
 	presets: Readonly<Record<string, ImagePreset>>;
+	paths: AppPaths;
+	/** The build made the files of every warmed preset (`import.meta.og.image(src, { warm })`) as
+	 *  static files: `<Img>` names those directly. False in dev, where the endpoint makes them. */
+	warmed: boolean;
 }
 
 export const DEFAULT_BREAKPOINTS: readonly number[] = [320, 480, 640, 960, 1280, 1600, 2048];

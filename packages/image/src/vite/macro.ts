@@ -61,7 +61,12 @@ type Call = {
 	line: number;
 };
 
-function find_calls(src: string, id: string, markup_exts: readonly string[]): Call[] {
+function find_calls(
+	src: string,
+	id: string,
+	markup_exts: readonly string[],
+	presets: readonly string[]
+): Call[] {
 	const regions = og_js_regions(src, id, markup_exts);
 	if (!regions) return [];
 	const calls: Call[] = [];
@@ -113,7 +118,7 @@ function find_calls(src: string, id: string, markup_exts: readonly string[]): Ca
 				region: region.offset,
 				glob,
 				src: path_value,
-				options: check_image_options(`${rel}:${line}`, options),
+				options: check_image_options(`${rel}:${line}`, options, presets),
 				line
 			});
 		});
@@ -138,10 +143,11 @@ export function image_call_edits(
 	src: string,
 	id: string,
 	markup_exts: readonly string[] = ['.svelte'],
-	watch: (file: string) => void = () => {}
+	watch: (file: string) => void = () => {},
+	presets: readonly string[] = []
 ): Edit[] {
 	if (!src.includes(MARKER)) return [];
-	const calls = find_calls(src, id, markup_exts);
+	const calls = find_calls(src, id, markup_exts, presets);
 	if (markup_exts.some((x) => id.endsWith(x))) refuse_markup_calls(src, id, calls);
 	if (!calls.length) return [];
 	const dir = path.dirname(id);

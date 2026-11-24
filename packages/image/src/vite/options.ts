@@ -22,6 +22,10 @@ export interface ImageOptions {
 	placeholder?: boolean;
 	/** Pixel operations, applied before any resize or crop. */
 	ops?: ImageOps;
+	/** Make these presets' files at build (`'cover'`, or `['cover', 'thumb']`), for a page rendered
+	 *  on a live server: `<Img preset="cover">` of this source then names static files the build
+	 *  made instead of asking the endpoint. A prerendered page needs none: its render asks already. */
+	warm?: string | string[];
 }
 
 /** The plugin's options: every image's defaults, the presets, and markdown's. */
@@ -71,7 +75,7 @@ const OP_KEYS: ReadonlySet<string> = new Set([
 	'tint',
 	'modulate'
 ]);
-const IMAGE_KEYS: ReadonlySet<string> = new Set(['quality', 'placeholder', 'ops']);
+const IMAGE_KEYS: ReadonlySet<string> = new Set(['quality', 'placeholder', 'ops', 'warm']);
 const PLUGIN_KEYS: ReadonlySet<string> = new Set([
 	'quality',
 	'formats',
@@ -133,8 +137,13 @@ function check_boolean(where: string, key: string, b: unknown): void {
 	if (b !== undefined && typeof b !== 'boolean') invalid(where, key, 'true or false');
 }
 
-/** Check one source's options (`where` names the call in a message). */
-export function check_image_options(where: string, o: unknown): ImageOptions {
+/** Check one source's options (`where` names the call in a message; `presets`, the names
+ *  `image({ presets })` declares, which `warm` may name). */
+export function check_image_options(
+	where: string,
+	o: unknown,
+	presets: readonly string[] = []
+): ImageOptions {
 	if (o === undefined) return {};
 	if (!is_object(o)) invalid(where, 'options', 'an object');
 	unknown_keys(where, o, IMAGE_KEYS);
@@ -144,6 +153,18 @@ export function check_image_options(where: string, o: unknown): ImageOptions {
 	if (opts.ops !== undefined) {
 		if (!is_object(opts.ops)) invalid(where, 'ops', 'an object');
 		unknown_keys(`${where} ops`, opts.ops, OP_KEYS);
+	}
+	if (opts.warm !== undefined) {
+		const names = typeof opts.warm === 'string' ? [opts.warm] : opts.warm;
+		if (!Array.isArray(names) || !names.length || names.some((n) => typeof n !== 'string'))
+			invalid(where, 'warm', 'a preset name, or a non-empty list of them');
+		for (const preset of names)
+			if (!presets.includes(preset))
+				throw new OgygiaError('image_warm_unknown', {
+					where,
+					preset,
+					known: presets.join(', ') || '(none)'
+				});
 	}
 	return opts;
 }

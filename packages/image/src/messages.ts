@@ -17,13 +17,48 @@ export { IMAGE_RENDER_ERRORS } from './render-messages.ts';
 export const IMAGE_ERRORS = {
 	image_outside_src: {
 		text: (a: { file: string; src: string }): string => prose`
-			${a.file}: an image must sit under ${a.src}/ for the image endpoint to read it.
+			${a.file}: an image must sit under ${a.src}/, outside src/lib/server/ and test files, for the
+			image endpoint to read it.
 		`,
 		details: (): string => prose`
 			Files are made from an image when a page asks for them, by the server, which reads the
 			original with Kit's \`read()\`. Kit can only read an asset its server bundle carries; the
-			image plugin makes every image under \`src/\` one of them. Move the file under \`src/\` (a
-			\`$lib\` folder, or beside the page or document that shows it).
+			image plugin makes every image under \`src/\` one of them, except \`src/lib/server/\` (never
+			published) and test files (\`*.test.*\`, \`*.spec.*\`, \`__tests__/\`). Move the file under
+			\`src/\` (a \`$lib\` folder, or beside the page or document that shows it).
+		`
+	},
+	image_no_kit: {
+		text: (): string => prose`
+			image() found no SvelteKit config in this Vite build: list \`sveltekit()\` in vite.config's
+			plugins, after \`image()\`.
+		`,
+		details: (): string => prose`
+			The image plugin serves files under the app's base path and asset folder, which it reads
+			from SvelteKit's own Vite plugin. Without SvelteKit there is no server to make the files
+			and no paths to name them by.
+		`
+	},
+	image_warm_unknown: {
+		text: (a: { where: string; preset: string; known: string }): string => prose`
+			${a.where}: warm names the preset '${a.preset}', which image({ presets }) does not declare.
+			Declared: ${a.known}.
+		`,
+		details: (): string => prose`
+			\`import.meta.og.image('./hero.jpg', { warm: 'cover' })\` makes the files of the \`cover\`
+			preset at build, so a server-rendered page finds them ready. The name must be one of the
+			presets in vite.config: a misspelled one would warm nothing, and the first visitor would
+			wait for every file.
+		`
+	},
+	image_unsettled: {
+		text: (a: { url: string; reason: string }): string =>
+			`a prerendered page names the image ${a.url}, which the build could not make (${a.reason}).`,
+		details: (): string => prose`
+			Every image file a prerendered page names (in its markup, or through \`layOut()\` in a CSS
+			background) is made by the build, so a static host serves it with no server. This one
+			failed: its original could not be read from the build output, or the encoder (sharp) could
+			not decode it. The build stops rather than ship a page with a missing image.
 		`
 	},
 	image_macro_arity: {
@@ -159,6 +194,38 @@ export const IMAGE_WARNINGS = {
 			A page asked for a file its signed URL describes, and making it failed: the original could
 			not be read (Kit's \`read()\`), or the encoder (sharp) could not decode or write it. The page
 			keeps its placeholder. In a prerender the 500 fails the build, naming the page that asked.
+		`
+	},
+	image_no_encoder: {
+		text: (a: { reason: string }): string =>
+			`this server cannot make image files: the encoder (sharp) did not load (${a.reason}); image requests answer 500.`,
+		details: (): string => prose`
+			Image files are made by sharp, a native Node module. A runtime without it (an edge or
+			Workers runtime, an install that skipped sharp's binary) cannot make them. Prerender the
+			pages that show images (their files are made at build), warm the presets server-rendered
+			pages use (\`import.meta.og.image(src, { warm: 'cover' })\`), or deploy to a Node server.
+		`
+	},
+	image_adapter_no_encoder: {
+		text: (a: { adapter: string }): string => prose`
+			${a.adapter} runs the app where the image encoder (sharp) cannot load: a server-rendered page's
+			images will answer 500 unless the page is prerendered or its preset warmed.
+		`,
+		details: (): string => prose`
+			The image endpoint makes a file the first time a page asks for it, with sharp, a native Node
+			module. This adapter's runtime has no native modules. Files of prerendered pages and of
+			warmed presets (\`import.meta.og.image(src, { warm: 'cover' })\`) are made at build and served
+			as static files, so those work everywhere.
+		`
+	},
+	image_store_unsafe: {
+		text: (a: { dir: string }): string =>
+			`the image file store ${a.dir} is not a folder only this user owns: files are made on every ask, and not kept.`,
+		details: (): string => prose`
+			A live server keeps the files it made under the system's temporary folder, in a folder only
+			its user can read and write. Another user's folder, or a link, at that place could hand out
+			files it chose, under URLs browsers keep forever, so the server keeps nothing there. Remove
+			the folder, or run the server as the user that owns it.
 		`
 	}
 };

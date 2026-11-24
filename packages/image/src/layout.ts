@@ -13,6 +13,7 @@ import {
 	parse_aspect,
 	type ImageLayout,
 	type ImagePosition,
+	type ImagePreset,
 	type OutputFormat,
 	type RenderConfig
 } from './config.ts';
@@ -100,6 +101,33 @@ function file_widths(
 		out.add(Math.min(cap, widest));
 	}
 	return [...out].sort((a, b) => a - b);
+}
+
+/** The request a preset makes, `own` props over it (the layout `constrained` when neither says). */
+export function preset_request(p: ImagePreset, own: LayoutRequest = {}): LayoutRequest {
+	return {
+		layout: own.layout ?? p.layout ?? 'constrained',
+		width: own.width ?? p.width,
+		height: own.height ?? p.height,
+		aspect: own.aspect ?? p.aspect,
+		position: own.position ?? p.position,
+		sizes: own.sizes ?? p.sizes,
+		quality: own.quality ?? p.quality,
+		formats: own.formats ?? p.formats
+	};
+}
+
+/** Do `a` and `b` ask for the same files? (`sizes` changes no file.) */
+export function same_files(a: LayoutRequest, b: LayoutRequest): boolean {
+	return (
+		a.layout === b.layout &&
+		a.width === b.width &&
+		a.height === b.height &&
+		String(a.aspect) === String(b.aspect) &&
+		a.position === b.position &&
+		a.quality === b.quality &&
+		String(a.formats) === String(b.formats)
+	);
 }
 
 function derived_sizes(layout: ImageLayout, width: number): string | undefined {

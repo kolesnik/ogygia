@@ -23,8 +23,21 @@ import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
 import { dedent } from '@ogygia/core/contract';
 import { definePlugin, type OgygiaPlugin } from '@ogygia/compiler/vite';
 import type { ImageDescriptor } from '../descriptor.ts';
-import { DEFAULT_BREAKPOINTS, DEFAULT_FORMATS, type RenderConfig } from '../config.ts';
-import { OgygiaError } from '../messages.ts';
+import {
+	DEFAULT_BREAKPOINTS,
+	DEFAULT_FORMATS,
+	type AppPaths,
+	type RenderConfig
+} from '../config.ts';
+import { OgygiaError, warn } from '../messages.ts';
+import type { BuildHandoff } from '../store.ts';
+import {
+	save_warm,
+	settle_minted,
+	handoff_for,
+	warm_files,
+	type WarmSource
+} from './build-files.ts';
 import { plan_image, settle } from './plan.ts';
 import { EXTENSION_API, markdown_extension } from './markdown.ts';
 import { image_call_edits, options_of_query, QUERY } from './macro.ts';
@@ -43,16 +56,46 @@ export type {
 const QUERY_RE = new RegExp(`[?&]${QUERY}(?:=|&|$)`);
 const CONFIG_ID = 'virtual:ogygia-image/config';
 const SOURCES_ID = 'virtual:ogygia-image/sources';
-const RASTER_GLOB =
-	'/src/**/*.{png,PNG,jpg,JPG,jpeg,JPEG,webp,WEBP,avif,AVIF,gif,GIF,tif,TIF,tiff,TIFF}';
+/** The images the server can read: every raster under `src/`, but for the server-only folder and
+ *  test files (never published). */
+const SOURCE_GLOBS: readonly string[] = [
+	'/src/**/*.{png,PNG,jpg,JPG,jpeg,JPEG,webp,WEBP,avif,AVIF,gif,GIF,tif,TIF,tiff,TIFF}',
+	'!/src/lib/server/**',
+	'!/src/**/__tests__/**',
+	'!/src/**/*.{test,spec}.*'
+];
+const UNPUBLISHED_RE = /^src\/lib\/server\/|(?:^|\/)__tests__\/|\.(?:test|spec)\.[^/]+$/;
+/** Adapters whose runtime cannot load sharp, a native Node module. */
+const NO_NATIVE_ADAPTER_RE = /cloudflare|deno|-edge\b/i;
 
 /** The render settings `<Img>` reads, from the plugin's options. */
-export function render_config(opts: ImagePluginOptions): RenderConfig {
+export function render_config(
+	opts: ImagePluginOptions,
+	paths: AppPaths,
+	warmed: boolean
+): RenderConfig {
 	return {
 		formats: opts.formats ?? DEFAULT_FORMATS,
 		breakpoints: opts.breakpoints ?? DEFAULT_BREAKPOINTS,
 		...(opts.quality !== undefined ? { quality: opts.quality } : {}),
-		presets: opts.presets ?? {}
+		presets: opts.presets ?? {},
+		paths,
+		warmed
+	};
+}
+
+/** Kit's paths, from the values its Vite plugin defines (JSON strings), or null without Kit. */
+export function kit_paths(define: Record<string, unknown> | undefined): AppPaths | null {
+	const read = (key: string): string | null => {
+		const v = define?.[key];
+		return typeof v === 'string' ? (JSON.parse(v) as string) : null;
+	};
+	const app_dir = read('__SVELTEKIT_APP_DIR__');
+	if (app_dir === null) return null;
+	return {
+		base: read('__SVELTEKIT_PATHS_BASE__') ?? '',
+		assets: read('__SVELTEKIT_PATHS_ASSETS__') ?? '',
+		app_dir
 	};
 }
 
@@ -71,14 +114,20 @@ export function descriptor_module(
 /** The image plugin. */
 export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const opts = check_plugin_options(options);
+	const presets = Object.keys(opts.presets ?? {});
 	let config: ResolvedConfig | undefined;
+	let paths: AppPaths | null = null;
+	let handoff: BuildHandoff | null = null;
+	const warmed = new Map<string, WarmSource>();
 	const markdown = markdown_extension(opts);
+	const build = (): boolean => config?.command === 'build';
+	const server_build = (): boolean => build() && !!config?.build.ssr;
 
 	const ogygia: OgygiaPlugin = definePlugin({
 		name: '@ogygia/image',
 		server: import.meta.resolve('../server.ts'),
 		build(b) {
-			b.macro('image', (code, m) => image_call_edits(code, m.id, m.markupExts, m.watch));
+			b.macro('image', (code, m) => image_call_edits(code, m.id, m.markupExts, m.watch, presets));
 		}
 	});
 
@@ -89,32 +138,41 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 		config: () => ({ optimizeDeps: { exclude: ['@ogygia/image'] } }),
 		configResolved(c) {
 			config = c;
+			paths = kit_paths(c.define);
+			handoff = handoff_for(build());
+			const adapter = c.define?.__SVELTEKIT_ADAPTER_NAME__;
+			if (server_build() && typeof adapter === 'string' && NO_NATIVE_ADAPTER_RE.test(adapter))
+				warn('image_adapter_no_encoder', { adapter: JSON.parse(adapter) as string });
 		},
 		resolveId(id) {
 			if (id === CONFIG_ID || id === SOURCES_ID) return `\0${id}`;
 			return null;
 		},
 		async load(id) {
-			if (id === `\0${CONFIG_ID}`)
-				return `export default ${JSON.stringify(render_config(opts))};\n`;
+			if (id === `\0${CONFIG_ID}`) {
+				if (!paths) throw new OgygiaError('image_no_kit');
+				return `export default ${JSON.stringify(render_config(opts, paths, build()))};\n`;
+			}
 			if (id === `\0${SOURCES_ID}`)
-				return `export default import.meta.glob(${JSON.stringify(RASTER_GLOB)}, { query: '?no-inline', import: 'default', eager: true });\n`;
+				return `export default import.meta.glob(${JSON.stringify(SOURCE_GLOBS)}, { query: '?no-inline', import: 'default', eager: true });\n`;
 			const q = id.indexOf('?');
 			if (q === -1 || !QUERY_RE.test(id.slice(q))) return null;
 			const file = id.slice(0, q);
-			const own = check_image_options(path.basename(file), options_of_query(id.slice(q + 1)));
+			const own = check_image_options(
+				path.basename(file),
+				options_of_query(id.slice(q + 1)),
+				presets
+			);
 			if (config) {
-				const src = `${path.join(config.root, 'src')}${path.sep}`;
-				if (!file.startsWith(src))
-					throw new OgygiaError('image_outside_src', {
-						file: path.relative(config.root, file),
-						src: path.relative(config.root, src)
-					});
+				const rel = path.relative(config.root, file).split(path.sep).join('/');
+				if (!rel.startsWith('src/') || UNPUBLISHED_RE.test(rel))
+					throw new OgygiaError('image_outside_src', { file: rel, src: 'src' });
 			}
 			const settings = settle(opts, own);
 			this.addWatchFile(file);
 			const plan = await plan_image(file, settings);
-			return descriptor_module(file, {
+			const warm = typeof own.warm === 'string' ? [own.warm] : own.warm;
+			const desc: Omit<ImageDescriptor, 'src' | 'alt'> = {
 				id: plan.id,
 				width: plan.width,
 				height: plan.height,
@@ -122,8 +180,31 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 				...(plan.ph ? { ph: plan.ph } : {}),
 				...(plan.animated ? { animated: true } : {}),
 				...(settings.quality !== undefined ? { quality: settings.quality } : {}),
-				...(Object.keys(settings.ops).length ? { ops: settings.ops } : {})
-			});
+				...(Object.keys(settings.ops).length ? { ops: settings.ops } : {}),
+				...(warm?.length ? { warm } : {})
+			};
+			if (warm?.length) warmed.set(id, { file, desc, presets: warm });
+			return descriptor_module(file, desc);
+		},
+		buildEnd() {
+			if (handoff && server_build()) save_warm(handoff, warmed.values());
+		},
+		async generateBundle() {
+			if (!handoff || !paths || !build() || server_build()) return;
+			for (const [fileName, source] of await warm_files(handoff, render_config(opts, paths, true)))
+				this.emitFile({ type: 'asset', fileName, source });
+		},
+		writeBundle: {
+			order: 'post',
+			sequential: true,
+			async handler() {
+				if (!handoff || !paths || !config || !server_build()) return;
+				await settle_minted(
+					handoff,
+					paths,
+					path.dirname(path.resolve(config.root, config.build.outDir))
+				);
+			}
 		}
 	};
 

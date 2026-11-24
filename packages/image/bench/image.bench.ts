@@ -50,13 +50,15 @@ function descriptor(i: number): ImageDescriptor {
 const CFG: RenderConfig = {
 	formats: DEFAULT_FORMATS,
 	breakpoints: DEFAULT_BREAKPOINTS,
-	presets: {}
+	presets: {},
+	paths: { base: '', assets: '', app_dir: '_app' },
+	warmed: true
 };
 const PREFIXES: readonly string[] = ['', ''];
 
 /** A file's URL as the minter writes one (its signature stood in for by a fixed string). */
 const url = (r: Recipe): string =>
-	`/__ogygia__/image/0123456789abcdef0123456789abcdef/${recipe_path(r, source_tail(r.src, PREFIXES))}`;
+	`/__ogygia__/i/0123456789abcdef0123456789abcdef/${recipe_path(r, source_tail(r.src, PREFIXES))}`;
 
 const LAYOUTS: readonly LayoutRequest[] = [
 	{ layout: 'fullWidth', aspect: '16/9' },
@@ -98,7 +100,7 @@ bench(
 			for (let i = 0; i < 40; i++) {
 				const laid = lay_out(descriptor(i), LAYOUTS[i % LAYOUTS.length]!, CFG, url);
 				for (const c of (laid.srcset ?? '').split(', '))
-					paths.push(c.split(' ')[0]!.slice('/__ogygia__/image/'.length + 33));
+					paths.push(c.split(' ')[0]!.slice('/__ogygia__/i/'.length + 33));
 			}
 			return { paths };
 		},

@@ -79,6 +79,32 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 	const laid = $derived(
 		layOut(of, { preset, layout: shown, width, height, aspect, position, sizes })
 	);
+	const server_preload = $derived(
+		typeof document === 'undefined'
+			? null
+			: document.head.querySelector(`link[rel="preload"][data-og-img="${of.id}"]`)
+	);
+	let kept = $state<{
+		id: string;
+		src: string;
+		srcset: string | undefined;
+		sources: string[];
+	} | null>(null);
+	const files = $derived(
+		kept?.id === of.id
+			? kept
+			: { src: laid.src, srcset: laid.srcset, sources: laid.sources.map((s) => s.srcset) }
+	);
+
+	function keep(img: HTMLImageElement): void {
+		const sources = img.parentElement?.querySelectorAll('source') ?? [];
+		kept = {
+			id: of.id,
+			src: img.getAttribute('src') ?? laid.src,
+			srcset: img.getAttribute('srcset') ?? undefined,
+			sources: [...sources].map((s, i) => s.getAttribute('srcset') ?? laid.sources[i]!.srcset)
+		};
+	}
 	const css = $derived(
 		[
 			(placeholder ?? p.placeholder ?? true) ? placeholder_style(of.ph) : '',
@@ -92,7 +118,7 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 </script>
 
 <svelte:head>
-	{#if first}
+	{#if first && !server_preload}
 		<link
 			rel="preload"
 			as="image"
@@ -101,20 +127,23 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 			imagesizes={laid.preload.sizes}
 			type={laid.preload.type}
 			fetchpriority="high"
+			data-og-img={of.id}
 		/>
 	{/if}
 </svelte:head>
 
 {#snippet img()}
+	<!-- svelte-ignore hydration_attribute_changed -- the browser cannot sign: it keeps the server's URLs, read back by keep() -->
 	<img
+		{@attach keep}
 		class={klass}
 		{id}
 		{title}
 		{crossorigin}
 		{referrerpolicy}
 		{draggable}
-		src={laid.src}
-		srcset={laid.srcset}
+		src={files.src}
+		srcset={files.srcset}
 		sizes={laid.sizes}
 		width={laid.width}
 		height={laid.height}
@@ -129,8 +158,9 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 
 {#if laid.sources.length}
 	<picture>
-		{#each laid.sources as source (source.type)}
-			<source type={source.type} srcset={source.srcset} sizes={laid.sizes} />
+		{#each laid.sources as source, i (source.type)}
+			<!-- svelte-ignore hydration_attribute_changed -- the browser cannot sign: it keeps the server's URLs, read back by keep() -->
+			<source type={source.type} srcset={files.sources[i]} sizes={laid.sizes} />
 		{/each}
 		{@render img()}
 	</picture>

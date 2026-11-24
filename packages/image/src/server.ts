@@ -5,57 +5,95 @@
  * that makes the files: in dev, in Kit's prerender (whose crawler asks for every `src` / `srcset` a
  * page names, and saves each answer as a file) and on a live server alike.
  *
+ * While prerendering, each URL minted is also noted on disk and its file started at once (the
+ * crawler asks one at a time; the encodes run side by side): the build writes every noted file the
+ * crawler did not ask for (a `layOut()` CSS background, `prerender.crawl` off) once the prerender
+ * ends (./vite/build-files.ts).
+ *
  * @packageDocumentation
  */
+import fs from 'node:fs';
+import { building } from '$app/environment';
 import { defineServer, type ServerApp, type ServerPlugin } from '@ogygia/core/plugin';
+import config from 'virtual:ogygia-image/config';
 import sources from 'virtual:ogygia-image/sources';
+import { warn } from './messages.ts';
 import {
 	encode_tail,
 	IMAGE_PREFIX,
 	parse_recipe,
 	recipe_path,
 	set_minter,
-	source_tail
+	source_tail,
+	type ParsedRecipe
 } from './recipe.ts';
+import { build_handoff } from './store.ts';
 
-declare const __SVELTEKIT_PATHS_BASE__: string;
-declare const __SVELTEKIT_PATHS_ASSETS__: string;
-
-const BASE: string =
-	typeof __SVELTEKIT_PATHS_BASE__ !== 'undefined' ? __SVELTEKIT_PATHS_BASE__ : '';
-const ASSETS: string =
-	typeof __SVELTEKIT_PATHS_ASSETS__ !== 'undefined' ? __SVELTEKIT_PATHS_ASSETS__ : '';
+const { base: BASE, assets: ASSETS } = config.paths;
 const PREFIXES: readonly string[] = [ASSETS, BASE];
-const SIG_LENGTH = 32;
-const SIG_RE = /^[0-9a-f]{32}$/;
 
 const ORIGINALS: ReadonlySet<string> = new Set(
 	Object.values(sources).map((url) => source_tail(url, PREFIXES))
 );
 
-function signature(app: ServerApp<unknown>, path: string): string {
-	return app.sign(`image|${path}`).slice(0, SIG_LENGTH);
+/** The message a recipe path is signed as. */
+function message(path: string): string {
+	return `image|${path}`;
 }
 
-function same(a: string, b: string): boolean {
-	if (a.length !== b.length) return false;
-	let diff = 0;
-	for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-	return diff === 0;
-}
-
-function refused(status: 403 | 404): Response {
-	return new Response(status === 403 ? 'Forbidden' : 'Not Found', {
+function refused(status: 403 | 404, app: ServerApp<unknown>): Response {
+	if (status === 404)
+		return new Response('Not Found', { status, headers: { 'cache-control': 'no-store' } });
+	return new Response('Forbidden', {
 		status,
+		headers: {
+			'cache-control': 'no-store',
+			'x-ogygia-deny': 'sig',
+			'x-ogygia-key': app.keyFingerprint()
+		}
+	});
+}
+
+/** Encoding is not something every runtime can do (sharp is a native module): one that cannot says
+ *  so with a code, once per process, and answers 500. */
+let said_no_encoder = false;
+function no_encoder(e: unknown): Response {
+	if (!said_no_encoder) warn('image_no_encoder', { reason: (e as Error).message });
+	said_no_encoder = true;
+	return new Response('this server cannot make images', {
+		status: 500,
 		headers: { 'cache-control': 'no-store' }
 	});
 }
 
+function original_of(recipe: ParsedRecipe): string {
+	return `${BASE}/${encode_tail(recipe.tail)}`;
+}
+
+/** The URLs noted while prerendering (each once). */
+const noted = new Set<string>();
+
+/** While prerendering: note `url` for the build's end, and start its file. */
+function note_minted(url: string, path: string, minted: string): void {
+	if (noted.has(url)) return;
+	noted.add(url);
+	fs.appendFileSync(minted, `${url}\n`);
+	const recipe = parse_recipe(path);
+	if (recipe === null || !ORIGINALS.has(recipe.tail)) return;
+	// oxlint-disable-next-line ogygia/no-silent-failures -- a head start only: the crawler's ask, or the build's end, makes the file again and fails out loud
+	void import('./settle.ts')
+		.then((m) => m.prepare(recipe, path, original_of(recipe)))
+		.catch(() => {});
+}
+
 const server: ServerPlugin<unknown> = defineServer<unknown>({
 	setup(app) {
+		const minted = (building && build_handoff()?.minted) || null;
 		set_minter((recipe) => {
 			const path = recipe_path(recipe, source_tail(recipe.src, PREFIXES));
-			return `${BASE}${IMAGE_PREFIX}${signature(app, path)}/${path}`;
+			const url = `${BASE}${IMAGE_PREFIX}${app.sign(message(path))}/${path}`;
+			if (minted !== null) note_minted(url, path, minted);
+			return url;
 		});
 	},
 
@@ -67,11 +105,16 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		const slash = rest.indexOf('/');
 		const sig = rest.slice(0, slash);
 		const path = rest.slice(slash + 1);
-		if (slash === -1 || !SIG_RE.test(sig) || !same(sig, signature(app, path))) return refused(403);
+		if (slash < 1 || !app.verify(message(path), sig)) return refused(403, app);
 		const recipe = parse_recipe(path);
-		if (recipe === null || !ORIGINALS.has(recipe.tail)) return refused(404);
-		const { settle } = await import('./settle.ts');
-		return settle(recipe, path, `${BASE}/${encode_tail(recipe.tail)}`);
+		if (recipe === null || !ORIGINALS.has(recipe.tail)) return refused(404, app);
+		let settle: typeof import('./settle.ts').settle;
+		try {
+			({ settle } = await import('./settle.ts'));
+		} catch (e) {
+			return no_encoder(e);
+		}
+		return settle(recipe, path, original_of(recipe));
 	}
 });
 export default server;

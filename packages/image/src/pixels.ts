@@ -30,7 +30,7 @@ export function shown_size(
 
 /** The source's metadata, every frame counted. */
 export function metadata_of(bytes: Uint8Array): Promise<Metadata> {
-	return sharp(bytes, { animated: true, limitInputPixels: false }).metadata();
+	return sharp(bytes, { animated: true }).metadata();
 }
 
 /** The source → `width` × `height`, cut to that box around `position`. */
@@ -42,7 +42,7 @@ export function pipeline(
 	height: number,
 	position?: string
 ): Sharp {
-	let img = sharp(bytes, { animated, limitInputPixels: false }).autoOrient();
+	let img = sharp(bytes, { animated }).autoOrient();
 	if (ops.rotate) img = img.rotate(ops.rotate);
 	if (ops.flip) img = img.flip();
 	if (ops.flop) img = img.flop();
@@ -107,4 +107,20 @@ export async function placeholder_of(
 		.webp({ quality: 50, effort: 6 })
 		.toBuffer();
 	return `data:image/webp;base64,${tiny.toString('base64')}`;
+}
+
+/** One recipe's file from its original's bytes (every frame kept when the original moves). */
+export async function encode_recipe(
+	bytes: Uint8Array,
+	recipe: {
+		width: number;
+		height: number;
+		format: ImageFormat;
+		quality?: number;
+		position?: string;
+		ops?: ImageOps;
+	}
+): Promise<Buffer> {
+	const meta = await metadata_of(bytes);
+	return encode(bytes, recipe, (meta.pages ?? 1) > 1);
 }

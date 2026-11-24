@@ -49,6 +49,9 @@ export interface ImageDescriptor {
 	quality?: number;
 	/** Pixel operations the source carries. */
 	ops?: ImageOps;
+	/** The presets the build made this source's files for ahead (the macro's `warm`): an `<Img>` of
+	 *  one of them names those static files. */
+	warm?: string[];
 	/** Alt text the source carries (a markdown image's text). */
 	alt?: string;
 }

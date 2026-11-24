@@ -5,11 +5,16 @@
  * prerender, a CDN in front. Isomorphic: `<Img>` builds recipes on the server and in the browser; only
  * the server can sign one.
  *
- *   <base>/__ogygia__/image/<sig>/<id>-<w>x<h>[-q<q>][-p<position>][-o<ops>]/<original path>.<ext>
+ *   <base>/__ogygia__/i/<sig>/<id>-<w>x<h>[-q<q>][-p<position>][-o<ops>]/<original path>.<ext>
+ *
+ * A file the build made ahead (a warmed preset's) is a static file instead, named by its head alone:
+ *
+ *   <assets or base>/<appDir>/immutable/og/<id>-<w>x<h>[-q<q>][-p<position>][-o<ops>].<ext>
  *
  * @packageDocumentation
  */
 import { slot } from '@ogygia/machine';
+import type { AppPaths } from './config.ts';
 import type { ImageFormat, ImageOps } from './descriptor.ts';
 
 /** One file to make. */
@@ -28,7 +33,11 @@ export interface Recipe {
 }
 
 /** The URL path every recipe sits under, after the app's base. */
-export const IMAGE_PREFIX = '/__ogygia__/image/';
+export const IMAGE_PREFIX = '/__ogygia__/i/';
+
+/** Where the build's own files sit, under the app's `appDir`: Kit's immutable folder, which every
+ *  adapter and static host serves as files kept forever. */
+export const WARM_DIR = 'immutable/og';
 
 const EXT: Readonly<Record<ImageFormat, string>> = {
 	avif: 'avif',
@@ -107,13 +116,28 @@ function decode_tail(raw: string): string | null {
 /** The recipe's path below {@link IMAGE_PREFIX} and its signature: `<id>-<w>x<h>…/<tail>.<ext>`,
  *  `tail` (decoded) written as escaped path segments. */
 export function recipe_path(r: Recipe, tail: string): string {
+	return `${recipe_head(r)}/${encode_tail(tail)}.${EXT[r.format]}`;
+}
+
+/** What a recipe asks of its source, with no file name: `<id>-<w>x<h>[-q…][-p…][-o…]`. */
+export function recipe_head(r: Omit<Recipe, 'src'>): string {
 	const q = r.quality === undefined ? '' : `-q${r.quality}`;
 	const p = r.position === undefined ? '' : `-p${r.position}`;
 	const o =
 		r.ops === undefined || !Object.keys(r.ops).length
 			? ''
 			: `-o${b64url_encode(JSON.stringify(r.ops))}`;
-	return `${r.id}-${r.width}x${r.height}${q}${p}${o}/${encode_tail(tail)}.${EXT[r.format]}`;
+	return `${r.id}-${r.width}x${r.height}${q}${p}${o}`;
+}
+
+/** A warmed recipe's file, below the app's `appDir`: `immutable/og/<head>.<ext>`. */
+export function warm_file(r: Omit<Recipe, 'src'>): string {
+	return `${WARM_DIR}/${recipe_head(r)}.${EXT[r.format]}`;
+}
+
+/** A warmed recipe's URL: the static file the build made. */
+export function warm_url(paths: AppPaths, r: Omit<Recipe, 'src'>): string {
+	return `${paths.assets || paths.base}/${paths.app_dir}/${warm_file(r)}`;
 }
 
 /** What a recipe path asks for. The original is named by its tail (decoded). */
