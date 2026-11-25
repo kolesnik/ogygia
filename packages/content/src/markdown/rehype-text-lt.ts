@@ -1,12 +1,3 @@
-/**
- * A `<` in a markdown text node that cannot start a tag is text: CommonMark reads
- * `if it is < 512KB` and `I <3 it` as characters, and the markdown parser keeps them in text nodes
- * (a real tag is a raw node). mdsvex writes text nodes as they are, so Svelte would read each `<`
- * as the start of a tag and fail the build. This writes each such `<` as `&lt;`. A `<` before a
- * letter, `/`, `!` or `?` can start a tag (an inline component whose attributes are not valid HTML
- * stays in a text node too), so it is left for Svelte, and so is everything up to that tag's `>`
- * outside `{…}`. A `<` inside a `{…}` expression is JavaScript.
- */
 type HastNode = { type?: string; value?: string; children?: HastNode[] };
 
 const TAG_START = /[A-Za-z/!?]/;

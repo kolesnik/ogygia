@@ -273,8 +273,6 @@ async function touch(file: string): Promise<void> {
 	}
 }
 
-/** Remove the folders under `root` of other versions than `dir` that no server has used for a
- *  week (a server beside this one, on another libvips, still keeps files in its own). */
 async function tidy_versions(root: string, dir: string): Promise<void> {
 	const now = clock.wall();
 	try {
@@ -291,8 +289,6 @@ async function tidy_versions(root: string, dir: string): Promise<void> {
 	} catch {}
 }
 
-/** Open a store in `dir` (a version folder under `root`), at most `max` bytes: marked as in use,
- *  its files counted, the unused version folders beside it removed. */
 function open_store(root: string, dir: string, max: number): FileStore {
 	const store = FileStore.shared(dir, max);
 	// oxlint-disable-next-line ogygia/no-silent-failures -- the mark and the tidy are housekeeping: each catches its own failures
