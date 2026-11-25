@@ -10,8 +10,11 @@
  * - a live server: a folder under the system's temporary folder that only this user owns, one per
  *   encoder and libvips version, kept to {@link RUNTIME_STORE_MAX} while it runs.
  *
- * Either way the least recently used files go first past the size, files older than a month go at
- * start, and another version's folder goes once no server has used it for a week. A file that
+ * Every user of one folder in a process shares one store ({@link FileStore.shared}), so the size
+ * holds for a dev server's whole run; each process (the build, its prerender worker) keeps its own
+ * count, so the cap is per process, not across them. Either way the least recently used files go
+ * first past the size, files unused for a month go at start (a file found is marked used, at most
+ * once a day), and another version's folder goes once no server has used it for a week. A file that
  * cannot be written is not kept (`image_store_write_failed`): the caller still has its bytes.
  *
  * Server and build only (Node).
@@ -125,6 +128,7 @@ function version_dir(vips: string): string {
 	return `v${ENCODER_VERSION}-${vips}`;
 }
 const HOUR_MS = 3600 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 const WEEK_MS = 7 * 24 * HOUR_MS;
 const MONTH_MS = 30 * 24 * HOUR_MS;
 const USED = '.used';
@@ -141,6 +145,7 @@ export class FileStore {
 	readonly dir: string;
 	#files: Cache<string, number>;
 	#said_write = false;
+	#counted: Promise<void> = Promise.resolve();
 
 	constructor(dir: string, max: number = BUILD_STORE_MAX) {
 		this.dir = dir;
@@ -162,14 +167,19 @@ export class FileStore {
 		return path.join(this.dir, h.slice(0, 2), h);
 	}
 
-	/** The file of `key`, when it is made: its path and size. */
+	/** The file of `key`, when it is made: its path and size. A file last used over a day ago is
+	 *  marked used now, so its age at the next {@link load} is its last use, not its making. */
 	async find(key: string): Promise<{ file: string; size: number } | null> {
+		await this.#counted;
 		const file = this.file(key);
 		let size: number;
 		try {
 			const stat = await fs.promises.stat(file);
 			if (!stat.isFile()) return null;
 			size = stat.size;
+			if (clock.wall() - stat.mtimeMs > DAY_MS)
+				// oxlint-disable-next-line ogygia/no-silent-failures -- a mark that failed only lets the file age: it is made again after a month
+				void touch_file(file).catch(() => {});
 			// oxlint-disable-next-line ogygia/no-silent-failures -- no file is a miss: the caller makes it
 		} catch {
 			return null;
@@ -178,9 +188,25 @@ export class FileStore {
 		return { file, size };
 	}
 
+	static #open = new Map<string, FileStore>();
+
+	/** The one store of `dir` in this process, the files already there counted as it opens: every
+	 *  user of the folder (the endpoint, the build's writer) keeps it to one `max`. */
+	static shared(dir: string, max: number = BUILD_STORE_MAX): FileStore {
+		let store = FileStore.#open.get(dir);
+		if (!store) {
+			store = new FileStore(dir, max);
+			FileStore.#open.set(dir, store);
+			// oxlint-disable-next-line ogygia/no-silent-failures -- load catches each read it cannot make: a folder it could not count is counted at the next start
+			store.#counted = store.load().catch(() => {});
+		}
+		return store;
+	}
+
 	/** Keep `data` as the file of `key` (written whole, then moved in: a reader never sees half).
 	 *  False when it could not be written (said once per store: `image_store_write_failed`). */
 	async keep(key: string, data: Uint8Array): Promise<boolean> {
+		await this.#counted;
 		const file = this.file(key);
 		const tmp = `${file}.${process.pid}.${random.uuid()}.tmp`;
 		try {
@@ -233,6 +259,11 @@ export class FileStore {
 	}
 }
 
+function touch_file(file: string): Promise<void> {
+	const now = new Date(clock.wall());
+	return fs.promises.utimes(file, now, now);
+}
+
 async function touch(file: string): Promise<void> {
 	const now = new Date(clock.wall());
 	try {
@@ -263,12 +294,11 @@ async function tidy_versions(root: string, dir: string): Promise<void> {
 /** Open a store in `dir` (a version folder under `root`), at most `max` bytes: marked as in use,
  *  its files counted, the unused version folders beside it removed. */
 function open_store(root: string, dir: string, max: number): FileStore {
-	const store = new FileStore(dir, max);
+	const store = FileStore.shared(dir, max);
 	// oxlint-disable-next-line ogygia/no-silent-failures -- the mark and the tidy are housekeeping: each catches its own failures
 	void touch(path.join(dir, USED))
 		.catch(() => {})
-		.then(() => tidy_versions(root, dir))
-		.then(() => store.load());
+		.then(() => tidy_versions(root, dir));
 	return store;
 }
 

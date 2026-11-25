@@ -147,6 +147,8 @@ async function made(
 
 interface Job {
 	recipe: Omit<Recipe, 'src'>;
+	/** The source file, as a failure names it. */
+	source: string;
 	original: () => Uint8Array;
 }
 
@@ -164,7 +166,11 @@ function jobs_of(
 			const preset = cfg.presets[name];
 			if (!preset) continue;
 			lay_out({ ...source.desc, src: '' }, preset_request(preset), cfg, (recipe) => {
-				jobs.set(built_file(recipe), { recipe, original: () => fs.readFileSync(source.file) });
+				jobs.set(built_file(recipe), {
+					recipe,
+					source: source.file,
+					original: () => fs.readFileSync(source.file)
+				});
 				return '';
 			});
 		}
@@ -176,9 +182,14 @@ function jobs_of(
 	for (const line of noted) {
 		const recipe = parse_recipe(line);
 		if (recipe === null)
-			throw new OgygiaError('image_unsettled', { url: line, reason: 'not an image recipe' });
+			throw new OgygiaError('image_unsettled', {
+				url: line,
+				source: line,
+				reason: 'not an image recipe'
+			});
 		jobs.set(built_file(recipe), {
 			recipe,
+			source: recipe.tail,
 			original: () => {
 				for (const side of ['client', 'server']) {
 					const file = path.join(output, side, ...recipe.tail.split('/'));
@@ -262,9 +273,9 @@ export async function write_built(
 	output: string
 ): Promise<void> {
 	const jobs = jobs_of(handoff, cfg, warmed, output);
-	const store = new FileStore(handoff.store);
+	const store = FileStore.shared(handoff.store);
 	const client = path.join(output, 'client', cfg.paths.app_dir);
-	const failures = await each([...jobs], async ([name, { recipe, original }]) => {
+	const failures = await each([...jobs], async ([name, { recipe, source, original }]) => {
 		try {
 			const data = await made(store, recipe_file(recipe), recipe, original);
 			const dest = path.join(client, ...name.split('/'));
@@ -273,6 +284,7 @@ export async function write_built(
 		} catch (e) {
 			throw new OgygiaError('image_unsettled', {
 				url: built_url(cfg.paths, recipe),
+				source,
 				reason: (e as Error).message
 			});
 		}

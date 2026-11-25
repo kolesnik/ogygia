@@ -34,7 +34,7 @@ const MEMORY_MAX = 64 * 1024 * 1024;
 
 const handoff = build_handoff();
 const store: FileStore | null = handoff
-	? new FileStore(handoff.store)
+	? FileStore.shared(handoff.store)
 	: runtime_store(VIPS_VERSION);
 const live = handoff === null;
 

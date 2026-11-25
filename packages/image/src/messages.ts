@@ -52,8 +52,8 @@ export const IMAGE_ERRORS = {
 		`
 	},
 	image_unsettled: {
-		text: (a: { url: string; reason: string }): string =>
-			`the build could not make the image ${a.url} (${a.reason}).`,
+		text: (a: { url: string; source: string; reason: string }): string =>
+			`the build could not make the image ${a.url} from ${a.source} (${a.reason}).`,
 		details: (): string => prose`
 			Every image file a prerendered page names (in its markup, or through \`layOut()\` in a CSS
 			background), and every file of a warmed preset, is made by the build and written under the

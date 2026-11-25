@@ -154,6 +154,12 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		const at = BASE + IMAGE_PREFIX;
 		const { pathname } = event.url;
 		if (!pathname.startsWith(at)) return;
+		const method = event.request.method;
+		if (method !== 'GET' && method !== 'HEAD')
+			return new Response(null, {
+				status: 405,
+				headers: { allow: 'GET, HEAD', 'cache-control': 'no-store' }
+			});
 		const rest = pathname.slice(at.length);
 		const slash = rest.indexOf('/');
 		const sig = rest.slice(0, slash);

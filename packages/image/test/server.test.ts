@@ -265,11 +265,11 @@ describe('the store a live server keeps', () => {
 	});
 
 	test("every user of one folder in a process shares one store, so its size holds for a dev server's whole run", async () => {
-		const { FileStore, shared_store } = await import('../src/store.ts');
+		const { FileStore } = await import('../src/store.ts');
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-shared-'));
 		await new FileStore(dir, 10_000).keep('old', new Uint8Array(600));
-		const s = await shared_store(dir, 1000);
-		expect(await shared_store(dir, 1000)).toBe(s);
+		const s = FileStore.shared(dir, 1000);
+		expect(FileStore.shared(dir, 1000)).toBe(s);
 		await s.keep('new', new Uint8Array(600));
 		await expect.poll(() => fs.existsSync(s.file('old'))).toBe(false);
 	});
