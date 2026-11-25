@@ -21,7 +21,8 @@ const config = {
 		adapter: STATIC
 			? static_adapter({ pages: PAGES, fallback: '404.html', strict: true })
 			: adapter(),
-		paths: { base: BASE }
+		paths: { base: BASE },
+		prerender: { origin: 'https://example.com' }
 	}
 };
 

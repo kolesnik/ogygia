@@ -425,6 +425,40 @@ test.describe('the image endpoint', () => {
 	});
 });
 
+test.describe('absolute image URLs', () => {
+	const ABSOLUTE_RE =
+		MODE === 'static'
+			? /^https:\/\/example\.com\/_app\/immutable\/og\/[\w-]+\.\w+$/
+			: /^http:\/\/localhost:\d+\/__ogygia__\/i\/.+\.\w+$/;
+
+	test("a post's og:image, made with new URL(src, page.url), names its file at the site's origin", async ({
+		request
+	}) => {
+		const html = await (await request.get('/blog/first-post')).text();
+		const share = /<meta property="og:image" content="([^"]+)"/.exec(html)![1]!;
+		expect(share).toMatch(ABSOLUTE_RE);
+		const f = await fetch_file(request, new URL(share).pathname);
+		expect([f.type, f.width]).toEqual(['image/webp', 1200]);
+	});
+
+	test('the RSS feed names each cover and every image in each body by an absolute URL that loads', async ({
+		request
+	}) => {
+		const xml = await (await request.get('/feed.xml')).text();
+		expect(xml).not.toMatch(/ogygia\.invalid/);
+		const named = [...xml.matchAll(/\b(?:url|src|srcset)="([^"]+)"/g)].flatMap((m) =>
+			m[1]!.split(', ').map((c) => c.split(' ')[0]!)
+		);
+		expect(named.length).toBeGreaterThan(10);
+		for (const url of named) {
+			expect(url).toMatch(ABSOLUTE_RE);
+			const res = await request.get(new URL(url).pathname);
+			expect(res.status(), url).toBe(200);
+			expect(res.headers()['content-type'], url).toMatch(/^image\//);
+		}
+	});
+});
+
 test.describe('a build', () => {
 	test.skip(MODE === 'dev', 'the dev server builds nothing');
 

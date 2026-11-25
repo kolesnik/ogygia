@@ -33,7 +33,8 @@ vi.mock('$app/server', () => ({
 
 const { default: server } = await import('../src/server.ts');
 const { mint } = await import('../src/recipe.ts');
-const { app } = startPlugin(server, { name: '@ogygia/image' });
+const { origin_of } = await import('../src/store.ts');
+const { app, ctx } = startPlugin(server, { name: '@ogygia/image' });
 
 const HARBOR = { id: 'h1', src: '/shop/_app/immutable/assets/harbor%20dusk.Ab12.jpg' };
 
@@ -49,6 +50,12 @@ describe('a prerendered page', () => {
 		);
 		expect(sign).not.toHaveBeenCalled();
 		sign.mockRestore();
+	});
+
+	test("notes the origin Kit prerenders at, which a page's absolute URLs resolve against, for the build's end", async () => {
+		await server.request!(ctx(new Request('https://example.com/blog/a')));
+		await server.request!(ctx(new Request('https://other.example.com/')));
+		expect(origin_of(run.minted)).toBe('https://example.com');
 	});
 
 	test('notes each recipe once, with the original it is made from, for the build to make', () => {

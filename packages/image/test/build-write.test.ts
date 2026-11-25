@@ -6,7 +6,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { beforeAll, expect, test, vi } from 'vitest';
 import type { RenderConfig } from '../src/config.ts';
-import { build_handoff, note_built } from '../src/store.ts';
+import { build_handoff, note_built, note_origin } from '../src/store.ts';
 import { handoff_for, write_built } from '../src/vite/build-files.ts';
 import { id_of, make_images } from './fixtures.ts';
 
@@ -84,4 +84,47 @@ test('a page that changed a marked URL before writing it (escaped it) fails the 
 	await expect(write_built(handoff, CFG, [], out)).rejects.toMatchObject({
 		code: 'image_mark_left'
 	});
+});
+
+/** A prerendered page holding `page(marked)`, `marked` the marked URL of a 64 × 43 file of the
+ *  test's source, after the build's end, with `origin` noted as Kit's prerender origin. */
+async function written(page: (marked: string) => string, origin?: string): Promise<string> {
+	delete process.env.__OGYGIA_IMAGE_BUILD;
+	const handoff = handoff_for(true);
+	note_built(handoff.minted, `${id}-64x43/_app/immutable/assets/h.Ab12.jpg.webp`);
+	if (origin !== undefined) note_origin(handoff.minted, origin);
+	const out = output(page(`${handoff.mark}/_app/immutable/og/${id}-64x43.webp`));
+	await write_built(handoff, CFG, [], out);
+	return fs.readFileSync(path.join(out, 'prerendered', 'pages', 'index.html'), 'utf8');
+}
+
+test("a marked URL made absolute against the page's URL (an og:image, a feed's enclosure) names the file at Kit's prerender origin", async () => {
+	const html = await written(
+		(marked) =>
+			`<meta property="og:image" content="${new URL(marked, 'https://example.com/blog/a').href}">` +
+			`<enclosure url="${new URL(marked, 'http://example.com/').href}"/>`,
+		'https://example.com'
+	);
+	expect(html).toBe(
+		`<meta property="og:image" content="https://example.com/_app/immutable/og/${id}-64x43.webp">` +
+			`<enclosure url="https://example.com/_app/immutable/og/${id}-64x43.webp"/>`
+	);
+});
+
+test("a marked URL made absolute while Kit's prerender origin is its default fails the build with a code that says to set it", async () => {
+	for (const origin of [undefined, 'http://sveltekit-prerender'])
+		await expect(
+			written((marked) => `<meta content="${new URL(marked, 'https://example.com').href}">`, origin)
+		).rejects.toMatchObject({
+			code: 'image_mark_left',
+			message: expect.stringMatching(/prerender\.origin/)
+		});
+});
+
+test('a marked URL after a colon that starts no URL (a CSS custom property) is only unmarked', async () => {
+	const html = await written(
+		(marked) => `<div style="--src:${marked}"></div>`,
+		'https://example.com'
+	);
+	expect(html).toBe(`<div style="--src:/_app/immutable/og/${id}-64x43.webp"></div>`);
 });
