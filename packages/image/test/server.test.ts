@@ -154,16 +154,45 @@ describe('the image server realm', () => {
 });
 
 describe('the store a live server keeps', () => {
-	test("is a folder only its user can open, and the other encoder versions' folders go", async () => {
+	test("is a folder only its user can open; another version's folder goes once unused for a week, and one in use by a server beside it stays", async () => {
 		const { runtime_store } = await import('../src/store.ts');
 		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-store-'));
 		const root = path.join(tmp, `ogygia-image-${process.getuid!()}`);
 		fs.mkdirSync(path.join(root, 'v0-old'), { recursive: true, mode: 0o700 });
+		const long_ago = new Date(Date.now() - 8 * 24 * 3600 * 1000);
+		fs.utimesSync(path.join(root, 'v0-old'), long_ago, long_ago);
+		const beside = runtime_store('7.0.0', tmp)!;
 		const s = runtime_store('8.0.0', tmp)!;
 		expect(s.dir.startsWith(root)).toBe(true);
 		expect(fs.statSync(root).mode & 0o777).toBe(0o700);
 		expect(fs.statSync(s.dir).mode & 0o777).toBe(0o700);
 		await expect.poll(() => fs.existsSync(path.join(root, 'v0-old'))).toBe(false);
+		expect(fs.existsSync(beside.dir)).toBe(true);
+	});
+
+	test('keeps at most its size: the least recently asked files go first, while the server runs', async () => {
+		const { FileStore } = await import('../src/store.ts');
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-cap-'));
+		const s = new FileStore(dir, 1000);
+		await s.keep('a', new Uint8Array(400));
+		await s.keep('b', new Uint8Array(400));
+		expect(await s.find('a')).not.toBeNull();
+		await s.keep('c', new Uint8Array(400));
+		await expect.poll(async () => (await s.find('b')) === null).toBe(true);
+		expect(await s.find('a')).not.toBeNull();
+		expect(await s.find('c')).not.toBeNull();
+	});
+
+	test('counts the files a past run left against its size', async () => {
+		const { FileStore } = await import('../src/store.ts');
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-cap-'));
+		const past = new FileStore(dir, 10_000);
+		await past.keep('old', new Uint8Array(600));
+		const s = new FileStore(dir, 1000);
+		await s.load();
+		await s.keep('new', new Uint8Array(600));
+		await expect.poll(async () => (await s.find('old')) === null).toBe(true);
+		expect(await s.find('new')).not.toBeNull();
 	});
 
 	test('a folder at that place that others can write to, or a link, keeps nothing, and says so', async () => {
