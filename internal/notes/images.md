@@ -95,7 +95,15 @@ At most four encodes run at once (a queue), with sharp's input pixel limit on.
 ## 6. The store, and the build's files
 
 One **store** keeps every made file by its key (`recipe_file`: `<head>.<ext>`), streamed back on the
-next ask:
+next ask. The head starts with the source id, `source_id(bytes)`: a hash of the original's bytes
+and the encoder version alone (settings such as `placeholder` key the plan cache, not the id;
+quality, crop and ops are in the head). Whoever makes a file (the endpoint's flights, the build's
+writer) hashes the original it read and refuses a mismatch, so a store entry is always made from
+the bytes its name names: an original edited after a page named its files answers 404
+(`image_source_changed`), never its new pixels under the old name (which a build would then ship,
+`immutable`, for good). One `FileStore` per folder per process (`FileStore.shared`), so its size
+cap holds for a dev server's whole run; a found file is touched (at most once a day) so a month's
+age is a month unused.
 
 - the build and the dev server use the build cache (`node_modules/.ogygia/image/files/<encoder
   version>-<libvips>`), handed to their processes in the environment (Kit's prerender runs in a
@@ -103,7 +111,8 @@ next ask:
 - a live server uses `<tmp>/ogygia-image-<uid>/<version>/`, made `0700` and checked to be a real
   folder this user owns (else `image_store_unsafe`, and nothing is kept: a folder another user made
   first could hand out bytes under URLs browsers keep forever). Other versions' folders are
-  removed at start, files older than a month too.
+  removed at start, files unused for a month too. The endpoint answers 405 to any method but GET
+  and HEAD.
 
 **The build's files.** In Kit's prerender the server realm signs nothing: the minter notes each
 recipe a page names (its unsigned path, so the original can be found) in a file of the build's run
@@ -120,15 +129,21 @@ build and the prerender; before the adapter, in `closeBundle`), makes every file
 the warmed sources the server build read, and every noted recipe. Each goes to
 `<output>/client/<appDir>/immutable/og/`, which every adapter copies and serves as files (so they
 need not be in Kit's prerendered list). Then the mark is removed, byte for byte, from every file
-under `<output>/prerendered/` (pages, data, dependencies). A mark read as a host (`https:` +
-mark: the page did `new URL(src, origin)`) or the mark's host left in another form (escaped,
-encoded) cannot be pointed at a file: `image_mark_left`, naming the file. A file that cannot be
-made: `image_unsettled`.
+under `<output>/prerendered/` (pages, data, dependencies). A mark made absolute (`http:` or
+`https:` + mark, the scheme at a URL's start: the page did `new URL(src, page.url)`) becomes Kit's
+prerender origin, which is what `page.url` named while it prerendered; the server realm notes it
+from the first prerender request (`origin.txt` beside the notes). With Kit's default origin
+(`http://sveltekit-prerender`) the build cannot know the site's, and fails (`image_mark_left`).
+The mark's host left in another form (escaped, encoded) cannot be pointed at a file:
+`image_mark_left`, naming the file. A file that cannot be made: `image_unsettled`, naming the made
+URL and the source file.
 
-Limits: a URL a page encodes or resolves fails the build (above). An SPA fallback page
-(adapter-static `fallback`) is rendered by the adapter after the writer, so an image in the root
-layout keeps its mark there. What Kit hashes for a CSP on a `csr = false` page is its inlined CSS,
-which holds no minted URL, so removing the mark breaks no hash.
+After the writer, the handoff says so (`written` = the client app folder, no notes, no mark): a
+page rendered later in the same process tree (an adapter's SPA fallback, which Kit 2.70 renders
+`ssr: false` anyway) names the files as written, or the original where no prerendered page asked
+for that file, and notes nothing. A `vite build --watch` rebuild starts a new run at `buildStart`.
+What Kit hashes for a CSP on a `csr = false` page is its inlined CSS, which holds no minted URL,
+so removing the mark breaks no hash.
 
 ## 7. Warm
 

@@ -121,7 +121,7 @@ A pattern that matches nothing fails the build. To pick an image at run time, re
 
 An unknown preset name fails the render (`image_preset_unknown`).
 
-Sizes are whole pixels. A `width` or `height` with a fraction (`width={1000 / 3}`) is rounded. A size of 0 or less, one that is not a number, an `aspect` that does not read as a ratio, or a `quality` outside 1 to 100 would name files no server makes, so the render stops (`image_prop_invalid`). `layOut()` follows the same rule.
+Sizes are whole pixels. A `width` or `height` with a fraction (`width={1000 / 3}`) is rounded. A size of 0 or less, one that is not a number, an `aspect` that does not read as a ratio, a box taller than the source can fill (`aspect="1/100000"`), a file past 99999 pixels a side, a `position` that is not one of the crop positions, or a `quality` outside 1 to 100 would name files no server makes, so the render stops (`image_prop_invalid`). `layOut()` follows the same rule.
 
 ### Presets
 
@@ -168,7 +168,11 @@ The layout's own CSS is a zero-specificity rule on `data-og-img`, so any class o
 
 On a live server and in dev, each file URL is a recipe: the source, the width and height, the format, and any crop or quality, all in the URL's path. The server signs it with the app's key (the same key that signs ogygia's regions: `handle({ secret })` or `OGYGIA_SECRET`), so nobody can ask the endpoint for a size no page asked for. A changed or unsigned URL is refused with a 403 that says why (`x-ogygia-deny: sig`) and names the key it checked with (`x-ogygia-key`, its fingerprint), and the placeholder stays painted.
 
-The endpoint makes the file the first time it is asked for, keeps it on disk, and sends it with `cache-control: public, max-age=31536000, immutable`. In dev and during a build the files are kept in the build cache (`node_modules/.ogygia/image/files/`, at most 2 GB), so a CI run that keeps that folder makes nothing twice. A live server keeps them in a folder under the system's temporary folder that only its user can open (`image_store_unsafe` when another user's folder, or a link, sits there), at most 512 MB while it runs. Past either size, the least recently asked files go first; files older than a month go when the server starts. The URL names the source's content hash, so a changed image gets new URLs and a CDN can keep the old ones forever.
+The endpoint makes the file the first time it is asked for, keeps it on disk, and sends it with `cache-control: public, max-age=31536000, immutable`. In dev and during a build the files are kept in the build cache (`node_modules/.ogygia/image/files/`, at most 2 GB), so a CI run that keeps that folder makes nothing twice. A live server keeps them in a folder under the system's temporary folder that only its user can open (`image_store_unsafe` when another user's folder, or a link, sits there), at most 512 MB while it runs. Past either size, the least recently asked files go first; files nobody asked for in a month go when the server starts. Each process counts its own files against the size (a build and its prerender worker each keep their own count).
+
+Every file name starts with the source's id, a hash of the image's bytes. A changed image gets a new id, so new URLs, and a CDN can keep the old ones forever. Whoever makes a file (the dev server, the build, a live server) checks the original it reads against that id first: a page rendered before you edited `hero.jpg`, asking for the old file, gets a 404 (`image_source_changed`), never the new pixels under the old name.
+
+- **Only `GET` and `HEAD`.** Any other method at a file URL answers 405.
 
 - **A file the disk cannot keep** (a full or read-only temporary folder) is still answered, and the server says so once (`image_store_write_failed`). Until the disk can write again, it keeps up to 64 MB of the files it made in memory.
 - **A query string is ignored.** A file URL asked with one (`…/hero.jpg.avif?v=2`) answers a permanent redirect to the bare URL, so a CDN keeps one copy and nobody can make the server encode again by changing the query.
@@ -192,8 +196,82 @@ Each name is the recipe alone: the source's content hash, the size, and any crop
 
 - **Each file starts the moment the page renders**, several side by side. When the prerender ends, the build writes every file a prerendered page named, in its markup or through `layOut()` in a CSS background, with Kit's crawler on or off. A site built with `adapter-static` has every image file it uses, and serves them with no server at all. A file that cannot be made fails the build (`image_unsettled`).
 - **Until then the URL starts with the build's mark**, `//<random>.ogygia.invalid`: Kit's crawler would ask for a file under `_app/` that is not there yet, and Kit answers that with a 404 before any hook runs. The build removes the mark from every prerendered file once the files exist.
-- **Use the URL as `<Img>` or `layOut()` gives it.** A page that changes it before writing it fails the build (`image_mark_left`): to make it absolute (an `og:image`), join the origin and the URL as text, not with `new URL(laid.src, origin)`, which reads the mark as the host; encode it (a share link's query string) in the browser.
+- **Use the URL as `<Img>` or `layOut()` gives it, or make it absolute.** `new URL(laid.src, page.url)` (an `og:image`, a feed) names the file at Kit's prerender origin, which is what `page.url` names while a page prerenders. Set `kit.prerender.origin` to your site's origin: with Kit's default (`http://sveltekit-prerender`) the build cannot know it, and fails (`image_mark_left`). A URL changed any other way (escaped, or encoded into a share link's query string) fails the build too: encode it in the browser.
+- **An SPA fallback page** (`adapter-static({ fallback: '404.html' })`) renders after the build wrote its files, so it names them as they are, or the original where no prerendered page asked for that file.
 - **Pages rendered on a live server keep signed URLs**, except a warmed preset's.
+
+## Absolute URLs: `og:image` and RSS
+
+A share image and a feed need absolute URLs. Set the site's origin as Kit's prerender origin once:
+
+```js title=svelte.config.js
+kit: {
+  prerender: { origin: 'https://example.com' }
+}
+```
+
+Then make the URL absolute against the page's URL, on a prerendered page or a live one alike:
+
+```svelte title=src/routes/blog/[slug]/+page.svelte
+<script lang="ts">
+  import { page } from '$app/state';
+  import { layOut } from '@ogygia/image';
+  let { data } = $props();
+  const share = $derived(new URL(layOut(data.cover, { width: 1200 }).src, page.url).href);
+</script>
+
+<svelte:head>
+  <meta property="og:image" content={share} />
+</svelte:head>
+```
+
+A feed is a prerendered `+server.ts`. Awaiting a post's `body` renders it, and its `html` is the post as HTML; make its image URLs absolute against the request's URL, and give each item its cover:
+
+```ts title=src/routes/feed.xml/+server.ts
+import { layOut } from '@ogygia/image';
+import { blog } from '$lib/blog';
+
+export const prerender = true;
+
+const URL_ATTR_RE = /\b(src|srcset)="([^"]*)"/g;
+
+function absolute(value: string, at: URL): string {
+  return value
+    .split(', ')
+    .map((candidate) => {
+      const [url = '', ...rest] = candidate.split(' ');
+      return [new URL(url.replaceAll('&amp;', '&'), at).href, ...rest].join(' ');
+    })
+    .join(', ');
+}
+
+const escape = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+
+export async function GET({ url }) {
+  const items: string[] = [];
+  for (const ref of await blog.refs()) {
+    const post = (await blog.get(ref.id))!;
+    const body = await post.body;
+    const html = (body.kind === 'inline' ? (body.html ?? '') : '').replace(
+      URL_ATTR_RE,
+      (_, attr: string, value: string) => `${attr}="${absolute(value, url)}"`
+    );
+    const cover = new URL(layOut(post.data.cover, { width: 1200 }).src, url).href;
+    items.push(
+      `<item><title>${escape(post.data.title)}</title>` +
+        `<link>${new URL(`/blog/${ref.id}`, url).href}</link>` +
+        `<enclosure url="${cover}" type="image/webp" length="0"/>` +
+        `<description>${escape(html)}</description></item>`
+    );
+  }
+  return new Response(
+    `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>A blog</title>${items.join('')}</channel></rss>`,
+    { headers: { 'content-type': 'application/xml' } }
+  );
+}
+```
+
+Link the feed from a layout (`<link rel="alternate" type="application/rss+xml" href="/feed.xml">`) so Kit's crawler prerenders it. On a live server the same code names the signed URLs at the request's origin.
 
 The encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter warns (`image_adapter_no_encoder`). Prerendered pages and warmed presets work there anyway: their files are static.
 
