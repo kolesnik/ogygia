@@ -27,7 +27,9 @@ export const IMAGE_RENDER_ERRORS = {
 			one that is not a number, an aspect that does not read as a ratio, a box taller than the
 			source can fill (more times as tall as wide than the source has pixels of height), a file
 			past 99999 pixels a side, a \`position\` that is not one of the crop positions, or a
-			quality out of range would name files no server makes, so the render stops.
+			quality out of range would name files no server makes, so the render stops. So does an
+			\`of\` whose \`id\` or \`ph\` the build did not make (a descriptor stored outside the build
+			and changed there): both go into the image's \`style\` attribute.
 		`
 	},
 	image_no_server: {

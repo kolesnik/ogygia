@@ -68,6 +68,8 @@ export const POSITIONS: ReadonlySet<string> = new Set([
 ]);
 /** The widest and tallest file a recipe names, in pixels: five digits a side. */
 export const SIDE_MAX = 99_999;
+/** A source id as a recipe names it. */
+export const SOURCE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const HEAD_RE =
 	/^([A-Za-z0-9_-]{1,64})-(\d{1,5})x(\d{1,5})(?:-q(\d{1,3}))?(?:-p([a-z]+))?(?:-o([A-Za-z0-9_-]+))?$/;
 const TAIL_RE = /^(?!.*(?:^|\/)\.{1,2}(?:\/|$))[^\\\0]+$/;

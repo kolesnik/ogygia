@@ -17,8 +17,10 @@ import {
 	type OutputFormat,
 	type RenderConfig
 } from './config.ts';
-import { POSITIONS, SIDE_MAX, type Recipe } from './recipe.ts';
+import { POSITIONS, SIDE_MAX, SOURCE_ID_RE, type Recipe } from './recipe.ts';
 import { RenderError } from './render-messages.ts';
+
+const PLACEHOLDER_RE = /^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/;
 
 export type { ImageLayout } from './config.ts';
 
@@ -160,6 +162,9 @@ export function lay_out(
 	cfg: RenderConfig,
 	url: (recipe: Recipe) => string
 ): Laid {
+	if (!SOURCE_ID_RE.test(image.id)) invalid('of.id', image.id, 'an id the build made');
+	if (image.ph !== undefined && !PLACEHOLDER_RE.test(image.ph))
+		invalid('of.ph', image.ph, 'a placeholder the build made (a WebP data URL)');
 	const layout = req.layout ?? 'constrained';
 	const asked_width = whole_pixels('width', req.width);
 	const asked_height = whole_pixels('height', req.height);
