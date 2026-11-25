@@ -44,7 +44,6 @@ import { build_handoff, note_built, note_origin, published, type BuildHandoff } 
 const { base: BASE, assets: ASSETS } = config.paths;
 const PREFIXES: readonly string[] = [ASSETS, BASE];
 
-/** The originals the endpoint may read: every image under `src/`, by the tail a recipe names. */
 class Originals {
 	#tails: ReadonlySet<string>;
 
@@ -56,8 +55,6 @@ class Originals {
 		return new Set(Object.values(list).map((url) => source_tail(url, PREFIXES)));
 	}
 
-	/** Is `tail` one? In dev, also an image under `src/` added since the server started, by the
-	 *  same rule the sources follow: the realm module is not run again for it. */
 	has(tail: string): boolean {
 		if (this.#tails.has(tail)) return true;
 		const root = DEV_ROOT;
@@ -90,7 +87,6 @@ function original_of(recipe: ParsedRecipe): string {
 	return `${BASE}/${encode_tail(recipe.tail)}`;
 }
 
-const noted = new Set<string>();
 let origin_unnoted: BuildHandoff | null = null;
 const SIGNED_MAX = 10_000;
 
@@ -98,8 +94,7 @@ function root_relative(url: string): boolean {
 	return url[0] === '/' && url[1] !== '/';
 }
 
-/** A prerendered page's URL of `recipe`: the build's file, noted (once) and started. */
-function prerendered(run: BuildHandoff, recipe: Recipe): string {
+function prerendered(run: BuildHandoff, noted: Set<string>, recipe: Recipe): string {
 	const path = recipe_path(recipe, source_tail(recipe.src, PREFIXES));
 	if (!noted.has(path)) {
 		noted.add(path);
@@ -129,7 +124,8 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		}
 		if (run?.minted) {
 			origin_unnoted = run;
-			set_minter((recipe) => prerendered(run, recipe));
+			const noted = new Set<string>();
+			set_minter((recipe) => prerendered(run, noted, recipe));
 			return;
 		}
 		const signed = cache<string, string>({ name: 'image URLs', max: SIGNED_MAX });

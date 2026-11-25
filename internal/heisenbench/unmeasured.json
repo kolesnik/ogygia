@@ -6853,6 +6853,14 @@
 			"reason": "a message's prose for its docs page and server warning: constant text, printed once per process"
 		},
 		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_source_changed > details",
+			"reason": "a message's prose for its docs page and server warning: constant text, printed when a stale recipe is asked for"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_source_changed > text",
+			"reason": "a message's prose for its docs page and server warning: constant text, printed when a stale recipe is asked for"
+		},
+		{
 			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_store_write_failed > details",
 			"reason": "a message's prose for its docs page and server warning: constant text, printed once per store"
 		},
@@ -6933,20 +6941,20 @@
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > request",
+			"id": "packages/image/src/server.ts > defineServer:0~ec4226 > request",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > setup",
+			"id": "packages/image/src/server.ts > defineServer:0~ec4226 > setup",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > setup > set_minter:0~ce73a5",
+			"id": "packages/image/src/server.ts > defineServer:0~ec4226 > setup > set_minter:0~162035",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path and built_url are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > setup > set_minter:0~162035",
-			"reason": "prerender only: hands each recipe to prerendered (exempt below); test/server-prerender.test.ts runs it"
+			"id": "packages/image/src/server.ts > defineServer:0~ec4226 > setup > set_minter:0~7b05f8",
+			"reason": "prerender only: hands each recipe to prerendered (exempt below) with the set of recipes this build noted; test/server-prerender.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/server.ts > Originals > constructor",
@@ -7155,6 +7163,10 @@
 		{
 			"id": "packages/image/src/vite/encoder.ts > listed",
 			"reason": "config time, once per resolved config: reads and parses the app's package.json"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > resolves",
+			"reason": "config time, once per resolved config: one module resolution of sharp from the app root, an answer of the file system"
 		},
 		{
 			"id": "packages/image/src/vite/encoder.ts > listed > has",
@@ -7437,7 +7449,7 @@
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > setup > set_minter:0~2cdb03",
+			"id": "packages/image/src/server.ts > defineServer:0~ec4226 > setup > set_minter:0~2cdb03",
 			"reason": "a page rendered after the build's end (an SPA fallback, which Kit renders without SSR): one existsSync per recipe; test/server-after-build.test.ts runs it"
 		},
 		{
