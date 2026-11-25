@@ -218,6 +218,31 @@ export const IMAGE_WARNINGS = {
 			as static files, so those work everywhere.
 		`
 	},
+	image_store_write_failed: {
+		text: (a: { dir: string; reason: string }): string =>
+			`the image file store ${a.dir} could not keep a file (${a.reason}): files are answered, and kept in memory instead.`,
+		details: (): string => prose`
+			The image endpoint keeps each file it made on disk, so the next ask, and the next start,
+			reads it instead of making it again. Writing there failed: a full disk, a folder that is
+			read-only, or a quota. The file was still answered. Until the store can write again, the
+			server keeps the files it made in a small memory cache (the least recently asked go first)
+			and makes the others again on the next ask. Free space in the temporary folder, or make it
+			writable.
+		`
+	},
+	image_busy: {
+		text: (a: { waiting: number }): string =>
+			`the image endpoint has ${a.waiting} files waiting to be made: it answers 503 (retry-after) until the line is shorter.`,
+		details: (): string => prose`
+			A live server makes a few files at once and queues a bounded number more, so a burst of
+			asks for new files (a page of many images on a cold server, or a client asking for many
+			URLs) cannot hold unbounded memory and CPU. Past that line, an ask is answered 503 with a
+			\`retry-after\`, which no cache keeps; the browser shows the placeholder, and the next visit
+			gets the file. Warm the presets your server-rendered pages use
+			(\`import.meta.og.image(src, { warm: 'cover' })\`), or put a CDN in front, which asks once
+			per file.
+		`
+	},
 	image_store_unsafe: {
 		text: (a: { dir: string }): string =>
 			`the image file store ${a.dir} is not a folder only this user owns: files are made on every ask, and not kept.`,

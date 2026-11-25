@@ -178,7 +178,7 @@ describe('the store a live server keeps', () => {
 		await s.keep('b', new Uint8Array(400));
 		expect(await s.find('a')).not.toBeNull();
 		await s.keep('c', new Uint8Array(400));
-		await expect.poll(async () => (await s.find('b')) === null).toBe(true);
+		await expect.poll(() => fs.existsSync(s.file('b'))).toBe(false);
 		expect(await s.find('a')).not.toBeNull();
 		expect(await s.find('c')).not.toBeNull();
 	});
@@ -191,7 +191,7 @@ describe('the store a live server keeps', () => {
 		const s = new FileStore(dir, 1000);
 		await s.load();
 		await s.keep('new', new Uint8Array(600));
-		await expect.poll(async () => (await s.find('old')) === null).toBe(true);
+		await expect.poll(() => fs.existsSync(s.file('old'))).toBe(false);
 		expect(await s.find('new')).not.toBeNull();
 	});
 

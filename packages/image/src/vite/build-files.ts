@@ -30,9 +30,9 @@ import { encode_recipe, VIPS_VERSION } from '../pixels.ts';
 import { IMAGE_PREFIX, parse_recipe, warm_file, type Recipe } from '../recipe.ts';
 import {
 	build_handoff,
-	build_store_dir,
 	BUILD_ENV,
 	FileStore,
+	open_build_store,
 	type BuildHandoff
 } from '../store.ts';
 
@@ -55,7 +55,8 @@ export function handoff_for(build: boolean): BuildHandoff {
 		fs.mkdirSync(run, { recursive: true });
 		minted = path.join(run, 'minted.txt');
 	}
-	const handoff: BuildHandoff = { store: build_store_dir(path.join(cache, 'files'), VIPS_VERSION),
+	const handoff: BuildHandoff = {
+		store: open_build_store(path.join(cache, 'files'), VIPS_VERSION),
 		minted
 	};
 	process.env[BUILD_ENV] = JSON.stringify(handoff);

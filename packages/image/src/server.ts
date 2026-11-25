@@ -103,6 +103,11 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		if (slash < 1 || !app.verify(message(path), sig)) return refused(403, app);
 		const recipe = parse_recipe(path);
 		if (recipe === null || !ORIGINALS.has(recipe.tail)) return refused(404, app);
+		if (event.url.search !== '')
+			return new Response(null, {
+				status: 308,
+				headers: { location: pathname, 'cache-control': 'public, max-age=31536000, immutable' }
+			});
 		let settle: typeof import('./settle.ts').settle;
 		try {
 			({ settle } = await import('./settle.ts'));

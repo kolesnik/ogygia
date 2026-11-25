@@ -17,7 +17,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { clock, random } from '@ogygia/machine';
+import { cache, clock, random, type Cache } from '@ogygia/machine';
 import { warn } from './messages.ts';
 
 /** Bump when the encoder's output changes for the same input: every cached file is made again. */
@@ -48,14 +48,36 @@ export function build_handoff(): BuildHandoff | null {
 function version_dir(vips: string): string {
 	return `v${ENCODER_VERSION}-${vips}`;
 }
-const MONTH_MS = 30 * 24 * 3600 * 1000;
+const HOUR_MS = 3600 * 1000;
+const WEEK_MS = 7 * 24 * HOUR_MS;
+const MONTH_MS = 30 * 24 * HOUR_MS;
+const USED = '.used';
 
-/** Files made from recipes, by key, in one folder. */
+/** The most a live server's store keeps on disk, in bytes. */
+export const RUNTIME_STORE_MAX: number = 512 * 1024 * 1024;
+/** The most the build cache's store keeps, in bytes. */
+export const BUILD_STORE_MAX: number = 2 * 1024 * 1024 * 1024;
+
+/** Files made from recipes, by key, in one folder, at most `max` bytes of them: past it, the least
+ *  recently kept or found go first. A store counts the files it kept or found; {@link load} counts
+ *  the ones already there, the oldest as the least recently used. */
 export class FileStore {
 	readonly dir: string;
+	#files: Cache<string, number>;
+	#said_write = false;
 
-	constructor(dir: string) {
+	constructor(dir: string, max: number = BUILD_STORE_MAX) {
 		this.dir = dir;
+		this.#files = cache<string, number>({
+			name: 'image file store',
+			max,
+			weigh: (size) => size,
+			onEvict: (file, _size, why) => {
+				if (why !== 'size') return;
+				// oxlint-disable-next-line ogygia/no-silent-failures -- a file that could not be removed stays until the next load counts it again
+				void fs.promises.rm(file, { force: true }).catch(() => {});
+			}
+		});
 	}
 
 	/** Where the file of `key` is kept. */
@@ -67,29 +89,121 @@ export class FileStore {
 	/** The file of `key`, when it is made: its path and size. */
 	async find(key: string): Promise<{ file: string; size: number } | null> {
 		const file = this.file(key);
+		let size: number;
 		try {
 			const stat = await fs.promises.stat(file);
-			return stat.isFile() ? { file, size: stat.size } : null;
+			if (!stat.isFile()) return null;
+			size = stat.size;
 			// oxlint-disable-next-line ogygia/no-silent-failures -- no file is a miss: the caller makes it
 		} catch {
 			return null;
 		}
+		if (this.#files.get(file) === undefined) this.#files.set(file, size);
+		return { file, size };
 	}
 
-	/** Keep `data` as the file of `key` (written whole, then moved in: a reader never sees half). */
-	async keep(key: string, data: Uint8Array): Promise<void> {
+	/** Keep `data` as the file of `key` (written whole, then moved in: a reader never sees half).
+	 *  False when it could not be written (said once per store: `image_store_write_failed`). */
+	async keep(key: string, data: Uint8Array): Promise<boolean> {
 		const file = this.file(key);
-		await fs.promises.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
 		const tmp = `${file}.${process.pid}.${random.uuid()}.tmp`;
-		await fs.promises.writeFile(tmp, data, { mode: 0o600 });
-		await fs.promises.rename(tmp, file);
+		try {
+			await fs.promises.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+			await fs.promises.writeFile(tmp, data, { mode: 0o600 });
+			await fs.promises.rename(tmp, file);
+		} catch (e) {
+			if (!this.#said_write)
+				warn('image_store_write_failed', { dir: this.dir, reason: (e as Error).message });
+			this.#said_write = true;
+			// oxlint-disable-next-line ogygia/no-silent-failures -- a half-written file that is not there needs no removing
+			void fs.promises.rm(tmp, { force: true }).catch(() => {});
+			return false;
+		}
+		this.#files.set(file, data.byteLength);
+		// oxlint-disable-next-line ogygia/no-silent-failures -- the mark only spares this folder from a newer server's tidy: a miss shows as a file made again
+		void touch(path.join(this.dir, USED)).catch(() => {});
+		return true;
+	}
+
+	/** Count the files already in the folder, oldest first: past `max`, the oldest go. Files older
+	 *  than a month, and a write an ended process left half done, are removed. */
+	async load(): Promise<void> {
+		const now = clock.wall();
+		const found: Array<[string, number, number]> = [];
+		let shards: string[];
+		try {
+			shards = await fs.promises.readdir(this.dir);
+			// oxlint-disable-next-line ogygia/no-silent-failures -- no folder yet holds nothing to count
+		} catch {
+			return;
+		}
+		for (const shard of shards) {
+			if (shard === USED) continue;
+			const at = path.join(this.dir, shard);
+			try {
+				for (const name of await fs.promises.readdir(at)) {
+					const file = path.join(at, name);
+					const stat = await fs.promises.stat(file);
+					const age = now - stat.mtimeMs;
+					if (age > MONTH_MS || (name.endsWith('.tmp') && age > HOUR_MS))
+						await fs.promises.rm(file, { force: true });
+					else if (!name.endsWith('.tmp')) found.push([file, stat.size, stat.mtimeMs]);
+				}
+				// oxlint-disable-next-line ogygia/no-silent-failures -- a shard that could not be read is counted at the next load
+			} catch {}
+		}
+		found.sort((a, b) => a[2] - b[2]);
+		for (const [file, size] of found) if (!this.#files.has(file)) this.#files.set(file, size);
 	}
 }
 
-/** The build cache's store folder under `cache` (the plugin's `BuildCache` folder), for files made
- *  with libvips `vips`. */
-export function build_store_dir(cache: string, vips: string): string {
-	return path.join(cache, version_dir(vips));
+async function touch(file: string): Promise<void> {
+	const now = new Date(clock.wall());
+	try {
+		await fs.promises.utimes(file, now, now);
+	} catch {
+		await fs.promises.writeFile(file, '', { mode: 0o600 });
+	}
+}
+
+/** Remove the folders under `root` of other versions than `dir` that no server has used for a
+ *  week (a server beside this one, on another libvips, still keeps files in its own). */
+async function tidy_versions(root: string, dir: string): Promise<void> {
+	const now = clock.wall();
+	try {
+		for (const name of await fs.promises.readdir(root)) {
+			const other = path.join(root, name);
+			if (other === dir) continue;
+			const used = await fs.promises
+				.stat(path.join(other, USED))
+				.catch(() => fs.promises.stat(other));
+			if (now - used.mtimeMs > WEEK_MS)
+				await fs.promises.rm(other, { recursive: true, force: true });
+		}
+		// oxlint-disable-next-line ogygia/no-silent-failures -- a tidy is housekeeping: what it could not remove stays until the next start tries again
+	} catch {}
+}
+
+/** Open a store in `dir` (a version folder under `root`), at most `max` bytes: marked as in use,
+ *  its files counted, the unused version folders beside it removed. */
+function open_store(root: string, dir: string, max: number): FileStore {
+	const store = new FileStore(dir, max);
+	// oxlint-disable-next-line ogygia/no-silent-failures -- the mark and the tidy are housekeeping: each catches its own failures
+	void touch(path.join(dir, USED))
+		.catch(() => {})
+		.then(() => tidy_versions(root, dir))
+		.then(() => store.load());
+	return store;
+}
+
+/** Open the build cache's store under `cache` (the plugin's `BuildCache` folder), for files made
+ *  with libvips `vips`, and give its folder: marked as in use, kept to {@link BUILD_STORE_MAX}, the
+ *  unused version folders beside it removed. */
+export function open_build_store(cache: string, vips: string): string {
+	const dir = path.join(cache, version_dir(vips));
+	fs.mkdirSync(dir, { recursive: true });
+	open_store(cache, dir, BUILD_STORE_MAX);
+	return dir;
 }
 
 function owned(dir: string): boolean {
@@ -121,29 +235,9 @@ export function runtime_store(vips: string, tmp: string = os.tmpdir()): FileStor
 			warn('image_store_unsafe', { dir });
 			return null;
 		}
-		// oxlint-disable-next-line ogygia/no-silent-failures -- prune() catches its own failures: what it could not remove stays until the next start
-		void prune(root, dir);
-		return new FileStore(dir);
+		return open_store(root, dir, RUNTIME_STORE_MAX);
 	} catch (e) {
 		warn('image_store_unsafe', { dir: `${root} (${(e as Error).message})` });
 		return null;
 	}
-}
-
-async function prune(root: string, dir: string): Promise<void> {
-	const now = clock.wall();
-	try {
-		for (const name of await fs.promises.readdir(root))
-			if (path.join(root, name) !== dir)
-				await fs.promises.rm(path.join(root, name), { recursive: true, force: true });
-		for (const shard of await fs.promises.readdir(dir)) {
-			const at = path.join(dir, shard);
-			for (const name of await fs.promises.readdir(at)) {
-				const file = path.join(at, name);
-				const stat = await fs.promises.stat(file);
-				if (now - stat.mtimeMs > MONTH_MS) await fs.promises.rm(file, { force: true });
-			}
-		}
-		// oxlint-disable-next-line ogygia/no-silent-failures -- a prune is housekeeping: what it could not remove stays until the next start tries again
-	} catch {}
 }
