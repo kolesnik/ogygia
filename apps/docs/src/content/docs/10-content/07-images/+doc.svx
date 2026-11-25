@@ -508,7 +508,7 @@ An `<Img>` inside an island keeps the server's file URLs when it hydrates. A ren
 | `widths={[600, 1200]}`, `sizes="…"`                 | a preset, or `layout` and `width`; `sizes` only as an escape hatch                                                  |
 | `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`                                                                  |
 | `loading="eager"` + `fetchpriority="high"`          | `priority`                                                                                                          |
-| `getImage({ src })`                                 | `getImage(descriptor, { … })`                                                                                         |
+| `getImage({ src })`                                 | `getImage(descriptor, { … })`                                                                                       |
 | `image()` in a markdown collection's schema         | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path                                                     |
 | `image()` in a JSON collection's schema             | a `v.string()` field, looked up in an `import.meta.og.image.glob()` ([Images named in JSON](#images-named-in-json)) |
 | `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                                                                              |
