@@ -7237,6 +7237,50 @@
 			"reason": "the plugin's factory and hooks, once per config load or build: constant work around the measured macro and markdown readers"
 		},
 		{
+			"id": "packages/image/src/vite/encoder.ts > check_encoder",
+			"reason": "config time, once per resolved config: one package.json read and a node_modules walk up the app's folders; packages/image/test/encoder-check.test.ts runs every branch"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > decisions:0~ffc984 > decide",
+			"reason": "a decision table's plan, once per resolved config: three comparisons; the test walks every row"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > encoder_runtime",
+			"reason": "config time, once per resolved config: two regex tests on the adapter name"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > installed",
+			"reason": "config time, once per resolved config: one existsSync per folder from the app root up"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > listed",
+			"reason": "config time, once per resolved config: reads and parses the app's package.json"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > listed > has",
+			"reason": "config time: one property read, at most three per resolved config"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > pixels",
+			"reason": "a dynamic import the module loader caches: the pixel work it hands out is measured in its own benches"
+		},
+		{
+			"id": "packages/content/src/markdown/rehype-text-lt.ts > escape_text_lt",
+			"reason": "compile time, once per markdown text node: returns at once without a `<`, else one pass over the text; the markdown compile benches include it"
+		},
+		{
+			"id": "packages/content/src/markdown/rehype-text-lt.ts > rehypeTextLt",
+			"reason": "a rehype plugin's factory, once per mdsvex start"
+		},
+		{
+			"id": "packages/content/src/markdown/rehype-text-lt.ts > rehypeTextLt > <anonymous>~7d37cb",
+			"reason": "the plugin's transformer, once per markdown document: starts the walk"
+		},
+		{
+			"id": "packages/content/src/markdown/rehype-text-lt.ts > rehypeTextLt > walk",
+			"reason": "compile time, linear in the document's hast nodes, once per markdown document"
+		},
+		{
 			"id": "packages/image/src/vite/index.ts > image > loader > load",
 			"reason": "build only: one og-image module's load, its cost the encoder's (exempt above), once per image per build; packages/image/e2e runs it"
 		},
