@@ -135,7 +135,7 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 
 ## Decoders: text turned into values (JSON, devalue, base64, URI escapes)
 
-103 entries.
+113 entries.
 
 | file | in | what | n |
 | --- | --- | --- | --- |
@@ -223,6 +223,16 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/federation/src/wire.ts` | `private_key` | `Buffer.from base64` | 1 |
 | `packages/federation/src/wire.ts` | `public_key` | `Buffer.from base64` | 1 |
 | `packages/federation/src/wire.ts` | `signature_bytes` | `Buffer.from base64` | 1 |
+| `packages/image/src/recipe.ts` | `b64url_decode` | `atob` | 1 |
+| `packages/image/src/recipe.ts` | `parse_recipe` | `JSON.parse` | 1 |
+| `packages/image/src/store.ts` | `build_handoff` | `JSON.parse` | 1 |
+| `packages/image/src/vite/encoder.ts` | `listed` | `JSON.parse` | 1 |
+| `packages/image/src/vite/index.ts` | `image` | `JSON.parse` | 1 |
+| `packages/image/src/vite/index.ts` | `kit_paths` | `JSON.parse` | 1 |
+| `packages/image/src/vite/macro.ts` | `options_of_query` | `Buffer.from base64url` | 1 |
+| `packages/image/src/vite/macro.ts` | `options_of_query` | `JSON.parse` | 1 |
+| `packages/image/src/vite/markdown.ts` | `markdown_extension` | `Buffer.from base64url` | 1 |
+| `packages/image/src/vite/markdown.ts` | `markdown_extension` | `JSON.parse` | 2 |
 | `packages/insights/src/fp-drift.ts` | `(module)` | `JSON.parse` | 2 |
 | `packages/insights/src/fp-drift.ts` | `revive` | `devalue unflatten` | 1 |
 | `packages/insights/src/page-insights.ts` | `defer_keys` | `JSON.parse` | 1 |
@@ -311,7 +321,7 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 
 ## Routes: paths ogygia answers on its own
 
-12 entries.
+13 entries.
 
 | file | in | what | n |
 | --- | --- | --- | --- |
@@ -326,4 +336,5 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/federation/src/wire.ts` | `FRAGMENT_BASE` | `/og/fragment/` | 1 |
 | `packages/federation/src/wire.ts` | `FRAGMENT_ROUTES_PATH` | `/og/fragment/page` | 1 |
 | `packages/federation/src/wire.ts` | `THAW_PATH` | `/og/thaw` | 1 |
+| `packages/image/src/recipe.ts` | `IMAGE_PREFIX` | `/__ogygia__/i/` | 1 |
 | `packages/testing/src/vite.ts` | `NAMES_PATH` | `/__ogygia_devtools_meta` | 1 |
