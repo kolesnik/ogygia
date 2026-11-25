@@ -251,11 +251,11 @@ To turn markdown images off, pass `image({ markdown: false })`. Markdown images 
 
 A frontmatter value that starts with `./` or `../` and ends in an image extension becomes a descriptor at build, wherever it sits (a nested object or a list works too). Other strings stay strings: `images/share.png` or `diagram.png` are left alone. A missing file fails the build.
 
-In the collection's schema, accept the descriptor with `image()`, a check that says how to write the path when a value is still a string:
+In the collection's schema, accept the descriptor with `isImage`, a check that a value is a descriptor:
 
 ```ts title=src/lib/blog.ts
 import { content, markdown } from '@ogygia/content';
-import { image, type ImageDescriptor } from '@ogygia/image';
+import { isImage, type ImageDescriptor } from '@ogygia/image';
 import * as v from 'valibot';
 
 export const blog = content({
@@ -264,12 +264,12 @@ export const blog = content({
   }),
   schema: v.object({
     title: v.string(),
-    cover: v.custom<ImageDescriptor>(image())
+    cover: v.custom<ImageDescriptor>(isImage)
   })
 });
 ```
 
-`image()` is a Standard Schema too, for a schema library that takes one. `isImage(value)` is the same check as a plain function.
+With zod, it is `z.custom<ImageDescriptor>(isImage)`. A value that is still a string (a path without `./` or `../`) fails the check.
 
 Then render it like any other image:
 
@@ -304,7 +304,7 @@ An `<Img>` inside an island keeps the server's file URLs when it hydrates. A ren
 | `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`                 |
 | `loading="eager"` + `fetchpriority="high"`          | `priority`                                                         |
 | `getImage({ src })`                                 | `layOut(descriptor, { … })`                                        |
-| `image()` in a content schema                       | `v.custom<ImageDescriptor>(image())`, with a `./` or `../` path    |
+| `image()` in a content schema                       | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path    |
 | `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                             |
 | `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed        |
 | images encoded at build                             | files made on first request, saved as files by a prerender         |

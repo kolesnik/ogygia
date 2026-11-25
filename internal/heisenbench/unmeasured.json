@@ -6913,18 +6913,6 @@
 			"reason": "a message's one line for the build error: a template over its detail, printed once when the build fails"
 		},
 		{
-			"id": "packages/image/src/descriptor.ts > image",
-			"reason": "a schema field check, run once per frontmatter document when a collection loads; isImage, the work it does, is measured by the lay_out bench"
-		},
-		{
-			"id": "packages/image/src/descriptor.ts > image > check",
-			"reason": "a schema field check, run once per frontmatter document when a collection loads; isImage, the work it does, is measured by the lay_out bench"
-		},
-		{
-			"id": "packages/image/src/descriptor.ts > image > validate",
-			"reason": "a schema field check, run once per frontmatter document when a collection loads; isImage, the work it does, is measured by the lay_out bench"
-		},
-		{
 			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_outside_src > details",
 			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
 		},

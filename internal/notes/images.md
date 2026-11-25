@@ -19,7 +19,7 @@ same signed door as deferred regions (same key, same signer, its own domain).
 ## 1. Packaging
 
 `@ogygia/image` is a plugin package. `image({ presets, … })` from `@ogygia/image/vite` is listed
-beside `ogygia()` and before `sveltekit()`; `<Img>`, `layOut` and `image()` / `isImage` come from
+beside `ogygia()` and before `sveltekit()`; `<Img>`, `layOut` and `isImage` come from
 `@ogygia/image`; types for the macro from `@ogygia/image/types`. `ogygia` itself depends on core and
 compiler only, so images are not an `ogygia/image` subpath. sharp is the package's dependency and
 only the endpoint loads it (a lazy import), so a server that never serves an image never loads it.
