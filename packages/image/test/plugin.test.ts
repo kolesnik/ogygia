@@ -124,6 +124,44 @@ test("vercel() alone has no endpoint maker; its sizes bound every file's width; 
 	expect(String(await load(plain, '\0virtual:ogygia-image/config'))).not.toContain('widths');
 });
 
+async function server_build(options: ImagePluginOptions, adapter: string): Promise<unknown> {
+	const plugin = image(options).find((p) => p.name === '@ogygia/image:load')!;
+	return (plugin.configResolved as (c: unknown) => unknown)({
+		root,
+		command: 'build',
+		build: { ssr: true, outDir: path.join(root, '.svelte-kit/output/server') },
+		define: {
+			__SVELTEKIT_APP_DIR__: '"_app"',
+			__SVELTEKIT_ADAPTER_NAME__: JSON.stringify(adapter)
+		}
+	} as unknown as ResolvedConfig);
+}
+
+test("a platform's encoder on another adapter fails the server build, as its links and maker exist only on that platform", async () => {
+	await expect(
+		server_build({ encoder: cloudflare() }, '@sveltejs/adapter-cloudflare')
+	).resolves.not.toThrow();
+	await expect(
+		server_build({ encoder: [vercel(), sharp()] }, '@sveltejs/adapter-vercel')
+	).resolves.not.toThrow();
+	for (const encoder of [cloudflare(), cloudflare({ links: false })])
+		await expect(server_build({ encoder }, '@sveltejs/adapter-node')).rejects.toThrow(
+			/'encoder' must be cloudflare\(\) on @sveltejs\/adapter-cloudflare: its links and Images binding exist only on Cloudflare \(this app's adapter is @sveltejs\/adapter-node\)[\s\S]*\/e\/image_option_invalid/
+		);
+	await expect(server_build({ encoder: vercel() }, '@sveltejs/adapter-node')).rejects.toThrow(
+		/lacks adapter-vercel \(this app's adapter is @sveltejs\/adapter-node\)[\s\S]*\/e\/image_vercel_config/
+	);
+});
+
+test('on adapter-auto, the message says to list the platform adapter itself: auto cannot hand it the encoder config', async () => {
+	await expect(server_build({ encoder: cloudflare() }, '@sveltejs/adapter-auto')).rejects.toThrow(
+		/this app's adapter is @sveltejs\/adapter-auto, which picks a platform but cannot be handed its config: install and list @sveltejs\/adapter-cloudflare itself/
+	);
+	await expect(server_build({ encoder: vercel() }, '@sveltejs/adapter-auto')).rejects.toThrow(
+		/install and list @sveltejs\/adapter-vercel itself/
+	);
+});
+
 test("only an app that lists vercel() gets the output check, run after the server build's other closeBundle hooks", () => {
 	expect(image({}).map((p) => p.name)).not.toContain('@ogygia/image:vercel-config');
 	const check = image({ encoder: [vercel(), sharp()] }).find(
