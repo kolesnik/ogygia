@@ -1,11 +1,16 @@
-// The fixture app built with adapter-vercel, with today's encoder, `sharp()`
-// (`IMAGE_E2E_MODE=vercel`): every page prerendered but /late, which the function renders on
-// request. Its static files and its function are served by e2e/serve-vercel.ts; the headers
-// Vercel's router adds are read from `.vercel/output/config.json`'s routes.
+// The fixture app built with adapter-vercel and `[vercel({ sizes }), sharp()]`
+// (`IMAGE_E2E_MODE=vercel`): every page prerendered but /late (a crop, which only sharp makes) and
+// /late/whole (a resize, Vercel's link), which the function renders on request. Its static files
+// and its function are served by e2e/serve-vercel.ts; the headers Vercel's router adds are read
+// from `.vercel/output/config.json`'s routes. `/_vercel/image` runs only on Vercel: its links are
+// checked by shape.
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect } from '@ogygia/tooling/e2e';
+import { WHOLE_LINKS, linked, VERCEL_IMAGES } from './vercel-links.ts';
 
 const APP = fileURLToPath(new URL('./app/', import.meta.url));
 const OUTPUT = path.join(APP, '.vercel/output');
@@ -14,6 +19,7 @@ const PRERENDERED = ['/', '/blog/first-post', '/blog/second-post', '/blog/third-
 const BUILT_RE = /\/_app\/immutable\/og\/[\w-]+\.(?:avif|webp)/g;
 const SIGNED_RE = /\/__ogygia__\/i\/[^\s",)]+/g;
 const KEPT = 'public, immutable, max-age=31536000';
+const BUILD_MS = 240_000;
 
 interface Route {
 	src?: string;
@@ -147,4 +153,88 @@ test('the function refuses a forged signature and a POST, kept nowhere', async (
 	const posted = await request.post(url);
 	expect(posted.status()).toBe(405);
 	expect(posted.headers()['cache-control']).toBe('no-store');
+});
+
+test("the output config's images are the ones vercel() handed the adapter", () => {
+	const config = JSON.parse(fs.readFileSync(path.join(OUTPUT, 'config.json'), 'utf8')) as {
+		images: unknown;
+	};
+	expect(config.images).toEqual(VERCEL_IMAGES);
+});
+
+test("a live page's resize is named by Vercel's link to its original, its widths snapped up to the sizes, nothing signed", async ({
+	request
+}) => {
+	expect(await linked(request, '/late/whole')).toEqual(WHOLE_LINKS);
+	expect(
+		(await named(request, ['/late/whole'], SIGNED_RE)).filter((u) => u.includes('/one.'))
+	).toEqual([]);
+	const original = decodeURIComponent(
+		/url=([^&]+)/.exec((await linked(request, '/late/whole', true))[0]!)![1]!
+	);
+	expect((await request.get(original)).status()).toBe(200);
+	expect(routed(original, true).headers).toEqual({ 'cache-control': KEPT });
+	expect(await linked(request, '/late')).toEqual([]);
+});
+
+test('a browser reads each link whole from a srcset, at the width it was snapped to', async ({
+	page
+}) => {
+	await page.goto('/late/whole');
+	const source = page.locator('picture:has(img[alt$="one.png"]) source[type="image/avif"]');
+	await expect(source).toHaveAttribute('srcset', /&w=128&q=60 128w, .*&w=256&q=60 160w$/);
+	const img = page.locator('img[alt$="one.png"]');
+	await expect
+		.poll(() => img.evaluate((el: HTMLImageElement) => el.currentSrc))
+		.toContain('/_vercel/image?url=');
+});
+
+function link_modules(from: string, to: string): void {
+	fs.mkdirSync(to, { recursive: true });
+	for (const name of fs.readdirSync(from)) {
+		if (name.startsWith('.')) continue;
+		const entry = path.join(from, name);
+		if (name.startsWith('@')) link_modules(entry, path.join(to, name));
+		else fs.symlinkSync(fs.realpathSync(entry), path.join(to, name));
+	}
+}
+
+test('a build whose adapter images lack a width vercel() names fails image_vercel_config, after the adapter wrote its output', () => {
+	test.setTimeout(BUILD_MS);
+	const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-vercel-'));
+	try {
+		for (const name of [
+			'src',
+			'package.json',
+			'svelte.config.js',
+			'vite.config.ts',
+			'image.config.ts'
+		])
+			fs.cpSync(path.join(APP, name), path.join(copy, name), { recursive: true });
+		link_modules(path.join(APP, 'node_modules'), path.join(copy, 'node_modules'));
+		const env: NodeJS.ProcessEnv = {
+			...process.env,
+			IMAGE_E2E_ADAPTER: 'vercel',
+			IMAGE_E2E_VERCEL_IMAGES: 'short'
+		};
+		delete env.NODE_PATH;
+		delete env.__OGYGIA_IMAGE_BUILD;
+		const res = spawnSync('node', ['node_modules/vite/bin/vite.js', 'build'], {
+			cwd: copy,
+			env,
+			encoding: 'utf8',
+			timeout: BUILD_MS - 10_000,
+			maxBuffer: 256 * 1024 * 1024
+		});
+		const said = `${res.stdout}${res.stderr}`;
+		expect(res.status, said.slice(-2000)).not.toBe(0);
+		expect(said).toMatch(/the adapter's output config\s+lacks sizes 64/);
+		expect(said).toContain('ogygiajs.dev/e/image_vercel_config');
+		const written = JSON.parse(
+			fs.readFileSync(path.join(copy, '.vercel/output/config.json'), 'utf8')
+		) as { images: { sizes: number[] } };
+		expect(written.images.sizes).toEqual([128, 256, 640, 1280, 2048]);
+	} finally {
+		fs.rmSync(copy, { recursive: true, force: true });
+	}
 });

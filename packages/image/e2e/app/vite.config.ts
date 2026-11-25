@@ -1,13 +1,9 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { ogygia } from 'ogygia/vite';
 import { content } from '@ogygia/content/vite';
-import { cloudflare, image } from '@ogygia/image/vite';
+import { image } from '@ogygia/image/vite';
 import { defineConfig } from 'vite';
-
-const encoder =
-	process.env.IMAGE_E2E_ADAPTER === 'cloudflare'
-		? cloudflare({ links: process.env.IMAGE_E2E_LINKS === '1' })
-		: undefined;
+import { encoder } from './image.config.ts';
 
 export default defineConfig({
 	define: {

@@ -79,7 +79,7 @@
 		"prepublishOnly": "pnpm run build",
 		"check": "tsc -p . && svelte-check --tsconfig ./tsconfig.check.json --fail-on-warnings && tsc -p test && tsc -p e2e && vitest run",
 		"test": "vitest run",
-		"e2e": "playwright test && IMAGE_E2E_MODE=server playwright test && IMAGE_E2E_MODE=static playwright test && IMAGE_E2E_MODE=dev playwright test && IMAGE_E2E_MODE=base playwright test && IMAGE_E2E_MODE=cloudflare playwright test --pass-with-no-tests && IMAGE_E2E_MODE=cloudflare-links playwright test --pass-with-no-tests && IMAGE_E2E_MODE=vercel playwright test --pass-with-no-tests"
+		"e2e": "playwright test && IMAGE_E2E_MODE=server playwright test && IMAGE_E2E_MODE=static playwright test && IMAGE_E2E_MODE=dev playwright test && IMAGE_E2E_MODE=base playwright test && IMAGE_E2E_MODE=cloudflare playwright test --pass-with-no-tests && IMAGE_E2E_MODE=cloudflare-links playwright test --pass-with-no-tests && IMAGE_E2E_MODE=vercel playwright test --pass-with-no-tests && IMAGE_E2E_MODE=vercel-alone playwright test --pass-with-no-tests"
 	},
 	"dependencies": {
 		"@ogygia/machine": "workspace:^"

@@ -1,4 +1,4 @@
-// @ogygia/image's e2e suite against its fixture app (e2e/app), in one of eight modes (`IMAGE_E2E_MODE`):
+// @ogygia/image's e2e suite against its fixture app (e2e/app), in one of nine modes (`IMAGE_E2E_MODE`):
 // - `node` (default): built with adapter-node and served (`vite preview`): files made on request;
 // - `server`: the same build served by the adapter's own output (`node build`), as a deploy runs it;
 // - `static`: every page prerendered with adapter-static and served as plain files, no server;
@@ -9,9 +9,10 @@
 //   `wrangler dev` with a local Images binding (cloudflare.spec.ts);
 // - `cloudflare-links`: the same with `cloudflare()`, whose links are checked by shape
 //   (cloudflare-links.spec.ts);
-// - `vercel`: built with adapter-vercel, its static files and its function served
-//   (e2e/serve-vercel.ts), its routes read by the specs (vercel.spec.ts).
-// `pnpm --filter @ogygia/image e2e` runs all eight.
+// - `vercel`: built with adapter-vercel and `[vercel(), sharp()]`, its static files and its function
+//   served (e2e/serve-vercel.ts), its routes read by the specs (vercel.spec.ts);
+// - `vercel-alone`: the same with `vercel()` alone (vercel-alone.spec.ts).
+// `pnpm --filter @ogygia/image e2e` runs all nine.
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { suite } from '@ogygia/tooling/e2e/config.ts';
 import { port } from '@ogygia/tooling/e2e/servers.ts';
@@ -72,6 +73,13 @@ function served(mode: string): PlaywrightTestConfig {
 			env: { IMAGE_E2E_ADAPTER: 'vercel' },
 			command: `node ${build} && env -u NODE_PATH node ${serve_vercel} .vercel/output ${port(3068)}`
 		});
+	if (mode === 'vercel-alone')
+		return suite({
+			port: 3070,
+			serve: app,
+			env: { IMAGE_E2E_ADAPTER: 'vercel', IMAGE_E2E_VERCEL: 'alone' },
+			command: `node ${build} && env -u NODE_PATH node ${serve_vercel} .vercel/output ${port(3070)}`
+		});
 	if (mode === 'dev')
 		return suite({
 			port: 3063,
@@ -85,10 +93,16 @@ const OWN_SPEC: Readonly<Record<string, string>> = {
 	base: 'base.spec.ts',
 	cloudflare: 'cloudflare.spec.ts',
 	'cloudflare-links': 'cloudflare-links.spec.ts',
-	vercel: 'vercel.spec.ts'
+	vercel: 'vercel.spec.ts',
+	'vercel-alone': 'vercel-alone.spec.ts'
 };
 const SPECS: readonly string[] = ['image.spec.ts', ...Object.values(OWN_SPEC)];
-const CHROMIUM_ONLY: ReadonlySet<string> = new Set(['cloudflare', 'cloudflare-links', 'vercel']);
+const CHROMIUM_ONLY: ReadonlySet<string> = new Set([
+	'cloudflare',
+	'cloudflare-links',
+	'vercel',
+	'vercel-alone'
+]);
 
 function config(mode: string): PlaywrightTestConfig {
 	const own = OWN_SPEC[mode] ?? 'image.spec.ts';
