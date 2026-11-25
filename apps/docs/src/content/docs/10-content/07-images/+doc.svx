@@ -64,7 +64,7 @@ export default defineConfig({
 /// <reference types="@ogygia/image/types" />
 ```
 
-The encoder is [sharp](https://sharp.pixelplumbing.com), a peer of the package: your app installs it, in its `dependencies`. The build and the dev server measure each image with it, and on a live server only the image endpoint loads it, on the first image request. A build or dev server that cannot find sharp in the app fails with `image_sharp_missing`. So does a server build (adapter-node and the like) whose app lists sharp only in `devDependencies`: adapter-node bundles every package not in `dependencies`, and a bundled sharp cannot find its native binary, so every image would answer 500. A fully prerendered site (adapter-static) only needs sharp installed.
+The encoder is [sharp](https://sharp.pixelplumbing.com), a peer of the package: your app installs it, in its `dependencies`. The build and the dev server measure each image with it, and on a live server only the image endpoint loads it, on the first image request. A build or dev server that cannot resolve sharp from the app, or whose app's own package.json does not list it, fails with `image_sharp_missing`. So does any server build whose app lists sharp only in `devDependencies`: a server adapter may bundle every package not in `dependencies` (adapter-node does), and a bundled sharp cannot find its native binary, so every image would answer 500. A fully prerendered site (adapter-static) needs sharp installed and listed in the app's package.json, and `devDependencies` is enough.
 
 ## An image in a component
 
@@ -149,7 +149,7 @@ Give `priority` to the one image that is the page's largest paint, usually the h
 
 ### `morph`
 
-With `morph` on a thumbnail and on the post hero of the same source, a client-side navigation between them names both with the same view transition, so the thumbnail glides into place. Use it on at most one image per source on a page: a name that repeats cancels the page's transition. A source is its bytes and its options, not its file name: two files with the same bytes are one source, and share the name.
+With `morph` on a thumbnail and on the post hero of the same source, a client-side navigation between them names both with the same view transition, so the thumbnail glides into place. Use it on at most one image per source on a page: a name that repeats cancels the page's transition. A source is its bytes, not its file name or its options: two imports of the same bytes are one source, and share the name, even with different `ops`.
 
 ### What it renders
 

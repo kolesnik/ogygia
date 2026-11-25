@@ -28,7 +28,7 @@ export interface ImageOps {
 
 /** One image source, ready to render. */
 export interface ImageDescriptor {
-	/** The source's identity: a hash of its bytes and its operations. */
+	/** The source's identity: a hash of its bytes. */
 	id: string;
 	/** The original file, shipped as an asset: what the image endpoint reads, and what a browser-only
 	 *  render shows. */

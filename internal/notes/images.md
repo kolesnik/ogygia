@@ -41,7 +41,7 @@ that ogygia's handle starts: `setup` hands `<Img>` the minter, `request` is the 
 
 1. **Compile.** `import.meta.og.image(src, opts?)` (literal arguments, read from the AST; `.glob()`
    for many), a markdown `![]()` and a frontmatter `./x.jpg` register a **source**: its id (a hash
-   of its bytes and its own options), its shown size (EXIF orientation and ops applied), whether it
+   of its bytes only; ops, quality and position are in each file's head), its shown size (EXIF orientation and ops applied), whether it
    moves, a ~100 B WebP placeholder, and the original shipped as an ordinary hashed asset
    (`?no-inline`). Nothing is encoded. The plan is kept in the build cache by id.
 2. **Render.** `<Img>` (and `layOut()` for a CSS background or an `og:image`) turns a preset or its

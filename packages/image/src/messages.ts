@@ -43,11 +43,12 @@ export const IMAGE_ERRORS = {
 		details: (): string => prose`
 			sharp is a peer of @ogygia/image: the app installs it, so the app picks its version and
 			its native binary is installed for the app's platform. The build and the dev server
-			measure every image with it. A server build also needs it in \`dependencies\` (not
-			\`devDependencies\`): adapter-node bundles every package its app does not list there, and
-			sharp bundled cannot find its native binary, so every image the server makes on request
-			would answer 500 (\`image_no_encoder\`). A fully prerendered app (adapter-static) only
-			needs sharp installed.
+			measure every image with it, so it must be installed and listed in the app's own
+			package.json. Any server build also needs it in \`dependencies\` (not
+			\`devDependencies\`): a server adapter may bundle every package its app does not list
+			there (adapter-node does), and sharp bundled cannot find its native binary, so every image
+			the server makes on request would answer 500 (\`image_no_encoder\`). A fully prerendered
+			app (adapter-static) needs sharp installed and listed, and \`devDependencies\` is enough.
 		`
 	},
 	image_no_kit: {
