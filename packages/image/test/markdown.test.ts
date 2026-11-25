@@ -100,6 +100,23 @@ describe('frontmatter images', () => {
 	});
 });
 
+test('finish names every image file a post shows, body and frontmatter, so a kept compile of the post is checked again once one is gone', () => {
+	const b = bridge();
+	const tree = tree_of({ src: './my%20photo.jpg', alt: '' });
+	b.rehype()(tree, { filename: post });
+	const raws: string[] = [];
+	const collect = (n: Hast): void => {
+		if (n.type === 'raw') raws.push(n.value!);
+		n.children?.forEach(collect);
+	};
+	collect(tree);
+	const script = `<script context="module">export const metadata = ${JSON.stringify({ cover: './cover.jpg' })};</script>`;
+	const done = b.finish(`${script}\n${raws.join('\n')}`, post);
+	expect([...(done.files ?? [])].sort()).toEqual(
+		[path.join(dir, 'cover.jpg'), path.join(dir, 'my photo.jpg')].sort()
+	);
+});
+
 describe('markdown body images', () => {
 	test('a local image renders through <Og__Img>, imported under the og-image query', () => {
 		const { body, lines } = compile(tree_of({ src: './harbor.jpg', alt: 'A harbor' }));
