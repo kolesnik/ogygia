@@ -12,17 +12,21 @@ import { invalidate, invalidateTags, invalidateWhere } from './registry.ts';
  * plugins: [ogygia(), postrender(), sveltekit()]
  *
  * // hooks.server.ts: the live store and CDN edges, BEFORE ogygia's handle
- * import { postrender, ValkeyStore, AkamaiEdge } from '@ogygia/postrender';
+ * import { postrender, ValkeyStore, AkamaiEdge, EdgeOneEdge } from '@ogygia/postrender';
  * export const handle = sequence(
- *   postrender.handle({ store: new ValkeyStore(client), edge: [new AkamaiEdge(creds)] }),
+ *   postrender.handle({
+ *     store: new ValkeyStore(client),
+ *     edge: [new AkamaiEdge(akamaiCreds), new EdgeOneEdge(edgeOneCreds)]
+ *   }),
  *   ogygia.handle()
  * );
  *
  * // a route opts out in Kit's own config: export const config = { postrender: false };
  *
- * // anywhere server-side (CMS publish webhook):
+ * // anywhere server-side (CMS or flag publish webhook):
  * await postrender.invalidate('/fr/fr/solar/');            // exact URL
  * await postrender.invalidate(loadContent, [args]);        // og.source reverse index
+ * await postrender.invalidateTags(['site_cms_fr']);        // external cache tags
  * await postrender.invalidateWhere({ prefix: '/fr/fr/' }); // subtree nuke
  * ```
  */
