@@ -121,7 +121,7 @@ A pattern that matches nothing fails the build. To pick an image at run time, re
 
 An unknown preset name fails the render (`image_preset_unknown`).
 
-Sizes are whole pixels. A `width` or `height` with a fraction (`width={1000 / 3}`) is rounded. A size of 0 or less, one that is not a number, an `aspect` that does not read as a ratio, a box taller than the source can fill (`aspect="1/100000"`), a file past 99999 pixels a side, a `position` that is not one of the crop positions, or a `quality` outside 1 to 100 would name files no server makes, so the render stops (`image_prop_invalid`). `layOut()` follows the same rule.
+Sizes are whole pixels. A `width` or `height` with a fraction (`width={1000 / 3}`) is rounded. A size of 0 or less, one that is not a number, an `aspect` that does not read as a ratio, a box taller than the source can fill (`aspect="1/100000"`), a file past 99999 pixels a side, a `position` that is not one of the crop positions, or a `quality` outside 1 to 100 would name files no server makes, so the render stops (`image_prop_invalid`). `getImage()` follows the same rule.
 
 ### Presets
 
@@ -194,9 +194,9 @@ The files of a prerendered page, and of a warmed preset (below), are made by the
 
 Each name is the recipe alone: the source's content hash, the size, and any crop or quality. Nothing in it is signed, so it needs no `OGYGIA_SECRET`: two builds of the same images name the same files, a deploy re-uploads only the images that changed, and HTML cached elsewhere (a feed reader, a CDN) keeps working across deploys.
 
-- **Each file starts the moment the page renders**, several side by side. When the prerender ends, the build writes every file a prerendered page named, in its markup or through `layOut()` in a CSS background, with Kit's crawler on or off. A site built with `adapter-static` has every image file it uses, and serves them with no server at all. A file that cannot be made fails the build (`image_unsettled`).
+- **Each file starts the moment the page renders**, several side by side. When the prerender ends, the build writes every file a prerendered page named, in its markup or through `getImage()` in a CSS background, with Kit's crawler on or off. A site built with `adapter-static` has every image file it uses, and serves them with no server at all. A file that cannot be made fails the build (`image_unsettled`).
 - **Until then the URL starts with the build's mark**, `//<random>.ogygia.invalid`: Kit's crawler would ask for a file under `_app/` that is not there yet, and Kit answers that with a 404 before any hook runs. The build removes the mark from every prerendered file once the files exist.
-- **Use the URL as `<Img>` or `layOut()` gives it, or make it absolute.** `new URL(laid.src, page.url)` (an `og:image`, a feed) names the file at Kit's prerender origin, which is what `page.url` names while a page prerenders. Set `kit.prerender.origin` to your site's origin: with Kit's default (`http://sveltekit-prerender`) the build cannot know it, and fails (`image_mark_left`). A URL changed any other way (escaped, or encoded into a share link's query string) fails the build too: encode it in the browser.
+- **Use the URL as `<Img>` or `getImage()` gives it, or make it absolute.** `new URL(laid.src, page.url)` (an `og:image`, a feed) names the file at Kit's prerender origin, which is what `page.url` names while a page prerenders. Set `kit.prerender.origin` to your site's origin: with Kit's default (`http://sveltekit-prerender`) the build cannot know it, and fails (`image_mark_left`). A URL changed any other way (escaped, or encoded into a share link's query string) fails the build too: encode it in the browser.
 - **An SPA fallback page** (`adapter-static({ fallback: '404.html' })`) renders after the build wrote its files, so it names them as they are, or the original where no prerendered page asked for that file.
 - **Pages rendered on a live server keep signed URLs**, except a warmed preset's.
 
@@ -215,9 +215,9 @@ Then make the URL absolute against the page's URL, on a prerendered page or a li
 ```svelte title=src/routes/blog/[slug]/+page.svelte
 <script lang="ts">
   import { page } from '$app/state';
-  import { layOut } from '@ogygia/image';
+  import { getImage } from '@ogygia/image';
   let { data } = $props();
-  const share = $derived(new URL(layOut(data.cover, { width: 1200 }).src, page.url).href);
+  const share = $derived(new URL(getImage(data.cover, { width: 1200 }).src, page.url).href);
 </script>
 
 <svelte:head>
@@ -228,7 +228,7 @@ Then make the URL absolute against the page's URL, on a prerendered page or a li
 A feed is a prerendered `+server.ts`. Awaiting a post's `body` renders it, and its `html` is the post as HTML; make its image URLs absolute against the request's URL, and give each item its cover:
 
 ```ts title=src/routes/feed.xml/+server.ts
-import { layOut } from '@ogygia/image';
+import { getImage } from '@ogygia/image';
 import { blog } from '$lib/blog.server';
 
 export const prerender = true;
@@ -264,7 +264,7 @@ export async function GET({ url }) {
       URL_ATTR_RE,
       (_, attr: string, value: string) => `${attr}="${absolute(value, url)}"`
     );
-    const cover = new URL(layOut(post.data.cover, { width: 1200 }).src, url).href;
+    const cover = new URL(getImage(post.data.cover, { width: 1200 }).src, url).href;
     const title = `<title>${escape(post.data.title)}</title>`;
     const link = `<link>${new URL(`/blog/${ref.id}`, url).href}</link>`;
     const type = TYPES[cover.split('.').pop() ?? ''] ?? 'application/octet-stream';
@@ -484,13 +484,13 @@ export function beside(id: string, rel: string): ImageDescriptor {
 
 ## Outside `<Img>`
 
-`layOut(descriptor, { preset, layout, width, aspect, … })` returns what `<Img>` renders: `src`, `srcset`, `sizes`, `width`, `height`, the `<source>` list and the preload, with the same file URLs (signed on a live server, the build's files on a prerendered page). Use it for a CSS background, an Open Graph tag or a component of your own. Like `<Img>`, it runs on the server:
+`getImage(descriptor, { preset, layout, width, aspect, … })` returns what `<Img>` renders: `src`, `srcset`, `sizes`, `width`, `height`, the `<source>` list and the preload, with the same file URLs (signed on a live server, the build's files on a prerendered page). Use it for a CSS background, an Open Graph tag or a component of your own. Like `<Img>`, it runs on the server:
 
 ```svelte
 <script lang="ts">
-  import { layOut } from '@ogygia/image';
+  import { getImage } from '@ogygia/image';
   const photo = import.meta.og.image('./photo.jpg');
-  const laid = layOut(photo, { preset: 'cover' });
+  const laid = getImage(photo, { preset: 'cover' });
 </script>
 
 <section style="background-image: url({laid.src})">…</section>
@@ -508,7 +508,7 @@ An `<Img>` inside an island keeps the server's file URLs when it hydrates. A ren
 | `widths={[600, 1200]}`, `sizes="…"`                 | a preset, or `layout` and `width`; `sizes` only as an escape hatch                                                  |
 | `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`                                                                  |
 | `loading="eager"` + `fetchpriority="high"`          | `priority`                                                                                                          |
-| `getImage({ src })`                                 | `layOut(descriptor, { … })`                                                                                         |
+| `getImage({ src })`                                 | `getImage(descriptor, { … })`                                                                                         |
 | `image()` in a markdown collection's schema         | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path                                                     |
 | `image()` in a JSON collection's schema             | a `v.string()` field, looked up in an `import.meta.og.image.glob()` ([Images named in JSON](#images-named-in-json)) |
 | `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                                                                              |

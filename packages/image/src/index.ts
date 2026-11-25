@@ -9,4 +9,4 @@ export { default as Img } from './Img.svelte';
 export { isImage, type ImageDescriptor, type ImageFormat, type ImageOps } from './descriptor.ts';
 export type { ImageLayout, ImagePosition, ImagePreset, OutputFormat } from './config.ts';
 export type { Laid, LaidSource, LayoutRequest } from './layout.ts';
-export { layOut, type LayOutRequest } from './render.ts';
+export { getImage, type GetImageOptions } from './render.ts';

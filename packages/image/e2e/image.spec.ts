@@ -415,7 +415,7 @@ test.describe('the image endpoint', () => {
 		expect(res.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
 	});
 
-	test('a CSS background from layOut() is made in every mode, though no crawler reads a style', async ({
+	test('a CSS background from getImage() is made in every mode, though no crawler reads a style', async ({
 		request
 	}) => {
 		const html = await (await request.get('/')).text();

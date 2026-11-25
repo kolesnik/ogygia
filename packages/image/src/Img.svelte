@@ -18,7 +18,7 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 	import type { ImageDescriptor } from './descriptor.ts';
 	import type { ImageLayout, ImagePosition } from './config.ts';
 	import { placeholder_style } from './placeholder.ts';
-	import { layOut, preset_of } from './render.ts';
+	import { getImage, preset_of } from './render.ts';
 
 	type Props = Pick<
 		HTMLImgAttributes,
@@ -77,7 +77,7 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 	const shown = $derived(layout ?? p.layout ?? 'constrained');
 	const first = $derived(priority ?? p.priority ?? false);
 	const laid = $derived(
-		layOut(of, { preset, layout: shown, width, height, aspect, position, sizes })
+		getImage(of, { preset, layout: shown, width, height, aspect, position, sizes })
 	);
 	const server_preload = $derived(
 		typeof document === 'undefined'

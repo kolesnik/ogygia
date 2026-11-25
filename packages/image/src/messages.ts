@@ -78,7 +78,7 @@ export const IMAGE_ERRORS = {
 		text: (a: { url: string; source: string; reason: string }): string =>
 			`the build could not make the image ${a.url} from ${a.source} (${a.reason}).`,
 		details: (): string => prose`
-			Every image file a prerendered page names (in its markup, or through \`layOut()\` in a CSS
+			Every image file a prerendered page names (in its markup, or through \`getImage()\` in a CSS
 			background), and every file of a warmed preset, is made by the build and written under the
 			app folder (\`_app/immutable/og/\`), so any host serves it as a file. This one failed: its
 			original could not be read from the build output, or the encoder (sharp) could not decode
@@ -99,7 +99,7 @@ export const IMAGE_ERRORS = {
 			Kit's prerender origin, which is what \`page.url\` names while a page prerenders: set
 			\`kit.prerender.origin\` to the site's origin (\`https://example.com\`), or the build cannot
 			know it. This URL was changed another way (escaped, or encoded into a query string), so the
-			build cannot find it. Write the URL as \`<Img>\` or \`layOut()\` gave it, or as an absolute
+			build cannot find it. Write the URL as \`<Img>\` or \`getImage()\` gave it, or as an absolute
 			URL; encode it in the browser, not in the page.
 		`
 	},

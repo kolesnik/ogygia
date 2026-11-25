@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Region } from 'ogygia';
-	import { Img, layOut } from '@ogygia/image';
+	import { Img, getImage } from '@ogygia/image';
 	let { data } = $props();
-	const share = $derived(new URL(layOut(data.cover, { width: 1200 }).src, page.url).href);
+	const share = $derived(new URL(getImage(data.cover, { width: 1200 }).src, page.url).href);
 </script>
 
 <svelte:head>

@@ -1,5 +1,5 @@
 import { resolve } from '$app/paths';
-import { layOut } from '@ogygia/image';
+import { getImage } from '@ogygia/image';
 import { blog } from '$lib/blog.server.ts';
 
 declare const __IMAGE_E2E_STATIC__: boolean;
@@ -38,7 +38,7 @@ export async function GET({ url }) {
 			URL_ATTR_RE,
 			(_, attr: string, value: string) => `${attr}="${absolute(value, url)}"`
 		);
-		const cover = new URL(layOut(post.data.cover, { width: 600 }).src, url).href;
+		const cover = new URL(getImage(post.data.cover, { width: 600 }).src, url).href;
 		const link = new URL(resolve('/blog/[slug]', { slug: ref.id }), url).href;
 		const title = `<title>${escape(post.data.title)}</title>`;
 		const type = TYPES[cover.split('.').pop() ?? ''] ?? 'application/octet-stream';

@@ -37,8 +37,8 @@ export function file_url(of: ImageDescriptor, recipe: Recipe, built: boolean): s
 	return of.src;
 }
 
-/** What {@link layOut} takes: a preset by name, and anything to say over it. */
-export interface LayOutRequest extends LayoutRequest {
+/** What {@link getImage} takes: a preset by name, and anything to say over it. */
+export interface GetImageOptions extends LayoutRequest {
 	preset?: string;
 }
 
@@ -47,7 +47,7 @@ export interface LayOutRequest extends LayoutRequest {
  * same files, signed URLs and attributes `<Img>` would render, from a preset or a layout. On the
  * server only, like `<Img>`'s own render.
  */
-export function layOut(of: ImageDescriptor, request: LayOutRequest = {}): Laid {
+export function getImage(of: ImageDescriptor, request: GetImageOptions = {}): Laid {
 	const { preset, ...own } = request;
 	const p = preset_of(preset);
 	const req = preset_request(p, own);

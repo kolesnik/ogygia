@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Img, layOut } from '@ogygia/image';
+	import { Img, getImage } from '@ogygia/image';
 	import Counter from '$lib/islands/Counter.svelte' with { wake: 'load' };
 
 	const hero = import.meta.og.image('../lib/images/hero.jpg');
@@ -12,7 +12,7 @@
 	const badge = import.meta.og.image('../lib/images/badge.png');
 	const first_cover = import.meta.og.image('../content/blog/first-post/cover.jpg');
 	const warmed = import.meta.og.image('../lib/images/portrait.jpg', { warm: 'thumb' });
-	const backdrop = layOut(hero, { layout: 'fixed', width: 120, height: 60 });
+	const backdrop = getImage(hero, { layout: 'fixed', width: 120, height: 60 });
 </script>
 
 <h1>images</h1>

@@ -21,7 +21,7 @@ the same name in every build, with no key.
 ## 1. Packaging
 
 `@ogygia/image` is a plugin package. `image({ presets, … })` from `@ogygia/image/vite` is listed
-beside `ogygia()` and before `sveltekit()`; `<Img>`, `layOut` and `isImage` come from
+beside `ogygia()` and before `sveltekit()`; `<Img>`, `getImage` and `isImage` come from
 `@ogygia/image`; types for the macro from `@ogygia/image/types`. `ogygia` itself depends on core and
 compiler only, so images are not an `ogygia/image` subpath. sharp is a peer the app installs
 (explicit over implicit: the app picks its version and platform binary). The Vite side loads it on
@@ -44,7 +44,7 @@ that ogygia's handle starts: `setup` hands `<Img>` the minter, `request` is the 
    of its bytes only; ops, quality and position are in each file's head), its shown size (EXIF orientation and ops applied), whether it
    moves, a ~100 B WebP placeholder, and the original shipped as an ordinary hashed asset
    (`?no-inline`). Nothing is encoded. The plan is kept in the build cache by id.
-2. **Render.** `<Img>` (and `layOut()` for a CSS background or an `og:image`) turns a preset or its
+2. **Render.** `<Img>` (and `getImage()` for a CSS background or an `og:image`) turns a preset or its
    own props (`layout`, `width`, `height`, `aspect`, `position`, `sizes`, `priority`, `placeholder`,
    `morph`) into the candidate files, and names each by a URL. Fixed: `[w, 2w]`. Constrained: the
    ladder below `2w`, plus `w` and `2w`. Full width: the ladder. All capped at the widest the source

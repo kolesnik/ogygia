@@ -45,7 +45,7 @@ describe('absolutize', () => {
 		);
 	});
 
-	it('pins an image a style attribute names (a CSS background from layOut), and leaves its other urls', () => {
+	it('pins an image a style attribute names (a CSS background from getImage), and leaves its other urls', () => {
 		const img = '/__ogygia__/i/5f2a/h1-1280x720/_app/immutable/assets/hero.Ab12.jpg.webp';
 		const html = `<section style="background-image:url(${img});color:red"></section><div style="background:url(&quot;/_app/immutable/assets/a.png&quot;) no-repeat, url('/blog/x')"></div><p style="color:blue">x</p>`;
 		expect(absolutize(html, O)).toBe(
