@@ -200,6 +200,42 @@ Each name is the recipe alone: the source's content hash, the size, and any crop
 - **An SPA fallback page** (`adapter-static({ fallback: '404.html' })`) renders after the build wrote its files, so it names them as they are, or the original where no prerendered page asked for that file.
 - **Pages rendered on a live server keep signed URLs**, except a warmed preset's.
 
+### Cache headers
+
+ogygia writes no header file: each adapter already sends Kit's `_app/immutable/` files with a header that keeps them forever, and the build's files sit there. What each one sends:
+
+| Adapter              | Who sends it                                                         | A file the build made                  | A file under `_app/immutable/` that is not there |
+| -------------------- | -------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------ |
+| `adapter-node`       | the adapter's file server                                            | `public,max-age=31536000,immutable`    | 404, `public, max-age=0, must-revalidate`        |
+| `adapter-cloudflare` | Kit's rule, appended to `_headers`                                   | `public, immutable, max-age=31536000`  | 404, with the same rule (under `wrangler dev`)   |
+| `adapter-vercel`     | a route in `.vercel/output/config.json`                              | `public, immutable, max-age=31536000`  | 404, `no-store`                                  |
+| `adapter-netlify`    | Kit's rule (`_headers` in version 6, the Frameworks API config in 7) | `public, immutable, max-age=31536000`  | the host's 404                                   |
+| `adapter-static`     | your host                                                            | the rule below, if your host takes one | the host's 404                                   |
+
+With `adapter-static`, give the host the rule yourself. On Cloudflare Pages and Netlify, a `static/_headers` file (the adapter copies it to the site's root):
+
+```txt
+/_app/immutable/*
+  Cache-Control: public, immutable, max-age=31536000
+```
+
+On Vercel, the same rule in `vercel.json`:
+
+```json
+{
+	"headers": [
+		{
+			"source": "/_app/immutable/(.*)",
+			"headers": [{ "key": "Cache-Control", "value": "public, immutable, max-age=31536000" }]
+		}
+	]
+}
+```
+
+GitHub Pages takes no headers, and sends `max-age=600`: a browser checks the file again after ten minutes, and gets the same bytes, since a file's name is what it holds.
+
+A file the image endpoint makes is sent with `public, max-age=31536000, immutable` on every adapter. Every answer that refuses (403 for a signature, 404, 405 for a method other than GET or HEAD, 500 with no encoder, 503 when busy) is sent with `no-store`, so no cache keeps it.
+
 ## Absolute URLs: `og:image` and RSS
 
 A share image and a feed need absolute URLs. Set the site's origin as Kit's prerender origin once:
@@ -282,7 +318,7 @@ The enclosure's type follows the file's format (a preset with `formats: ['jpeg']
 
 Link the feed from a layout (`<link rel="alternate" type="application/rss+xml" href="/feed.xml">`) so Kit's crawler prerenders it. On a live server the same code names the signed URLs at the request's origin.
 
-The encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter warns (`image_adapter_no_encoder`). Prerendered pages and warmed presets are made by the build as static files, so they should work there too, but no edge adapter's build has been checked yet.
+The encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter warns (`image_adapter_no_encoder`). Prerendered pages and warmed presets are made by the build as static files, so they work there: an adapter-cloudflare build run by `wrangler dev` serves every file its prerendered pages name, and a page it renders on request gets the 500 for each image.
 
 Without `OGYGIA_SECRET`, each server build signs with its own random key, so a server-rendered page's signed URLs change with each deploy. Set the secret to keep them. A prerendered page's files need no secret.
 
