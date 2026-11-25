@@ -244,6 +244,27 @@ test('cloudflare() links by default; links: false sends every file to the bindin
 	});
 });
 
+test("Cloudflare reads no AVIF source (Enterprise plans only), and its links name no PNG: a PNG from a PNG source keeps the source's format, from any other it is the binding's", () => {
+	expect(needs_of(at({ source: { format: 'avif' } }))).toContain('source avif');
+	expect(needs_of(at({ format: 'png', source: { format: 'png' } }))).not.toContain(
+		'png from another format'
+	);
+	expect(needs_of(at({ format: 'png', source: { format: 'jpeg' } }))).toContain(
+		'png from another format'
+	);
+	const name = namer(namer_plan([cloudflare()], false));
+	expect(name(at({ format: 'png', source: { format: 'png' } }))).toBe(
+		'/cdn-cgi/image/width=640,height=360,fit=cover/_app/immutable/assets/hero.Ab12.jpg'
+	);
+	expect(name(at({ format: 'png', source: { format: 'jpeg' } }))).toBeNull();
+	expect(() => name(at({ source: { format: 'avif' } }))).toThrow(
+		/cloudflare\(\) cannot make .*source avif[\s\S]*image_encoder_cannot/
+	);
+	expect(() =>
+		namer(namer_plan([cloudflare({ links: false })], false))(at({ source: { format: 'avif' } }))
+	).toThrow(/source avif/);
+});
+
 test('cloudflare() refuses an unknown key, a links that is not a boolean, and a binding that is no name', () => {
 	expect(() => cloudflare({ link: true } as never)).toThrow(/image_option_unknown/);
 	expect(() => cloudflare({ links: 'yes' } as never)).toThrow(/links/);
