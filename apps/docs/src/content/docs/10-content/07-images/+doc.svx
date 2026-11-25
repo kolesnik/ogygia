@@ -372,7 +372,7 @@ A page rendered on request that asks Cloudflare for something it cannot make fai
 
 On adapter-vercel, `vercel()` names each file of a page rendered on request as a link to Vercel's [Image Optimization](https://vercel.com/docs/image-optimization), `/_vercel/image?url=%2F_app%2Fimmutable%2Fassets%2Fhero.Ab12.jpg&w=640&q=60`, made and kept by Vercel's CDN. An island names the same links in the browser. A prerendered page's files are still made by the build, with sharp, as static files.
 
-Vercel only resizes: it keeps the source's shape, makes only the widths its `images.sizes` lists and the qualities its `images.qualities` lists, and picks AVIF or WebP from the browser's `Accept` header. It cannot crop (an `aspect`, a `height` with a `width`), place a crop (`position`), apply an operation (`ops`), name PNG or JPEG, or resize a GIF, a TIFF or an animated image (it sends those as they are). So list `sharp()` after it, and the first encoder that can make a file makes it: Vercel's link for a plain resize, the app's own sharp endpoint for the rest.
+Vercel only resizes: it keeps the source's shape, makes only the widths its `images.sizes` lists and the qualities its `images.qualities` lists, and picks AVIF or WebP from the browser's `Accept` header. It cannot crop (an `aspect`, a `height` with a `width`), place a crop (`position`), apply an operation (`ops`), name PNG or JPEG, or resize a GIF, a TIFF or an animated image (it sends those as they are). So list `sharp()` after it. A list is in order of priority: the first encoder that can make a file makes it, here Vercel's link for a plain resize and the app's own sharp endpoint for the rest. A list holds one platform (`cloudflare()` or `vercel()`), at most one encoder that makes files at the app's endpoint (`sharp()`, or `cloudflare()` with its binding), and `sharp()` last, since it makes every file and nothing after it would be asked. Any other list fails the build with `image_option_invalid`: `[sharp(), vercel()]`, `[cloudflare(), sharp()]`, `[cloudflare(), vercel()]`.
 
 ```ts
 // image.config.ts: one encoder, read by both configs
@@ -416,15 +416,15 @@ By default each image is offered as AVIF (quality 60) and WebP (quality 80), and
 
 The plugin's options:
 
-| Option        | Default                                  | What it does                                                                                                                                                            |
-| ------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `presets`     | `{}`                                     | Named ways to show an image (above).                                                                                                                                    |
-| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                                                                                              |
-| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                                                                                                |
-| `placeholder` | `true`                                   | Make the blur placeholder.                                                                                                                                              |
-| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.                                                                                     |
-| `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `{ animated }` names the preset a moving image takes; `false` turns them off. |
-| `encoder`     | `sharp()`                                | Who makes the files: `sharp()`, `cloudflare()` or `vercel()` from `@ogygia/image/vite`, or a list (each at most once): the first that can make a file makes it.         |
+| Option        | Default                                  | What it does                                                                                                                                                                  |
+| ------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `presets`     | `{}`                                     | Named ways to show an image (above).                                                                                                                                          |
+| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                                                                                                    |
+| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                                                                                                      |
+| `placeholder` | `true`                                   | Make the blur placeholder.                                                                                                                                                    |
+| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.                                                                                           |
+| `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `{ animated }` names the preset a moving image takes; `false` turns them off.       |
+| `encoder`     | `sharp()`                                | Who makes the files: `sharp()`, `cloudflare()` or `vercel()` from `@ogygia/image/vite`, or a list in order of priority: the first that can make a file makes it (see Vercel). |
 
 A source's own options, in the macro's second argument, belong to the file whatever page shows it:
 

@@ -50,8 +50,9 @@ export interface ImagePluginOptions {
 	 *  plain `<img>`. Default `{}` (each image as wide as itself). */
 	markdown?: { width?: number; animated?: string } | false;
 	/** Who makes the image files, and what URL names each: an encoder from `@ogygia/image/vite`, or
-	 *  a list of them, each at most once: the first that can make a file makes it
-	 *  (`[vercel(), sharp()]`). Default `sharp()`: the app's own endpoint makes every live file. A
+	 *  a list in order of priority: the first that can make a file makes it (`[vercel(), sharp()]`).
+	 *  A list holds one platform, at most one encoder that makes files at the endpoint, and
+	 *  `sharp()` only last; any other fails the build. Default `sharp()`: the app's own endpoint makes every live file. A
 	 *  prerendered page's files are made by the build, with sharp, whatever this says. */
 	encoder?: Encoder | Encoder[];
 }
@@ -150,6 +151,23 @@ function check_encoders(where: string, e: unknown): void {
 			'encoder',
 			`an encoder from @ogygia/image/vite (${[...ENCODER_NAMES].map((n) => `${n}()`).join(', ')}), or a non-empty list of them, each at most once`
 		);
+	const rule = list_rule(list as Encoder[]);
+	if (rule !== null) invalid(where, 'encoder', rule);
+}
+
+const LIST_RULE = 'a list in order of priority (the first encoder that can make a file makes it): ';
+
+function list_rule(list: readonly Encoder[]): string | null {
+	const platforms = list.filter((e) => e.name !== 'sharp');
+	if (platforms.length > 1)
+		return `${LIST_RULE}one platform: ${platforms.map((e) => `${e.name}()`).join(' and ')} are two`;
+	const makers = list.filter((e) => e.maker !== null);
+	if (makers.length > 1)
+		return `${LIST_RULE}one maker: ${makers.map((e, i) => `${e.name}()${i ? '' : ' makes files'} with ${e.maker === 'binding' ? 'its Images binding' : 'sharp'}`).join(' and ')}`;
+	const at = list.findIndex((e) => e.name === 'sharp');
+	if (at !== -1 && at < list.length - 1)
+		return `${LIST_RULE}${list[at + 1]!.name}() after sharp() is never used: sharp() makes every file`;
+	return null;
 }
 
 /** Check one source's options (`where` names the call in a message; `presets`, the names
