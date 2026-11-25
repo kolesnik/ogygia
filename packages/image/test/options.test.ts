@@ -54,3 +54,24 @@ test('encoder takes sharp(), cloudflare(), vercel() or a list of encoders, each 
 			/'encoder' must be an encoder from @ogygia\/image\/vite \(sharp\(\), cloudflare\(\), vercel\(\)\), or a non-empty list of them, each at most once[\s\S]*\/e\/image_option_invalid/
 		);
 });
+
+test('an encoder list is in order of priority: one platform, at most one maker, and nothing after sharp(), which makes every file', () => {
+	for (const encoder of [[vercel(), sharp()], [vercel()], [cloudflare()], [sharp()]])
+		expect(() => check_plugin_options({ encoder })).not.toThrow();
+	expect(() => check_plugin_options({ encoder: [sharp(), vercel()] })).toThrow(
+		/'encoder'.*vercel\(\) after sharp\(\) is never used: sharp\(\) makes every file[\s\S]*\/e\/image_option_invalid/
+	);
+	expect(() => check_plugin_options({ encoder: [cloudflare(), vercel()] })).toThrow(
+		/'encoder'.*one platform: cloudflare\(\) and vercel\(\) are two[\s\S]*\/e\/image_option_invalid/
+	);
+	expect(() => check_plugin_options({ encoder: [vercel(), cloudflare()] })).toThrow(
+		/one platform: vercel\(\) and cloudflare\(\) are two/
+	);
+	for (const encoder of [
+		[cloudflare(), sharp()],
+		[cloudflare({ links: false }), sharp()]
+	])
+		expect(() => check_plugin_options({ encoder })).toThrow(
+			/'encoder'.*one maker: cloudflare\(\) makes files with its Images binding and sharp\(\) with sharp[\s\S]*\/e\/image_option_invalid/
+		);
+});
