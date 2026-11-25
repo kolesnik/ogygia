@@ -1,10 +1,11 @@
-// @ogygia/image's e2e suite against its fixture app (e2e/app), in one of four modes (`IMAGE_E2E_MODE`):
+// @ogygia/image's e2e suite against its fixture app (e2e/app), in one of five modes (`IMAGE_E2E_MODE`):
 // - `node` (default): built with adapter-node and served (`vite preview`): files made on request;
+// - `server`: the same build served by the adapter's own output (`node build`), as a deploy runs it;
 // - `static`: every page prerendered with adapter-static and served as plain files, no server;
 // - `dev`: the dev server;
-// those three run image.spec.ts, the same pages and specs each time;
+// those four run image.spec.ts, the same pages and specs each time;
 // - `base`: prerendered under `paths.base` (`/base`) and served as plain files there (base.spec.ts).
-// `pnpm --filter @ogygia/image e2e` runs all four.
+// `pnpm --filter @ogygia/image e2e` runs all five.
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { suite } from '@ogygia/tooling/e2e/config.ts';
 import { port } from '@ogygia/tooling/e2e/servers.ts';
@@ -30,6 +31,14 @@ function served(mode: string): PlaywrightTestConfig {
 			ready: '/base/',
 			env: { IMAGE_E2E_STATIC: '1', IMAGE_E2E_BASE: '/base' },
 			command: `node ${build} && node ${serve_static} build/static ${port(3065)} /base`
+		});
+	if (mode === 'server')
+		// @why pnpm's bin shims put its store's hoisted folder on NODE_PATH, which no deploy has (test: image.spec.ts › every file URL every page names answers 200 with its type)
+		return suite({
+			port: 3066,
+			serve: app,
+			env: { PORT: String(port(3066)) },
+			command: `node ${build} && env -u NODE_PATH node build`
 		});
 	if (mode === 'dev')
 		return suite({

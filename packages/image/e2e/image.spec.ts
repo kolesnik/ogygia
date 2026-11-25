@@ -1,6 +1,6 @@
 // @ogygia/image against a real Kit app: macro images on `/`, a markdown blog on `/blog/[slug]`. The
-// same specs run in three modes (playwright.config.ts): built with adapter-node and served, every page
-// prerendered with adapter-static and served as plain files (no server at all), and the dev server.
+// same specs run in four modes (playwright.config.ts): built with adapter-node and served (by Vite's
+// preview, and by the adapter's own output), every page prerendered with adapter-static and served as plain files (no server at all), and the dev server.
 // `pnpm --filter @ogygia/image e2e`.
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
