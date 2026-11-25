@@ -5,21 +5,23 @@ import path from 'node:path';
 import type { Plugin, ResolvedConfig } from 'vite';
 import { beforeAll, expect, test } from 'vitest';
 import { image } from '../src/vite/index.ts';
-import { make_images } from './fixtures.ts';
+import { app_with_sharp, make_images } from './fixtures.ts';
 
 let root: string;
 beforeAll(async () => {
 	const img = await make_images();
-	root = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-plugin-'));
+	root = app_with_sharp(fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-plugin-')));
 	for (const rel of ['src/lib/server/secret.jpg', 'src/lib/a.jpg', 'src/lib/__tests__/t.jpg']) {
 		fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
 		fs.copyFileSync(img.jpg, path.join(root, rel));
 	}
 });
 
-function loader(define: Record<string, string> = { __SVELTEKIT_APP_DIR__: '"_app"' }): Plugin {
+async function loader(
+	define: Record<string, string> = { __SVELTEKIT_APP_DIR__: '"_app"' }
+): Promise<Plugin> {
 	const plugin = image().find((p) => p.name === '@ogygia/image:load')!;
-	(plugin.configResolved as (c: unknown) => void)({
+	await (plugin.configResolved as (c: unknown) => unknown)({
 		root,
 		command: 'serve',
 		build: {},
@@ -34,7 +36,7 @@ function load(plugin: Plugin, id: string): Promise<unknown> {
 }
 
 test('the server reads no original under src/lib/server or in a test folder, and the macro says so', async () => {
-	const plugin = loader();
+	const plugin = await loader();
 	const sources = String(await load(plugin, '\0virtual:ogygia-image/sources'));
 	expect(sources).toContain('"!/src/lib/server/**"');
 	expect(sources).toContain('"!/src/**/__tests__/**"');
@@ -50,7 +52,7 @@ test('the server reads no original under src/lib/server or in a test folder, and
 test("<Img> is handed Kit's base, assets and app folder, read from Kit's own plugin", async () => {
 	const config = String(
 		await load(
-			loader({
+			await loader({
 				__SVELTEKIT_APP_DIR__: '"_shop"',
 				__SVELTEKIT_PATHS_BASE__: '"/shop"',
 				__SVELTEKIT_PATHS_ASSETS__: '""'
@@ -62,7 +64,7 @@ test("<Img> is handed Kit's base, assets and app folder, read from Kit's own plu
 });
 
 test('without SvelteKit there are no paths to name files by: a coded error, not a silent default', async () => {
-	await expect(load(loader({}), '\0virtual:ogygia-image/config')).rejects.toThrow(
+	await expect(load(await loader({}), '\0virtual:ogygia-image/config')).rejects.toThrow(
 		/found no SvelteKit config/
 	);
 });

@@ -2,6 +2,12 @@
 
 Responsive images for [ogygia](https://ogygiajs.dev) apps. The build reads each image once (its size and a tiny blur placeholder) and encodes nothing. Pages ask for the files they need, by preset or by layout, and the image endpoint makes each one the first time it is asked for: in dev, in a prerender (saved as a static file beside the page), or on a live server.
 
+```sh
+pnpm add @ogygia/image sharp
+```
+
+sharp, the encoder, is a peer: list it in your app's `dependencies` (a server build fails with `image_sharp_missing` without it).
+
 ```ts
 // vite.config.ts
 import { ogygia } from 'ogygia/vite';

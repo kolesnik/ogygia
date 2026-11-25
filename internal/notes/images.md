@@ -23,8 +23,16 @@ the same name in every build, with no key.
 `@ogygia/image` is a plugin package. `image({ presets, … })` from `@ogygia/image/vite` is listed
 beside `ogygia()` and before `sveltekit()`; `<Img>`, `layOut` and `isImage` come from
 `@ogygia/image`; types for the macro from `@ogygia/image/types`. `ogygia` itself depends on core and
-compiler only, so images are not an `ogygia/image` subpath. sharp is the package's dependency and
-only the endpoint loads it (a lazy import), so a server that never serves an image never loads it.
+compiler only, so images are not an `ogygia/image` subpath. sharp is a peer the app installs
+(explicit over implicit: the app picks its version and platform binary). The Vite side loads it on
+first use (`vite/encoder.ts` `pixels()`), so the plugin loads without it and `configResolved` fails
+coded (`image_sharp_missing`) when the app does not list and install it, or, for a server build
+that makes files on request, does not list it in `dependencies` (adapter-node bundles everything
+else, and a bundled sharp cannot find its binary). The check is one `decisions()` table
+(`ENCODER`): runtime (dev, client, prerendered, server, edge) × installed × listed. Edge adapters
+keep the `image_adapter_no_encoder` warning. On a server only the endpoint loads sharp (a lazy
+import), so a server that never serves an image never loads it. e2e `server` mode runs the
+adapter's own output (`node build`, NODE_PATH unset) to hold this.
 
 The plugin has a **server realm** (`definePlugin({ server })`, `defineServer({ setup, request })`)
 that ogygia's handle starts: `setup` hands `<Img>` the minter, `request` is the endpoint.

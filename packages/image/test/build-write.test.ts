@@ -39,7 +39,7 @@ function output(page: string): string {
 }
 
 test("a prerendered page's files are written under the app folder, and its marked URLs name them", async () => {
-	const handoff = handoff_for(true);
+	const handoff = await handoff_for(true);
 	note_built(handoff.minted, `${id}-64x43/_app/immutable/assets/h.Ab12.jpg.webp`);
 	const marked = `${handoff.mark}/_app/immutable/og/${id}-64x43.webp`;
 	const out = output(`<img src="${marked}" style="background:url(${marked})">`);
@@ -54,12 +54,12 @@ test("a prerendered page's files are written under the app folder, and its marke
 
 test('the build hands what it renders after its end (an SPA fallback) the files it wrote, with no notes and no mark; the next build starts a new run', async () => {
 	delete process.env.__OGYGIA_IMAGE_BUILD;
-	const handoff = handoff_for(true);
+	const handoff = await handoff_for(true);
 	const out = output('<p>no images</p>');
 	await write_built(handoff, CFG, [], out);
 	const after = build_handoff()!;
 	expect(after).toMatchObject({ minted: '', mark: '', written: path.join(out, 'client', '_app') });
-	const next = handoff_for(true);
+	const next = await handoff_for(true);
 	expect(next.minted).not.toBe('');
 	expect(next.minted).not.toBe(handoff.minted);
 	expect(next.written).toBe('');
@@ -67,7 +67,7 @@ test('the build hands what it renders after its end (an SPA fallback) the files 
 
 test("a warmed preset's files are written under the app folder by their recipe", async () => {
 	delete process.env.__OGYGIA_IMAGE_BUILD;
-	const handoff = handoff_for(true);
+	const handoff = await handoff_for(true);
 	const out = output('<p>no images</p>');
 	const desc = { id, width: 2400, height: 1600, format: 'jpeg' as const };
 	await write_built(handoff, CFG, [{ file: jpg, desc, presets: ['thumb'] }], out);
@@ -77,7 +77,7 @@ test("a warmed preset's files are written under the app folder by their recipe",
 
 test('a page that changed a marked URL before writing it (escaped it) fails the build with a code', async () => {
 	delete process.env.__OGYGIA_IMAGE_BUILD;
-	const handoff = handoff_for(true);
+	const handoff = await handoff_for(true);
 	note_built(handoff.minted, `${id}-64x43/_app/immutable/assets/h.Ab12.jpg.webp`);
 	const marked = `${handoff.mark}/_app/immutable/og/${id}-64x43.webp`;
 	const out = output(`<a href="/share?image=${encodeURIComponent(marked)}">share</a>`);
@@ -88,7 +88,7 @@ test('a page that changed a marked URL before writing it (escaped it) fails the 
 
 test('a file the build cannot make fails it with a code that names the source file, not only the made name', async () => {
 	delete process.env.__OGYGIA_IMAGE_BUILD;
-	const handoff = handoff_for(true);
+	const handoff = await handoff_for(true);
 	const out = output('<p>no images</p>');
 	const broken = path.join(out, 'client', '_app', 'immutable', 'assets', 'broken.Cd34.jpg');
 	fs.writeFileSync(broken, 'not a jpeg');
@@ -98,7 +98,7 @@ test('a file the build cannot make fails it with a code that names the source fi
 		message: expect.stringContaining('_app/immutable/assets/broken.Cd34.jpg')
 	});
 	delete process.env.__OGYGIA_IMAGE_BUILD;
-	const warmed = handoff_for(true);
+	const warmed = await handoff_for(true);
 	const desc = { id: id_of(broken), width: 2400, height: 1600, format: 'jpeg' as const };
 	await expect(
 		write_built(warmed, CFG, [{ file: broken, desc, presets: ['thumb'] }], output(''))
@@ -109,7 +109,7 @@ test('a file the build cannot make fails it with a code that names the source fi
  *  test's source, after the build's end, with `origin` noted as Kit's prerender origin. */
 async function written(page: (marked: string) => string, origin?: string): Promise<string> {
 	delete process.env.__OGYGIA_IMAGE_BUILD;
-	const handoff = handoff_for(true);
+	const handoff = await handoff_for(true);
 	note_built(handoff.minted, `${id}-64x43/_app/immutable/assets/h.Ab12.jpg.webp`);
 	if (origin !== undefined) note_origin(handoff.minted, origin);
 	const out = output(page(`${handoff.mark}/_app/immutable/og/${id}-64x43.webp`));

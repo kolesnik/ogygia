@@ -22,11 +22,11 @@ related:
 ::: code-group
 
 ```bash [npm]
-npm i @ogygia/image
+npm i @ogygia/image sharp
 ```
 
 ```bash [pnpm]
-pnpm add @ogygia/image
+pnpm add @ogygia/image sharp
 ```
 
 :::
@@ -64,7 +64,7 @@ export default defineConfig({
 /// <reference types="@ogygia/image/types" />
 ```
 
-The encoder is [sharp](https://sharp.pixelplumbing.com), installed with the package. Only the image endpoint loads it, on the first image request.
+The encoder is [sharp](https://sharp.pixelplumbing.com), a peer of the package: your app installs it, in its `dependencies`. The build and the dev server measure each image with it, and on a live server only the image endpoint loads it, on the first image request. A build or dev server that cannot find sharp in the app fails with `image_sharp_missing`. So does a server build (adapter-node and the like) whose app lists sharp only in `devDependencies`: adapter-node bundles every package not in `dependencies`, and a bundled sharp cannot find its native binary, so every image would answer 500. A fully prerendered site (adapter-static) only needs sharp installed.
 
 ## An image in a component
 

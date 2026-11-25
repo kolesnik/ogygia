@@ -6,6 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Plugin, ResolvedConfig } from 'vite';
 import { expect, test, vi } from 'vitest';
+import { check, dead_fields } from '@ogygia/machine/testing';
+import { ENCODER } from '../src/vite/encoder.ts';
 import { image } from '../src/vite/index.ts';
 
 vi.hoisted(() => {
@@ -76,4 +78,19 @@ test('an edge build warns that its server cannot encode, and needs sharp only to
 	]);
 	warn.mockRestore();
 	await expect(resolved(app(null, false), EDGE)).rejects.toThrow(/image_sharp_missing/);
+});
+
+test('every row of the encoder table: nothing goes on without sharp listed and installed, and no server without it in dependencies', () => {
+	check(ENCODER, {
+		'no sharp installed fails': (r) => !('plan' in r) || r.input.installed || r.plan === 'missing',
+		'not listed fails': (r) => !('plan' in r) || r.input.listed !== 'none' || r.plan === 'missing',
+		'a server goes on only with sharp in dependencies': (r) =>
+			!('plan' in r) ||
+			r.input.runtime !== 'server' ||
+			r.plan !== 'ok' ||
+			r.input.listed === 'dependencies',
+		'an edge build that has sharp warns': (r) =>
+			!('plan' in r) || r.input.runtime !== 'edge' || r.plan !== 'ok'
+	});
+	expect(dead_fields(ENCODER)).toEqual([]);
 });

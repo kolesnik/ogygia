@@ -29,9 +29,10 @@ import {
 	type AppPaths,
 	type RenderConfig
 } from '../config.ts';
-import { OgygiaError, warn } from '../messages.ts';
+import { OgygiaError } from '../messages.ts';
 import { UNPUBLISHED_RE, type BuildHandoff } from '../store.ts';
 import { handoff_for, write_built, type WarmSource } from './build-files.ts';
+import { check_encoder, encoder_runtime } from './encoder.ts';
 import { plan_image, settle } from './plan.ts';
 import { EXTENSION_API, markdown_extension } from './markdown.ts';
 import { image_call_edits, options_of_query, QUERY } from './macro.ts';
@@ -56,7 +57,6 @@ const SOURCE_GLOBS: readonly string[] = [
 	'!/src/**/__tests__/**',
 	'!/src/**/*.{test,spec}.*'
 ];
-const NO_NATIVE_ADAPTER_RE = /cloudflare|deno|-edge\b/i;
 
 /** The render settings `<Img>` reads, from the plugin's options. */
 export function render_config(
@@ -108,6 +108,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	let config: ResolvedConfig | undefined;
 	let paths: AppPaths | null = null;
 	let handoff: BuildHandoff | null = null;
+	let preview = false;
 	const warmed = new Map<string, WarmSource>();
 	const markdown = markdown_extension(opts);
 	const build = (): boolean => config?.command === 'build';
@@ -125,17 +126,21 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 		name: '@ogygia/image:load',
 		enforce: 'pre',
 		...(markdown ? { api: { [EXTENSION_API]: markdown } } : {}),
-		config: () => ({ optimizeDeps: { exclude: ['@ogygia/image'] } }),
-		configResolved(c) {
+		config: (_, env) => {
+			preview = !!env.isPreview;
+			return { optimizeDeps: { exclude: ['@ogygia/image'] } };
+		},
+		async configResolved(c) {
 			config = c;
 			paths = kit_paths(c.define);
-			handoff = handoff_for(build(), c.root);
-			const adapter = c.define?.__SVELTEKIT_ADAPTER_NAME__;
-			if (server_build() && typeof adapter === 'string' && NO_NATIVE_ADAPTER_RE.test(adapter))
-				warn('image_adapter_no_encoder', { adapter: JSON.parse(adapter) as string });
+			const named = c.define?.__SVELTEKIT_ADAPTER_NAME__;
+			const adapter = typeof named === 'string' ? (JSON.parse(named) as string) : null;
+			const runtime = encoder_runtime(c.command, !!c.build.ssr, preview, adapter);
+			if (runtime !== null) check_encoder(c.root, runtime, adapter);
+			handoff = await handoff_for(build(), c.root);
 		},
-		buildStart() {
-			if (config && build()) handoff = handoff_for(true, config.root);
+		async buildStart() {
+			if (config && build()) handoff = await handoff_for(true, config.root);
 		},
 		resolveId(id) {
 			if (id === CONFIG_ID || id === SOURCES_ID) return `\0${id}`;

@@ -59,7 +59,7 @@ async function get(url: string): Promise<Response> {
  *  writes. */
 async function build_with(id: string, bytes: Buffer): Promise<Buffer> {
 	const saved = process.env.__OGYGIA_IMAGE_BUILD;
-	const handoff = { ...handoff_for(true), store: JSON.parse(saved!).store as string };
+	const handoff = { ...(await handoff_for(true)), store: JSON.parse(saved!).store as string };
 	const out = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-identity-out-'));
 	fs.mkdirSync(path.join(out, 'client', '_app', 'immutable', 'assets'), { recursive: true });
 	fs.writeFileSync(path.join(out, 'client', SRC.slice(1)), bytes);

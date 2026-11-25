@@ -1,5 +1,6 @@
 /** Test images, made with sharp into a temp folder (no binary files in the repo). */
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -57,6 +58,19 @@ export function header_png(file: string, width: number, height: number): string 
 }
 
 /** The id the macro gives the file at `file`: what a recipe of it names. */
+/** The test's own sharp, linked into `root/node_modules` and listed in its package.json
+ *  `dependencies`: an app that installed the encoder as the plugin asks. */
+export function app_with_sharp(root: string): string {
+	const sharp_dir = path.dirname(path.dirname(createRequire(import.meta.url).resolve('sharp')));
+	fs.writeFileSync(
+		path.join(root, 'package.json'),
+		JSON.stringify({ name: 'app', private: true, dependencies: { sharp: '^0.35.0' } })
+	);
+	fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
+	fs.symlinkSync(sharp_dir, path.join(root, 'node_modules', 'sharp'), 'dir');
+	return root;
+}
+
 export function id_of(file: string): string {
 	return source_id(fs.readFileSync(file));
 }

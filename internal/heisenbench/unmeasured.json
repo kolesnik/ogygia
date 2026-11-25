@@ -6905,6 +6905,14 @@
 			"reason": "config time: reads the resolved plugin list for markdown extensions once per resolved config, linear in the plugins; packages/content/test/markdown-extensions.test.ts runs it"
 		},
 		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_sharp_missing > details",
+			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_sharp_missing > text",
+			"reason": "a message's one line for the build error: a template over its detail, printed once when the build fails"
+		},
+		{
 			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_decode_failed > details",
 			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
 		},

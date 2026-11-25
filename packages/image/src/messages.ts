@@ -28,6 +28,28 @@ export const IMAGE_ERRORS = {
 			\`src/\` (a \`$lib\` folder, or beside the page or document that shows it).
 		`
 	},
+	image_sharp_missing: {
+		text: (a: { adapter: string | null; installed: boolean }): string =>
+			a.installed
+				? prose`
+					${a.adapter ?? 'This server build'} makes image files on request with sharp, but the
+					app's package.json does not list sharp in its \`dependencies\`: add it there
+					(\`pnpm add sharp\`).
+				`
+				: prose`
+					image() needs sharp, the image encoder, installed in the app: add sharp to your
+					dependencies (\`pnpm add sharp\`).
+				`,
+		details: (): string => prose`
+			sharp is a peer of @ogygia/image: the app installs it, so the app picks its version and
+			its native binary is installed for the app's platform. The build and the dev server
+			measure every image with it. A server build also needs it in \`dependencies\` (not
+			\`devDependencies\`): adapter-node bundles every package its app does not list there, and
+			sharp bundled cannot find its native binary, so every image the server makes on request
+			would answer 500 (\`image_no_encoder\`). A fully prerendered app (adapter-static) only
+			needs sharp installed.
+		`
+	},
 	image_no_kit: {
 		text: (): string => prose`
 			image() found no SvelteKit config in this Vite build: list \`sveltekit()\` in vite.config's

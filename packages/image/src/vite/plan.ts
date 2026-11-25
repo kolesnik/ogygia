@@ -13,8 +13,8 @@ import { BuildCache } from '@ogygia/compiler';
 import type { Metadata } from 'sharp';
 import type { ImageFormat, ImageOps } from '../descriptor.ts';
 import { OgygiaError } from '../messages.ts';
-import { metadata_of, placeholder_of, shown_size, too_large, VIPS_VERSION } from '../pixels.ts';
 import { source_id } from '../store.ts';
+import { pixels } from './encoder.ts';
 import type { ImageOptions, ImagePluginOptions } from './options.ts';
 
 /** What a source file is. */
@@ -83,6 +83,7 @@ export async function plan_image(file: string, settings: Settings): Promise<Plan
 	} catch {
 		throw new OgygiaError('image_not_found', { file, src: file });
 	}
+	const { metadata_of, placeholder_of, shown_size, too_large, VIPS_VERSION } = await pixels();
 	const id = source_id(bytes);
 	const key = digest([id, JSON.stringify({ ...settings, plan: PLAN_VERSION, vips: VIPS_VERSION })]);
 	const kept = plans.get(key);

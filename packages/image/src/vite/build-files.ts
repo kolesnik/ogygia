@@ -30,7 +30,7 @@ import type { RenderConfig } from '../config.ts';
 import type { ImageDescriptor } from '../descriptor.ts';
 import { lay_out, preset_request } from '../layout.ts';
 import { OgygiaError } from '../messages.ts';
-import { encode_recipe, VIPS_VERSION } from '../pixels.ts';
+import { pixels } from './encoder.ts';
 import { built_file, built_url, parse_recipe, recipe_file, type Recipe } from '../recipe.ts';
 import {
 	build_handoff,
@@ -74,7 +74,10 @@ function remove_old_runs(runs: string): void {
  * config more than once in one build); a dev server or a preview takes any there is, or starts one
  * with no notes.
  */
-export function handoff_for(build: boolean, root: string = process.cwd()): BuildHandoff {
+export async function handoff_for(
+	build: boolean,
+	root: string = process.cwd()
+): Promise<BuildHandoff> {
 	const open = build_handoff();
 	if (open && (!build || (open.minted && fs.existsSync(path.dirname(open.minted))))) {
 		if (open.root === root) return open;
@@ -94,7 +97,7 @@ export function handoff_for(build: boolean, root: string = process.cwd()): Build
 		mark = `//${id.replaceAll('-', '').slice(0, 16)}.ogygia.invalid`;
 	}
 	const handoff: BuildHandoff = {
-		store: open_build_store(path.join(cache, 'files'), VIPS_VERSION),
+		store: open_build_store(path.join(cache, 'files'), (await pixels()).VIPS_VERSION),
 		minted,
 		mark,
 		written: '',
@@ -140,7 +143,7 @@ async function made(
 	const bytes = original();
 	if (source_id(bytes) !== recipe.id)
 		throw new Error(`its original is not the source ${recipe.id} any more`);
-	const data = await encode_recipe(bytes, recipe);
+	const data = await (await pixels()).encode_recipe(bytes, recipe);
 	await store.keep(key, data);
 	return data;
 }
