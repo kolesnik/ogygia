@@ -9,7 +9,7 @@ related:
 
 `@ogygia/image` turns image files into responsive images. You say how an image sits on the page, once in a preset or right on the component. The package works out the files, the `srcset`, the `sizes`, the width and height, the placeholder and the loading hints.
 
-- **Pages ask, the endpoint makes.** The build reads each image once: its size and a tiny placeholder. It encodes nothing. Each file a page needs (a width, a format, a crop) is a signed URL, and the image endpoint makes it the first time anyone asks. A prerendered page gets every file written beside it, so a static host serves them with no server.
+- **Pages ask, the endpoint makes.** The build reads each image once: its size and a tiny placeholder. It encodes nothing. Each file a page needs (a width, a format, a crop) is a signed URL, and the image endpoint makes it the first time anyone asks. A prerendered page's files are made by the build and written under `_app/immutable/og/`, named by what they hold, so a static host serves them with no server and they keep the same URLs from build to build.
 - **Presets, not numbers.** Name how your site shows images (`thumb`, `cover`, `avatar`) in `image({ presets })` and pick one with `<Img preset="thumb">`. The same source can be a square thumbnail on one page and a wide hero on another.
 - **Crops are real files.** A `1/1` thumbnail downloads a square file, not a wide one squeezed into a box.
 - **No layout shift.** Every image carries its width and height, so the page keeps its space.
@@ -166,7 +166,7 @@ The layout's own CSS is a zero-specificity rule on `data-og-img`, so any class o
 
 ## The image endpoint
 
-Each file URL is a recipe: the source, the width and height, the format, and any crop or quality, all in the URL's path. The server signs it with the app's key (the same key that signs ogygia's regions: `handle({ secret })` or `OGYGIA_SECRET`), so nobody can ask the endpoint for a size no page asked for. A changed or unsigned URL is refused with a 403 that says why (`x-ogygia-deny: sig`) and names the key it checked with (`x-ogygia-key`, its fingerprint), and the placeholder stays painted.
+On a live server and in dev, each file URL is a recipe: the source, the width and height, the format, and any crop or quality, all in the URL's path. The server signs it with the app's key (the same key that signs ogygia's regions: `handle({ secret })` or `OGYGIA_SECRET`), so nobody can ask the endpoint for a size no page asked for. A changed or unsigned URL is refused with a 403 that says why (`x-ogygia-deny: sig`) and names the key it checked with (`x-ogygia-key`, its fingerprint), and the placeholder stays painted.
 
 The endpoint makes the file the first time it is asked for, keeps it on disk, and sends it with `cache-control: public, max-age=31536000, immutable`. In dev and during a build the files are kept in the build cache (`node_modules/.ogygia/image/files/`, at most 2 GB), so a CI run that keeps that folder makes nothing twice. A live server keeps them in a folder under the system's temporary folder that only its user can open (`image_store_unsafe` when another user's folder, or a link, sits there), at most 512 MB while it runs. Past either size, the least recently asked files go first; files older than a month go when the server starts. The URL names the source's content hash, so a changed image gets new URLs and a CDN can keep the old ones forever.
 
@@ -175,14 +175,29 @@ The endpoint makes the file the first time it is asked for, keeps it on disk, an
 - **Asks for one file share one encode**, and a few encodes run at once. On a live server at most 64 more wait, each for at most 30 seconds; past that, an ask answers 503 with `retry-after` (`image_busy`), which no cache keeps. Warm the presets your server-rendered pages use, or put a CDN in front.
 
 - **In dev**, the browser asks and the dev server makes each file. Repeats are a file read.
-- **In a prerender**, each file a page names starts the moment the page renders, several side by side. Kit's crawler follows every `src` and `srcset` and saves each answer as a file beside the page; when the prerender ends, the build writes every other file a page named (a `layOut()` CSS background, or all of them with `prerender.crawl: false`). A site built with `adapter-static` has every image file it uses, and serves them with no server at all. A file that cannot be made fails the build (`image_unsettled`).
+- **In a prerender**, no URL is signed: every file a page names is one the build makes (next section).
 - **On a live server**, a visitor's first request makes the file; a CDN in front keeps it after that. To have a server-rendered page's files ready before anyone asks, warm its preset (below).
 
-The file URLs live under `/__ogygia__/i/` at the app's base. Kit answers a missing file under its own `appDir` (`/_app/…`) with a 404 before any hook runs, so the endpoint cannot sit there; files the build made ahead (warmed presets) do, as static files.
+The signed URLs live under `/__ogygia__/i/` at the app's base. Kit answers a missing file under its own `appDir` (`/_app/…`) with a 404 before any hook runs, so the endpoint cannot sit there.
+
+## Files the build makes
+
+The files of a prerendered page, and of a warmed preset (below), are made by the build and written as static files under Kit's `_app/immutable/og/` (at `paths.base`, or `paths.assets` when you set it), which every adapter and static host serves as files kept forever:
+
+```html
+<img src="/_app/immutable/og/Xk2jQ81mZaPq0Lw7-1280x720.webp" srcset="/_app/immutable/og/Xk2jQ81mZaPq0Lw7-640x360.webp 640w, …" />
+```
+
+Each name is the recipe alone: the source's content hash, the size, and any crop or quality. Nothing in it is signed, so it needs no `OGYGIA_SECRET`: two builds of the same images name the same files, a deploy re-uploads only the images that changed, and HTML cached elsewhere (a feed reader, a CDN) keeps working across deploys.
+
+- **Each file starts the moment the page renders**, several side by side. When the prerender ends, the build writes every file a prerendered page named, in its markup or through `layOut()` in a CSS background, with Kit's crawler on or off. A site built with `adapter-static` has every image file it uses, and serves them with no server at all. A file that cannot be made fails the build (`image_unsettled`).
+- **Until then the URL starts with the build's mark**, `//<random>.ogygia.invalid`: Kit's crawler would ask for a file under `_app/` that is not there yet, and Kit answers that with a 404 before any hook runs. The build removes the mark from every prerendered file once the files exist.
+- **Use the URL as `<Img>` or `layOut()` gives it.** A page that changes it before writing it fails the build (`image_mark_left`): to make it absolute (an `og:image`), join the origin and the URL as text, not with `new URL(laid.src, origin)`, which reads the mark as the host; encode it (a share link's query string) in the browser.
+- **Pages rendered on a live server keep signed URLs**, except a warmed preset's.
 
 The encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter warns (`image_adapter_no_encoder`). Prerendered pages and warmed presets work there anyway: their files are static.
 
-Without `OGYGIA_SECRET`, each build signs with its own random key, so a new build has new image URLs (its pages are new too). Set the secret to keep URLs across deploys.
+Without `OGYGIA_SECRET`, each server build signs with its own random key, so a server-rendered page's signed URLs change with each deploy. Set the secret to keep them. A prerendered page's files need no secret.
 
 ## Formats and options
 
@@ -222,14 +237,14 @@ const team = import.meta.og.image('./team.jpg', { quality: 70, ops: { grayscale:
 
 ## Warm presets
 
-A prerendered page needs nothing more: rendering it at build asks for every file it shows. A page rendered on a live server asks on its first visit, and that visitor waits while the files are made. `warm` makes a preset's files at build instead:
+A prerendered page needs nothing more: the build makes every file it shows. A page rendered on a live server asks on its first visit, and that visitor waits while the files are made. `warm` makes a preset's files at build instead:
 
 ```ts
 const hero = import.meta.og.image('./hero.jpg', { warm: 'cover' });
 const team = import.meta.og.image('./team.jpg', { warm: ['cover', 'thumb'] });
 ```
 
-The build writes those files as static files under Kit's `_app/immutable/og/`, which every adapter and static host serves as files kept forever, and `<Img of={hero} preset="cover">` names them directly, on the server and in an island alike. Saying something over the preset (`<Img of={hero} preset="cover" width={300}>`) asks for other files, which the endpoint makes as usual. A name the config does not declare fails the build (`image_warm_unknown`). In dev every file comes from the endpoint.
+The build writes those files under Kit's `_app/immutable/og/`, like a prerendered page's, and `<Img of={hero} preset="cover">` names them directly, on the server and in an island alike. Saying something over the preset (`<Img of={hero} preset="cover" width={300}>`) asks for other files, which the endpoint makes as usual. A name the config does not declare fails the build (`image_warm_unknown`). In dev every file comes from the endpoint.
 
 ## Markdown images
 
@@ -310,7 +325,7 @@ The glob's keys are the paths as the pattern writes them, relative to the file. 
 
 ## Outside `<Img>`
 
-`layOut(descriptor, { preset, layout, width, aspect, … })` returns what `<Img>` renders: `src`, `srcset`, `sizes`, `width`, `height`, the `<source>` list and the preload, with signed file URLs. Use it for a CSS background, an Open Graph tag or a component of your own. Like `<Img>`, it signs on the server:
+`layOut(descriptor, { preset, layout, width, aspect, … })` returns what `<Img>` renders: `src`, `srcset`, `sizes`, `width`, `height`, the `<source>` list and the preload, with the same file URLs (signed on a live server, the build's files on a prerendered page). Use it for a CSS background, an Open Graph tag or a component of your own. Like `<Img>`, it runs on the server:
 
 ```svelte
 <script lang="ts">
@@ -338,12 +353,13 @@ An `<Img>` inside an island keeps the server's file URLs when it hydrates. A ren
 | `image()` in a content schema                       | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path    |
 | `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                             |
 | `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed        |
-| images encoded at build                             | files made on first request, saved as files by a prerender         |
+| images encoded at build, content-hashed names       | a prerendered site's files made at build, named by their recipe    |
 
 A few differences to know when you move a site:
 
 - **Frontmatter paths need `./` or `../`.** Astro's `image()` reads any path; here a bare `cover.png` stays a string. Astro posts usually write `./cover.png` already.
 - **Images live under `src/`.** A file outside it fails the build (`image_outside_src`).
+- **A static site's image URLs stay the same across builds**, like Astro's `_astro/` files, with no secret to set. They sit under `_app/immutable/og/` and are named by the source's content and the recipe, not the file's name.
 - **Animated GIFs** become animated WebP, never AVIF. There is no option to turn them off.
 - **Remote images** are not supported yet: a URL in the macro fails the build (`image_remote_unsupported`). Markdown leaves remote images as plain `<img>`.
 - **`<Img>` takes a fixed set of attributes** (listed above). A `data-*` or `aria-*` attribute is not passed through.

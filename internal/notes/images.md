@@ -6,11 +6,13 @@ say the same in short.
 
 ## The one idea
 
-The build does not make images. Pages ask for them. An image URL is a **signed recipe**: a source,
-a width and height, a format, a crop, a quality, the source's operations. Whoever asks first makes
-the file: the dev server, the prerender, a live visitor. The URL is the same in every mode, so a
-CDN or a static host keeps it forever. An image is a region whose output is pixels, through the
-same signed door as deferred regions (same key, same signer, its own domain).
+The build does not encode sources. Pages ask for files. A file is a **recipe**: a source, a width
+and height, a format, a crop, a quality, the source's operations. On a live server and in dev the
+recipe is a **signed URL**, and whoever asks first makes the file (the dev server, a visitor); an
+image is then a region whose output is pixels, through the same signed door as deferred regions
+(same key, same signer, its own domain). Every file the **build** makes (a prerendered page's, a
+warmed preset's) is instead a static file named by its recipe alone, under Kit's immutable folder:
+the same name in every build, with no key.
 
 ---
 
@@ -57,11 +59,15 @@ decides those. `warm` lists the presets the build made ahead for this source (§
   over `image|<path>` (the app's region key, in the plugin's own domain, no expiry), checked with
   `app.verify`. A refusal is 403 with `x-ogygia-deny: sig` and `x-ogygia-key: <fingerprint>`, so a
   key change across deploys is visible rather than an opaque 403.
-- **Built ahead (warmed):** `<assets or base>/<appDir>/immutable/og/<id>-<w>x<h>…<.ext>`, a static
-  file the build wrote (§7). Unsigned: only the build can put a file there.
+- **Built:** `<assets or base>/<appDir>/immutable/og/<id>-<w>x<h>[-q…][-p…][-o…].<ext>`, a static
+  file the build wrote (§6): every file a prerendered page names, and a warmed preset's (§7).
+  Unsigned (only the build can put a file there), so stable across builds with no
+  `OGYGIA_SECRET`, and served as a file by every adapter (Kit's immutable folder, kept forever).
+  The name is `recipe.ts` `built_file`; its `<head>.<ext>` (`recipe_file`) is also every store's
+  key: the id names the source by content, so the original's path is not needed in it.
 
-Why not everything under `<appDir>/immutable/og/`: Kit answers any path under its `appDir` that is
-not a file with a 404 before any hook runs (Kit 2.70 `runtime/server/respond.js`, the
+Why the endpoint is not under `<appDir>/immutable/og/`: Kit answers any path under its `appDir`
+that is not a file with a 404 before any hook runs (Kit 2.70 `runtime/server/respond.js`, the
 `resolved_path.startsWith('/' + app_dir)` branch), in dev, in the prerender and on every adapter.
 So a file the endpoint makes on request cannot live there; a file the build made can.
 
@@ -72,10 +78,8 @@ defines, and handed to the server realm and `<Img>` in the plugin's config modul
 ## 5. The endpoint
 
 - dev: the browser asks, the dev server makes the file.
-- prerender: Kit's crawler follows every `src` / `srcset` (on any tag; not `imagesrcset`, whose
-  URLs are the `<source>`'s) and `href`, and saves each 200 non-HTML answer at its path, which
-  adapter-static copies out. See §6 for the files the crawler never asks for.
 - a live server: the first visitor's request makes the file; a CDN keeps it after.
+- prerender: never asked. A prerendered page names built files only (§6).
 
 An original must sit under `src/`, outside `src/lib/server/` and test files (`image_outside_src`):
 Kit's `read()` only serves the server's assets, and those come from modules the server graph
@@ -90,7 +94,7 @@ At most four encodes run at once (a queue), with sharp's input pixel limit on.
 
 ## 6. The store, and the build's files
 
-One **store** keeps every made file by its key (the unsigned recipe path), streamed back on the
+One **store** keeps every made file by its key (`recipe_file`: `<head>.<ext>`), streamed back on the
 next ask:
 
 - the build and the dev server use the build cache (`node_modules/.ogygia/image/files/<encoder
@@ -101,27 +105,39 @@ next ask:
   first could hand out bytes under URLs browsers keep forever). Other versions' folders are
   removed at start, files older than a month too.
 
-**Mints while prerendering.** The server realm notes every URL a prerendered page names in a file
-of the build's run (disk, not memory: the worker), and starts its file at once, so encodes run side
-by side while Kit's crawler (one request at a time by default) waits on each in turn. When the
-prerender ends (the plugin's `writeBundle`, `order: 'post'`, after Kit's), every noted URL the
-crawler did not save (a `layOut()` CSS background, `prerender.crawl: false`) is written beside the
-prerendered pages, which every adapter copies out. One that cannot be made fails the build
-(`image_unsettled`).
+**The build's files.** In Kit's prerender the server realm signs nothing: the minter notes each
+recipe a page names (its unsigned path, so the original can be found) in a file of the build's run
+(disk, not memory: the prerender is a worker), starts its file at once (encodes run side by side),
+and names it `<mark><built URL>`. The mark is `//<16 hex>.ogygia.invalid`, random per build and in
+the build's handoff: Kit's crawler follows every root-relative `href`, `src`, `srcset` and meta
+`content`, and would ask for the built URL under `<appDir>` before the file exists, which Kit
+answers 404 before any hook (and fails the prerender); a `//` URL is never followed (Kit's
+`resolve` keeps it as is, `is_root_relative` is false). An absolute `paths.assets` URL is not
+followed either, so it carries no mark.
+
+ONE writer, the server build's `writeBundle` (`order: 'post'`: after Kit's, which runs the client
+build and the prerender; before the adapter, in `closeBundle`), makes every file the build owns:
+the warmed sources the server build read, and every noted recipe. Each goes to
+`<output>/client/<appDir>/immutable/og/`, which every adapter copies and serves as files (so they
+need not be in Kit's prerendered list). Then the mark is removed, byte for byte, from every file
+under `<output>/prerendered/` (pages, data, dependencies). A mark read as a host (`https:` +
+mark: the page did `new URL(src, origin)`) or the mark's host left in another form (escaped,
+encoded) cannot be pointed at a file: `image_mark_left`, naming the file. A file that cannot be
+made: `image_unsettled`.
+
+Limits: a URL a page encodes or resolves fails the build (above). An SPA fallback page
+(adapter-static `fallback`) is rendered by the adapter after the writer, so an image in the root
+layout keeps its mark there. What Kit hashes for a CSP on a `csr = false` page is its inlined CSS,
+which holds no minted URL, so removing the mark breaks no hash.
 
 ## 7. Warm
 
 `import.meta.og.image('./hero.jpg', { warm: 'cover' })` (or a list) asks for the `cover` preset's
-files at build, for pages rendered on a live server (a prerendered page asks already). The server
-build collects the warmed sources; the client build (Kit runs it inside the server build's
-`writeBundle`, before the prerender) encodes them through the store and emits them as assets under
-`<appDir>/immutable/og/`. `<Img preset="cover">` of that source, with nothing said over the preset,
-names those files: on the server, and in an island, where nothing can sign. In dev the endpoint
-makes them. An unknown name is `image_warm_unknown`.
-
-Why warmed files are not at signed URLs: a live server usually signs with `OGYGIA_SECRET` or
-`handle({ secret })`, which the build may not know, so a file the build wrote at a build-key URL
-would never be asked for.
+files at build, for pages rendered on a live server (a prerendered page's are built anyway). The
+server build collects the warmed sources and the writer (§6) makes them. `<Img preset="cover">` of
+that source, with nothing said over the preset, names those files (`mint(recipe, built: true)`):
+on the server, and in an island, where nothing can sign. In dev the endpoint makes them. An unknown
+name is `image_warm_unknown`.
 
 ## 8. In the browser
 
