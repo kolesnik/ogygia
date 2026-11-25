@@ -1,6 +1,6 @@
 import { resolve } from '$app/paths';
 import { layOut } from '@ogygia/image';
-import { blog } from '$lib/blog.ts';
+import { blog } from '$lib/blog.server.ts';
 
 declare const __IMAGE_E2E_STATIC__: boolean;
 
