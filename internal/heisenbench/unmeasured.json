@@ -6921,6 +6921,14 @@
 			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
 		},
 		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_mark_left > details",
+			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_mark_left > text",
+			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
+		},
+		{
 			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_too_large > details",
 			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
 		},
@@ -7017,16 +7025,20 @@
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~635b8c > request",
+			"id": "packages/image/src/server.ts > defineServer:0~6da818 > request",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~635b8c > setup",
+			"id": "packages/image/src/server.ts > defineServer:0~6da818 > setup",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~635b8c > setup > set_minter:0~ac612d",
-			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path is measured; test/server.test.ts runs it"
+			"id": "packages/image/src/server.ts > defineServer:0~6da818 > setup > set_minter:0~ce73a5",
+			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path and built_url are measured; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > defineServer:0~6da818 > setup > set_minter:0~162035",
+			"reason": "prerender only: hands each recipe to prerendered (exempt below); test/server-prerender.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/server.ts > Originals > constructor",
@@ -7049,19 +7061,19 @@
 			"reason": "constant work: one 404 response, on a refusal only; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~4850fa > run",
+			"id": "packages/image/src/settle.ts > call:0~bc6cac > run",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~4850fa > run > limited:0~81aacc",
+			"id": "packages/image/src/settle.ts > call:0~bc6cac > run > limited:0~81aacc",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~4850fa > keep",
+			"id": "packages/image/src/settle.ts > call:0~bc6cac > keep",
 			"reason": "constant work: whether a made file is on disk, once per encode; test/settle-store-fails.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~4850fa > weigh",
+			"id": "packages/image/src/settle.ts > call:0~bc6cac > weigh",
 			"reason": "constant work: a made file's byte length, once per encode; test/settle-store-fails.test.ts runs it"
 		},
 		{
@@ -7317,16 +7329,20 @@
 			"reason": "a runtime without sharp: one coded warning per process, then a constant 500; test/server-no-encoder.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > note_minted",
-			"reason": "prerender only: one set lookup and one appended line per URL a page names, and an encode started; the e2e static and base builds run it"
+			"id": "packages/image/src/server.ts > prerendered",
+			"reason": "prerender only: one set lookup and one appended line per recipe a page names, and an encode started; test/server-prerender.test.ts and the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/server.ts > note_minted > then:0~c36919",
-			"reason": "prerender only: one set lookup and one appended line per URL a page names, and an encode started; the e2e static and base builds run it"
+			"id": "packages/image/src/server.ts > prerendered > then:0~7d59ce",
+			"reason": "prerender only: one set lookup and one appended line per recipe a page names, and an encode started; test/server-prerender.test.ts and the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/server.ts > note_minted > catch:0~a1b2d0",
-			"reason": "prerender only: one set lookup and one appended line per URL a page names, and an encode started; the e2e static and base builds run it"
+			"id": "packages/image/src/server.ts > prerendered > catch:0~a1b2d0",
+			"reason": "prerender only: one set lookup and one appended line per recipe a page names, and an encode started; test/server-prerender.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/server.ts > root_relative",
+			"reason": "constant work: two character reads per prerendered file URL; test/server-prerender.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/server.ts > original_of",
@@ -7453,43 +7469,35 @@
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > save_warm",
+			"id": "packages/image/src/vite/build-files.ts > jobs_of",
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > settle_minted",
+			"id": "packages/image/src/vite/build-files.ts > jobs_of > lay_out:3~5d3006",
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > settle_minted > each:1~be21a5",
+			"id": "packages/image/src/vite/build-files.ts > jobs_of > lay_out:3~5d3006 > set:1~1f7af4 > original",
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > settle_minted > each:1~be21a5 > original",
+			"id": "packages/image/src/vite/build-files.ts > jobs_of > set:1~f8901a > original",
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > warm_files",
+			"id": "packages/image/src/vite/build-files.ts > unmark",
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > warm_files > each:1~a3bb57",
+			"id": "packages/image/src/vite/build-files.ts > without",
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > warm_files > each:1~a3bb57 > made:3~52cd60",
+			"id": "packages/image/src/vite/build-files.ts > write_built",
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > warm_files > lay_out:3~77641a",
-			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
-		},
-		{
-			"id": "packages/image/src/vite/build-files.ts > warm_files > sort:0~8a5ae0",
-			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
-		},
-		{
-			"id": "packages/image/src/vite/build-files.ts > warm_list",
+			"id": "packages/image/src/vite/build-files.ts > write_built > each:1~dc3b04",
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		}
 	]
