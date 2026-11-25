@@ -8,7 +8,9 @@
  * @packageDocumentation
  */
 import { DEFAULT_QUALITY } from '../config.ts';
+import type { Links } from '../namers/resolve.ts';
 import type { Recipe } from '../recipe.ts';
+import type { Need } from './needs.ts';
 
 /** What a Vercel link is bound by: the widths and qualities the adapter's `images` allows. */
 export interface VercelLimits {
@@ -30,6 +32,12 @@ export function vercel_unmet(r: Recipe, limits: VercelLimits): string | undefine
 		return `quality ${q} (not in qualities)`;
 	return undefined;
 }
+
+/** Vercel's link code, for the namer: its limits, then its link. */
+export const VERCEL_LINKS: Links<{ kind: 'vercel'; cannot: readonly Need[] } & VercelLimits> = {
+	unmet: (r, limits) => vercel_unmet(r, limits),
+	link: (r, limits) => vercel_link(r, limits)!
+};
 
 /** The Image Optimization link of `r`, or null when its limits refuse it. The original is `r.src`
  *  (a path from the deployment's root, or a full URL), escaped whole. */

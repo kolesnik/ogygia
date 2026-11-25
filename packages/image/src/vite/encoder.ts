@@ -231,6 +231,13 @@ const MAKERS: Readonly<Record<'sharp' | 'binding' | 'none', string>> = {
 };
 const ENDPOINT_NAMER: string = file_of(import.meta.resolve('../namers/endpoint.ts'));
 const RESOLVE_NAMER: string = file_of(import.meta.resolve('../namers/resolve.ts'));
+const LINK_CODE: Readonly<Record<LinkPlan['kind'], { name: string; file: string }>> = {
+	cloudflare: {
+		name: 'CLOUDFLARE_LINKS',
+		file: file_of(import.meta.resolve('../encoders/cloudflare.ts'))
+	},
+	vercel: { name: 'VERCEL_LINKS', file: file_of(import.meta.resolve('../encoders/vercel.ts')) }
+};
 
 /** The source of `virtual:ogygia-image/maker` for `encoders`. The dev server makes every file with
  *  sharp: no Worker binding runs there. */
@@ -283,9 +290,14 @@ export function namer_module(encoders: readonly Encoder[], dev: boolean): string
 	const plan = namer_plan(encoders, dev);
 	if (!plan.links.length && plan.endpoint?.length === 0)
 		return `export * from ${JSON.stringify(ENDPOINT_NAMER)};\n`;
+	const kinds = [...new Set(plan.links.map((l) => l.kind))];
+	const imports = kinds.map(
+		(k) => `import { ${LINK_CODE[k].name} } from ${JSON.stringify(LINK_CODE[k].file)};\n`
+	);
+	const code = kinds.map((k) => `${k}: ${LINK_CODE[k].name}`).join(', ');
 	return dedent`
 		import { namer } from ${JSON.stringify(RESOLVE_NAMER)};
-		export const name = namer(${JSON.stringify(plan)});
+		${imports.join('')}export const name = namer(${JSON.stringify(plan)}, { ${code} });
 	`;
 }
 

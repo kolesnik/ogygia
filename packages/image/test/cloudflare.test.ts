@@ -6,17 +6,19 @@ import { expect, test } from 'vitest';
 import { check, dead_fields, table } from '@ogygia/machine/testing';
 import { CAPABILITIES, cannot } from '../src/encoders/capabilities.ts';
 import {
+	CLOUDFLARE_LINKS,
 	cloudflare_link,
 	cloudflare_steps,
 	STEPS_VERSION,
 	type CloudflareSteps
 } from '../src/encoders/cloudflare.ts';
 import { NEEDS, needs_of } from '../src/encoders/needs.ts';
-import { namer, type NamerPlan } from '../src/namers/resolve.ts';
+import { namer as resolve, type NamerPlan } from '../src/namers/resolve.ts';
 import type { Recipe } from '../src/recipe.ts';
 import { cloudflare, namer_plan, sharp as sharp_encoder } from '../src/vite/encoder.ts';
 
 const SRC = '/_app/immutable/assets/hero.Ab12.jpg';
+const namer = (p: NamerPlan) => resolve(p, { cloudflare: CLOUDFLARE_LINKS });
 const at = (r: Partial<Recipe>): Recipe => ({
 	id: 'AAAAAAAAAAAAAAAA',
 	src: SRC,

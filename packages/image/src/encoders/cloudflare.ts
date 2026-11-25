@@ -7,7 +7,8 @@
  */
 import { DEFAULT_QUALITY } from '../config.ts';
 import type { Recipe } from '../recipe.ts';
-import { quarter } from './needs.ts';
+import type { Links } from '../namers/resolve.ts';
+import { quarter, type Need } from './needs.ts';
 
 /** One Images binding `transform()` call's fields. */
 export interface CloudflareTransform {
@@ -109,3 +110,9 @@ export function cloudflare_link(r: Recipe): string {
 	const src = /^[a-z][a-z\d+.-]*:\/\//i.test(r.src) ? `/${r.src}` : r.src;
 	return `/cdn-cgi/image/${opts.join(',')}${src.startsWith('/') ? src : `/${src}`}`;
 }
+
+/** Cloudflare's link code, for the namer: no limits past the capability table. */
+export const CLOUDFLARE_LINKS: Links<{ kind: 'cloudflare'; cannot: readonly Need[] }> = {
+	unmet: () => undefined,
+	link: (r) => cloudflare_link(r)
+};

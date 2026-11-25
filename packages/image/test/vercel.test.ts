@@ -4,16 +4,17 @@
 import { expect, test } from 'vitest';
 import { CAPABILITIES, cannot } from '../src/encoders/capabilities.ts';
 import { needs_of } from '../src/encoders/needs.ts';
-import { vercel_link } from '../src/encoders/vercel.ts';
+import { VERCEL_LINKS, vercel_link } from '../src/encoders/vercel.ts';
 import { DEFAULT_BREAKPOINTS, type RenderConfig } from '../src/config.ts';
 import { lay_out } from '../src/layout.ts';
-import { namer } from '../src/namers/resolve.ts';
+import { namer as resolve, type NamerPlan } from '../src/namers/resolve.ts';
 import type { Recipe } from '../src/recipe.ts';
 import { namer_plan, sharp, vercel } from '../src/vite/encoder.ts';
 import { image } from '../src/vite/index.ts';
 import { vercel_config_missing } from '../src/vite/vercel-config.ts';
 
 const SRC = '/_app/immutable/assets/hero.Ab12.jpg';
+const namer = (p: NamerPlan) => resolve(p, { vercel: VERCEL_LINKS });
 const at = (r: Partial<Recipe>): Recipe => ({
 	id: 'AAAAAAAAAAAAAAAA',
 	src: SRC,
