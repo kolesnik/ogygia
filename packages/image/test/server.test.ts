@@ -67,6 +67,15 @@ describe('the image server realm', () => {
 		expect(mint({ ...HARBOR, width: 320, height: 213, format: 'avif' })).toBe(a);
 	});
 
+	test('a recipe rendered again reuses its signed URL: one signature per recipe, not per render', () => {
+		const sign = vi.spyOn(app, 'sign');
+		const recipe = { ...HARBOR, width: 333, height: 222, format: 'webp' as const };
+		const urls = [mint(recipe), mint(recipe), mint({ ...recipe })];
+		expect(new Set(urls).size).toBe(1);
+		expect(sign).toHaveBeenCalledTimes(1);
+		sign.mockRestore();
+	});
+
 	test('the endpoint makes the file the URL describes, kept forever', async () => {
 		const url = mint({ ...HARBOR, width: 320, height: 320, format: 'webp', position: 'top' })!;
 		const res = (await get(url))!;
