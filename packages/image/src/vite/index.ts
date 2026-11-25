@@ -46,7 +46,12 @@ import { vercel_config_check } from './vercel-config.ts';
 import { plan_image, settle } from './plan.ts';
 import { EXTENSION_API, markdown_extension } from './markdown.ts';
 import { image_call_edits, options_of_query, QUERY } from './macro.ts';
-import { check_image_options, check_plugin_options, type ImagePluginOptions } from './options.ts';
+import {
+	check_image_options,
+	check_plugin_options,
+	check_qualities,
+	type ImagePluginOptions
+} from './options.ts';
 
 export type {
 	ImageLayout,
@@ -224,14 +229,17 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 		}
 	};
 
-	if (!encoders.some((e) => e.name === 'vercel')) return [ogygia, loader];
+	const vercel = encoders.find((e) => e.name === 'vercel');
+	if (!vercel) return [ogygia, loader];
+	check_qualities(opts, vercel.qualities);
 	const asked: OutputFormat[] = [
 		...(opts.formats ?? DEFAULT_FORMATS),
 		...Object.values(opts.presets ?? {}).flatMap((p) => p.formats ?? [])
 	];
 	const checked = vercel_config_check(encoders, () => ({
 		formats: asked,
-		assets: paths?.assets ?? ''
+		assets: paths?.assets ?? '',
+		originals: `${paths?.base ?? ''}/${paths?.app_dir ?? '_app'}/immutable/assets/`
 	}));
 	return [ogygia, loader, checked];
 }

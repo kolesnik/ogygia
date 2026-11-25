@@ -170,6 +170,17 @@ function list_rule(list: readonly Encoder[]): string | null {
 	return null;
 }
 
+/** Check that the plugin's and every preset's `quality` is one `vercel()` makes (`qualities`). */
+export function check_qualities(opts: ImagePluginOptions, qualities: Encoder['qualities']): void {
+	if (qualities === 'any') return;
+	const rule = `one vercel() makes (${qualities.join(', ')}): list it in vercel({ qualities })`;
+	if (opts.quality !== undefined && !qualities.includes(opts.quality))
+		invalid('image()', 'quality', rule);
+	for (const [name, p] of Object.entries(opts.presets ?? {}))
+		if (p.quality !== undefined && !qualities.includes(p.quality))
+			invalid(`image() presets.${name}`, 'quality', rule);
+}
+
 /** Check one source's options (`where` names the call in a message; `presets`, the names
  *  `image({ presets })` declares, which `warm` may name). */
 export function check_image_options(

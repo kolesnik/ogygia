@@ -110,7 +110,7 @@ test("vercel() alone has no endpoint maker; its sizes bound every file's width; 
 	);
 	const namer = String(await load(alone, '\0virtual:ogygia-image/namer'));
 	expect(namer).toContain('"kind":"vercel"');
-	expect(namer).toContain('"sizes":[640,1280],"qualities":null');
+	expect(namer).toContain('"sizes":[640,1280],"qualities":[60,80]');
 	expect(namer).toContain('"endpoint":null');
 	expect(String(await load(alone, '\0virtual:ogygia-image/config'))).toContain(
 		'"widths":[640,1280]'

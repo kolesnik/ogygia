@@ -23,7 +23,7 @@ import { dedent } from '@ogygia/core/contract';
 import { decisions, type Decisions } from '@ogygia/machine';
 import { cannot } from '../encoders/capabilities.ts';
 import { NEEDS, type Need } from '../encoders/needs.ts';
-import { DEFAULT_BREAKPOINTS } from '../config.ts';
+import { DEFAULT_BREAKPOINTS, DEFAULT_QUALITY } from '../config.ts';
 import { OgygiaError, warn } from '../messages.ts';
 import type { LinkPlan, NamerPlan } from '../namers/resolve.ts';
 import { SIDE_MAX } from '../recipe.ts';
@@ -118,21 +118,32 @@ export interface VercelOptions {
 	 *  one of these. Default: 16, 32, 48, 64, 96, 128, 256 and 384 (fixed and small images), then
 	 *  the plugin's default breakpoints. */
 	sizes?: number[];
-	/** The qualities Vercel may make (its `images.qualities`), 1–100. Default: any (the adapter
-	 *  config lists none). A file asking for another quality is not Vercel's to make. */
+	/** The qualities Vercel may make (its `images.qualities`), 1–100. Default: 60 and 80, the
+	 *  qualities AVIF and WebP files are made at when nothing says one. A plugin or preset `quality`
+	 *  must be one of these (the build fails otherwise); a file asking for another is not Vercel's
+	 *  to make. */
 	qualities?: number[];
 }
 
 /** The adapter-vercel `images` config `vercel()` hands over, as `adapter({ images })` takes it. */
 export interface VercelImages {
 	readonly sizes: number[];
-	readonly qualities?: number[];
+	readonly qualities: number[];
 	readonly formats: ('image/avif' | 'image/webp')[];
 	readonly domains: string[];
+	/** The only paths the optimizer may read: the app's originals (`/_app/immutable/assets/`; the
+	 *  build says the value to pass for another `paths.base` or `appDir`). */
+	readonly localPatterns: { pathname: string; search: string }[];
 }
 
 const VERCEL_KEYS: ReadonlySet<string> = new Set(['sizes', 'qualities']);
 const SMALL_SIZES: readonly number[] = [16, 32, 48, 64, 96, 128, 256, 384];
+const VERCEL_QUALITIES: readonly number[] = [DEFAULT_QUALITY.avif, DEFAULT_QUALITY.webp];
+
+/** The path Vercel may read originals under, as an `images.localPatterns` entry. */
+export function originals_pattern(originals: string): { pathname: string; search: string } {
+	return { pathname: `^${originals.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.+$`, search: '' };
+}
 
 function whole_list(where: string, key: string, list: unknown, max: number): number[] | undefined {
 	if (list === undefined) return undefined;
@@ -170,7 +181,9 @@ export function vercel(options: VercelOptions = {}): Encoder & { readonly images
 	const sizes =
 		whole_list(where, 'sizes', options.sizes, SIDE_MAX) ??
 		[...new Set([...SMALL_SIZES, ...DEFAULT_BREAKPOINTS])].sort((a, b) => a - b);
-	const qualities = whole_list(where, 'qualities', options.qualities, 100);
+	const qualities = whole_list(where, 'qualities', options.qualities, 100) ?? [
+		...new Set(VERCEL_QUALITIES)
+	];
 	return {
 		name: 'vercel',
 		links: NEEDS.filter((n) => !cannot('vercel').includes(n)),
@@ -178,12 +191,13 @@ export function vercel(options: VercelOptions = {}): Encoder & { readonly images
 		binding: null,
 		negotiates: true,
 		widths: sizes,
-		qualities: qualities ?? 'any',
+		qualities,
 		images: {
 			sizes,
-			...(qualities ? { qualities } : {}),
+			qualities,
 			formats: ['image/avif', 'image/webp'],
-			domains: []
+			domains: [],
+			localPatterns: [originals_pattern('/_app/immutable/assets/')]
 		}
 	};
 }
