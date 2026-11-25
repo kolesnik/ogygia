@@ -16,7 +16,7 @@ const PNP = vi.hoisted(() => {
 });
 
 vi.mock('node:module', async (original) => {
-	const real = await original<typeof import('node:module')>();
+	const real = await original<{ createRequire: (from: string | URL) => NodeJS.Require }>();
 	const createRequire = (from: string | URL): NodeJS.Require => {
 		const req = real.createRequire(from);
 		if (!String(from).includes(PNP.prefix)) return req;

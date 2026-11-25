@@ -11,6 +11,7 @@
  * @packageDocumentation
  */
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { decisions, type Decisions } from '@ogygia/machine';
 import { OgygiaError, warn } from '../messages.ts';
@@ -63,12 +64,27 @@ export const ENCODER: Decisions<EncoderInput, 'ok' | 'edge' | 'missing' | 'unlis
 	}
 });
 
-// @why require.resolve also reads NODE_PATH, which pnpm's bin shims point at its whole store and no deploy has (test: packages/image/test/encoder-check.test.ts › a node server build fails, coded, when the app does not install sharp itself)
-function installed(root: string): boolean {
+function in_node_modules(root: string): boolean {
 	for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
 		if (fs.existsSync(path.join(dir, 'node_modules', 'sharp', 'package.json'))) return true;
 		if (path.dirname(dir) === dir) return false;
 	}
+}
+
+function resolves(root: string): boolean {
+	try {
+		createRequire(path.join(root, 'package.json')).resolve('sharp');
+		return true;
+		// oxlint-disable-next-line ogygia/no-silent-failures -- not resolving is the answer: the caller throws image_sharp_missing
+	} catch {
+		return false;
+	}
+}
+
+// @why require.resolve also reads NODE_PATH, which pnpm's bin shims point at its whole store and no deploy has (test: packages/image/test/encoder-check.test.ts › with NODE_PATH set, a sharp that Node finds with no node_modules folder at or above the app is not the app installing it)
+function installed(root: string): boolean {
+	if (!resolves(root)) return false;
+	return !process.env.NODE_PATH || in_node_modules(root);
 }
 
 function listed(root: string): 'none' | 'dev' | 'dependencies' {
