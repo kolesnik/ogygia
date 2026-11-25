@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { lay_out } from '../src/layout.ts';
 import type { RenderConfig } from '../src/config.ts';
 import type { ImageDescriptor } from '../src/descriptor.ts';
-import type { Recipe } from '../src/recipe.ts';
+import { parse_recipe, recipe_path, type Recipe } from '../src/recipe.ts';
 
 const CFG: RenderConfig = {
 	formats: ['avif', 'webp'],
@@ -144,5 +144,42 @@ describe('lay_out', () => {
 		const laid = lay_out(image(), { layout: 'fullWidth' }, CFG, url);
 		expect(laid.preload.type).toBe('image/avif');
 		expect(laid.preload.srcset).toContain('.avif 2048w');
+	});
+});
+
+describe('lay_out agrees with the endpoint', () => {
+	const asked: string[] = [];
+	const real = (r: Recipe): string => {
+		const path = recipe_path(r, 'a/photo.jpg');
+		asked.push(path);
+		return `/${path}`;
+	};
+
+	test.each([
+		['a fractional width', { width: 1000 / 3 }],
+		['a fractional fixed box', { layout: 'fixed' as const, width: 47.5, height: 31.2 }],
+		['a fractional height alone', { height: 200.7 }],
+		['a fractional aspect', { width: 300, aspect: 1.3333 }],
+		['a width under one pixel', { width: 0.4 }]
+	])('%s asks only for files the endpoint makes, at whole sizes', (_, req) => {
+		asked.length = 0;
+		const laid = lay_out(image(), req, CFG, real);
+		expect(asked.length).toBeGreaterThan(0);
+		for (const path of asked) expect(parse_recipe(path), path).not.toBeNull();
+		expect(Number.isInteger(laid.width) && laid.width >= 1).toBe(true);
+		expect(Number.isInteger(laid.height) && laid.height >= 1).toBe(true);
+	});
+
+	test.each([
+		['a zero width', { width: 0 }],
+		['a negative width', { width: -200 }],
+		['a width that is not a number', { width: Number.NaN }],
+		['an infinite height', { height: Number.POSITIVE_INFINITY }],
+		['a zero aspect', { aspect: 0 }],
+		['an aspect that does not read', { aspect: 'wide' }],
+		['a quality that is not whole', { quality: 72.5 }],
+		['a quality above 100', { quality: 101 }]
+	])('%s is refused with a code, naming the prop', (_, req) => {
+		expect(() => lay_out(image(), req, CFG, real)).toThrow(/image_prop_invalid/);
 	});
 });
