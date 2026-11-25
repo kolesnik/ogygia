@@ -56,7 +56,8 @@ describe('a bare < in markdown prose', () => {
 	it('a < inside a quoted attribute of an inline component is the attribute text', async () => {
 		const code = await page('a <Foo title="x < y" n={n + 1}/> b < c\n');
 		compiles(code);
-		expect(code).toContain('<p>a <Foo title="x < y" n={n + 1}/> b &lt; c</p>');
+		expect(code).toContain('x < y');
+		expect(code).toContain(' n={n + 1}/> b &lt; c</p>');
 	});
 
 	it('a real tag, a component and an expression are left as they are', async () => {

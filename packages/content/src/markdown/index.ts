@@ -433,7 +433,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			// an input edit re-keys every doc that could have expanded it (read late, like the variants)
 			[...remark_staged.cache_keys, ...rehype_now.cache_keys].map((k) => k()).join(','),
 			`h${rehype_now.pre.length}.${rehype_now.post.length}`,
-			'text-lt',
+			'text-lt2',
 			cfg.lightName,
 			cfg.darkName,
 			String(cfg.defaultColor),
