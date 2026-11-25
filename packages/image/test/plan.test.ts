@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import sharp from 'sharp';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { plan_image, settle } from '../src/vite/plan.ts';
-import { encode } from '../src/pixels.ts';
+import { encode, encode_recipe } from '../src/pixels.ts';
 import { placeholder_style } from '../src/placeholder.ts';
-import { make_images } from './fixtures.ts';
+import { canvas_gif, make_images } from './fixtures.ts';
 
 let img: Awaited<ReturnType<typeof make_images>>;
 beforeAll(async () => {
@@ -88,6 +88,29 @@ describe('plan_image', () => {
 		);
 		const meta = await sharp(out, { animated: true }).metadata();
 		expect([meta.format, meta.pages, meta.width, meta.pageHeight]).toEqual(['webp', 3, 160, 120]);
+	});
+
+	test('a long screen recording (1200×800, 300 frames) plans, and its WebP keeps every frame', async () => {
+		const gif = canvas_gif(`${img.dir}/recording.gif`, 1200, 800, 300);
+		const plan = await plan_image(gif, settle({}, {}));
+		expect([plan.animated, plan.width, plan.height]).toEqual([true, 1200, 800]);
+		const out = await encode_recipe(fs.readFileSync(gif), {
+			width: 600,
+			height: 400,
+			format: 'webp'
+		});
+		const meta = await sharp(out, { animated: true }).metadata();
+		expect([meta.pages, meta.width, meta.pageHeight]).toEqual([300, 600, 400]);
+	});
+
+	test.each([
+		['an animation whose frames add up past what an encode may read', 16000, 16000, 20],
+		['a still frame past the pixel limit', 20000, 20000, 1]
+	])('%s fails at build with a code naming the file', async (_, w, h, frames) => {
+		const gif = canvas_gif(`${img.dir}/huge-${w}-${frames}.gif`, w, h, frames);
+		await expect(plan_image(gif, settle({}, {}))).rejects.toThrow(
+			/image_too_large[\s\S]*huge-/
+		);
 	});
 
 	test('an SVG is planned at its own size, never rasterized', async () => {
