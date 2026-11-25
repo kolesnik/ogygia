@@ -6953,14 +6953,6 @@
 			"reason": "a message's prose for its docs page and render error: constant text, printed once when a render fails"
 		},
 		{
-			"id": "packages/image/src/pixels.ts > too_large",
-			"reason": "constant work: a few multiplications over a source's metadata, once per source planned and per file encoded (beside sharp's work); test/plan.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/pixels.ts > pixels_read",
-			"reason": "constant work: one multiplication, once per file encoded; test/plan.test.ts runs it"
-		},
-		{
 			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_settle_failed > details",
 			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
 		},
@@ -7025,15 +7017,15 @@
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~ad7e8a > request",
+			"id": "packages/image/src/server.ts > defineServer:0~635b8c > request",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~ad7e8a > setup",
+			"id": "packages/image/src/server.ts > defineServer:0~635b8c > setup",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~ad7e8a > setup > set_minter:0~ac612d",
+			"id": "packages/image/src/server.ts > defineServer:0~635b8c > setup > set_minter:0~ac612d",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path is measured; test/server.test.ts runs it"
 		},
 		{
@@ -7413,8 +7405,20 @@
 			"reason": "once per store opened: one readdir and one stat per version folder beside it; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/store.ts > open_store",
-			"reason": "once per store opened: the mark, the tidy and the load started; test/server.test.ts runs it"
+			"id": "packages/image/src/store.ts > runtime_store",
+			"reason": "once per live server: two mkdirs, two lstats and the store opened; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/content/src/markdown/index.ts > all_exist",
+			"reason": "one stat per file a kept markdown compile's extensions read, on a cache hit only (none for a post with no image); test/markdown-extensions.test.ts runs it"
+		},
+		{
+			"id": "packages/content/src/markdown/index.ts > all_exist > every:0~2b67d5",
+			"reason": "one stat per file a kept markdown compile's extensions read, on a cache hit only (none for a post with no image); test/markdown-extensions.test.ts runs it"
+		},
+		{
+			"id": "packages/content/src/markdown/index.ts > ogygiaPreprocess > group > markup > kept",
+			"reason": "constant work: one object of the compiled code and its file lists, once per compile kept"
 		},
 		{
 			"id": "packages/image/src/store.ts > open_store > catch:0~a1b2d0",
@@ -7429,20 +7433,8 @@
 			"reason": "once per store opened: the mark, the tidy and the load started; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/store.ts > open_build_store",
-			"reason": "once per build or dev server: one mkdir and the store opened; test/build-files.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/store.ts > note_minted_url",
-			"reason": "prerender only: one mkdir and one appended line per URL a page names; test/build-files.test.ts runs it"
-		},
-		{
 			"id": "packages/image/src/store.ts > published",
 			"reason": "constant work: two regex tests and a prefix check, in dev on an unknown original only; the e2e dev mode runs it"
-		},
-		{
-			"id": "packages/image/src/vite/build-files.ts > remove_old_runs",
-			"reason": "once per build: one readdir and one stat per run folder left; test/build-files.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/vite/build-files.ts > each",
