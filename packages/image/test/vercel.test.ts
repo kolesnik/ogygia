@@ -215,7 +215,7 @@ test('with widths, the layout asks only for those, or the whole source, each onc
 		names.push(r);
 		return `${r.width}`;
 	});
-	expect(laid.srcset).toBe('640 640w, 960 960w, 1000 1000w');
+	expect(laid.srcset).toBe('640 640w, 1000 1000w');
 	expect(names.every((r) => r.crop === undefined && r.source?.format === 'jpeg')).toBe(true);
 	const fixed = lay_out(HERO, { layout: 'fixed', width: 48, height: 24 }, CFG, (r) => `${r.width}`);
 	expect(fixed.srcset).toBe('48 1x, 96 2x');

@@ -141,7 +141,7 @@ A markdown image in a post uses the `prose` preset when there is one.
 - **`fullWidth`**: the container's full width, on every screen. Use it for heroes and banners.
 - **`fixed`**: exactly `width` × `height` CSS pixels, at 1× and 2× density. Use it for avatars and icons.
 
-The files follow from the layout. A `constrained` image 400 pixels wide asks for a 400-pixel file and an 800-pixel one, plus the smaller steps of the width ladder for narrow screens, never the 2048-pixel file. A `fixed` 48-pixel avatar asks for exactly 48 and 96. A `fullWidth` image asks for the whole ladder. With an `aspect`, or both `width` and `height`, every file is cut to that shape, never wider than the source can cover.
+The files follow from the layout. A `constrained` image 400 pixels wide asks for a 400-pixel file and an 800-pixel one, plus the smaller steps of the width ladder for narrow screens, never the 2048-pixel file. A step within a tenth of a width the layout names is left out: a 900-pixel image gets no 960-pixel file beside its 900 one. A `fixed` 48-pixel avatar asks for exactly 48 and 96. A `fullWidth` image asks for the whole ladder. With an `aspect`, or both `width` and `height`, every file is cut to that shape, never wider than the source can cover.
 
 ### `priority`
 
@@ -423,15 +423,15 @@ By default each image is offered as AVIF (quality 60) and WebP (quality 80), and
 
 The plugin's options:
 
-| Option        | Default                                  | What it does                                                                                                                                                                  |
-| ------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `presets`     | `{}`                                     | Named ways to show an image (above).                                                                                                                                          |
-| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                                                                                                    |
-| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                                                                                                      |
-| `placeholder` | `true`                                   | Make the blur placeholder.                                                                                                                                                    |
-| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.                                                                                           |
-| `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `{ animated }` names the preset a moving image takes; `false` turns them off.       |
-| `encoder`     | `sharp()`                                | Who makes the files: `sharp()`, `cloudflare()` or `vercel()` from `@ogygia/image/vite`, or a list in order of priority: the first that can make a file makes it (see Vercel). |
+| Option        | Default                                  | What it does                                                                                                                                                                               |
+| ------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `presets`     | `{}`                                     | Named ways to show an image (above).                                                                                                                                                       |
+| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                                                                                                                 |
+| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                                                                                                                   |
+| `placeholder` | `true`                                   | Make the blur placeholder.                                                                                                                                                                 |
+| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width. A step within a tenth of a width the layout names (its width, twice it, the source's own) is left out. |
+| `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `{ animated }` names the preset a moving image takes; `false` turns them off.                    |
+| `encoder`     | `sharp()`                                | Who makes the files: `sharp()`, `cloudflare()` or `vercel()` from `@ogygia/image/vite`, or a list in order of priority: the first that can make a file makes it (see Vercel).              |
 
 A source's own options, in the macro's second argument, belong to the file whatever page shows it:
 

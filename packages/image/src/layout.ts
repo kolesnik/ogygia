@@ -90,6 +90,11 @@ export function mime_of(format: ImageFormat): string {
 }
 
 const SAME_SHAPE = 0.005;
+const NEAR = 1.1;
+
+function near(a: number, b: number): boolean {
+	return Math.max(a, b) / Math.min(a, b) < NEAR;
+}
 
 function file_widths(
 	layout: ImageLayout,
@@ -102,16 +107,14 @@ function file_widths(
 		const two = Math.min(width * 2, widest);
 		return one === two ? [one] : [one, two];
 	}
-	const out = new Set<number>();
-	if (layout === 'fullWidth') {
-		for (const b of breakpoints) if (b < widest) out.add(b);
-		out.add(Math.min(widest, Math.max(...breakpoints)));
-	} else {
-		const cap = width * 2;
-		for (const b of breakpoints) if (b < cap && b < widest) out.add(b);
-		out.add(Math.min(width, widest));
-		out.add(Math.min(cap, widest));
-	}
+	const top = layout === 'fullWidth' ? Math.max(...breakpoints) : width * 2;
+	const named =
+		layout === 'fullWidth'
+			? [Math.min(widest, top)]
+			: [Math.min(width, widest), Math.min(top, widest)];
+	const out = new Set<number>(named);
+	for (const b of breakpoints)
+		if (b < top && b < widest && !named.some((n) => near(b, n))) out.add(b);
 	return [...out].sort((a, b) => a - b);
 }
 

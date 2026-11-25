@@ -37,7 +37,8 @@ export interface ImagePluginOptions {
 	 *  animated WebP whatever this says. */
 	formats?: OutputFormat[];
 	placeholder?: boolean;
-	/** The width ladder a responsive image is offered at (capped at the image's own width). Default
+	/** The width ladder a responsive image is offered at (capped at the image's own width; a step
+	 *  within a tenth of a width the layout names is left out). Default
 	 *  `[320, 480, 640, 960, 1280, 1600, 2048]`. */
 	breakpoints?: number[];
 	/** Named ways to show an image, chosen with `<Img preset="…">` (own props say over them):

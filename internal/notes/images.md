@@ -48,7 +48,7 @@ that ogygia's handle starts: `setup` hands `<Img>` the minter, `request` is the 
    own props (`layout`, `width`, `height`, `aspect`, `position`, `sizes`, `priority`, `placeholder`,
    `morph`) into the candidate files, and names each by a URL. Fixed: `[w, 2w]`. Constrained: the
    ladder below `2w`, plus `w` and `2w`. Full width: the ladder. All capped at the widest the source
-   covers. Crops are real files (fit cover at the position).
+   covers. A ladder step within a tenth of a named width (`w`, `2w`, the widest) is left out. Crops are real files (fit cover at the position).
 3. **Settle.** The endpoint verifies the URL, reads the original with Kit's `read()`, encodes it
    with sharp and keeps the file in the store.
 
