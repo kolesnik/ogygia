@@ -7594,15 +7594,11 @@
 		},
 		{
 			"id": "packages/image/src/server.ts > prerendered",
-			"reason": "prerender only: one set lookup and one appended line per recipe a page names, and an encode started; test/server-prerender.test.ts and the e2e static and base builds run it"
+			"reason": "prerender only: one set lookup, one appended line and one channel message per recipe a page names; test/server-prerender.test.ts and the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/server.ts > prerendered > then:0~7d59ce",
-			"reason": "prerender only: one set lookup and one appended line per recipe a page names, and an encode started; test/server-prerender.test.ts and the e2e static and base builds run it"
-		},
-		{
-			"id": "packages/image/src/server.ts > prerendered > catch:0~a1b2d0",
-			"reason": "prerender only: one set lookup and one appended line per recipe a page names, and an encode started; test/server-prerender.test.ts and the e2e static and base builds run it"
+			"id": "packages/image/src/store.ts > built_channel",
+			"reason": "prerender and build only: one string per recipe noted and one per build; test/build-head-start.test.ts and the e2e static and base builds run it"
 		},
 		{
 			"id": "packages/image/src/server.ts > root_relative",
@@ -7611,10 +7607,6 @@
 		{
 			"id": "packages/image/src/server.ts > original_of",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
-		},
-		{
-			"id": "packages/image/src/settle.ts > prepare",
-			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/pixels.ts > encode_recipe",
@@ -7713,12 +7705,92 @@
 			"reason": "constant work: two regex tests and a prefix check, in dev on an unknown original only; the e2e dev mode runs it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > each",
-			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > call:0~d5738a > run",
+			"reason": "build time, once per file the build makes: a flight over sharp's encode (or a store read); test/build-head-start.test.ts and the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/vite/build-files.ts > each > lane",
-			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > call:0~d5738a > run > in_turn:1~9084d3",
+			"reason": "build time, once per file the build makes: a flight over sharp's encode (or a store read); test/build-head-start.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > close",
+			"reason": "build time, once per build: a map delete and a scope close; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > constructor",
+			"reason": "build time, once per build: a store, two queues and a channel; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > constructor > defer:0~d6ac53",
+			"reason": "build time, once per build: a channel close; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > constructor > onmessage",
+			"reason": "build time, once per recipe the prerender notes: a recipe parse (measured) and a flight started; test/build-head-start.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > constructor > onmessage > catch:0~a1b2d0",
+			"reason": "build time, once per recipe the prerender notes: a recipe parse (measured) and a flight started; test/build-head-start.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > constructor > onmessage > make:1~efd2e0",
+			"reason": "build time, once per recipe the prerender notes: a recipe parse (measured) and a flight started; test/build-head-start.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > make",
+			"reason": "build time, once per file the build makes: a flight over sharp's encode (or a store read); test/build-head-start.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > static of",
+			"reason": "build time, a few times per build: one map lookup; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > write",
+			"reason": "build time, once per file the build writes: a mkdir and a file write in a queue; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > BuildMakes > write > in_turn:1~77a06c",
+			"reason": "build time, once per file the build writes: a mkdir and a file write in a queue; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > in_turn",
+			"reason": "build time, once per file the build makes or writes: one queue push (the queue is measured in machine's benches); test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > in_turn > Promise:0~55204f",
+			"reason": "build time, once per file the build makes or writes: one queue push (the queue is measured in machine's benches); test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > in_turn > Promise:0~55204f > push:0~e7449d > gone",
+			"reason": "build time, only when the build ends with a turn still waiting: one reject; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > in_turn > Promise:0~55204f > push:0~e7449d > run",
+			"reason": "build time, once per file the build makes or writes: one queue push (the queue is measured in machine's benches); test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > line_of",
+			"reason": "build time, twice per build: a queue made; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > line_of > queue:0~d19d08 > stale",
+			"reason": "build time, only when the build ends with a turn still waiting: one reject; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > line_of > queue:0~d19d08 > start",
+			"reason": "build time, once per file the build makes or writes: a start and a release; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > line_of > queue:0~d19d08 > start > finally:0~4717e4",
+			"reason": "build time, once per file the build makes or writes: a start and a release; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > noted_original",
+			"reason": "build time, once per prerendered file made: one or two exists checks and a file read; test/build-write.test.ts and the e2e static and base builds run it"
+		},
+		{
+			"id": "packages/image/src/vite/index.ts > output_of",
+			"reason": "config time, a few times per build: one path resolve; the e2e static and base builds run it"
 		},
 		{
 			"id": "packages/image/src/vite/build-files.ts > handoff_for",
