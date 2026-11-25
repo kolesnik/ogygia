@@ -8,6 +8,7 @@ import { preprocess, extensions } from '@ogygia/content/vite';
 // paths.base (`/base`).
 const STATIC = process.env.IMAGE_E2E_STATIC === '1';
 const BASE = process.env.IMAGE_E2E_BASE ?? '';
+const PAGES = process.env.IMAGE_E2E_PAGES ?? 'build/static';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -17,7 +18,7 @@ const config = {
 		experimental: { async: true }
 	},
 	kit: {
-		adapter: STATIC ? static_adapter({ pages: 'build/static', strict: true }) : adapter(),
+		adapter: STATIC ? static_adapter({ pages: PAGES, strict: true }) : adapter(),
 		paths: { base: BASE }
 	}
 };

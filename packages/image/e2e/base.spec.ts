@@ -5,6 +5,7 @@ import { test, expect } from '@ogygia/tooling/e2e';
 
 const PAGES = ['/base/', '/base/blog/first-post', '/base/blog/third-post', '/base/island'];
 const FILE_RE = /\/[^\s",()]*(?:__ogygia__\/i|_app\/immutable\/og)\/[^\s",)]+/g;
+const BUILT_RE = /^\/base\/_app\/immutable\/og\/[\w-]+\.(?:avif|webp)$/;
 
 test('every image file each page names sits under the base, and loads as an image', async ({
 	request
@@ -17,7 +18,7 @@ test('every image file each page names sits under the base, and loads as an imag
 	}
 	expect(seen.size).toBeGreaterThan(40);
 	for (const url of seen) {
-		expect(url, url).toMatch(/^\/base\/(?:__ogygia__\/i|_app\/immutable\/og)\//);
+		expect(url, url).toMatch(BUILT_RE);
 		const res = await request.get(url);
 		expect(res.status(), url).toBe(200);
 		expect(res.headers()['content-type'], url).toMatch(/^image\/(avif|webp)$/);
@@ -31,7 +32,7 @@ test('the page loads every image, its CSS background and its warmed preset under
 	const backdrop = await page
 		.locator('#backdrop')
 		.evaluate((el: HTMLElement) => el.style.backgroundImage);
-	expect(backdrop).toMatch(/^url\("?\/base\/__ogygia__\/i\//);
+	expect(backdrop).toMatch(/^url\("?\/base\/_app\/immutable\/og\/[\w-]+-120x60\.webp"?\)$/);
 	expect(await page.locator('#warmed').getAttribute('src')).toMatch(
 		/^\/base\/_app\/immutable\/og\//
 	);

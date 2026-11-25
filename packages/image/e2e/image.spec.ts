@@ -2,7 +2,10 @@
 // same specs run in three modes (playwright.config.ts): built with adapter-node and served, every page
 // prerendered with adapter-static and served as plain files (no server at all), and the dev server.
 // `pnpm --filter @ogygia/image e2e`.
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { test, expect } from '@ogygia/tooling/e2e';
@@ -329,6 +332,7 @@ test.describe('the image endpoint', () => {
 	test('a file URL whose recipe was changed, or whose signature was, is refused', async ({
 		request
 	}) => {
+		test.skip(MODE === 'static', 'a prerendered page names no signed URL');
 		const html = await (await request.get('/')).text();
 		const url = html.match(SIGNED_URL_RE)!.find((u) => /-48x48\//.test(u))!;
 		const wider = url.replace('-48x48/', '-2000x2000/');
@@ -339,8 +343,8 @@ test.describe('the image endpoint', () => {
 		);
 		for (const bad of [wider, resigned, url.replace(`/${sig}/`, '/')]) {
 			const res = await request.get(bad);
-			expect(res.status(), bad).toBe(MODE === 'static' ? 404 : 403);
-			if (MODE !== 'static') expect(res.headers()['x-ogygia-deny'], bad).toBe('sig');
+			expect(res.status(), bad).toBe(403);
+			expect(res.headers()['x-ogygia-deny'], bad).toBe('sig');
 		}
 		expect((await request.get(url)).status()).toBe(200);
 	});
@@ -388,7 +392,11 @@ test.describe('the image endpoint', () => {
 		const html = await (await request.get('/')).text();
 		const style = /id="backdrop" style="([^"]+)"/.exec(html)![1]!;
 		const url = /url\(([^)]+)\)/.exec(style)![1]!;
-		expect(url).toMatch(/^\/__ogygia__\/i\/.+-120x60\/.+\.webp$/);
+		expect(url).toMatch(
+			MODE === 'static'
+				? /^\/_app\/immutable\/og\/[\w-]+-120x60\.webp$/
+				: /^\/__ogygia__\/i\/.+-120x60\/.+\.webp$/
+		);
 		const f = await fetch_file(request, url);
 		expect([f.type, f.width, f.height]).toEqual(['image/webp', 120, 60]);
 	});
@@ -404,6 +412,58 @@ test.describe('the image endpoint', () => {
 		for (const url of all) {
 			const f = await fetch_file(request, url);
 			expect(f.width, url).toBe(f.height);
+		}
+	});
+});
+
+test.describe('a prerendered build', () => {
+	test.skip(MODE !== 'static', 'every page prerendered');
+
+	test('names every file a page shows as a file under the app folder, never a signed URL', async ({
+		request
+	}) => {
+		for (const p of PAGES) {
+			const html = await (await request.get(p)).text();
+			expect(html.match(SIGNED_URL_RE) ?? [], p).toEqual([]);
+			const named = html.match(IMAGE_URL_RE) ?? [];
+			expect(named.length, p).toBeGreaterThan(0);
+			for (const url of named) expect(url, p).toMatch(/^\/_app\/immutable\/og\/[\w-]+\.\w+$/);
+		}
+	});
+
+	test('names the same files in a second build with no OGYGIA_SECRET, and warns of no key', async ({
+		browserName
+	}) => {
+		test.skip(browserName !== 'chromium', 'one browser builds again');
+		test.setTimeout(240_000);
+		const app = fileURLToPath(new URL('./app/', import.meta.url));
+		const again = 'build/static-again';
+		const env: NodeJS.ProcessEnv = {
+			...process.env,
+			IMAGE_E2E_STATIC: '1',
+			IMAGE_E2E_PAGES: again,
+			OGYGIA_RULES: '1'
+		};
+		delete env.OGYGIA_SECRET;
+		try {
+			const res = spawnSync('node', ['node_modules/vite/bin/vite.js', 'build'], {
+				cwd: app,
+				env,
+				encoding: 'utf8'
+			});
+			const said = `${res.stdout}${res.stderr}`;
+			expect(res.status, said).toBe(0);
+			expect(said).not.toMatch(/build_key_prerender/);
+			for (const p of PAGES) {
+				const file = p === '/' ? 'index.html' : `${p.slice(1)}.html`;
+				const named = (dir: string): string[] =>
+					fs.readFileSync(path.join(app, dir, file), 'utf8').match(IMAGE_URL_RE) ?? [];
+				const first = named('build/static');
+				expect(first.length, file).toBeGreaterThan(0);
+				expect(named(again), file).toEqual(first);
+			}
+		} finally {
+			fs.rmSync(path.join(app, again), { recursive: true, force: true });
 		}
 	});
 });
