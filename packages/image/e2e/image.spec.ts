@@ -368,8 +368,31 @@ test.describe('the image endpoint', () => {
 			const res = await request.get(bad);
 			expect(res.status(), bad).toBe(403);
 			expect(res.headers()['x-ogygia-deny'], bad).toBe('sig');
+			expect(res.headers()['cache-control'], bad).toBe('no-store');
 		}
+		const posted = await request.post(url);
+		expect(posted.status()).toBe(405);
+		expect(posted.headers()['cache-control']).toBe('no-store');
 		expect((await request.get(url)).status()).toBe(200);
+	});
+
+	test('a file the build made is sent to be kept forever, and one it did not make is a 404 that is not', async ({
+		page,
+		request
+	}) => {
+		test.skip(
+			MODE === 'static' || MODE === 'dev',
+			'a static host and the dev server serve no build'
+		);
+		await page.goto('/');
+		const built = (await attrs(page.locator('#warmed'))).src!;
+		expect(built).toMatch(/^\/_app\/immutable\/og\//);
+		const res = await request.get(built);
+		expect(res.status()).toBe(200);
+		expect(res.headers()['cache-control']).toBe('public,max-age=31536000,immutable');
+		const missing = await request.get('/_app/immutable/og/AAAAAAAAAAAAAAAA-48x48.avif');
+		expect(missing.status()).toBe(404);
+		expect(missing.headers()['cache-control']).not.toMatch(/immutable/);
 	});
 
 	test('a file URL asked with a query string is sent to the bare URL, so a CDN keeps one copy', async ({

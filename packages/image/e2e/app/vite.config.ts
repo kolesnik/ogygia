@@ -5,7 +5,12 @@ import { image } from '@ogygia/image/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	define: { __IMAGE_E2E_STATIC__: JSON.stringify(process.env.IMAGE_E2E_STATIC === '1') },
+	define: {
+		__IMAGE_E2E_STATIC__: JSON.stringify(
+			process.env.IMAGE_E2E_STATIC === '1' || process.env.IMAGE_E2E_ADAPTER !== undefined
+		),
+		__IMAGE_E2E_LIVE__: JSON.stringify(process.env.IMAGE_E2E_ADAPTER !== undefined)
+	},
 	plugins: [
 		ogygia(),
 		content({ markdown: {} }),
