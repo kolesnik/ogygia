@@ -7345,14 +7345,6 @@
 			"reason": "config time: one comparison per encoder the app lists"
 		},
 		{
-			"id": "packages/image/src/vite/index.ts > formats_asked",
-			"reason": "build time, once per server build that lists vercel(): the formats of the plugin and its presets"
-		},
-		{
-			"id": "packages/image/src/vite/index.ts > formats_asked > flatMap:0~dccf1f",
-			"reason": "build time: one array per preset the app names"
-		},
-		{
 			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_check",
 			"reason": "config time, once per image() call that lists vercel(): builds one Vite plugin"
 		},
