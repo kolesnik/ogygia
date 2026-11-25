@@ -10,22 +10,19 @@ import sharp from 'sharp';
  *  shape). */
 export function canvas_gif(file: string, width: number, height: number, frames: number): string {
 	const u16 = (n: number): number[] => [n & 255, n >> 8];
+	const screen = [0x80, 0, 0, 255, 0, 0, 0, 0, 255];
+	const loop = [0x21, 0xff, 0x0b, ...Buffer.from('NETSCAPE2.0'), 3, 1, 0, 0, 0];
+	const delay = [0x21, 0xf9, 4, 0x04, 10, 0, 0, 0];
+	const pixel = [2, 2, 0x44, 0x01, 0];
 	const out: number[] = [
 		...Buffer.from('GIF89a'),
 		...u16(width),
 		...u16(height),
-		0x80,
-		0,
-		0,
-		...[255, 0, 0, 0, 0, 255],
-		...[0x21, 0xff, 0x0b, ...Buffer.from('NETSCAPE2.0'), 3, 1, 0, 0, 0]
+		...screen,
+		...loop
 	];
 	for (let f = 0; f < frames; f++)
-		out.push(
-			...[0x21, 0xf9, 4, 0x04, 10, 0, 0, 0],
-			...[0x2c, ...u16(f % width), 0, 0, 1, 0, 1, 0, 0],
-			...[2, 2, 0x44, 0x01, 0]
-		);
+		out.push(...delay, 0x2c, ...u16(f % width), 0, 0, 1, 0, 1, 0, 0, ...pixel);
 	out.push(0x3b);
 	fs.writeFileSync(file, Buffer.from(out));
 	return file;
