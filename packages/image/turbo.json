@@ -1,0 +1,12 @@
+{
+	"$schema": "https://turborepo.com/schema.json",
+	"extends": ["//"],
+	"tasks": {
+		"check": {
+			"inputs": ["$TURBO_DEFAULT$"]
+		},
+		"test": {
+			"inputs": ["$TURBO_DEFAULT$", "!e2e/*.ts", "!playwright.config.ts"]
+		}
+	}
+}
