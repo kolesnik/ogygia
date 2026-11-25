@@ -247,6 +247,14 @@ function absolute(value: string, at: URL): string {
 
 const escape = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
 
+const TYPES: Record<string, string> = {
+  avif: 'image/avif',
+  webp: 'image/webp',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif'
+};
+
 export async function GET({ url }) {
   const items: string[] = [];
   for (const ref of await blog.refs()) {
@@ -259,7 +267,8 @@ export async function GET({ url }) {
     const cover = new URL(layOut(post.data.cover, { width: 1200 }).src, url).href;
     const title = `<title>${escape(post.data.title)}</title>`;
     const link = `<link>${new URL(`/blog/${ref.id}`, url).href}</link>`;
-    const enclosure = `<enclosure url="${cover}" type="image/webp" length="0"/>`;
+    const type = TYPES[cover.split('.').pop() ?? ''] ?? 'application/octet-stream';
+    const enclosure = `<enclosure url="${cover}" type="${type}" length="0"/>`;
     items.push(`<item>${title}${link}${enclosure}<description>${escape(html)}</description></item>`);
   }
   return new Response(
@@ -268,6 +277,8 @@ export async function GET({ url }) {
   );
 }
 ```
+
+The enclosure's type follows the file's format (a preset with `formats: ['jpeg']` names a JPEG). Its `length` is `0`, which RSS readers take as "not known": the file may not be made yet when the feed renders. Add a `<pubDate>` from your schema's date field if your feed has one.
 
 Link the feed from a layout (`<link rel="alternate" type="application/rss+xml" href="/feed.xml">`) so Kit's crawler prerenders it. On a live server the same code names the signed URLs at the request's origin.
 
@@ -488,20 +499,20 @@ An `<Img>` inside an island keeps the server's file URLs when it hydrates. A ren
 
 ## Moving from Astro's `astro:assets`
 
-| Astro                                               | ogygia                                                             |
-| --------------------------------------------------- | ------------------------------------------------------------------ |
-| `import hero from './hero.jpg'`                     | `const hero = import.meta.og.image('./hero.jpg')`                  |
-| `<Image src={hero} alt="…" />`                      | `<Img of={hero} alt="…" />`                                        |
-| `<Picture formats={['avif', 'webp']} />`            | `<Img>`: AVIF and WebP are the default                             |
-| `widths={[600, 1200]}`, `sizes="…"`                 | a preset, or `layout` and `width`; `sizes` only as an escape hatch |
-| `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`                 |
-| `loading="eager"` + `fetchpriority="high"`          | `priority`                                                         |
-| `getImage({ src })`                                 | `layOut(descriptor, { … })`                                        |
-| `image()` in a markdown collection's schema         | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path    |
+| Astro                                               | ogygia                                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `import hero from './hero.jpg'`                     | `const hero = import.meta.og.image('./hero.jpg')`                                                                   |
+| `<Image src={hero} alt="…" />`                      | `<Img of={hero} alt="…" />`                                                                                         |
+| `<Picture formats={['avif', 'webp']} />`            | `<Img>`: AVIF and WebP are the default                                                                              |
+| `widths={[600, 1200]}`, `sizes="…"`                 | a preset, or `layout` and `width`; `sizes` only as an escape hatch                                                  |
+| `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`                                                                  |
+| `loading="eager"` + `fetchpriority="high"`          | `priority`                                                                                                          |
+| `getImage({ src })`                                 | `layOut(descriptor, { … })`                                                                                         |
+| `image()` in a markdown collection's schema         | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path                                                     |
 | `image()` in a JSON collection's schema             | a `v.string()` field, looked up in an `import.meta.og.image.glob()` ([Images named in JSON](#images-named-in-json)) |
-| `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                             |
-| `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed        |
-| images encoded at build, content-hashed names       | a prerendered site's files made at build, named by their recipe    |
+| `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                                                                              |
+| `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed                                                         |
+| images encoded at build, content-hashed names       | a prerendered site's files made at build, named by their recipe                                                     |
 
 A few differences to know when you move a site:
 

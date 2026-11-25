@@ -457,6 +457,10 @@ test.describe('absolute image URLs', () => {
 			m[1]!.split(', ').map((c) => c.split(' ')[0]!)
 		);
 		expect(named.length).toBeGreaterThan(10);
+		for (const [, url, type] of xml.matchAll(/<enclosure url="([^"]+)" type="([^"]+)"/g)) {
+			const res = await request.get(new URL(url!).pathname);
+			expect(res.headers()['content-type'], url).toBe(type);
+		}
 		for (const url of named) {
 			expect(url).toMatch(ABSOLUTE_RE);
 			const res = await request.get(new URL(url).pathname);

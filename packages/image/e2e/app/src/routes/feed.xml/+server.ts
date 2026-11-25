@@ -7,6 +7,13 @@ declare const __IMAGE_E2E_STATIC__: boolean;
 export const prerender = __IMAGE_E2E_STATIC__;
 
 const URL_ATTR_RE = /\b(src|srcset)="([^"]*)"/g;
+const TYPES: Readonly<Record<string, string>> = {
+	avif: 'image/avif',
+	webp: 'image/webp',
+	jpeg: 'image/jpeg',
+	png: 'image/png',
+	gif: 'image/gif'
+};
 
 function absolute(value: string, at: URL): string {
 	return value
@@ -34,7 +41,8 @@ export async function GET({ url }) {
 		const cover = new URL(layOut(post.data.cover, { width: 600 }).src, url).href;
 		const link = new URL(resolve('/blog/[slug]', { slug: ref.id }), url).href;
 		const title = `<title>${escape(post.data.title)}</title>`;
-		const enclosure = `<enclosure url="${cover}" type="image/webp" length="0"/>`;
+		const type = TYPES[cover.split('.').pop() ?? ''] ?? 'application/octet-stream';
+		const enclosure = `<enclosure url="${cover}" type="${type}" length="0"/>`;
 		items.push(
 			`<item>${title}<link>${link}</link>${enclosure}<description>${escape(html)}</description></item>`
 		);
