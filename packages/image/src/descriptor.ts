@@ -40,7 +40,7 @@ export interface ImageDescriptor {
 	/** The source's own format. */
 	format: ImageFormat;
 	/** The placeholder: a tiny (16 px wide) WebP of the image as a data URL
-	 *  (`data:image/webp;base64,…`, about 100 bytes), painted behind the image until it loads. Absent
+	 *  (`data:image/webp;base64,…`, at most a few hundred bytes), painted behind the image until it loads. Absent
 	 *  when the image has none (transparent, an SVG, or `placeholder: false`). */
 	ph?: string;
 	/** The image moves (an animated GIF or WebP): every file made from it keeps every frame. */

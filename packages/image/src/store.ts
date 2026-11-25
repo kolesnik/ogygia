@@ -3,11 +3,15 @@
  * which names its source by content), so the next ask is a file read. One store per place it runs:
  *
  * - the build and the dev server (the plugin hands its process the build cache's folder,
- *   `node_modules/.ogygia/image-files`): a warm build or a CI run with the cache kept encodes nothing
- *   it made before, and Kit's prerender, which runs in a worker of the same process, reads the same
- *   folder;
+ *   `node_modules/.ogygia/image/files/v<encoder>-<libvips>/`): a warm build or a CI run with the
+ *   cache kept encodes nothing it made before, and Kit's prerender, which runs in a worker of the
+ *   same process, reads the same folder. Kept to {@link BUILD_STORE_MAX};
  * - a live server: a folder under the system's temporary folder that only this user owns, one per
- *   encoder version (the other versions are removed), files older than a month removed at start.
+ *   encoder and libvips version, kept to {@link RUNTIME_STORE_MAX} while it runs.
+ *
+ * Either way the least recently used files go first past the size, files older than a month go at
+ * start, and another version's folder goes once no server has used it for a week. A file that
+ * cannot be written is not kept (`image_store_write_failed`): the caller still has its bytes.
  *
  * Server and build only (Node).
  *
