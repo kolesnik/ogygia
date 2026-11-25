@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Plugin, ResolvedConfig } from 'vite';
 import { beforeAll, expect, test } from 'vitest';
-import { cloudflare, image, sharp, type ImagePluginOptions } from '../src/vite/index.ts';
+import { cloudflare, image, sharp, vercel, type ImagePluginOptions } from '../src/vite/index.ts';
 import { app_with_sharp, make_images } from './fixtures.ts';
 
 let root: string;
@@ -100,4 +100,35 @@ test('cloudflare() makes files with its Images binding in a build and with sharp
 	expect(String(await load(dev, '\0virtual:ogygia-image/namer'))).toContain('"dev":true');
 	const unlinked = await loader(define, { encoder: cloudflare({ links: false }) }, 'build');
 	expect(String(await load(unlinked, '\0virtual:ogygia-image/namer'))).toContain('"links":[]');
+});
+
+test("vercel() alone has no endpoint maker; its sizes bound every file's width; a list keeps sharp's endpoint", async () => {
+	const define = { __SVELTEKIT_APP_DIR__: '"_app"' };
+	const alone = await loader(define, { encoder: vercel({ sizes: [640, 1280] }) }, 'build');
+	expect(String(await load(alone, '\0virtual:ogygia-image/maker'))).toMatch(
+		/^export \* from ".*\/src\/makers\/none\.ts";\n$/
+	);
+	const namer = String(await load(alone, '\0virtual:ogygia-image/namer'));
+	expect(namer).toContain('"kind":"vercel"');
+	expect(namer).toContain('"sizes":[640,1280],"qualities":null');
+	expect(namer).toContain('"endpoint":null');
+	expect(String(await load(alone, '\0virtual:ogygia-image/config'))).toContain(
+		'"widths":[640,1280]'
+	);
+	const listed = await loader(define, { encoder: [vercel(), sharp()] }, 'build');
+	expect(String(await load(listed, '\0virtual:ogygia-image/maker'))).toMatch(
+		/^export \* from ".*\/src\/makers\/sharp\.ts";\n$/
+	);
+	expect(String(await load(listed, '\0virtual:ogygia-image/namer'))).toContain('"endpoint":[]');
+	const plain = await loader(define, {}, 'build');
+	expect(String(await load(plain, '\0virtual:ogygia-image/config'))).not.toContain('widths');
+});
+
+test("only an app that lists vercel() gets the output check, run after the server build's other closeBundle hooks", () => {
+	expect(image({}).map((p) => p.name)).not.toContain('@ogygia/image:vercel-config');
+	const check = image({ encoder: [vercel(), sharp()] }).find(
+		(p) => p.name === '@ogygia/image:vercel-config'
+	)!;
+	expect(check.apply).toBe('build');
+	expect(check.closeBundle).toMatchObject({ order: 'post', sequential: true });
 });
