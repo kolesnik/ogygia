@@ -282,7 +282,7 @@ The enclosure's type follows the file's format (a preset with `formats: ['jpeg']
 
 Link the feed from a layout (`<link rel="alternate" type="application/rss+xml" href="/feed.xml">`) so Kit's crawler prerenders it. On a live server the same code names the signed URLs at the request's origin.
 
-The encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter warns (`image_adapter_no_encoder`). Prerendered pages and warmed presets work there anyway: their files are static.
+The encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter warns (`image_adapter_no_encoder`). Prerendered pages and warmed presets are made by the build as static files, so they should work there too, but no edge adapter's build has been checked yet.
 
 Without `OGYGIA_SECRET`, each server build signs with its own random key, so a server-rendered page's signed URLs change with each deploy. Set the secret to keep them. A prerendered page's files need no secret.
 
