@@ -38,6 +38,10 @@ const GRAVITY: Readonly<Record<string, CloudflareTransform['gravity']>> = {
 };
 const BLUR_MAX = 250;
 
+/** The version of {@link cloudflare_steps}: a file the binding made is kept under it, so a change
+ *  to the steps (which bumps it) never serves a file made the old way. */
+export const STEPS_VERSION = 1;
+
 function flip_of(
 	flip: boolean | undefined,
 	flop: boolean | undefined

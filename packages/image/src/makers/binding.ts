@@ -6,7 +6,11 @@
  *
  * @packageDocumentation
  */
-import { cloudflare_steps, type CloudflareTransform } from '../encoders/cloudflare.ts';
+import {
+	cloudflare_steps,
+	STEPS_VERSION,
+	type CloudflareTransform
+} from '../encoders/cloudflare.ts';
 import { CannotMake, type Kept, type MadeStore, type Maker } from '../maker.ts';
 import { warn } from '../messages.ts';
 
@@ -26,7 +30,7 @@ interface WorkerCache {
 }
 
 const KEEP = 'public, max-age=31536000, immutable';
-const STORE_ORIGIN = 'https://ogygia-image.invalid/';
+const STORE_ORIGIN = `https://ogygia-image.invalid/v${STEPS_VERSION}/`;
 
 /** The files a Worker made, in its cache (`caches.default`), by recipe file name. */
 export class CacheStore implements MadeStore {

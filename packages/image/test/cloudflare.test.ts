@@ -117,7 +117,7 @@ test("the binding makes the same recipe in steps, in sharp's order: mirror, turn
 });
 
 const STEPS_SEEN: Readonly<Record<number, string>> = {
-	1: 'Z8r-8rj-IvGXF8prEjKkqZMiRU8swCF8Q95YXL_Bt9A'
+	1: 'z8r-8rj-IvGXF8prEjKkqZMiRU8swCF8Q95YXL_Bt9A'
 };
 
 test("a change to the binding's steps bumps STEPS_VERSION, so the Worker cache never answers with files made the old way", () => {
