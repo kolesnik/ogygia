@@ -1,5 +1,3 @@
-// A runtime where sharp cannot load (an edge or Workers runtime, an install without its binary): the
-// endpoint answers a coded 500 that no cache keeps, said once, instead of a bare crash.
 import { expect, test, vi } from 'vitest';
 import { startPlugin } from '@ogygia/core/plugin/testing';
 
@@ -10,15 +8,16 @@ vi.mock('virtual:ogygia-image/config', () => ({
 	default: { paths: { base: '', assets: '', app_dir: '_app' } }
 }));
 vi.mock('$app/environment', () => ({ building: false }));
-vi.mock('../src/settle.ts', () => {
-	throw new Error('Could not load the "sharp" module');
+vi.mock('$app/server', () => ({ read: () => new Response(new Uint8Array(8)) }));
+vi.mock('sharp', () => {
+	throw new Error('Could not load the "sharp" module using the linuxmusl-x64 runtime');
 });
 
 const { default: server } = await import('../src/server.ts');
 const { mint } = await import('../src/recipe.ts');
 const { ctx } = startPlugin(server, { name: '@ogygia/image' });
 
-test('an endpoint that cannot load the encoder answers a coded 500, said once', async () => {
+test('a server where sharp cannot load starts, and its endpoint answers a coded 500 no cache keeps, said once', async () => {
 	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 	const url = mint({
 		id: 'a1',
