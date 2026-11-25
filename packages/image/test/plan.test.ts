@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import { plan_image, settle } from '../src/vite/plan.ts';
 import { encode, encode_recipe } from '../src/pixels.ts';
 import { placeholder_style } from '../src/placeholder.ts';
-import { canvas_gif, make_images } from './fixtures.ts';
+import { canvas_gif, header_png, make_images } from './fixtures.ts';
 
 let img: Awaited<ReturnType<typeof make_images>>;
 beforeAll(async () => {
@@ -103,13 +103,17 @@ describe('plan_image', () => {
 		expect([meta.pages, meta.width, meta.pageHeight]).toEqual([300, 600, 400]);
 	});
 
-	test.each([
-		['an animation whose frames add up past what an encode may read', 16000, 16000, 20],
-		['a still frame past the pixel limit', 20000, 20000, 1]
-	])('%s fails at build with a code naming the file', async (_, w, h, frames) => {
-		const gif = canvas_gif(`${img.dir}/huge-${w}-${frames}.gif`, w, h, frames);
+	test('an animation whose frames add up past what an encode may read fails at build with a code naming the file', async () => {
+		const gif = canvas_gif(`${img.dir}/huge-recording.gif`, 2048, 2048, 1100);
 		await expect(plan_image(gif, settle({}, {}))).rejects.toThrow(
-			/image_too_large[\s\S]*huge-/
+			/huge-recording\.gif: the image is too large[\s\S]*1100 frames/
+		);
+	});
+
+	test('a still image past the pixel limit fails at build with a code naming the file', async () => {
+		const png = header_png(`${img.dir}/huge-still.png`, 20000, 20000);
+		await expect(plan_image(png, settle({}, {}))).rejects.toThrow(
+			/huge-still\.png: the image is too large/
 		);
 	});
 

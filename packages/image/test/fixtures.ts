@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import sharp from 'sharp';
 
 /** An animated GIF of `frames` frames on a `width` × `height` canvas, each frame one pixel drawn on
@@ -27,6 +28,33 @@ export function canvas_gif(file: string, width: number, height: number, frames: 
 		);
 	out.push(0x3b);
 	fs.writeFileSync(file, Buffer.from(out));
+	return file;
+}
+
+/** A PNG whose header says `width` × `height` and that holds no pixels: what a reader of its
+ *  metadata sees, without the bytes to back it. */
+export function header_png(file: string, width: number, height: number): string {
+	const chunk = (type: string, data: Buffer): Buffer => {
+		const body = Buffer.concat([Buffer.from(type), data]);
+		const out = Buffer.alloc(body.length + 8);
+		out.writeUInt32BE(data.length, 0);
+		body.copy(out, 4);
+		out.writeUInt32BE(zlib.crc32(body), body.length + 4);
+		return out;
+	};
+	const ihdr = Buffer.alloc(13);
+	ihdr.writeUInt32BE(width, 0);
+	ihdr.writeUInt32BE(height, 4);
+	ihdr.set([8, 2, 0, 0, 0], 8);
+	fs.writeFileSync(
+		file,
+		Buffer.concat([
+			Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+			chunk('IHDR', ihdr),
+			chunk('IDAT', zlib.deflateSync(Buffer.alloc(1))),
+			chunk('IEND', Buffer.alloc(0))
+		])
+	);
 	return file;
 }
 
