@@ -21,6 +21,7 @@
  */
 import type { RequestEvent } from '@sveltejs/kit';
 import type { ResolveOptions } from '../kit-handle.ts';
+import type { CapabilityDeny } from './capability.ts';
 import type { RequestFacts } from './facts.ts';
 import type { Ask, Notify, ServerHooks } from './hooks.ts';
 import type { DevtoolsEventInput } from '../contract/events.ts';
@@ -59,9 +60,9 @@ export interface ServerApp<Options = undefined> {
 	sign(message: string): string;
 	/** Check a signature `sign` made (constant-time). */
 	verify(message: string, signature: string): boolean;
-	/** The signing key's fingerprint (8 characters, the same on every instance sharing the key, and
-	 *  telling nothing of it): for a refusal to name the key it checked with (`x-ogygia-key`). */
-	keyFingerprint(): string;
+	/** The refusal ogygia's own endpoints answer a bad signature with: a 403 no cache keeps, saying
+	 *  why (`x-ogygia-deny`) and naming the key it checked with (`x-ogygia-key`, its fingerprint). */
+	deny(why: CapabilityDeny): Response;
 	/** Signed capabilities for an endpoint the plugin serves, held to the rules of region holes. */
 	readonly capability: PluginCapabilities;
 	/** Record a server-realm event into the current request's devtools stream (a no-op unless

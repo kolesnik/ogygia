@@ -104,7 +104,8 @@ describe('the image server realm', () => {
 		const res = (await get(url.replace('-48x48/', '-4000x4000/')))!;
 		expect(res.status).toBe(403);
 		expect(res.headers.get('x-ogygia-deny')).toBe('sig');
-		expect(res.headers.get('x-ogygia-key')).toBe(app.keyFingerprint());
+		expect(res.headers.get('x-ogygia-key')).toBe(app.deny('sig').headers.get('x-ogygia-key'));
+		expect(res.headers.get('x-ogygia-key')).toMatch(/^[\w-]{8}$/);
 		expect(res.headers.get('cache-control')).toBe('no-store');
 	});
 

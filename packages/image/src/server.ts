@@ -14,7 +14,7 @@
  */
 import fs from 'node:fs';
 import { building } from '$app/environment';
-import { defineServer, type ServerApp, type ServerPlugin } from '@ogygia/core/plugin';
+import { defineServer, type ServerPlugin } from '@ogygia/core/plugin';
 import config from 'virtual:ogygia-image/config';
 import sources from 'virtual:ogygia-image/sources';
 import { warn } from './messages.ts';
@@ -40,17 +40,8 @@ function message(path: string): string {
 	return `image|${path}`;
 }
 
-function refused(status: 403 | 404, app: ServerApp<unknown>): Response {
-	if (status === 404)
-		return new Response('Not Found', { status, headers: { 'cache-control': 'no-store' } });
-	return new Response('Forbidden', {
-		status,
-		headers: {
-			'cache-control': 'no-store',
-			'x-ogygia-deny': 'sig',
-			'x-ogygia-key': app.keyFingerprint()
-		}
-	});
+function not_found(): Response {
+	return new Response('Not Found', { status: 404, headers: { 'cache-control': 'no-store' } });
 }
 
 let said_no_encoder = false;
@@ -100,9 +91,9 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		const slash = rest.indexOf('/');
 		const sig = rest.slice(0, slash);
 		const path = rest.slice(slash + 1);
-		if (slash < 1 || !app.verify(message(path), sig)) return refused(403, app);
+		if (slash < 1 || !app.verify(message(path), sig)) return app.deny('sig');
 		const recipe = parse_recipe(path);
-		if (recipe === null || !ORIGINALS.has(recipe.tail)) return refused(404, app);
+		if (recipe === null || !ORIGINALS.has(recipe.tail)) return not_found();
 		if (event.url.search !== '')
 			return new Response(null, {
 				status: 308,
