@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import { building } from '$app/environment';
 import { defineServer, type ServerPlugin } from '@ogygia/core/plugin';
+import { cache } from '@ogygia/machine';
 import config from 'virtual:ogygia-image/config';
 import sources from 'virtual:ogygia-image/sources';
 import { warn } from './messages.ts';
@@ -59,6 +60,7 @@ function original_of(recipe: ParsedRecipe): string {
 }
 
 const noted = new Set<string>();
+const SIGNED_MAX = 10_000;
 
 function note_minted(url: string, path: string, minted: string): void {
 	if (noted.has(url)) return;
@@ -75,9 +77,14 @@ function note_minted(url: string, path: string, minted: string): void {
 const server: ServerPlugin<unknown> = defineServer<unknown>({
 	setup(app) {
 		const minted = (building && build_handoff()?.minted) || null;
+		const signed = cache<string, string>({ name: 'image URLs', max: SIGNED_MAX });
 		set_minter((recipe) => {
 			const path = recipe_path(recipe, source_tail(recipe.src, PREFIXES));
-			const url = `${BASE}${IMAGE_PREFIX}${app.sign(message(path))}/${path}`;
+			let url = signed.get(path);
+			if (url === undefined) {
+				url = `${BASE}${IMAGE_PREFIX}${app.sign(message(path))}/${path}`;
+				signed.set(path, url);
+			}
 			if (minted !== null) note_minted(url, path, minted);
 			return url;
 		});
