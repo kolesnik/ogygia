@@ -98,6 +98,25 @@ describe('markdown extensions', () => {
 		expect(calls).toBe(2);
 	});
 
+	it('a file the extension’s output reads, gone since the document was kept, compiles it again so the extension says so', async () => {
+		const image = path.join(tmp, 'cover.png');
+		fs.writeFileSync(image, 'png');
+		const reads: MarkdownExtension = {
+			name: 'reads',
+			cache_key: () => 'r',
+			finish: (code) => {
+				if (!fs.existsSync(image)) throw new Error('image_not_found: cover.png');
+				return { code, lines: [], dynamic: false, files: [image] };
+			}
+		};
+		hold_markdown_extensions([plugin(reads)]);
+		await compile('/app/src/content/ext/e.md', 'Hello.\n');
+		fs.rmSync(image);
+		await expect(compile('/app/src/content/ext/e.md', 'Hello.\n')).rejects.toThrow(
+			/image_not_found/
+		);
+	});
+
 	it('an offer content cannot read fails with a code, naming the plugin', () => {
 		expect(() => hold_markdown_extensions([plugin({ name: 'half' }, 'vite-plugin-half')])).toThrow(
 			/vite-plugin-half/
