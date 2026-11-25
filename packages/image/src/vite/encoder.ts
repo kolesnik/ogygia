@@ -373,6 +373,67 @@ function listed(root: string): 'none' | 'dev' | 'dependencies' {
 	return has('devDependencies') || has('optionalDependencies') ? 'dev' : 'none';
 }
 
+/** What the platform check reads: the platform an app's encoders name links or a maker on, and the
+ *  adapter's. */
+export interface PlatformInput {
+	platform: 'none' | 'cloudflare' | 'vercel';
+	adapter: 'cloudflare' | 'vercel' | 'auto' | 'other';
+}
+
+/** Whether a server build's adapter runs where its encoder's links and maker exist: go on, or fail
+ *  (on adapter-auto, saying to list the platform's adapter itself). */
+export const PLATFORM: Decisions<PlatformInput, 'ok' | 'wrong' | 'auto'> = decisions({
+	name: 'image encoder platform',
+	inputs: {
+		platform: ['none', 'cloudflare', 'vercel'],
+		adapter: ['cloudflare', 'vercel', 'auto', 'other']
+	},
+	decide: (i: PlatformInput): 'ok' | 'wrong' | 'auto' => {
+		if (i.platform === 'none' || i.platform === i.adapter) return 'ok';
+		return i.adapter === 'auto' ? 'auto' : 'wrong';
+	}
+});
+
+const ADAPTER_KIND_RE = /^@sveltejs\/adapter-(cloudflare|vercel|auto)$/;
+
+/** The images `vercel()` hands an app whose originals sit under `originals`. */
+export function vercel_images(
+	encoder: Encoder & { readonly images: VercelImages },
+	originals: string
+): VercelImages {
+	return { ...encoder.images, localPatterns: [originals_pattern(originals)] };
+}
+
+/** Check a server build's `adapter` against the platform `encoders` name: `cloudflare()` fails
+ *  `image_option_invalid` and `vercel()` `image_vercel_config` on any other adapter. */
+export function check_platform(
+	encoders: readonly Encoder[],
+	adapter: string | null,
+	originals: string
+): void {
+	const e = encoders.find((x) => x.name !== 'sharp');
+	const kind = (adapter !== null && ADAPTER_KIND_RE.exec(adapter)?.[1]) || 'other';
+	const plan = PLATFORM.decide({
+		platform: e?.name === 'cloudflare' || e?.name === 'vercel' ? e.name : 'none',
+		adapter: kind as PlatformInput['adapter']
+	});
+	if (plan === 'ok' || e === undefined) return;
+	const own = `@sveltejs/adapter-${e.name}`;
+	const is = `this app's adapter is ${adapter ?? 'none'}${plan === 'auto' ? `, which picks a platform but cannot be handed its config: install and list ${own} itself` : ''}`;
+	if (e.name === 'cloudflare')
+		throw new OgygiaError('image_option_invalid', {
+			where: 'image()',
+			key: 'encoder',
+			rule: `cloudflare() on ${own}: its links and Images binding exist only on Cloudflare (${is})`
+		});
+	const images = vercel_images(e as Encoder & { readonly images: VercelImages }, originals);
+	throw new OgygiaError('image_vercel_config', {
+		missing: `adapter-vercel (${is})`,
+		have: 'no /_vercel/image',
+		line: `adapter({ images: ${JSON.stringify(images)} })`
+	});
+}
+
 let said_edge = false;
 
 /** Check the app's sharp for `runtime` and the endpoint's `maker`: throws `image_sharp_missing`, or

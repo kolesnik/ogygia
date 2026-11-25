@@ -35,6 +35,7 @@ import { UNPUBLISHED_RE, type BuildHandoff } from '../handoff.ts';
 import { handoff_for, write_built, type WarmSource } from './build-files.ts';
 import {
 	check_encoder,
+	check_platform,
 	encoder_runtime,
 	encoders_of,
 	maker_module,
@@ -118,6 +119,10 @@ function kit_paths(define: Record<string, unknown> | undefined): AppPaths | null
 	};
 }
 
+function originals_of(paths: AppPaths | null): string {
+	return `${paths?.base ?? ''}/${paths?.app_dir ?? '_app'}/immutable/assets/`;
+}
+
 /** The descriptor module of one source: its original imported as an asset, its plan as data. */
 function descriptor_module(file: string, plan: Omit<ImageDescriptor, 'src' | 'alt'>): string {
 	const data = JSON.stringify(plan).slice(1, -1);
@@ -165,6 +170,8 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			const adapter = typeof named === 'string' ? (JSON.parse(named) as string) : null;
 			const runtime = encoder_runtime(c.command, !!c.build.ssr, preview, adapter);
 			if (runtime !== null) check_encoder(c.root, runtime, adapter, maker_of(encoders));
+			if (c.command === 'build' && c.build.ssr)
+				check_platform(encoders, adapter, originals_of(paths));
 			handoff = await handoff_for(build(), c.root);
 		},
 		async buildStart() {
@@ -239,7 +246,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const checked = vercel_config_check(encoders, () => ({
 		formats: asked,
 		assets: paths?.assets ?? '',
-		originals: `${paths?.base ?? ''}/${paths?.app_dir ?? '_app'}/immutable/assets/`
+		originals: originals_of(paths)
 	}));
 	return [ogygia, loader, checked];
 }

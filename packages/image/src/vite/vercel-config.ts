@@ -14,7 +14,7 @@ import path from 'node:path';
 import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
 import type { OutputFormat } from '../config.ts';
 import { OgygiaError } from '../messages.ts';
-import { originals_pattern, type Encoder, type VercelImages } from './encoder.ts';
+import { vercel_images, type Encoder, type VercelImages } from './encoder.ts';
 
 /** What the build names that Vercel must allow. */
 export interface VercelWant {
@@ -113,20 +113,12 @@ export function vercel_config_check(
 			sequential: true,
 			handler() {
 				if (!encoder || !config?.build.ssr) return;
-				const named = config.define?.__SVELTEKIT_ADAPTER_NAME__;
-				const adapter = typeof named === 'string' ? (JSON.parse(named) as string) : null;
 				const file = path.resolve(OUTPUT_CONFIG);
 				const asked = want();
-				const right = { ...encoder.images, localPatterns: [originals_pattern(asked.originals)] };
-				const line = `adapter({ images: ${JSON.stringify(right)} })`;
+				const line = `adapter({ images: ${JSON.stringify(vercel_images(encoder, asked.originals))} })`;
 				const fail = (missing: string[], have: string): never => {
 					throw new OgygiaError('image_vercel_config', { missing: missing.join(', '), have, line });
 				};
-				if (adapter !== '@sveltejs/adapter-vercel')
-					fail(
-						[`adapter-vercel (this app's adapter is ${adapter ?? 'none'})`],
-						'no /_vercel/image'
-					);
 				if (!fs.existsSync(file) || fs.statSync(file).mtimeMs < started)
 					fail([`${OUTPUT_CONFIG} written by this build`], 'no output config');
 				const images = (JSON.parse(fs.readFileSync(file, 'utf8')) as { images?: unknown }).images;
