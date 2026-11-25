@@ -304,6 +304,7 @@ The plugin's options:
 | `placeholder` | `true`                                   | Make the blur placeholder.                                                                                                                                              |
 | `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.                                                                                     |
 | `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `{ animated }` names the preset a moving image takes; `false` turns them off. |
+| `encoder`     | `sharp()`                                | Who makes the files: `sharp()` from `@ogygia/image/vite`, or a list of encoders, each at most once. sharp is the only one for now.                                      |
 
 A source's own options, in the macro's second argument, belong to the file whatever page shows it:
 
