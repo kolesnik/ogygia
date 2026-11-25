@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { test, expect } from '@ogygia/tooling/e2e';
+import { server_log } from '@ogygia/tooling/e2e/server-log.ts';
 import { marked_files } from './marks.ts';
 
 const MODE = process.env.IMAGE_E2E_MODE ?? 'node';
@@ -476,6 +477,12 @@ test.describe('a build', () => {
 		);
 		expect(found.read).toBeGreaterThan(50);
 		expect(found.marked).toEqual([]);
+	});
+
+	test("of the docs' blog recipe keeps the collection on the server: no server-only warning, no post in a client bundle", () => {
+		const said = fs.readFileSync(server_log()!, 'utf8');
+		expect(said).toContain('built in');
+		expect(said).not.toMatch(/content_collection_not_server_only|content leaked into the CLIENT/);
 	});
 });
 
