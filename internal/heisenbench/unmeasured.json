@@ -7033,19 +7033,19 @@
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > request",
+			"id": "packages/image/src/server.ts > defineServer:0~1bc7b4 > request",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > setup",
+			"id": "packages/image/src/server.ts > defineServer:0~1bc7b4 > setup",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > setup > set_minter:0~d7e7fc",
+			"id": "packages/image/src/server.ts > start > set_minter:0~d7e7fc",
 			"reason": "the server realm's glue over the encoder's namer (constant: no link for sharp), app.sign (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path and built_url are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > setup > set_minter:0~51269c",
+			"id": "packages/image/src/server.ts > start > set_minter:0~51269c",
 			"reason": "prerender only: hands each recipe to prerendered (exempt below); test/server-prerender.test.ts runs it"
 		},
 		{
@@ -7289,10 +7289,6 @@
 			"reason": "config time, once per vite.config load: checks two options and filters the 27 needs; test/cloudflare.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/vite/encoder.ts > cloudflare > filter:0~c33079",
-			"reason": "config time: one lookup per need of a fixed 27-row list"
-		},
-		{
 			"id": "packages/image/src/vite/encoder.ts > namer_plan",
 			"reason": "build time, once per namer module: maps the encoders the app lists; test/cloudflare.test.ts runs it"
 		},
@@ -7415,14 +7411,6 @@
 		{
 			"id": "packages/image/src/namers/resolve.ts > namer",
 			"reason": "once per process: closes over the plan the plugin wrote"
-		},
-		{
-			"id": "packages/image/src/namers/resolve.ts > link_unmet",
-			"reason": "render, per file of a live page with a linking encoder: a scan of at most 31 needs, and for vercel() a find over its sizes and qualities; test/vercel.test.ts runs every branch"
-		},
-		{
-			"id": "packages/image/src/namers/resolve.ts > link_of",
-			"reason": "constant work: one link built from one recipe"
 		},
 		{
 			"id": "packages/image/src/encoders/vercel.ts > quality_of",
@@ -7849,8 +7837,120 @@
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > setup > set_minter:0~a4c2cd",
+			"id": "packages/image/src/server.ts > start > set_minter:0~a4c2cd",
 			"reason": "a page rendered after the build's end (an SPA fallback, which Kit renders without SSR): one existsSync per recipe; test/server-after-build.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > start",
+			"reason": "once per server start: picks one of three minters; test/server.test.ts, server-prerender.test.ts and server-after-build.test.ts run each"
+		},
+		{
+			"id": "packages/image/src/server.ts > defineServer:0~1bc7b4 > setup > load:0~0a0abd",
+			"reason": "dev and build only, once per server start: hands the loaded disk half to start; test/server-prerender.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > DiskHalf > load",
+			"reason": "dev and build only, once per server start: one dynamic import; test/server-no-top-level-await.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > DiskHalf > load > then:0~fbcb67",
+			"reason": "dev and build only, once per server start: one assignment and one call"
+		},
+		{
+			"id": "packages/image/src/server.ts > DiskHalf > ready",
+			"reason": "constant work per request: one null check, and in dev and the build an await of a settled promise"
+		},
+		{
+			"id": "packages/image/src/server.ts > DiskHalf > note_origin_of",
+			"reason": "prerender only, once: one assignment"
+		},
+		{
+			"id": "packages/image/src/server.ts > DiskHalf > note_origin",
+			"reason": "constant work per request: one null check; in a prerender, once, one appended line; test/server-prerender.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/encoders/cloudflare.ts > CLOUDFLARE_LINKS > link",
+			"reason": "constant work: calls cloudflare_link, one link built from one recipe"
+		},
+		{
+			"id": "packages/image/src/encoders/cloudflare.ts > CLOUDFLARE_LINKS > unmet",
+			"reason": "constant: no limits past the capability table"
+		},
+		{
+			"id": "packages/image/src/encoders/vercel.ts > VERCEL_LINKS > link",
+			"reason": "constant work: calls vercel_link, one find over the sizes"
+		},
+		{
+			"id": "packages/image/src/encoders/vercel.ts > VERCEL_LINKS > unmet",
+			"reason": "render, per file of a live page on vercel(): one find over its sizes and one over its qualities; test/vercel.test.ts runs every branch"
+		},
+		{
+			"id": "packages/image/src/namers/resolve.ts > code_of",
+			"reason": "constant work: one property read"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > check_platform",
+			"reason": "config time, once per server build: one table lookup; test/plugin.test.ts runs every row's answer"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > check_platform > find:0~9a8f5e",
+			"reason": "config time: one find over the encoders the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > originals_pattern",
+			"reason": "config time: one regex escape of one path"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > vercel_images",
+			"reason": "config time: one object spread"
+		},
+		{
+			"id": "packages/image/src/vite/index.ts > originals_of",
+			"reason": "config time: one template string"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > check_qualities",
+			"reason": "config time, once per vite.config load: one includes per preset; test/vercel.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > list_rule",
+			"reason": "config time, once per vite.config load: a few passes over a list of at most three encoders; test/options.test.ts runs every refusal"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > list_rule > filter:0~2f857f",
+			"reason": "config time: one pass over at most three encoders"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > list_rule > filter:0~65061e",
+			"reason": "config time: one pass over at most three encoders"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > list_rule > findIndex:0~1b2274",
+			"reason": "config time: one pass over at most three encoders"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > list_rule > map:0~3a5b35",
+			"reason": "config time, on a refusal only: one name per encoder"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > list_rule > map:0~91a448",
+			"reason": "config time, on a refusal only: one name per encoder"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > local_missing",
+			"reason": "once per vercel() server build, after the adapter: two or three regex tests per localPatterns entry; test/vercel.test.ts runs every branch"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > local_missing > some:0~1c71a3",
+			"reason": "once per build: one pass over the adapter's localPatterns"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > local_missing > some:0~67f7d3",
+			"reason": "once per build: one pass over the adapter's localPatterns"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > matches",
+			"reason": "once per build: one regex test"
 		},
 		{
 			"id": "packages/image/src/store.ts > FileStore > static shared",
