@@ -98,14 +98,6 @@ function render_config(
 	};
 }
 
-function formats_asked(opts: ImagePluginOptions): OutputFormat[] {
-	const all = [
-		...(opts.formats ?? DEFAULT_FORMATS),
-		...Object.values(opts.presets ?? {}).flatMap((p) => p.formats ?? [])
-	];
-	return [...new Set(all)];
-}
-
 /** Kit's paths, from the values its Vite plugin defines (JSON strings), or null without Kit. */
 function kit_paths(define: Record<string, unknown> | undefined): AppPaths | null {
 	const read = (key: string): string | null => {
@@ -233,8 +225,12 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	};
 
 	if (!encoders.some((e) => e.name === 'vercel')) return [ogygia, loader];
+	const asked: OutputFormat[] = [
+		...(opts.formats ?? DEFAULT_FORMATS),
+		...Object.values(opts.presets ?? {}).flatMap((p) => p.formats ?? [])
+	];
 	const checked = vercel_config_check(encoders, () => ({
-		formats: formats_asked(opts),
+		formats: asked,
 		assets: paths?.assets ?? ''
 	}));
 	return [ogygia, loader, checked];
