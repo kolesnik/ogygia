@@ -229,7 +229,7 @@ A feed is a prerendered `+server.ts`. Awaiting a post's `body` renders it, and i
 
 ```ts title=src/routes/feed.xml/+server.ts
 import { layOut } from '@ogygia/image';
-import { blog } from '$lib/blog';
+import { blog } from '$lib/blog.server';
 
 export const prerender = true;
 
@@ -350,9 +350,9 @@ To turn markdown images off, pass `image({ markdown: false })`. Markdown images 
 
 A frontmatter value that starts with `./` or `../` and ends in an image extension becomes a descriptor at build, wherever it sits (a nested object or a list works too). Other strings stay strings: `images/share.png` or `diagram.png` are left alone. A missing file fails the build.
 
-In the collection's schema, accept the descriptor with `isImage`, a check that a value is a descriptor:
+In the collection's schema, accept the descriptor with `isImage`, a check that a value is a descriptor. Define the collection in a `.server.ts` file, like every collection ([Collections](/docs/content/collections)), so its posts never reach a browser bundle:
 
-```ts title=src/lib/blog.ts
+```ts title=src/lib/blog.server.ts
 import { content, markdown } from '@ogygia/content';
 import { isImage, type ImageDescriptor } from '@ogygia/image';
 import * as v from 'valibot';
@@ -370,18 +370,47 @@ export const blog = content({
 
 With zod, it is `z.custom<ImageDescriptor>(isImage)`. A value that is still a string (a path without `./` or `../`) fails the check.
 
+Load the post in `+page.server.ts`. A descriptor is plain data, and an awaited body is baked HTML, so both cross to the page:
+
+```ts title=src/routes/blog/[slug]/+page.server.ts
+import { error } from '@sveltejs/kit';
+import { blog } from '$lib/blog.server';
+
+export async function load({ params }) {
+  const post = await blog.get(params.slug);
+  if (!post) error(404, 'Not found');
+  return { ...post.data, body: await post.body };
+}
+```
+
 Then render it like any other image:
 
 ```svelte title=src/routes/blog/[slug]/+page.svelte
+<script lang="ts">
+  import { Region } from 'ogygia';
+  import { Img } from '@ogygia/image';
+  let { data } = $props();
+</script>
+
 <Img of={data.cover} preset="cover" alt={data.title} />
+<Region of={data.body} />
 ```
+
+The images in the body survive the baking: they are the server's `<Img>` markup, files and all.
 
 ### Images named in JSON
 
-Only markdown frontmatter turns a path into a descriptor. A JSON data collection (`import.meta.og.loader.json`, a CMS) keeps its strings as they are, so `"cover": "acme.png"` stays a string. Read the folder of covers once with a glob, and look each one up by its name:
+Only markdown frontmatter turns a path into a descriptor. A JSON data collection (`import.meta.og.loader.json`, a CMS) keeps its strings as they are, so `"cover": "acme.png"` stays a string. Read the folder of covers once with a glob, beside the collection, and look each one up by its name:
 
-```ts title=src/lib/covers.ts
+```ts title=src/lib/work.server.ts
+import { content } from '@ogygia/content';
 import type { ImageDescriptor } from '@ogygia/image';
+import * as v from 'valibot';
+
+export const work = content({
+  loader: import.meta.og.loader.json('../content/work'),
+  schema: v.object({ title: v.string(), cover: v.string() })
+});
 
 const covers = import.meta.og.image.glob('../content/work/*.{png,jpg}');
 
@@ -393,11 +422,53 @@ export function cover(name: string): ImageDescriptor {
 }
 ```
 
-```svelte title=src/routes/work/+page.svelte
-<Img of={cover(entry.data.cover)} preset="thumb" alt={entry.data.title} />
+Look the cover up in the server load. The descriptor is plain data, so it crosses to the page:
+
+```ts title=src/routes/work/+page.server.ts
+import { cover, work } from '$lib/work.server';
+
+export async function load() {
+  const refs = await work.refs();
+  return { items: refs.map((r) => ({ id: r.id, ...r.data, cover: cover(r.data.cover) })) };
+}
 ```
 
-The glob's keys are the paths as the pattern writes them, relative to the file. Every file it matches is a source (and published, like any image under `src/`), whether an entry names it or not. In the collection's schema the field stays `v.string()`: the lookup turns it into a descriptor where the page renders.
+```svelte title=src/routes/work/+page.svelte
+{#each data.items as item (item.id)}
+  <Img of={item.cover} preset="thumb" alt={item.title} />
+{/each}
+```
+
+The glob's keys are the paths as the pattern writes them, relative to the file. Every file it matches is a source (and published, like any image under `src/`), whether an entry names it or not. In the collection's schema the field stays `v.string()`: the lookup turns it into a descriptor in the load.
+
+#### A path relative to the entry's own folder
+
+When each entry sits in its own folder with its image (`src/content/talks/<kind>/<talk>/+detail.json` next to `image.png`, written `"cover": "./image.png"`, as Astro's `image()` reads it), give each entry its folder as its id and join the path to it:
+
+```ts title=src/lib/talks.server.ts
+import { content, json } from '@ogygia/content';
+import type { ImageDescriptor } from '@ogygia/image';
+import * as v from 'valibot';
+
+export const talks = content({
+  loader: json(import.meta.glob('../content/talks/*/*/+detail.json', { eager: true }), {
+    id: (key) => key.split('/').slice(-3, -1).join('/')
+  }),
+  schema: v.object({ title: v.string(), cover: v.string() })
+});
+
+const images = import.meta.og.image.glob('../content/talks/*/*/*.{png,jpg}');
+
+/** The image the entry `id` names by a path relative to its own folder (`./image.png`, `../x.png`). */
+export function beside(id: string, rel: string): ImageDescriptor {
+  const key = `..${decodeURIComponent(new URL(rel, `file:///content/talks/${id}/`).pathname)}`;
+  const found = images[key];
+  if (!found) throw new Error(`src/content/talks/${id}/ has no image ${rel}`);
+  return found;
+}
+```
+
+`talks/talk/00-intro` names `"./image.png"`, which is the glob's key `../content/talks/talk/00-intro/image.png`. The load maps each entry as above, with `cover: beside(r.id, r.data.cover)`. A `../` path that leaves the entry folders needs a wider glob (`../content/talks/**/*.{png,jpg}`).
 
 ## Outside `<Img>`
 
@@ -426,7 +497,8 @@ An `<Img>` inside an island keeps the server's file URLs when it hydrates. A ren
 | `layout="full-width"` / `"constrained"` / `"fixed"` | `layout="fullWidth"` / `"constrained"` / `"fixed"`                 |
 | `loading="eager"` + `fetchpriority="high"`          | `priority`                                                         |
 | `getImage({ src })`                                 | `layOut(descriptor, { … })`                                        |
-| `image()` in a content schema                       | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path    |
+| `image()` in a markdown collection's schema         | `v.custom<ImageDescriptor>(isImage)`, with a `./` or `../` path    |
+| `image()` in a JSON collection's schema             | a `v.string()` field, looked up in an `import.meta.og.image.glob()` ([Images named in JSON](#images-named-in-json)) |
 | `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                             |
 | `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed        |
 | images encoded at build, content-hashed names       | a prerendered site's files made at build, named by their recipe    |
@@ -439,4 +511,5 @@ A few differences to know when you move a site:
 - **Animated GIFs** become animated WebP, never AVIF. There is no option to turn them off.
 - **Remote images** are not supported yet: a URL in the macro fails the build (`image_remote_unsupported`). Markdown leaves remote images as plain `<img>`.
 - **`<Img>` takes a fixed set of attributes** (listed above). A `data-*` or `aria-*` attribute is not passed through.
-- **MDX components** are not part of `@ogygia/content`'s markdown. Rename `.mdx` posts to `.md` (or `.svx`, which takes Svelte components).
+- **MDX components** are not part of `@ogygia/content`'s markdown. Rename `.mdx` posts to `.md` (or `.svx`, which takes Svelte components). Delete each post's image wiring (`import BlogImage from …` and `export const components = { img: BlogImage }`): `![]()` images render through `<Img>` on their own. Any other MDX component (a `<Tweet id="…">`) needs a Svelte component in a `.svx` post, or a plain link.
+- **Collections live in `.server.ts` files** and pages load them in `+page.server.ts`, not a universal `+page.ts` (which cannot import a server module). An awaited body and a descriptor cross to the page.
