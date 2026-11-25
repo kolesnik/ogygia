@@ -56,6 +56,7 @@ const IMAGES = {
 	}
 };
 
+const { STEPS_VERSION } = await import('../src/encoders/cloudflare.ts');
 const { default: server } = await import('../src/server.ts');
 const { mint } = await import('../src/recipe.ts');
 const { ctx } = startPlugin(server, { name: '@ogygia/image' });
@@ -101,7 +102,7 @@ test('a file is made by the binding in steps, kept in the Worker cache, and read
 		]
 	]);
 	expect([...cache.kept.keys()]).toEqual([
-		`https://ogygia-image.invalid/${io.id}-40x20-ptop-oeyJmbG9wIjp0cnVlfQ.webp`
+		`https://ogygia-image.invalid/v${STEPS_VERSION}/${io.id}-40x20-ptop-oeyJmbG9wIjp0cnVlfQ.webp`
 	]);
 	const again = await get(url, { env: {} });
 	expect(again.status).toBe(200);

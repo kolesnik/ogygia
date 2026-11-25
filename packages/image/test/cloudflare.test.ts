@@ -1,5 +1,6 @@
 // cloudflare(): what it can make (the capability table), how it names a file (an Image
 // Transformations link) and how its binding maker makes one, and the render's resolution over both.
+import crypto from 'node:crypto';
 import sharp, { type Sharp } from 'sharp';
 import { expect, test } from 'vitest';
 import { check, dead_fields, table } from '@ogygia/machine/testing';
@@ -7,6 +8,7 @@ import { CAPABILITIES, cannot } from '../src/encoders/capabilities.ts';
 import {
 	cloudflare_link,
 	cloudflare_steps,
+	STEPS_VERSION,
 	type CloudflareSteps
 } from '../src/encoders/cloudflare.ts';
 import { NEEDS, needs_of } from '../src/encoders/needs.ts';
@@ -112,6 +114,26 @@ test("the binding makes the same recipe in steps, in sharp's order: mirror, turn
 		],
 		output: { format: 'image/avif', quality: 60 }
 	});
+});
+
+const STEPS_SEEN: Readonly<Record<number, string>> = {
+	1: 'Z8r-8rj-IvGXF8prEjKkqZMiRU8swCF8Q95YXL_Bt9A'
+};
+
+test("a change to the binding's steps bumps STEPS_VERSION, so the Worker cache never answers with files made the old way", () => {
+	const recipes = [
+		at({}),
+		at({ format: 'png', position: 'top' }),
+		at({ format: 'webp', quality: 70, position: 'attention' }),
+		at({ ops: { rotate: 90, flip: true, flop: true, grayscale: true, blur: 3, sharpen: true } }),
+		at({ ops: { modulate: { brightness: 1.2, saturation: 0.5 } } })
+	];
+	const print = crypto
+		.createHash('sha256')
+		.update(JSON.stringify(recipes.map(cloudflare_steps)))
+		.digest('base64url');
+	expect(STEPS_SEEN[STEPS_VERSION]).toBe(print);
+	expect(new Set(Object.values(STEPS_SEEN)).size).toBe(Object.keys(STEPS_SEEN).length);
 });
 
 async function by_steps(src: Buffer, steps: CloudflareSteps): Promise<Buffer> {
