@@ -160,7 +160,9 @@ describe('lay_out agrees with the endpoint', () => {
 		['a fractional fixed box', { layout: 'fixed' as const, width: 47.5, height: 31.2 }],
 		['a fractional height alone', { height: 200.7 }],
 		['a fractional aspect', { width: 300, aspect: 1.3333 }],
-		['a width under one pixel', { width: 0.4 }]
+		['a width under one pixel', { width: 0.4 }],
+		['a very tall aspect the source can still fill', { aspect: '1/1500' }],
+		['a height far past the source, with no width', { height: 200_000 }]
 	])('%s asks only for files the endpoint makes, at whole sizes', (_, req) => {
 		asked.length = 0;
 		const laid = lay_out(image(), req, CFG, real);
@@ -178,8 +180,25 @@ describe('lay_out agrees with the endpoint', () => {
 		['a zero aspect', { aspect: 0 }],
 		['an aspect that does not read', { aspect: 'wide' }],
 		['a quality that is not whole', { quality: 72.5 }],
-		['a quality above 100', { quality: 101 }]
+		['a quality above 100', { quality: 101 }],
+		['an aspect taller than the source can fill', { aspect: '1/100000' }],
+		['a box taller than the source can fill', { width: 400, height: 2_000_000 }],
+		[
+			'a fixed box taller than the source can fill',
+			{ layout: 'fixed' as const, width: 48, height: 200_000 }
+		],
+		['a crop position that is not one', { aspect: '1/1', position: 'north' as never }],
+		['a position that is not one, with no crop', { position: 'north' as never }]
 	])('%s is refused with a code, naming the prop', (_, req) => {
 		expect(() => lay_out(image(), req, CFG, real)).toThrow(/image_prop_invalid/);
+	});
+
+	test('a source wider than any file the endpoint makes, laid out at its own width, is refused with a code', () => {
+		expect(() => lay_out(image({ width: 150_000, height: 10 }), {}, CFG, real)).toThrow(
+			/image_prop_invalid/
+		);
+		asked.length = 0;
+		lay_out(image({ width: 150_000, height: 10 }), { width: 2000 }, CFG, real);
+		for (const path of asked) expect(parse_recipe(path), path).not.toBeNull();
 	});
 });
