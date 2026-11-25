@@ -187,6 +187,21 @@ describe('the image server realm', () => {
 		expect(await get('/blog/first-post')).toBeUndefined();
 		expect(await get('/__ogygia__')).toBeUndefined();
 	});
+
+	test('a signed URL asked with any method but GET or HEAD is answered 405', async () => {
+		const url = mint({ ...HARBOR, id: ids.harbor, width: 77, height: 51, format: 'webp' }, false)!;
+		for (const method of ['POST', 'PUT', 'DELETE']) {
+			const res = (await server.request!(
+				ctx(new Request(new URL(url, 'http://localhost'), { method }))
+			))!;
+			expect(res.status, method).toBe(405);
+			expect(res.headers.get('allow')).toBe('GET, HEAD');
+		}
+		const head = (await server.request!(
+			ctx(new Request(new URL(url, 'http://localhost'), { method: 'HEAD' }))
+		))!;
+		expect(head.status).toBe(200);
+	});
 });
 
 describe('the store a live server keeps', () => {
@@ -229,6 +244,34 @@ describe('the store a live server keeps', () => {
 		await s.keep('new', new Uint8Array(600));
 		await expect.poll(() => fs.existsSync(s.file('old'))).toBe(false);
 		expect(await s.find('new')).not.toBeNull();
+	});
+
+	test('a file made long ago but asked for since is kept at the next start: files age by last use', async () => {
+		const { FileStore } = await import('../src/store.ts');
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-age-'));
+		const s = new FileStore(dir);
+		await s.keep('used', new Uint8Array(10));
+		await s.keep('unused', new Uint8Array(10));
+		const long_ago = new Date(Date.now() - 40 * 24 * 3600 * 1000);
+		fs.utimesSync(s.file('used'), long_ago, long_ago);
+		fs.utimesSync(s.file('unused'), long_ago, long_ago);
+		expect(await s.find('used')).not.toBeNull();
+		await expect
+			.poll(() => Date.now() - fs.statSync(s.file('used')).mtimeMs < 24 * 3600 * 1000)
+			.toBe(true);
+		await new FileStore(dir).load();
+		expect(fs.existsSync(s.file('used'))).toBe(true);
+		expect(fs.existsSync(s.file('unused'))).toBe(false);
+	});
+
+	test("every user of one folder in a process shares one store, so its size holds for a dev server's whole run", async () => {
+		const { FileStore, shared_store } = await import('../src/store.ts');
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-shared-'));
+		await new FileStore(dir, 10_000).keep('old', new Uint8Array(600));
+		const s = await shared_store(dir, 1000);
+		expect(await shared_store(dir, 1000)).toBe(s);
+		await s.keep('new', new Uint8Array(600));
+		await expect.poll(() => fs.existsSync(s.file('old'))).toBe(false);
 	});
 
 	test('a folder at that place that others can write to, or a link, keeps nothing, and says so', async () => {

@@ -86,6 +86,25 @@ test('a page that changed a marked URL before writing it (escaped it) fails the 
 	});
 });
 
+test('a file the build cannot make fails it with a code that names the source file, not only the made name', async () => {
+	delete process.env.__OGYGIA_IMAGE_BUILD;
+	const handoff = handoff_for(true);
+	const out = output('<p>no images</p>');
+	const broken = path.join(out, 'client', '_app', 'immutable', 'assets', 'broken.Cd34.jpg');
+	fs.writeFileSync(broken, 'not a jpeg');
+	note_built(handoff.minted, `${id_of(broken)}-64x43/_app/immutable/assets/broken.Cd34.jpg.webp`);
+	await expect(write_built(handoff, CFG, [], out)).rejects.toMatchObject({
+		code: 'image_unsettled',
+		message: expect.stringContaining('_app/immutable/assets/broken.Cd34.jpg')
+	});
+	delete process.env.__OGYGIA_IMAGE_BUILD;
+	const warmed = handoff_for(true);
+	const desc = { id: id_of(broken), width: 2400, height: 1600, format: 'jpeg' as const };
+	await expect(
+		write_built(warmed, CFG, [{ file: broken, desc, presets: ['thumb'] }], output(''))
+	).rejects.toMatchObject({ message: expect.stringContaining(broken) });
+});
+
 /** A prerendered page holding `page(marked)`, `marked` the marked URL of a 64 × 43 file of the
  *  test's source, after the build's end, with `origin` noted as Kit's prerender origin. */
 async function written(page: (marked: string) => string, origin?: string): Promise<string> {
