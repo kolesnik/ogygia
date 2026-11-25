@@ -54,7 +54,7 @@ export type {
 	ImagePreset,
 	OutputFormat
 } from './options.ts';
-export { sharp, type Encoder } from './encoder.ts';
+export { cloudflare, sharp, type CloudflareOptions, type Encoder } from './encoder.ts';
 
 const QUERY_RE = new RegExp(`[?&]${QUERY}(?:=|&|$)`);
 const CONFIG_ID = 'virtual:ogygia-image/config';
@@ -152,8 +152,8 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			return null;
 		},
 		async load(id) {
-			if (id === `\0${MAKER_ID}`) return maker_module(encoders);
-			if (id === `\0${NAMER_ID}`) return namer_module();
+			if (id === `\0${MAKER_ID}`) return maker_module(encoders, !build());
+			if (id === `\0${NAMER_ID}`) return namer_module(encoders, !build());
 			if (id === `\0${CONFIG_ID}`) {
 				if (!paths) throw new OgygiaError('image_no_kit');
 				return `export default ${JSON.stringify(render_config(opts, paths, build()))};\n`;

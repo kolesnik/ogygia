@@ -32,6 +32,20 @@ export const IMAGE_RENDER_ERRORS = {
 			and changed there): both go into the image's \`style\` attribute.
 		`
 	},
+	image_encoder_cannot: {
+		text: (a: { encoder: string; need: string }): string => prose`
+			<Img> asked for a file ${a.encoder} cannot make on a page rendered on request: ${a.need}.
+		`,
+		details: (): string => prose`
+			A file a page asks for on request is made by the app's encoder (\`image({ encoder })\`),
+			and not every encoder can make every crop and operation: Cloudflare has no \`entropy\`
+			crop, no turn other than a quarter, and no \`normalize\`, \`negate\`, \`tint\`, \`gamma\`, or
+			\`modulate\` hue or lightness. A prerendered page is not affected: the build makes its
+			files with sharp. Pick a position or operation the encoder can make, prerender the page,
+			or warm the preset (\`import.meta.og.image(src, { warm: 'cover' })\`) so the build makes
+			those files. The docs list what each encoder can make.
+		`
+	},
 	image_no_server: {
 		text: (): string => prose`
 			<Img> rendered on the server, but the image plugin's server half is not running, so no file

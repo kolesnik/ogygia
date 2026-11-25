@@ -19,19 +19,25 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dedent } from '@ogygia/core/contract';
 import { decisions, type Decisions } from '@ogygia/machine';
+import { cannot } from '../encoders/capabilities.ts';
+import { NEEDS, type Need } from '../encoders/needs.ts';
 import { OgygiaError, warn } from '../messages.ts';
+import type { NamerPlan } from '../namers/resolve.ts';
 
 /** Who makes an app's image files, and what URL names each: plain data from a factory
- *  (`sharp()`), for `image({ encoder })`. */
+ *  (`sharp()`, `cloudflare()`), for `image({ encoder })`. */
 export interface Encoder {
 	/** Which encoder it is. */
-	readonly name: 'sharp';
+	readonly name: 'sharp' | 'cloudflare';
 	/** What its own links can make without the app's endpoint, or null: every live file goes
 	 *  through the endpoint. */
-	readonly links: null;
+	readonly links: readonly Need[] | null;
 	/** What makes its files at the app's endpoint, or null: nothing in that runtime. */
-	readonly maker: 'sharp' | null;
+	readonly maker: 'sharp' | 'binding' | null;
+	/** The Cloudflare Images binding its maker makes files with, or null. */
+	readonly binding: string | null;
 	/** Whether a CDN picks each file's format from the browser's `Accept` (one URL per width). */
 	readonly negotiates: boolean;
 	/** The widths it makes: any, or only these. */
@@ -41,7 +47,63 @@ export interface Encoder {
 /** sharp (the default): the app's own endpoint makes every live file, in dev and on a Node server,
  *  and the build every file a prerendered page names. */
 export function sharp(): Encoder {
-	return { name: 'sharp', links: null, maker: 'sharp', negotiates: false, widths: 'any' };
+	return {
+		name: 'sharp',
+		links: null,
+		maker: 'sharp',
+		binding: null,
+		negotiates: false,
+		widths: 'any'
+	};
+}
+
+/** What `cloudflare()` takes. */
+export interface CloudflareOptions {
+	/** Name each file a page rendered on request shows as an Image Transformations link,
+	 *  `/cdn-cgi/image/<options>/<original>`, made by Cloudflare's CDN (transformations must be on
+	 *  for the zone). Default `true`. `false`: the app's endpoint makes each with the Images
+	 *  binding. */
+	links?: boolean;
+	/** The Images binding the endpoint makes files with: the name the Worker's wrangler config
+	 *  gives it (`"images": { "binding": "IMAGES" }`). Default `'IMAGES'`. */
+	binding?: string;
+}
+
+const CLOUDFLARE_KEYS: ReadonlySet<string> = new Set(['links', 'binding']);
+const BINDING_RE = /^[A-Za-z_$][\w$]*$/;
+
+/** Cloudflare, for an app on Workers (adapter-cloudflare): a page rendered on request names its
+ *  files as Image Transformations links, and what links cannot name (or every file, with
+ *  `links: false`) the app's endpoint makes with the Worker's Images binding, kept in the Worker's
+ *  cache. A prerendered page's files are made by the build, with sharp, as with any encoder. */
+export function cloudflare(options: CloudflareOptions = {}): Encoder {
+	const where = 'cloudflare()';
+	if (options === null || typeof options !== 'object' || Array.isArray(options))
+		throw new OgygiaError('image_option_invalid', { where, key: 'options', rule: 'an object' });
+	for (const key of Object.keys(options))
+		if (!CLOUDFLARE_KEYS.has(key))
+			throw new OgygiaError('image_option_unknown', {
+				where,
+				key,
+				known: [...CLOUDFLARE_KEYS].join(', ')
+			});
+	const { links = true, binding = 'IMAGES' } = options;
+	if (typeof links !== 'boolean')
+		throw new OgygiaError('image_option_invalid', { where, key: 'links', rule: 'a boolean' });
+	if (typeof binding !== 'string' || !BINDING_RE.test(binding))
+		throw new OgygiaError('image_option_invalid', {
+			where,
+			key: 'binding',
+			rule: 'the name of a binding (letters, digits, _ and $, not starting with a digit)'
+		});
+	return {
+		name: 'cloudflare',
+		links: links ? NEEDS.filter((n) => !cannot('cloudflare').includes(n)) : null,
+		maker: 'binding',
+		binding,
+		negotiates: false,
+		widths: 'any'
+	};
 }
 
 const SHARP: Encoder = sharp();
@@ -52,30 +114,69 @@ export function encoders_of(encoder: Encoder | readonly Encoder[] | undefined): 
 	return Array.isArray(encoder) ? encoder : [encoder as Encoder];
 }
 
+/** The encoder whose maker makes files at the endpoint: the first that has one, or none. */
+function endpoint_of(encoders: readonly Encoder[]): Encoder | undefined {
+	return encoders.find((e) => e.maker !== null);
+}
+
 /** The maker of `encoders`: the first that has one, or null. */
 export function maker_of(encoders: readonly Encoder[]): Encoder['maker'] {
-	return encoders.find((e) => e.maker !== null)?.maker ?? null;
+	return endpoint_of(encoders)?.maker ?? null;
 }
 
 function file_of(url: string): string {
 	return fileURLToPath(url).split(path.sep).join('/');
 }
 
-const MAKERS: Readonly<Record<NonNullable<Encoder['maker']> | 'none', string>> = {
+const MAKERS: Readonly<Record<'sharp' | 'binding' | 'none', string>> = {
 	sharp: file_of(import.meta.resolve('../makers/sharp.ts')),
+	binding: file_of(import.meta.resolve('../makers/binding.ts')),
 	none: file_of(import.meta.resolve('../makers/none.ts'))
 };
 const ENDPOINT_NAMER: string = file_of(import.meta.resolve('../namers/endpoint.ts'));
+const RESOLVE_NAMER: string = file_of(import.meta.resolve('../namers/resolve.ts'));
 
-/** The source of `virtual:ogygia-image/maker` for `encoders`. */
-export function maker_module(encoders: readonly Encoder[]): string {
-	return `export * from ${JSON.stringify(MAKERS[maker_of(encoders) ?? 'none'])};\n`;
+/** The source of `virtual:ogygia-image/maker` for `encoders`. The dev server makes every file with
+ *  sharp: no Worker binding runs there. */
+export function maker_module(encoders: readonly Encoder[], dev: boolean): string {
+	const e = endpoint_of(encoders);
+	if (dev || e?.maker !== 'binding')
+		return `export * from ${JSON.stringify(MAKERS[dev ? 'sharp' : (e?.maker ?? 'none')])};\n`;
+	return dedent`
+		import { binding_maker } from ${JSON.stringify(MAKERS.binding)};
+		const maker = binding_maker(${JSON.stringify(e.binding)});
+		export const parallel = maker.parallel;
+		export const make = maker.make;
+		export const store = maker.store;
+	`;
 }
 
-/** The source of `virtual:ogygia-image/namer` for `encoders`: no encoder has links yet, so every
- *  live file is the endpoint's. */
-export function namer_module(): string {
-	return `export * from ${JSON.stringify(ENDPOINT_NAMER)};\n`;
+/** How `encoders` name a recipe at render ({@link namer_module}). */
+export function namer_plan(encoders: readonly Encoder[], dev: boolean): NamerPlan {
+	const e = endpoint_of(encoders);
+	return {
+		encoders: encoders.map((x) => `${x.name}()`).join(', '),
+		links: encoders
+			.filter((x) => x.links !== null)
+			.map((x) => ({
+				kind: x.name as 'cloudflare',
+				cannot: NEEDS.filter((n) => !x.links!.includes(n))
+			})),
+		endpoint: e === undefined ? null : cannot(e.name),
+		dev
+	};
+}
+
+/** The source of `virtual:ogygia-image/namer` for `encoders`: the endpoint's (it names nothing)
+ *  when no encoder has links and the endpoint makes every need, else the plan's. */
+export function namer_module(encoders: readonly Encoder[], dev: boolean): string {
+	const plan = namer_plan(encoders, dev);
+	if (!plan.links.length && plan.endpoint?.length === 0)
+		return `export * from ${JSON.stringify(ENDPOINT_NAMER)};\n`;
+	return dedent`
+		import { namer } from ${JSON.stringify(RESOLVE_NAMER)};
+		export const name = namer(${JSON.stringify(plan)});
+	`;
 }
 
 /** The pixel module (sharp), loaded on first use. */
@@ -107,7 +208,7 @@ export function encoder_runtime(
  *  there), and the app's sharp. */
 export interface EncoderInput {
 	runtime: EncoderRuntime;
-	maker: 'sharp' | 'none';
+	maker: 'sharp' | 'binding' | 'none';
 	installed: boolean;
 	listed: 'none' | 'dev' | 'dependencies';
 }
@@ -117,13 +218,13 @@ export const ENCODER: Decisions<EncoderInput, 'ok' | 'edge' | 'missing' | 'unlis
 	name: 'image encoder',
 	inputs: {
 		runtime: ['dev', 'client', 'prerendered', 'server', 'edge'],
-		maker: ['sharp', 'none'],
+		maker: ['sharp', 'binding', 'none'],
 		installed: [false, true],
 		listed: ['none', 'dev', 'dependencies']
 	},
 	decide: (i: EncoderInput): 'ok' | 'edge' | 'missing' | 'unlisted' => {
 		if (!i.installed || i.listed === 'none') return 'missing';
-		if (i.maker === 'none') return 'ok';
+		if (i.maker !== 'sharp') return 'ok';
 		if (i.runtime === 'edge') return 'edge';
 		if (i.runtime === 'server' && i.listed !== 'dependencies') return 'unlisted';
 		return 'ok';
@@ -163,8 +264,10 @@ function listed(root: string): 'none' | 'dev' | 'dependencies' {
 	return has('devDependencies') || has('optionalDependencies') ? 'dev' : 'none';
 }
 
+let said_edge = false;
+
 /** Check the app's sharp for `runtime` and the endpoint's `maker`: throws `image_sharp_missing`, or
- *  warns `image_adapter_no_encoder` for an adapter whose runtime cannot load it. */
+ *  warns `image_no_encoder` (once a process) for an adapter whose runtime cannot load it. */
 export function check_encoder(
 	root: string,
 	runtime: EncoderRuntime,
@@ -177,7 +280,12 @@ export function check_encoder(
 		installed: installed(root),
 		listed: listed(root)
 	});
-	if (plan === 'edge') warn('image_adapter_no_encoder', { adapter: adapter ?? 'this adapter' });
-	else if (plan !== 'ok')
+	if (plan === 'edge') {
+		if (!said_edge)
+			warn('image_no_encoder', {
+				reason: `${adapter ?? 'this adapter'} runs the app where sharp, a native Node module, cannot load`
+			});
+		said_edge = true;
+	} else if (plan !== 'ok')
 		throw new OgygiaError('image_sharp_missing', { adapter, installed: plan === 'unlisted' });
 }

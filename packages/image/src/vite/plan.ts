@@ -84,7 +84,7 @@ export async function plan_image(file: string, settings: Settings): Promise<Plan
 		throw new OgygiaError('image_not_found', { file, src: file });
 	}
 	const { metadata_of, placeholder_of, shown_size, too_large, VIPS_VERSION } = await pixels();
-	const id = source_id(bytes);
+	const id = await source_id(bytes);
 	const key = digest([id, JSON.stringify({ ...settings, plan: PLAN_VERSION, vips: VIPS_VERSION })]);
 	const kept = plans.get(key);
 	if (kept) return kept;

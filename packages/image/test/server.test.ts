@@ -55,7 +55,11 @@ beforeAll(async () => {
 	const broken = `${img.dir}/broken.jpg`;
 	fs.writeFileSync(broken, 'not a jpeg');
 	files.set('/_app/immutable/assets/broken.Ef56.jpg', broken);
-	Object.assign(ids, { harbor: id_of(img.jpg), spin: id_of(img.gif), broken: id_of(broken) });
+	Object.assign(ids, {
+		harbor: await id_of(img.jpg),
+		spin: await id_of(img.gif),
+		broken: await id_of(broken)
+	});
 });
 
 describe('the image server realm', () => {

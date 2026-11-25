@@ -266,22 +266,23 @@ export const IMAGE_WARNINGS = {
 		text: (a: { reason: string }): string =>
 			`this server cannot make image files: the encoder (sharp) did not load (${a.reason}); image requests answer 500.`,
 		details: (): string => prose`
-			Image files are made by sharp, a native Node module. A runtime without it (an edge or
-			Workers runtime, an install that skipped sharp's binary) cannot make them. Prerender the
+			With \`sharp()\`, the default encoder, image files are made by sharp, a native Node module.
+			A runtime without it (an edge or Workers runtime, an install that skipped sharp's binary)
+			cannot make them. On Cloudflare Workers, list the encoder that can:
+			\`image({ encoder: cloudflare() })\` from \`@ogygia/image/vite\`. Otherwise prerender the
 			pages that show images (their files are made at build), warm the presets server-rendered
 			pages use (\`import.meta.og.image(src, { warm: 'cover' })\`), or deploy to a Node server.
 		`
 	},
-	image_adapter_no_encoder: {
-		text: (a: { adapter: string }): string => prose`
-			${a.adapter} runs the app where the image encoder (sharp) cannot load: a server-rendered page's
-			images will answer 500 unless the page is prerendered or its preset warmed.
-		`,
+	image_binding_missing: {
+		text: (a: { binding: string }): string =>
+			`the image endpoint makes files with the Cloudflare Images binding ${a.binding}, but this Worker has no such binding; image requests answer 500.`,
 		details: (): string => prose`
-			The image endpoint makes a file the first time a page asks for it, with sharp, a native Node
-			module. This adapter's runtime has no native modules. Files of prerendered pages and of
-			warmed presets (\`import.meta.og.image(src, { warm: 'cover' })\`) are made at build and served
-			as static files, so those work everywhere.
+			\`cloudflare()\` makes each file a page rendered on request asks for with the Worker's Images
+			binding, read from \`event.platform.env\`. Add it to the Worker's wrangler config
+			(\`"images": { "binding": "IMAGES" }\`), or name the one it has:
+			\`cloudflare({ binding: 'MY_IMAGES' })\`. Outside a Worker (a Node server) there is no
+			binding: use \`sharp()\` there.
 		`
 	},
 	image_store_write_failed: {

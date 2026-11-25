@@ -71,7 +71,7 @@ export function app_with_sharp(root: string): string {
 	return root;
 }
 
-export function id_of(file: string): string {
+export function id_of(file: string): Promise<string> {
 	return source_id(fs.readFileSync(file));
 }
 

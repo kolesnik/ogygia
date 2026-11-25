@@ -24,12 +24,26 @@ export interface MadeStore {
 	keep(key: string, data: Uint8Array): Promise<boolean>;
 }
 
+/** The maker cannot make any file in this runtime (a binding it needs is not there): the endpoint
+ *  says `code` once and answers 500. */
+export class CannotMake extends Error {
+	readonly code: 'image_binding_missing';
+	readonly args: { binding: string };
+
+	constructor(code: 'image_binding_missing', args: { binding: string }) {
+		super(`${code}: ${JSON.stringify(args)}`);
+		this.code = code;
+		this.args = args;
+	}
+}
+
 /** What a maker module exports. */
 export interface Maker {
 	/** How many files it makes at once. */
 	parallel: number;
-	/** One recipe's file from its original's bytes. */
-	make(bytes: Uint8Array, recipe: ParsedRecipe): Promise<Uint8Array>;
+	/** One recipe's file from its original's bytes. `platform` is the request's `event.platform`
+	 *  (a Worker's bindings), for a maker that makes files with one. */
+	make(bytes: Uint8Array, recipe: ParsedRecipe, platform: unknown): Promise<Uint8Array>;
 	/** Where its files are kept, or null: each is made per ask (and kept in memory). */
 	store: MadeStore | null;
 }

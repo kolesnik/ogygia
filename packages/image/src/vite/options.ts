@@ -82,7 +82,7 @@ const PLUGIN_KEYS: ReadonlySet<string> = new Set([
 	'markdown',
 	'encoder'
 ]);
-const ENCODER_NAMES: ReadonlySet<string> = new Set(['sharp']);
+const ENCODER_NAMES: ReadonlySet<string> = new Set(['sharp', 'cloudflare']);
 const PRESET_KEYS: ReadonlySet<string> = new Set([
 	'layout',
 	'width',

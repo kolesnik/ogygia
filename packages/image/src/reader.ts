@@ -17,6 +17,6 @@ export class Changed extends Error {}
  *  else {@link Changed}. */
 export async function read_original(original: string, id: string): Promise<Uint8Array> {
 	const bytes = new Uint8Array(await read(original).arrayBuffer());
-	if (source_id(bytes) !== id) throw new Changed();
+	if ((await source_id(bytes)) !== id) throw new Changed();
 	return bytes;
 }

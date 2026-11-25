@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Plugin, ResolvedConfig } from 'vite';
 import { beforeAll, expect, test } from 'vitest';
-import { image, sharp, type ImagePluginOptions } from '../src/vite/index.ts';
+import { cloudflare, image, sharp, type ImagePluginOptions } from '../src/vite/index.ts';
 import { app_with_sharp, make_images } from './fixtures.ts';
 
 let root: string;
@@ -19,13 +19,14 @@ beforeAll(async () => {
 
 async function loader(
 	define: Record<string, string> = { __SVELTEKIT_APP_DIR__: '"_app"' },
-	options: ImagePluginOptions = {}
+	options: ImagePluginOptions = {},
+	command: 'serve' | 'build' = 'serve'
 ): Promise<Plugin> {
 	const plugin = image(options).find((p) => p.name === '@ogygia/image:load')!;
 	await (plugin.configResolved as (c: unknown) => unknown)({
 		root,
-		command: 'serve',
-		build: {},
+		command,
+		build: { outDir: path.join(root, '.svelte-kit/output/client') },
 		define
 	} as unknown as ResolvedConfig);
 	return plugin;
@@ -80,4 +81,23 @@ test('the endpoint makes files with the maker the encoder names, sharp by defaul
 			/^export \* from ".*\/src\/namers\/endpoint\.ts";\n$/
 		);
 	}
+});
+
+test('cloudflare() makes files with its Images binding in a build and with sharp in dev, and names live files by its links in a build only', async () => {
+	const define = { __SVELTEKIT_APP_DIR__: '"_app"' };
+	const built = await loader(define, { encoder: cloudflare({ binding: 'PICS' }) }, 'build');
+	const maker = String(await load(built, '\0virtual:ogygia-image/maker'));
+	expect(maker).toMatch(/import \{ binding_maker \} from ".*\/src\/makers\/binding\.ts";/);
+	expect(maker).toContain('binding_maker("PICS")');
+	const namer = String(await load(built, '\0virtual:ogygia-image/namer'));
+	expect(namer).toMatch(/import \{ namer \} from ".*\/src\/namers\/resolve\.ts";/);
+	expect(namer).toContain('"links":[{"kind":"cloudflare"');
+	expect(namer).toContain('"dev":false');
+	const dev = await loader(define, { encoder: cloudflare() });
+	expect(String(await load(dev, '\0virtual:ogygia-image/maker'))).toMatch(
+		/^export \* from ".*\/src\/makers\/sharp\.ts";\n$/
+	);
+	expect(String(await load(dev, '\0virtual:ogygia-image/namer'))).toContain('"dev":true');
+	const unlinked = await loader(define, { encoder: cloudflare({ links: false }) }, 'build');
+	expect(String(await load(unlinked, '\0virtual:ogygia-image/namer'))).toContain('"links":[]');
 });

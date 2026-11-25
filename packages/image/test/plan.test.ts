@@ -61,7 +61,7 @@ describe('plan_image', () => {
 		expect(c.id).toBe(a.id);
 		expect(a.ph).toBeDefined();
 		expect(c.ph).toBeUndefined();
-		expect(a.id).toBe(source_id(fs.readFileSync(img.jpg)));
+		expect(a.id).toBe(await source_id(fs.readFileSync(img.jpg)));
 	});
 
 	test('two files with the same bytes are one source: the descriptor, not the plan, names the file', async () => {

@@ -78,6 +78,13 @@ export interface RenderConfig {
 
 export const DEFAULT_BREAKPOINTS: readonly number[] = [320, 480, 640, 960, 1280, 1600, 2048];
 export const DEFAULT_FORMATS: readonly OutputFormat[] = ['avif', 'webp'];
+/** The quality a lossy file is made at when neither the source nor the page says one. A PNG is
+ *  lossless unless a quality is said. */
+export const DEFAULT_QUALITY: Readonly<Record<'avif' | 'webp' | 'jpeg', number>> = {
+	avif: 60,
+	webp: 80,
+	jpeg: 80
+};
 
 const ASPECT_RE = /^\s*(\d+(?:\.\d+)?)\s*[/:]\s*(\d+(?:\.\d+)?)\s*$/;
 

@@ -27,7 +27,7 @@ let jpg = '';
 let id = '';
 beforeAll(async () => {
 	jpg = (await make_images()).jpg;
-	id = id_of(jpg);
+	id = await id_of(jpg);
 });
 
 function output(page: string): string {
@@ -93,14 +93,15 @@ test('a file the build cannot make fails it with a code that names the source fi
 	const out = output('<p>no images</p>');
 	const broken = path.join(out, 'client', '_app', 'immutable', 'assets', 'broken.Cd34.jpg');
 	fs.writeFileSync(broken, 'not a jpeg');
-	note_built(handoff.minted, `${id_of(broken)}-64x43/_app/immutable/assets/broken.Cd34.jpg.webp`);
+	const broken_id = await id_of(broken);
+	note_built(handoff.minted, `${broken_id}-64x43/_app/immutable/assets/broken.Cd34.jpg.webp`);
 	await expect(write_built(handoff, CFG, [], out)).rejects.toMatchObject({
 		code: 'image_unsettled',
 		message: expect.stringContaining('_app/immutable/assets/broken.Cd34.jpg')
 	});
 	delete process.env.__OGYGIA_IMAGE_BUILD;
 	const warmed = await handoff_for(true);
-	const desc = { id: id_of(broken), width: 2400, height: 1600, format: 'jpeg' as const };
+	const desc = { id: broken_id, width: 2400, height: 1600, format: 'jpeg' as const };
 	await expect(
 		write_built(warmed, CFG, [{ file: broken, desc, presets: ['thumb'] }], output(''))
 	).rejects.toMatchObject({ message: expect.stringContaining(broken) });

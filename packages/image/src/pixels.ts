@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 import sharp, { type Metadata, type Sharp } from 'sharp';
+import { DEFAULT_QUALITY } from './config.ts';
 import type { ImageFormat, ImageOps } from './descriptor.ts';
 
 /** The libvips version the files are made with: part of every cache key. */
@@ -112,10 +113,15 @@ export async function encode(
 		pixels
 	);
 	const q = file.quality;
-	if (file.format === 'avif') img = img.avif({ quality: q ?? 60, effort: 4 });
+	if (file.format === 'avif') img = img.avif({ quality: q ?? DEFAULT_QUALITY.avif, effort: 4 });
 	else if (file.format === 'webp')
-		img = img.webp({ quality: q ?? 80, effort: 4, ...(animated ? { loop: 0 } : {}) });
-	else if (file.format === 'jpeg') img = img.jpeg({ quality: q ?? 80, mozjpeg: true });
+		img = img.webp({
+			quality: q ?? DEFAULT_QUALITY.webp,
+			effort: 4,
+			...(animated ? { loop: 0 } : {})
+		});
+	else if (file.format === 'jpeg')
+		img = img.jpeg({ quality: q ?? DEFAULT_QUALITY.jpeg, mozjpeg: true });
 	else img = img.png({ compressionLevel: 9, ...(q !== undefined ? { quality: q } : {}) });
 	return img.toBuffer();
 }

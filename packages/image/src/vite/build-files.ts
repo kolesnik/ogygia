@@ -135,7 +135,7 @@ async function made(
 	const kept = await store.find(key);
 	if (kept) return fs.promises.readFile(kept.file);
 	const bytes = original();
-	if (source_id(bytes) !== recipe.id)
+	if ((await source_id(bytes)) !== recipe.id)
 		throw new Error(`its original is not the source ${recipe.id} any more`);
 	const data = await (await pixels()).encode_recipe(bytes, recipe);
 	await store.keep(key, data);

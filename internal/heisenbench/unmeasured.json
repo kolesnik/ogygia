@@ -7033,19 +7033,19 @@
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > request",
+			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > request",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > setup",
+			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > setup",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > setup > set_minter:0~d7e7fc",
+			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > setup > set_minter:0~d7e7fc",
 			"reason": "the server realm's glue over the encoder's namer (constant: no link for sharp), app.sign (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path and built_url are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > setup > set_minter:0~51269c",
+			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > setup > set_minter:0~51269c",
 			"reason": "prerender only: hands each recipe to prerendered (exempt below); test/server-prerender.test.ts runs it"
 		},
 		{
@@ -7069,19 +7069,19 @@
 			"reason": "constant work: one 404 response, on a refusal only; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~127bb0 > run",
+			"id": "packages/image/src/settle.ts > call:0~e07cb2 > run",
 			"reason": "the image endpoint's encode path: the reader (Kit's read()) and the maker (sharp), once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~127bb0 > run > limited:0~68b5ab",
+			"id": "packages/image/src/settle.ts > call:0~e07cb2 > run > limited:0~790216",
 			"reason": "the image endpoint's encode path: the reader (Kit's read()) and the maker (sharp), once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~127bb0 > keep",
+			"id": "packages/image/src/settle.ts > call:0~e07cb2 > keep",
 			"reason": "constant work: whether a made file is on disk, once per encode; test/settle-store-fails.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~127bb0 > weigh",
+			"id": "packages/image/src/settle.ts > call:0~e07cb2 > weigh",
 			"reason": "constant work: a made file's byte length, once per encode; test/settle-store-fails.test.ts runs it"
 		},
 		{
@@ -7241,7 +7241,7 @@
 			"reason": "config time, once per resolved config: one package.json read and a node_modules walk up the app's folders; packages/image/test/encoder-check.test.ts runs every branch"
 		},
 		{
-			"id": "packages/image/src/vite/encoder.ts > decisions:0~1e2744 > decide",
+			"id": "packages/image/src/vite/encoder.ts > decisions:0~5996ce > decide",
 			"reason": "a decision table's plan, once per resolved config: four comparisons; the test walks every row"
 		},
 		{
@@ -7277,8 +7277,152 @@
 			"reason": "config time: a find over the app's encoders (one or two), once per resolved config and per maker module load"
 		},
 		{
-			"id": "packages/image/src/vite/encoder.ts > maker_of > find:0~65061e",
+			"id": "packages/image/src/vite/encoder.ts > endpoint_of > find:0~65061e",
 			"reason": "config time: one comparison per encoder the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > endpoint_of",
+			"reason": "config time: one find over the encoders the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > cloudflare",
+			"reason": "config time, once per vite.config load: checks two options and filters the 27 needs; test/cloudflare.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > cloudflare > filter:0~c33079",
+			"reason": "config time: one lookup per need of a fixed 27-row list"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > namer_plan",
+			"reason": "build time, once per namer module: maps the encoders the app lists; test/cloudflare.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > namer_plan > filter:0~fa39ee",
+			"reason": "build time: one comparison per encoder the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > namer_plan > map:0~4d7dea",
+			"reason": "build time: one string per encoder the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > namer_plan > map:0~fc3890",
+			"reason": "build time: one filter of the fixed needs list per linking encoder"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > namer_plan > map:0~fc3890 > filter:0~192a5f",
+			"reason": "build time: one lookup per need of a fixed 27-row list"
+		},
+		{
+			"id": "packages/image/src/encoders/capabilities.ts > cannot",
+			"reason": "build time: walks the fixed capability table once per encoder; test/cloudflare.test.ts snapshots it"
+		},
+		{
+			"id": "packages/image/src/encoders/capabilities.ts > cannot > filter:0~6be14e",
+			"reason": "build time: one table lookup per need of a fixed 27-row list"
+		},
+		{
+			"id": "packages/image/src/encoders/capabilities.ts > decisions:0~c89642 > decide",
+			"reason": "a decision table's plan: one record lookup; the test walks and snapshots every row"
+		},
+		{
+			"id": "packages/image/src/encoders/needs.ts > needs_of",
+			"reason": "render, per file of a live page with a non-sharp encoder: a set over at most 27 fixed needs, constant work; test/cloudflare.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/encoders/needs.ts > needs_of > filter:0~291c84",
+			"reason": "constant work: one set lookup per need of a fixed 27-row list"
+		},
+		{
+			"id": "packages/image/src/encoders/needs.ts > quarter",
+			"reason": "constant work: one modulo and four comparisons"
+		},
+		{
+			"id": "packages/image/src/encoders/cloudflare.ts > cloudflare_link",
+			"reason": "render, per file of a live page with cloudflare(): a fixed list of at most 12 options joined; snapshotted in test/cloudflare.test.ts"
+		},
+		{
+			"id": "packages/image/src/encoders/cloudflare.ts > cloudflare_steps",
+			"reason": "constant work: at most four transform objects from one recipe; test/cloudflare.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/encoders/cloudflare.ts > flip_of",
+			"reason": "constant work: two comparisons"
+		},
+		{
+			"id": "packages/image/src/encoders/cloudflare.ts > quality_of",
+			"reason": "constant work: one or two comparisons and a lookup"
+		},
+		{
+			"id": "packages/image/src/namers/resolve.ts > namer",
+			"reason": "once per process: closes over the plan the plugin wrote"
+		},
+		{
+			"id": "packages/image/src/namers/resolve.ts > namer > <anonymous>~57b895",
+			"reason": "render, per file of a live page with a non-sharp encoder: needs_of plus a scan of at most 27 needs per listed encoder; test/cloudflare.test.ts runs every branch"
+		},
+		{
+			"id": "packages/image/src/namers/resolve.ts > unmet",
+			"reason": "constant work: a find over at most 27 needs"
+		},
+		{
+			"id": "packages/image/src/namers/resolve.ts > unmet > find:0~6e2a55",
+			"reason": "constant work: one includes over at most 27 needs"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > CacheStore > constructor",
+			"reason": "once per Worker isolate: keeps one function"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > CacheStore > find",
+			"reason": "a Worker's cache lookup (I/O), once per prerender head start; test/binding-maker.test.ts runs it against a fake cache"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > CacheStore > find > catch:0~a1b2d0",
+			"reason": "a body cancel that failed: nothing to do"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > CacheStore > keep",
+			"reason": "a Worker's cache write (I/O), once per file made; test/binding-maker.test.ts and the cloudflare e2e mode run it"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > CacheStore > open",
+			"reason": "a Worker's cache read (I/O), streamed, once per ask; test/binding-maker.test.ts and the cloudflare e2e mode run it"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > binding_maker",
+			"reason": "once per Worker isolate: builds the maker"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > binding_maker > make",
+			"reason": "the Images binding's work (a remote service), once per file; test/binding-maker.test.ts and the cloudflare e2e mode run it"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > binding_of",
+			"reason": "constant work: two property reads and a type check"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > stream_of",
+			"reason": "constant work: wraps the bytes in a stream"
+		},
+		{
+			"id": "packages/image/src/makers/binding.ts > worker_cache",
+			"reason": "constant work: two property reads"
+		},
+		{
+			"id": "packages/image/src/maker.ts > CannotMake > constructor",
+			"reason": "an error, thrown once per ask a Worker with no binding answers 500"
+		},
+		{
+			"id": "packages/image/src/settle.ts > cannot_make",
+			"reason": "a 500 answer, said once: constant work; test/binding-maker.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/render-messages.ts > IMAGE_RENDER_ERRORS > image_encoder_cannot > text",
+			"reason": "a message's one line for its warning or error: a template over its arguments, printed once when it happens"
+		},
+		{
+			"id": "packages/image/src/render-messages.ts > IMAGE_RENDER_ERRORS > image_encoder_cannot > details",
+			"reason": "a message's prose for its docs page and the printed message: constant text"
 		},
 		{
 			"id": "packages/image/src/vite/encoder.ts > maker_module",
@@ -7393,11 +7537,11 @@
 			"reason": "a message's prose for its docs page and the printed message: constant text"
 		},
 		{
-			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_adapter_no_encoder > text",
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_binding_missing > text",
 			"reason": "a message's one line for its warning or error: a template over its arguments, printed once when it happens"
 		},
 		{
-			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_adapter_no_encoder > details",
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_binding_missing > details",
 			"reason": "a message's prose for its docs page and the printed message: constant text"
 		},
 		{
@@ -7597,7 +7741,7 @@
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > setup > set_minter:0~a4c2cd",
+			"id": "packages/image/src/server.ts > defineServer:0~7ce21c > setup > set_minter:0~a4c2cd",
 			"reason": "a page rendered after the build's end (an SPA fallback, which Kit renders without SSR): one existsSync per recipe; test/server-after-build.test.ts runs it"
 		},
 		{

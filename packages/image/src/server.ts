@@ -167,7 +167,7 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		} catch (e) {
 			return no_encoder(e);
 		}
-		return settle(recipe, recipe_file(recipe), original_of(recipe));
+		return settle(recipe, recipe_file(recipe), original_of(recipe), event.platform);
 	}
 });
 export default server;
