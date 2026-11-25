@@ -6,7 +6,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { beforeAll, expect, test, vi } from 'vitest';
 import type { RenderConfig } from '../src/config.ts';
-import { note_built } from '../src/store.ts';
+import { build_handoff, note_built } from '../src/store.ts';
 import { handoff_for, write_built } from '../src/vite/build-files.ts';
 import { id_of, make_images } from './fixtures.ts';
 
@@ -50,6 +50,19 @@ test("a prerendered page's files are written under the app folder, and its marke
 	expect(fs.readFileSync(path.join(out, 'prerendered', 'pages', 'index.html'), 'utf8')).toBe(
 		`<img src="/_app/immutable/og/${id}-64x43.webp" style="background:url(/_app/immutable/og/${id}-64x43.webp)">`
 	);
+});
+
+test('the build hands what it renders after its end (an SPA fallback) the files it wrote, with no notes and no mark; the next build starts a new run', async () => {
+	delete process.env.__OGYGIA_IMAGE_BUILD;
+	const handoff = handoff_for(true);
+	const out = output('<p>no images</p>');
+	await write_built(handoff, CFG, [], out);
+	const after = build_handoff()!;
+	expect(after).toMatchObject({ minted: '', mark: '', written: path.join(out, 'client', '_app') });
+	const next = handoff_for(true);
+	expect(next.minted).not.toBe('');
+	expect(next.minted).not.toBe(handoff.minted);
+	expect(next.written).toBe('');
 });
 
 test("a warmed preset's files are written under the app folder by their recipe", async () => {

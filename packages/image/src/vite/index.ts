@@ -134,6 +134,9 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			if (server_build() && typeof adapter === 'string' && NO_NATIVE_ADAPTER_RE.test(adapter))
 				warn('image_adapter_no_encoder', { adapter: JSON.parse(adapter) as string });
 		},
+		buildStart() {
+			if (config && build()) handoff = handoff_for(true, config.root);
+		},
 		resolveId(id) {
 			if (id === CONFIG_ID || id === SOURCES_ID) return `\0${id}`;
 			return null;

@@ -56,6 +56,10 @@ export interface BuildHandoff {
 	 *  crawler follows (`//<random>.ogygia.invalid`), removed from every prerendered page then. Empty
 	 *  outside a build. */
 	mark: string;
+	/** Once the build's end wrote its files: the client output's app folder they sit under (empty
+	 *  until then, with no notes and no mark after). A page rendered after that (an adapter's SPA
+	 *  fallback) names those files as they are. */
+	written: string;
 	/** The app's root (Vite's `root`). */
 	root: string;
 }
@@ -70,6 +74,7 @@ export function build_handoff(): BuildHandoff | null {
 		store: v.store,
 		minted: v.minted,
 		mark: typeof v.mark === 'string' ? v.mark : '',
+		written: typeof v.written === 'string' ? v.written : '',
 		root: typeof v.root === 'string' ? v.root : ''
 	};
 }

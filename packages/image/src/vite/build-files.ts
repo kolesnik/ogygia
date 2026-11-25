@@ -94,6 +94,7 @@ export function handoff_for(build: boolean, root: string = process.cwd()): Build
 		store: open_build_store(path.join(cache, 'files'), VIPS_VERSION),
 		minted,
 		mark,
+		written: '',
 		root
 	};
 	process.env[BUILD_ENV] = JSON.stringify(handoff);
@@ -230,8 +231,9 @@ function unmark(dir: string, mark: string): void {
 }
 
 /** The server build's end: write every file the build makes (`warmed`, and the prerender's notes)
- *  under `<output>/client/<appDir>/`, then point every prerendered page at them. `output` is Kit's
- *  build output. */
+ *  under `<output>/client/<appDir>/`, then point every prerendered page at them, and hand the
+ *  process (and what it starts after: an adapter's SPA fallback render) a handoff that says so, with
+ *  no notes and no mark. `output` is Kit's build output. */
 export async function write_built(
 	handoff: BuildHandoff,
 	cfg: RenderConfig,
@@ -257,4 +259,6 @@ export async function write_built(
 	fs.rmSync(path.dirname(handoff.minted), { recursive: true, force: true });
 	if (failures.length) throw failures[0];
 	if (handoff.mark) unmark(path.join(output, 'prerendered'), handoff.mark);
+	const done: BuildHandoff = { ...handoff, minted: '', mark: '', written: client };
+	process.env[BUILD_ENV] = JSON.stringify(done);
 }

@@ -9,7 +9,10 @@
  *   prerender runs in a worker) and its file started at once; the build's end writes every one and
  *   points the pages at them (./vite/build-files.ts). Until then the URL carries the build's mark, a
  *   host Kit's crawler does not follow: it would ask for a file not there yet under the app folder,
- *   which Kit answers 404 before any hook runs.
+ *   which Kit answers 404 before any hook runs;
+ * - in a page the build renders after its end wrote the files (an adapter's SPA fallback), the file
+ *   the build wrote, with no mark (nothing would remove it), or the original where no prerendered
+ *   page asked for that file.
  *
  * `request` is the endpoint that makes the signed files, in dev and on a live server.
  *
@@ -24,6 +27,7 @@ import config from 'virtual:ogygia-image/config';
 import sources from 'virtual:ogygia-image/sources';
 import { warn } from './messages.ts';
 import {
+	built_file,
 	built_url,
 	encode_tail,
 	IMAGE_PREFIX,
@@ -113,6 +117,15 @@ function prerendered(run: BuildHandoff, recipe: Recipe): string {
 const server: ServerPlugin<unknown> = defineServer<unknown>({
 	setup(app) {
 		const run = building ? build_handoff() : null;
+		if (run?.written) {
+			const written = run.written;
+			set_minter((recipe) =>
+				fs.existsSync(path.join(written, ...built_file(recipe).split('/')))
+					? built_url(config.paths, recipe)
+					: recipe.src
+			);
+			return;
+		}
 		if (run?.minted) {
 			set_minter((recipe) => prerendered(run, recipe));
 			return;
