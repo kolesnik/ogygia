@@ -1,20 +1,20 @@
 /**
- * What each encoder can make: one table over (encoder × need), so every row is listed and a test
+ * What each encoder can make: one table over (maker × need), so every row is listed and a test
  * snapshots it. The plugin reads it at build and hands each namer the needs its encoder cannot meet
  * (../namers/resolve.ts); the table itself never ships.
  *
- * Cloudflare's rows are its Image Transformations options (`/cdn-cgi/image/<options>/…`), which its
- * Images binding takes as `transform()` fields: the same set for both. Vercel's rows are its Image
- * Optimization API (`/_vercel/image?url=…&w=…&q=…`): a width and a quality, the format picked from
- * the browser's `Accept`.
+ * Cloudflare's rows are its Images binding's `transform()` fields (`cloudflare`) and its Image
+ * Transformations link options (`cloudflare links`, `/cdn-cgi/image/<options>/…`): one set, but a
+ * link names no PNG. Vercel's rows are its Image Optimization API (`/_vercel/image?url=…&w=…&q=…`):
+ * a width and a quality, the format picked from the browser's `Accept`.
  *
  * @packageDocumentation
  */
 import { decisions, type Decisions } from '@ogygia/machine';
 import { NEEDS, type Need } from './needs.ts';
 
-/** An encoder the table knows. */
-export const ENCODER_NAMES = ['sharp', 'cloudflare', 'vercel'] as const;
+/** Who makes a file the table knows: an encoder's endpoint maker, or its links. */
+export const ENCODER_NAMES = ['sharp', 'cloudflare', 'cloudflare links', 'vercel'] as const;
 
 /** One row's answer: can it, and as what (the option it maps to, or why not). */
 export interface Capability {
@@ -51,6 +51,8 @@ const SHARP_AS: Readonly<Record<Need, string>> = {
 	'format webp': 'webp()',
 	'format png': 'png()',
 	'format jpeg': 'jpeg({ mozjpeg })',
+	'png from another format': 'png()',
+	'source avif': 'reads AVIF',
 	'source gif': 'reads GIF',
 	'source tiff': 'reads TIFF',
 	animated: '{ animated: true } keeps every frame'
@@ -86,11 +88,19 @@ const CLOUDFLARE: Readonly<Record<Need, Capability>> = {
 	'modulate lightness': { can: false, as: 'no option adds lightness' },
 	'format avif': { can: true, as: 'format=avif (WebP or JPEG past 1200 px a side)' },
 	'format webp': { can: true, as: 'format=webp' },
-	'format png': { can: true, as: 'format=png' },
+	'format png': { can: true, as: "output({ format: 'image/png' })" },
 	'format jpeg': { can: true, as: 'format=jpeg' },
+	'png from another format': { can: true, as: "output({ format: 'image/png' })" },
+	'source avif': { can: false, as: 'reads AVIF on an Enterprise plan only' },
 	'source gif': { can: true, as: 'reads GIF, animations included' },
 	'source tiff': { can: true, as: 'reads TIFF (its first page)' },
 	animated: { can: true, as: 'anim=true (the default) keeps every frame' }
+};
+
+const CLOUDFLARE_LINKS: Readonly<Record<Need, Capability>> = {
+	...CLOUDFLARE,
+	'format png': { can: true, as: "no format= (a PNG source's own format is kept)" },
+	'png from another format': { can: false, as: 'format= takes no png' }
 };
 
 const VERCEL_RESIZE_ONLY = 'only resizes (w=, q=): no option for it';
@@ -131,13 +141,18 @@ const VERCEL: Readonly<Record<Need, Capability>> = {
 		can: false,
 		as: "names no format: a browser that takes neither AVIF nor WebP gets the source's own"
 	},
+	'png from another format': { can: false, as: 'names no format' },
+	'source avif': { can: true, as: 'reads AVIF' },
 	'source gif': { can: false, as: VERCEL_PASSED },
 	'source tiff': { can: false, as: VERCEL_PASSED },
 	animated: { can: false, as: 'an animated source is served as it is, not resized' }
 };
 
-const TABLES: Readonly<Record<'cloudflare' | 'vercel', Readonly<Record<Need, Capability>>>> = {
+const TABLES: Readonly<
+	Record<Exclude<(typeof ENCODER_NAMES)[number], 'sharp'>, Readonly<Record<Need, Capability>>>
+> = {
 	cloudflare: CLOUDFLARE,
+	'cloudflare links': CLOUDFLARE_LINKS,
 	vercel: VERCEL
 };
 

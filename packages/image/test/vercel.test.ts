@@ -49,6 +49,7 @@ test('Vercel only resizes: no crop, no position, no operation, no named PNG or J
 		'modulate lightness',
 		'format png',
 		'format jpeg',
+		'png from another format',
 		'source gif',
 		'source tiff',
 		'animated'

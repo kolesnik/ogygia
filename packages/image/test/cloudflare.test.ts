@@ -34,8 +34,8 @@ test('the capability table, row by row', () => {
 	});
 });
 
-test('Cloudflare cannot make an entropy crop, a turn off the quarters, normalize, negate, gamma, tint, or a hue or lightness change', () => {
-	expect(cannot('cloudflare')).toEqual([
+test('Cloudflare cannot make an entropy crop, a turn off the quarters, normalize, negate, gamma, tint, a hue or lightness change, or read an AVIF; its links cannot name a PNG', () => {
+	const both = [
 		'position entropy',
 		'rotate other',
 		'normalize',
@@ -44,7 +44,9 @@ test('Cloudflare cannot make an entropy crop, a turn off the quarters, normalize
 		'tint',
 		'modulate hue',
 		'modulate lightness'
-	]);
+	];
+	expect(cannot('cloudflare')).toEqual([...both, 'source avif']);
+	expect(cannot('cloudflare links')).toEqual([...both, 'png from another format', 'source avif']);
 	expect(cannot('sharp')).toEqual([]);
 });
 
@@ -89,8 +91,8 @@ test('the link of each recipe shape, options in one fixed order', () => {
 		[
 		  "/cdn-cgi/image/width=640,height=360,fit=cover,quality=60,format=avif/_app/immutable/assets/hero.Ab12.jpg",
 		  "/cdn-cgi/image/width=640,height=360,fit=cover,gravity=top,quality=70,format=webp/_app/immutable/assets/hero.Ab12.jpg",
-		  "/cdn-cgi/image/width=640,height=360,fit=cover,format=png/_app/immutable/assets/hero.Ab12.jpg",
-		  "/cdn-cgi/image/width=640,height=360,fit=cover,quality=90,format=png/_app/immutable/assets/hero.Ab12.jpg",
+		  "/cdn-cgi/image/width=640,height=360,fit=cover/_app/immutable/assets/hero.Ab12.jpg",
+		  "/cdn-cgi/image/width=640,height=360,fit=cover,quality=90/_app/immutable/assets/hero.Ab12.jpg",
 		  "/cdn-cgi/image/width=640,height=360,fit=cover,gravity=auto,quality=80,format=jpeg/_app/immutable/assets/hero.Ab12.jpg",
 		  "/cdn-cgi/image/width=640,height=360,fit=cover,quality=60,format=avif,rotate=270,flip=v,saturation=0,blur=250,sharpen=1/_app/immutable/assets/hero.Ab12.jpg",
 		  "/cdn-cgi/image/width=640,height=360,fit=cover,quality=60,format=avif,saturation=0.5,brightness=1.2/_app/immutable/assets/hero.Ab12.jpg",
@@ -230,7 +232,7 @@ test("in dev every file is the endpoint's, and a need the encoder cannot meet fa
 test('cloudflare() links by default; links: false sends every file to the binding endpoint; sharp() links nothing and makes everything', () => {
 	expect(namer_plan([cloudflare()], false)).toEqual({
 		encoders: 'cloudflare()',
-		links: [{ kind: 'cloudflare', cannot: cannot('cloudflare') }],
+		links: [{ kind: 'cloudflare', cannot: cannot('cloudflare links') }],
 		endpoint: cannot('cloudflare'),
 		dev: false
 	});

@@ -364,7 +364,10 @@ What each encoder can make:
 | `blur`, `sharpen`                                        | yes   | `blur=` (twice the sigma), `sharpen=1`                              |
 | `normalize`, `negate`, `tint`, `modulate` hue, lightness | yes   | no                                                                  |
 | `gamma`                                                  | yes   | no (Cloudflare's gamma is an exposure curve)                        |
-| AVIF, WebP, PNG, JPEG                                    | yes   | `format=` (AVIF past 1200 pixels a side comes back as WebP or JPEG) |
+| AVIF, WebP, JPEG                                         | yes   | `format=` (AVIF past 1200 pixels a side comes back as WebP or JPEG) |
+| PNG from a PNG source                                    | yes   | no `format=` (the source's own format is kept)                      |
+| PNG from any other source                                | yes   | the binding only (a link's `format=` takes no `png`)                |
+| an AVIF source                                           | yes   | no (Cloudflare reads AVIF on an Enterprise plan only)               |
 
 A page rendered on request that asks Cloudflare for something it cannot make fails to render with `image_encoder_cannot`, naming the encoder and the need: pick another position or op, prerender the page, or warm the preset (the build makes warmed files with sharp). Cloudflare and sharp blur, sharpen and scale differently, so their files differ a little. An animated image keeps its frames (Cloudflare delivers one past 50 megapixels over all its frames untransformed). The Worker's bundle holds no sharp.
 

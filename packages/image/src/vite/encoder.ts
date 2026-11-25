@@ -103,7 +103,7 @@ export function cloudflare(options: CloudflareOptions = {}): Encoder {
 		});
 	return {
 		name: 'cloudflare',
-		links: links ? NEEDS.filter((n) => !cannot('cloudflare').includes(n)) : null,
+		links: links ? NEEDS.filter((n) => !cannot('cloudflare links').includes(n)) : null,
 		maker: 'binding',
 		binding,
 		negotiates: false,

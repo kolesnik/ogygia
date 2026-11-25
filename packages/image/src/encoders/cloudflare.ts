@@ -90,7 +90,8 @@ export function cloudflare_steps(r: Omit<Recipe, 'src'>): CloudflareSteps {
 }
 
 /** The Image Transformations link of `r`: `/cdn-cgi/image/<options>/<original>`, at the zone's
- *  root, its options in one fixed order (one URL per file, for the CDN's key). The original is
+ *  root, its options in one fixed order (one URL per file, for the CDN's key). `format=` takes no
+ *  `png`: a PNG (from a PNG source only) names no format and keeps the source's. The original is
  *  `r.src`: a path from the zone's root, or a full URL. */
 export function cloudflare_link(r: Recipe): string {
 	const { transforms, output } = cloudflare_steps(r);
@@ -98,7 +99,7 @@ export function cloudflare_link(r: Recipe): string {
 	const opts = [`width=${r.width}`, `height=${r.height}`, 'fit=cover'];
 	if (all.gravity) opts.push(`gravity=${all.gravity}`);
 	if (output.quality !== undefined) opts.push(`quality=${output.quality}`);
-	opts.push(`format=${output.format.slice('image/'.length)}`);
+	if (r.format !== 'png') opts.push(`format=${output.format.slice('image/'.length)}`);
 	if (all.rotate) opts.push(`rotate=${all.rotate}`);
 	if (all.flip) opts.push(`flip=${all.flip}`);
 	if (all.saturation !== undefined) opts.push(`saturation=${all.saturation}`);
