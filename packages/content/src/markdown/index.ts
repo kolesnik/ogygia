@@ -243,6 +243,13 @@ function transform_islands(content: string, filename: string): string | null {
  * never reach the client. This is how a content entry carries its own pre-compile source (powering
  * `emit.raw`, "copy as markdown", llms-full, …) with no parallel `?raw` glob in app code.
  */
+/** Do the files a kept compile's extensions read (`MarkdownFinish.files`) all still exist? */
+async function all_exist(files: readonly string[] | undefined): Promise<boolean> {
+	if (!files?.length) return true;
+	const { existsSync } = await import('node:fs');
+	return files.every((f) => existsSync(f));
+}
+
 function source_line(filename: string): string | null {
 	const base = filename.replace(BACKSLASH_G, '/').split('/').pop() ?? '';
 	if (!base) return null;
@@ -406,7 +413,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 	// future layers (incremental builds, edge, on-demand baking) consume directly.
 	// Stage identity: functions can't be hashed — plugins/transformers count by NAME/count, and
 	// `code.cacheSalt` is the documented bump for behavior edits (same contract as the fence cache).
-	const doc_cache = new BuildCache<{ code: string; deps?: string[] }>('markup');
+	const doc_cache = new BuildCache<{ code: string; deps?: string[]; reads?: string[] }>('markup');
 	// The document REGION rides ogygia's core RegionStore — markdown is one producer harnessing the
 	// shared currency, not the owner of a private format. Same address as the module-code entry.
 	const docs_store = new RegionStore('docs');
@@ -524,7 +531,8 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 					input.content
 				]);
 				const hit = doc_cache.get(doc_key);
-				if (hit) return { code: hit.code, map: undefined, dependencies: hit.deps };
+				if (hit && (await all_exist(hit.reads)))
+					return { code: hit.code, map: undefined, dependencies: hit.deps };
 			}
 			// Tab groups first (they emit `:::`-free `<TabGroup>`/`<Tab>`), then admonition containers.
 			let raw = input.content;
@@ -554,12 +562,14 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			const out = await md.markup?.(raw === input.content ? input : { ...input, content: raw });
 			let code = markup_code(out, raw);
 			const extra: string[] = [];
+			const reads: string[] = [];
 			let dynamic = false;
 			for (const ext of extensions_now) {
 				if (!ext.finish) continue;
 				const done = ext.finish(code, input.filename ?? '');
 				code = done.code;
 				extra.push(...done.lines);
+				if (done.files) reads.push(...done.files);
 				dynamic ||= done.dynamic;
 			}
 			const islandCode = transform_islands(code, input.filename ?? '');
@@ -567,9 +577,15 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			// Generator-plugin file deps for THIS document (a directive expander's .d.ts set, …) —
 			// returned as preprocessor `dependencies` (vite-plugin-svelte watches them in dev) and
 			// stored beside the cached output so a warm hit still watches.
-			const gen_deps = [...remark_staged.deps, ...rehype_now.deps].flatMap((fn) =>
-				fn(input.filename ?? '')
-			);
+			const gen_deps = [
+				...[...remark_staged.deps, ...rehype_now.deps].flatMap((fn) => fn(input.filename ?? '')),
+				...reads
+			];
+			const kept = (code: string) => ({
+				code,
+				...(gen_deps.length ? { deps: gen_deps } : {}),
+				...(reads.length ? { reads } : {})
+			});
 			// Content module: carry its raw source, and (when overrides are on) import the slot the
 			// rehype pass rewrote tags into. Both are module-script lines injected once.
 			const lines: string[] = [];
@@ -600,10 +616,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 					// serialized region itself — the address future layers (incremental builds, edge,
 					// on-demand baking) fetch without ever seeing a module.
 					if (doc_key) {
-						doc_cache.set(doc_key, {
-							code: emitted.code,
-							...(gen_deps.length ? { deps: gen_deps } : {})
-						});
+						doc_cache.set(doc_key, kept(emitted.code));
 						docs_store.set(doc_key, { html: emitted.html });
 					}
 					return { code: emitted.code, map: undefined, dependencies: gen_deps };
@@ -617,8 +630,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			// Cache ONLY island-free outputs: transforming an island REGISTERS it (a build-time side
 			// effect the scanner needs) — a cached hit would skip that, so island-carrying files pay
 			// their compile every time. Everything a hit returns is side-effect-free by construction.
-			if (doc_key && islandCode == null)
-				doc_cache.set(doc_key, { code: compiled, ...(gen_deps.length ? { deps: gen_deps } : {}) });
+			if (doc_key && islandCode == null) doc_cache.set(doc_key, kept(compiled));
 			return { code: compiled, map: undefined, dependencies: gen_deps };
 		}
 	};

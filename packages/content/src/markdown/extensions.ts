@@ -20,6 +20,9 @@ export interface MarkdownFinish {
 	lines: string[];
 	/** The body now renders a component or an expression: it is never emitted as a static region. */
 	dynamic: boolean;
+	/** Files the output names (an image a post shows): watched like the document's own, and a kept
+	 *  compile of the document whose file is gone compiles again, so the extension's check runs. */
+	files?: readonly string[];
 }
 
 /** A markdown extension another plugin offers (its Vite plugin's `api.ogygiaMarkdown`). */

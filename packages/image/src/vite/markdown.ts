@@ -34,9 +34,13 @@ export interface ImageMarkdownExtension {
 	cache_key: () => string;
 	/** One rehype entry, before content's own element overrides. */
 	rehype: readonly [{ enforce: 'pre'; plugin: ImageRehype }];
-	/** After mdsvex: frontmatter image paths → descriptors. Returns the module-script lines to add, and
-	 *  whether the body now renders `<Og__Img>` (so it is a component, not static HTML). */
-	finish: (code: string, filename: string) => { code: string; lines: string[]; dynamic: boolean };
+	/** After mdsvex: frontmatter image paths → descriptors. Returns the module-script lines to add,
+	 *  whether the body now renders `<Og__Img>` (so it is a component, not static HTML), and every
+	 *  image file the document names (a kept compile whose file is gone is compiled again). */
+	finish: (
+		code: string,
+		filename: string
+	) => { code: string; lines: string[]; dynamic: boolean; files: string[] };
 }
 
 /** The Vite plugin `api` key content reads a markdown extension from. */
@@ -172,6 +176,9 @@ export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExten
 		rehype: [{ enforce: 'pre', plugin: rehype }],
 		finish: (code, filename) => {
 			const lines: string[] = [];
+			const files: string[] = [];
+			const file_of = (spec: string): string =>
+				path.resolve(path.dirname(filename), spec.slice(0, spec.lastIndexOf('?')));
 			const found = IMPORTS_RE.exec(code);
 			if (found) {
 				code = code.slice(0, found.index) + code.slice(found.index + found[0].length);
@@ -180,8 +187,10 @@ export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExten
 					string
 				][];
 				lines.push(`import ${COMPONENT} from '@ogygia/image/Img.svelte';`);
-				for (const [name, spec] of imports)
+				for (const [name, spec] of imports) {
 					lines.push(`import ${name} from ${JSON.stringify(spec)};`);
+					files.push(file_of(spec));
+				}
 			}
 			const meta = METADATA_RE.exec(code);
 			if (meta) {
@@ -190,7 +199,7 @@ export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExten
 					data = JSON.parse(meta[1]!);
 					// oxlint-disable-next-line ogygia/no-silent-failures -- not JSON: mdsvex wrote something else, and frontmatter images are only read from its JSON form
 				} catch {
-					return { code, lines, dynamic: found !== null };
+					return { code, lines, dynamic: found !== null, files };
 				}
 				let n = 0;
 				const names: string[] = [];
@@ -200,6 +209,7 @@ export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExten
 						const name = `__og_fm_image_${n++}`;
 						names.push(name);
 						lines.push(`import ${name} from ${JSON.stringify(spec)};`);
+						files.push(file_of(spec));
 						return name;
 					}
 					if (Array.isArray(value)) return `[${value.map(emit).join(',')}]`;
@@ -213,7 +223,7 @@ export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExten
 				if (names.length)
 					code = `${code.slice(0, meta.index)}export const metadata = ${js};${code.slice(meta.index + meta[0].length)}`;
 			}
-			return { code, lines, dynamic: found !== null };
+			return { code, lines, dynamic: found !== null, files };
 		}
 	};
 }
