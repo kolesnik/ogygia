@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import sharp from 'sharp';
+import { source_id } from '../src/store.ts';
 
 /** An animated GIF of `frames` frames on a `width` × `height` canvas, each frame one pixel drawn on
  *  it, so the file stays a few kilobytes however many pixels it decodes to (a screen recording's
@@ -53,6 +54,11 @@ export function header_png(file: string, width: number, height: number): string 
 		])
 	);
 	return file;
+}
+
+/** The id the macro gives the file at `file`: what a recipe of it names. */
+export function id_of(file: string): string {
+	return source_id(fs.readFileSync(file));
 }
 
 /** A folder of images: a wide photo-like JPEG, a transparent PNG, a small PNG, an animated GIF and

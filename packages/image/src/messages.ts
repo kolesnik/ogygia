@@ -225,6 +225,18 @@ export const IMAGE_WARNINGS = {
 			keeps its placeholder.
 		`
 	},
+	image_source_changed: {
+		text: (a: { path: string; tail: string }): string =>
+			`the image endpoint was asked for ${a.path}, but its original ${a.tail} is not that source any more; it answered 404.`,
+		details: (): string => prose`
+			Every image file is named by its source's content (the id at the start of its name). A
+			page named this file, and the original was edited (or replaced) after that page was
+			rendered, so making the file now would put the new pixels under the old name, where a
+			browser or CDN keeps them for good. Reload the page: it names the new source's files. On a
+			live server, a descriptor whose id and \`src\` name two different files (one built by hand,
+			or from a CMS) gets this too: make descriptors with \`import.meta.og.image()\`.
+		`
+	},
 	image_no_encoder: {
 		text: (a: { reason: string }): string =>
 			`this server cannot make image files: the encoder (sharp) did not load (${a.reason}); image requests answer 500.`,

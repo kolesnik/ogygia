@@ -6,7 +6,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { beforeAll, describe, expect, test, vi } from 'vitest';
 import { startPlugin } from '@ogygia/core/plugin/testing';
-import { make_images } from './fixtures.ts';
+import { id_of, make_images } from './fixtures.ts';
 
 const files = vi.hoisted(() => new Map<string, string>());
 const store = vi.hoisted(() => {
@@ -45,6 +45,7 @@ async function get(url: string): Promise<Response | undefined> {
 }
 
 const HARBOR = { id: 'h1', src: '/_app/immutable/assets/harbor%20dusk.Ab12.jpg' };
+const ids = { harbor: '', spin: '', broken: '' };
 const SIG_RE = /\/__ogygia__\/i\/([^/]+)\//;
 
 beforeAll(async () => {
@@ -54,6 +55,7 @@ beforeAll(async () => {
 	const broken = `${img.dir}/broken.jpg`;
 	fs.writeFileSync(broken, 'not a jpeg');
 	files.set('/_app/immutable/assets/broken.Ef56.jpg', broken);
+	Object.assign(ids, { harbor: id_of(img.jpg), spin: id_of(img.gif), broken: id_of(broken) });
 });
 
 describe('the image server realm', () => {
@@ -87,7 +89,7 @@ describe('the image server realm', () => {
 
 	test('the endpoint makes the file the URL describes, kept forever', async () => {
 		const url = mint(
-			{ ...HARBOR, width: 320, height: 320, format: 'webp', position: 'top' },
+			{ ...HARBOR, id: ids.harbor, width: 320, height: 320, format: 'webp', position: 'top' },
 			false
 		)!;
 		const res = (await get(url))!;
@@ -99,7 +101,10 @@ describe('the image server realm', () => {
 	});
 
 	test('the second ask is read from the store, whole, with its length', async () => {
-		const url = mint({ ...HARBOR, width: 200, height: 133, format: 'avif' }, false)!;
+		const url = mint(
+			{ ...HARBOR, id: ids.harbor, width: 200, height: 133, format: 'avif' },
+			false
+		)!;
 		const first = Buffer.from(await (await get(url))!.arrayBuffer());
 		expect(fs.readdirSync(store).length).toBeGreaterThan(0);
 		const again = (await get(url))!;
@@ -110,7 +115,7 @@ describe('the image server realm', () => {
 	test('an animated source stays animated', async () => {
 		const url = mint(
 			{
-				id: 's1',
+				id: ids.spin,
 				src: '/_app/immutable/assets/spin.Cd34.gif',
 				width: 160,
 				height: 120,
@@ -163,7 +168,7 @@ describe('the image server realm', () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const url = mint(
 			{
-				id: 'b1',
+				id: ids.broken,
 				src: '/_app/immutable/assets/broken.Ef56.jpg',
 				width: 48,
 				height: 48,

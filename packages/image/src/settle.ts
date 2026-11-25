@@ -1,8 +1,10 @@
 /**
  * SETTLE: one signed recipe → its file. The original is read with Kit's `read()` (the image server
  * realm imports every image under `src/`, so each is one of the server's assets in dev, in the
- * prerender and on any adapter), encoded once, and kept in the file store (./store.ts) by the recipe,
- * so the next ask (this process, a restart, the next build) is a file read, streamed. A file the
+ * prerender and on any adapter), checked against the id the recipe names (an original edited since
+ * the page named it is not the source: 404, never its new pixels under the old name), encoded once,
+ * and kept in the file store (./store.ts) by the recipe, so the next ask (this process, a restart,
+ * the next build) is a file read, streamed. A file the
  * store could not keep (no store, or a write that failed) is kept in memory instead, the least
  * recently asked going first. Loaded on the first image request only: a server that never serves one
  * never loads sharp.
@@ -22,7 +24,7 @@ import { mime_of } from './layout.ts';
 import { warn } from './messages.ts';
 import { encode_recipe, VIPS_VERSION } from './pixels.ts';
 import type { ParsedRecipe } from './recipe.ts';
-import { build_handoff, FileStore, runtime_store } from './store.ts';
+import { build_handoff, FileStore, runtime_store, source_id } from './store.ts';
 
 const MAX_ENCODES = Math.max(1, Math.min(4, Math.floor(os.availableParallelism() / 2)));
 const MAX_WAITING = 64;
@@ -37,6 +39,7 @@ const store: FileStore | null = handoff
 const live = handoff === null;
 
 class Busy extends Error {}
+class Changed extends Error {}
 
 type Job = { run: () => Promise<void>; gone: () => void };
 const encodes = queue<Job>({
@@ -80,7 +83,7 @@ const makes = flights.keyed<Ask>()<'key', 'recipe' | 'original', Promise<Made>>(
 	key: ['key'],
 	ignore: {
 		recipe: 'the key is the recipe',
-		original: 'the key names the source by content'
+		original: 'the key names the source by content, and a run checks the original against it'
 	},
 	keep: (made: Fresh<Made>) => (made.on_disk ? 0 : Infinity),
 	max: MEMORY_MAX,
@@ -88,6 +91,7 @@ const makes = flights.keyed<Ask>()<'key', 'recipe' | 'original', Promise<Made>>(
 	run: ({ key, recipe, original }: Ask): Promise<Made> =>
 		limited(async (): Promise<Made> => {
 			const bytes = new Uint8Array(await read(original).arrayBuffer());
+			if (source_id(bytes) !== recipe.id) throw new Changed();
 			const data = await encode_recipe(bytes, recipe);
 			const on_disk = store !== null && (await store.keep(key, data));
 			return { data, on_disk };
@@ -150,6 +154,10 @@ export async function settle(
 				status: 503,
 				headers: { 'cache-control': 'no-store', 'retry-after': String(RETRY_AFTER_S) }
 			});
+		if (e instanceof Changed) {
+			warn('image_source_changed', { path: key, tail: recipe.tail });
+			return new Response('Not Found', { status: 404, headers: { 'cache-control': 'no-store' } });
+		}
 		return failed(key, (e as Error).message);
 	}
 }

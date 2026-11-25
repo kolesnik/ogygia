@@ -35,6 +35,7 @@ import {
 	BUILD_ENV,
 	FileStore,
 	open_build_store,
+	source_id,
 	type BuildHandoff
 } from '../store.ts';
 
@@ -127,12 +128,15 @@ async function each<T>(items: readonly T[], work: (item: T) => Promise<void>): P
 async function made(
 	store: FileStore,
 	key: string,
-	recipe: Omit<Recipe, 'id' | 'src'>,
+	recipe: Omit<Recipe, 'src'>,
 	original: () => Uint8Array
 ): Promise<Uint8Array> {
 	const kept = await store.find(key);
 	if (kept) return fs.promises.readFile(kept.file);
-	const data = await encode_recipe(original(), recipe);
+	const bytes = original();
+	if (source_id(bytes) !== recipe.id)
+		throw new Error(`its original is not the source ${recipe.id} any more`);
+	const data = await encode_recipe(bytes, recipe);
 	await store.keep(key, data);
 	return data;
 }

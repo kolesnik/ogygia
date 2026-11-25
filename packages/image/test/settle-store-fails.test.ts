@@ -4,7 +4,8 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { beforeAll, expect, test, vi } from 'vitest';
 import { startPlugin } from '@ogygia/core/plugin/testing';
-import { make_images } from './fixtures.ts';
+import { ENCODER_VERSION } from '../src/store.ts';
+import { id_of, make_images } from './fixtures.ts';
 
 const io = vi.hoisted(() => ({ file: '', reads: 0 }));
 vi.hoisted(() => {
@@ -32,7 +33,7 @@ const { ctx } = startPlugin(server, { name: '@ogygia/image' });
 beforeAll(async () => {
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-full-'));
 	const root = path.join(tmp, `ogygia-image-${process.getuid!()}`);
-	const dir = path.join(root, `v3-${sharp.versions.vips}`);
+	const dir = path.join(root, `v${ENCODER_VERSION}-${sharp.versions.vips}`);
 	fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 	fs.chmodSync(dir, 0o500);
 	process.env.TMPDIR = tmp;
@@ -43,7 +44,7 @@ test('a file the store cannot write is still answered, said once, and kept in me
 	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 	const url = mint(
 		{
-			id: 'a1',
+			id: id_of(io.file),
 			src: '/_app/immutable/assets/a.Ab12.png',
 			width: 40,
 			height: 40,

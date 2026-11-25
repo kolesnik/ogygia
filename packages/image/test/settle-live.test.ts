@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { beforeAll, expect, test, vi } from 'vitest';
 import { startPlugin } from '@ogygia/core/plugin/testing';
-import { make_images } from './fixtures.ts';
+import { id_of, make_images } from './fixtures.ts';
 
 const io = vi.hoisted(() => ({ file: '', reads: 0, slow: false }));
 vi.hoisted(() => {
@@ -45,7 +45,7 @@ async function get(url: string): Promise<Response> {
 const url_at = (width: number): string =>
 	mint(
 		{
-			id: 'a1',
+			id: id_of(io.file),
 			src: '/_app/immutable/assets/a.Ab12.png',
 			width,
 			height: width,

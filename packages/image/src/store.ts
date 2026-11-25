@@ -25,8 +25,20 @@ import path from 'node:path';
 import { cache, clock, random, type Cache } from '@ogygia/machine';
 import { warn } from './messages.ts';
 
-/** Bump when the encoder's output changes for the same input: every cached file is made again. */
-export const ENCODER_VERSION = 3;
+/** Bump when the encoder's output changes for the same input: every cached file is made again, and
+ *  every source gets a new id, so every file a new name. */
+export const ENCODER_VERSION = 4;
+
+/** A source's id: its bytes (and the encoder's version), so every file made from it names its
+ *  content. Whoever makes a file checks the original it read against the id it is named by. */
+export function source_id(bytes: Uint8Array): string {
+	return crypto
+		.createHash('sha256')
+		.update(bytes)
+		.update(`\0encoder ${ENCODER_VERSION}`)
+		.digest('base64url')
+		.slice(0, 16);
+}
 
 /** What the plugin hands the processes of one `vite build` or dev server (and Kit's prerender
  *  worker, which inherits the environment): the store's folder, the file the prerender notes its
