@@ -1,7 +1,9 @@
 // The fixture app under `paths.base` (`/base`), every page prerendered and served as plain files
 // there (`IMAGE_E2E_MODE=base`): every file a page names sits under the base, in the app folder, and
 // is a file the build wrote, whether an <img> named it, a CSS background did, or a preset was warmed.
+import { fileURLToPath } from 'node:url';
 import { test, expect } from '@ogygia/tooling/e2e';
+import { marked_files } from './marks.ts';
 
 const PAGES = ['/base/', '/base/blog/first-post', '/base/blog/third-post', '/base/island'];
 const FILE_RE = /\/[^\s",()]*(?:__ogygia__\/i|_app\/immutable\/og)\/[^\s",)]+/g;
@@ -44,4 +46,16 @@ test('the page loads every image, its CSS background and its warmed preset under
 			.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
 			.toBe(true);
 	}
+});
+
+test("no file of the build keeps the build's mark, its SPA fallback page included", async ({
+	request
+}) => {
+	const html = await (await request.get('/base/404.html')).text();
+	expect(html).toContain('kit.start');
+	expect(html).not.toMatch(/ogygia\.invalid/);
+	const app = fileURLToPath(new URL('./app/', import.meta.url));
+	const found = marked_files(app, ['build/static', '.svelte-kit/output']);
+	expect(found.read).toBeGreaterThan(50);
+	expect(found.marked).toEqual([]);
 });

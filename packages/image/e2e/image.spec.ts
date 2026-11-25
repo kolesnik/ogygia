@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { test, expect } from '@ogygia/tooling/e2e';
+import { marked_files } from './marks.ts';
 
 const MODE = process.env.IMAGE_E2E_MODE ?? 'node';
 const PAGES = ['/', '/blog/first-post', '/blog/second-post', '/blog/third-post'];
@@ -424,8 +425,36 @@ test.describe('the image endpoint', () => {
 	});
 });
 
+test.describe('a build', () => {
+	test.skip(MODE === 'dev', 'the dev server builds nothing');
+
+	test("leaves the build's mark in no file of its output, Kit's or the adapter's", () => {
+		const app = fileURLToPath(new URL('./app/', import.meta.url));
+		const dirs = MODE === 'static' ? ['build/static'] : ['build'];
+		const found = marked_files(app, [...dirs, '.svelte-kit/output'], (rel) =>
+			MODE === 'static' ? false : rel.startsWith('build/static')
+		);
+		expect(found.read).toBeGreaterThan(50);
+		expect(found.marked).toEqual([]);
+	});
+});
+
 test.describe('a prerendered build', () => {
 	test.skip(MODE !== 'static', 'every page prerendered');
+
+	test("its SPA fallback page, rendered after the build wrote its files, holds no mark, and the root layout's image loads in it", async ({
+		page,
+		request
+	}) => {
+		const html = await (await request.get('/404.html')).text();
+		expect(html).toContain('kit.start');
+		expect(html).not.toMatch(/ogygia\.invalid/);
+		await page.goto('/404.html');
+		const mark = page.locator('#site-mark');
+		await expect
+			.poll(() => mark.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
+			.toBe(true);
+	});
 
 	test('names every file a page shows as a file under the app folder, never a signed URL', async ({
 		request
