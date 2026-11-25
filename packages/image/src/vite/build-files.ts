@@ -26,7 +26,7 @@ import type { AppPaths, RenderConfig } from '../config.ts';
 import type { ImageDescriptor } from '../descriptor.ts';
 import { lay_out, preset_request } from '../layout.ts';
 import { OgygiaError } from '../messages.ts';
-import { encode_recipe } from '../pixels.ts';
+import { encode_recipe, VIPS_VERSION } from '../pixels.ts';
 import { IMAGE_PREFIX, parse_recipe, warm_file, type Recipe } from '../recipe.ts';
 import {
 	build_handoff,
@@ -55,7 +55,9 @@ export function handoff_for(build: boolean): BuildHandoff {
 		fs.mkdirSync(run, { recursive: true });
 		minted = path.join(run, 'minted.txt');
 	}
-	const handoff: BuildHandoff = { store: build_store_dir(path.join(cache, 'files')), minted };
+	const handoff: BuildHandoff = { store: build_store_dir(path.join(cache, 'files'), VIPS_VERSION),
+		minted
+	};
 	process.env[BUILD_ENV] = JSON.stringify(handoff);
 	return handoff;
 }

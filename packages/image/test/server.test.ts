@@ -159,7 +159,7 @@ describe('the store a live server keeps', () => {
 		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-store-'));
 		const root = path.join(tmp, `ogygia-image-${process.getuid!()}`);
 		fs.mkdirSync(path.join(root, 'v0-old'), { recursive: true, mode: 0o700 });
-		const s = runtime_store(tmp)!;
+		const s = runtime_store('8.0.0', tmp)!;
 		expect(s.dir.startsWith(root)).toBe(true);
 		expect(fs.statSync(root).mode & 0o777).toBe(0o700);
 		expect(fs.statSync(s.dir).mode & 0o777).toBe(0o700);
@@ -172,11 +172,11 @@ describe('the store a live server keeps', () => {
 		const open = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-store-'));
 		fs.mkdirSync(path.join(open, `ogygia-image-${process.getuid!()}`), { mode: 0o777 });
 		fs.chmodSync(path.join(open, `ogygia-image-${process.getuid!()}`), 0o777);
-		expect(runtime_store(open)).toBeNull();
+		expect(runtime_store('8.0.0', open)).toBeNull();
 		const linked = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-store-'));
 		const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-elsewhere-'));
 		fs.symlinkSync(elsewhere, path.join(linked, `ogygia-image-${process.getuid!()}`));
-		expect(runtime_store(linked)).toBeNull();
+		expect(runtime_store('8.0.0', linked)).toBeNull();
 		expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([
 			expect.stringMatching(/image_store_unsafe/),
 			expect.stringMatching(/image_store_unsafe/)

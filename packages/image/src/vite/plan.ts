@@ -12,13 +12,8 @@ import { BuildCache } from '@ogygia/compiler';
 import type { Metadata } from 'sharp';
 import type { ImageFormat, ImageOps } from '../descriptor.ts';
 import { OgygiaError } from '../messages.ts';
-import {
-	ENCODER_VERSION,
-	metadata_of,
-	placeholder_of,
-	shown_size,
-	VIPS_VERSION
-} from '../pixels.ts';
+import { metadata_of, placeholder_of, shown_size, VIPS_VERSION } from '../pixels.ts';
+import { ENCODER_VERSION } from '../store.ts';
 import type { ImageOptions, ImagePluginOptions } from './options.ts';
 
 /** What a source file is. */

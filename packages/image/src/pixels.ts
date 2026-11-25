@@ -8,9 +8,6 @@
 import sharp, { type Metadata, type Sharp } from 'sharp';
 import type { ImageFormat, ImageOps } from './descriptor.ts';
 
-/** Bump when the encoder's output changes for the same input: every cached file is made again. */
-export const ENCODER_VERSION = 3;
-
 /** The libvips version the files are made with: part of every cache key. */
 export const VIPS_VERSION: string = sharp.versions.vips;
 

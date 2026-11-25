@@ -19,7 +19,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { clock, random } from '@ogygia/machine';
 import { warn } from './messages.ts';
-import { ENCODER_VERSION, VIPS_VERSION } from './pixels.ts';
+
+/** Bump when the encoder's output changes for the same input: every cached file is made again. */
+export const ENCODER_VERSION = 3;
 
 /** What the plugin hands the processes of one `vite build` or dev server (and Kit's prerender
  *  worker, which inherits the environment): the store's folder, and the file the build's mints are
@@ -43,7 +45,9 @@ export function build_handoff(): BuildHandoff | null {
 	return { store: v.store, minted: v.minted };
 }
 
-const VERSION_DIR = `v${ENCODER_VERSION}-${VIPS_VERSION}`;
+function version_dir(vips: string): string {
+	return `v${ENCODER_VERSION}-${vips}`;
+}
 const MONTH_MS = 30 * 24 * 3600 * 1000;
 
 /** Files made from recipes, by key, in one folder. */
@@ -82,9 +86,10 @@ export class FileStore {
 	}
 }
 
-/** The build cache's store folder under `cache` (the plugin's `BuildCache` folder). */
-export function build_store_dir(cache: string): string {
-	return path.join(cache, VERSION_DIR);
+/** The build cache's store folder under `cache` (the plugin's `BuildCache` folder), for files made
+ *  with libvips `vips`. */
+export function build_store_dir(cache: string, vips: string): string {
+	return path.join(cache, version_dir(vips));
 }
 
 function owned(dir: string): boolean {
@@ -96,8 +101,9 @@ function owned(dir: string): boolean {
 
 /** A live server's store: `<tmp>/ogygia-image-<uid>/<version>/`, made owner-only. Null (no store:
  *  each file is made per ask, flights still share one) when the folder is not safely this user's: a
- *  folder another user made first, or a link, could hand out bytes it chose. */
-export function runtime_store(tmp: string = os.tmpdir()): FileStore | null {
+ *  folder another user made first, or a link, could hand out bytes it chose. `vips` is the libvips
+ *  version the files are made with (read where sharp is loaded: ./settle.ts). */
+export function runtime_store(vips: string, tmp: string = os.tmpdir()): FileStore | null {
 	const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
 	const root = path.join(tmp, `ogygia-image-${uid}`);
 	try {
@@ -109,7 +115,7 @@ export function runtime_store(tmp: string = os.tmpdir()): FileStore | null {
 			warn('image_store_unsafe', { dir: root });
 			return null;
 		}
-		const dir = path.join(root, VERSION_DIR);
+		const dir = path.join(root, version_dir(vips));
 		fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 		if (!owned(dir)) {
 			warn('image_store_unsafe', { dir });

@@ -14,14 +14,16 @@ import { read } from '$app/server';
 import { flights, queue, STALE, type Place } from '@ogygia/machine';
 import { mime_of } from './layout.ts';
 import { warn } from './messages.ts';
-import { encode_recipe } from './pixels.ts';
+import { encode_recipe, VIPS_VERSION } from './pixels.ts';
 import type { ParsedRecipe } from './recipe.ts';
 import { build_handoff, FileStore, runtime_store } from './store.ts';
 
 const MAX_ENCODES = Math.max(1, Math.min(4, Math.floor(os.availableParallelism() / 2)));
 
 const handoff = build_handoff();
-const store: FileStore | null = handoff ? new FileStore(handoff.store) : runtime_store();
+const store: FileStore | null = handoff
+	? new FileStore(handoff.store)
+	: runtime_store(VIPS_VERSION);
 
 type Job = { run: () => Promise<void> };
 const encodes = queue<Job>({
