@@ -10,6 +10,7 @@ import { lay_out } from '../src/layout.ts';
 import { namer } from '../src/namers/resolve.ts';
 import type { Recipe } from '../src/recipe.ts';
 import { namer_plan, sharp, vercel } from '../src/vite/encoder.ts';
+import { image } from '../src/vite/index.ts';
 import { vercel_config_missing } from '../src/vite/vercel-config.ts';
 
 const SRC = '/_app/immutable/assets/hero.Ab12.jpg';
@@ -125,14 +126,62 @@ test('vercel() hands the adapter its images config; its sizes default to small s
 		sizes: [640, 1280],
 		qualities: [60, 80],
 		formats: ['image/avif', 'image/webp'],
-		domains: []
+		domains: [],
+		localPatterns: [{ pathname: '^/_app/immutable/assets/.+$', search: '' }]
 	});
 	const plain = vercel();
 	expect(plain.images.sizes).toEqual(
 		[16, 32, 48, 64, 96, 128, 256, 384, ...DEFAULT_BREAKPOINTS].sort((a, b) => a - b)
 	);
-	expect(plain.images).not.toHaveProperty('qualities');
 	expect(plain).toMatchObject({ name: 'vercel', maker: null, widths: plain.images.sizes });
+});
+
+test("vercel() opens Vercel's optimizer no wider than the app asks: the default qualities (AVIF 60, WebP 80) only, and the app's own originals only", () => {
+	const plain = vercel();
+	expect(plain.images.qualities).toEqual([60, 80]);
+	expect(plain.qualities).toEqual([60, 80]);
+	expect(plain.images.localPatterns).toEqual([
+		{ pathname: '^/_app/immutable/assets/.+$', search: '' }
+	]);
+});
+
+test('a plugin or preset quality vercel() does not list fails the build, naming the list to add it to', () => {
+	expect(() => image({ quality: 75, encoder: vercel() })).toThrow(
+		/'quality' must be one vercel\(\) makes \(60, 80\): list it in vercel\(\{ qualities \}\)[\s\S]*\/e\/image_option_invalid/
+	);
+	expect(() =>
+		image({ presets: { thumb: { width: 200, quality: 70 } }, encoder: [vercel(), sharp()] })
+	).toThrow(/presets\.thumb[\s\S]*'quality' must be one vercel\(\) makes \(60, 80\)/);
+	expect(() =>
+		image({ quality: 70, encoder: [vercel({ qualities: [60, 70, 80] }), sharp()] })
+	).not.toThrow();
+	expect(() => image({ quality: 75 })).not.toThrow();
+});
+
+test('the adapter config check fails an images config that lets anyone ask Vercel for any quality or any path of the deployment', () => {
+	const want = {
+		images: IMAGES,
+		formats: ['avif', 'webp'] as const,
+		assets: '',
+		originals: '/shop/_app/immutable/assets/'
+	};
+	const local = [{ pathname: '^/shop/_app/immutable/assets/.+$', search: '' }];
+	expect(vercel_config_missing({ ...IMAGES, localPatterns: local }, want)).toEqual([]);
+	expect(vercel_config_missing({ ...IMAGES, localPatterns: undefined }, want)).toEqual([
+		'localPatterns (unset: the optimizer reads any path of the deployment)'
+	]);
+	expect(
+		vercel_config_missing({ ...IMAGES, localPatterns: [{ pathname: '^/.*$' }] }, want)
+	).toEqual(['localPatterns no wider than /shop/_app/immutable/assets/ (one matches /shop/x.png)']);
+	expect(
+		vercel_config_missing(
+			{ ...IMAGES, localPatterns: [{ pathname: '^/_app/immutable/assets/.+$' }] },
+			want
+		)
+	).toEqual(['localPatterns for /shop/_app/immutable/assets/']);
+	expect(
+		vercel_config_missing({ ...IMAGES, qualities: undefined, localPatterns: local }, want)
+	).toEqual(['qualities (unset: anyone may ask for any quality from 1 to 100)']);
 });
 
 test('vercel() refuses an unknown key, sizes that are not whole pixels, and qualities outside 1–100', () => {
@@ -176,24 +225,32 @@ test('with widths, the layout asks only for those, or the whole source, each onc
 const IMAGES = vercel({ sizes: [640, 1280], qualities: [60, 80] }).images;
 
 test('the adapter config check names each width, quality, format and host the build names that images lacks', () => {
-	const want = { images: IMAGES, formats: ['avif', 'webp'] as const, assets: '' };
+	const want = {
+		images: IMAGES,
+		formats: ['avif', 'webp'] as const,
+		assets: '',
+		originals: '/_app/immutable/assets/'
+	};
 	expect(vercel_config_missing(IMAGES, want)).toEqual([]);
 	expect(vercel_config_missing(undefined, want)).toEqual(['images (no images config at all)']);
 	expect(
 		vercel_config_missing(
-			{ sizes: [640], domains: [], qualities: [60], formats: ['image/avif'] },
+			{
+				sizes: [640],
+				domains: [],
+				qualities: [60],
+				formats: ['image/avif'],
+				localPatterns: IMAGES.localPatterns
+			},
 			want
 		)
 	).toEqual(['sizes 1280', 'qualities 80', 'formats image/webp']);
 	expect(
-		vercel_config_missing({ sizes: [640, 1280], domains: [] }, { ...want, images: vercel().images })
-	).toEqual(expect.arrayContaining(['formats image/avif']));
-	expect(
 		vercel_config_missing(
-			{ ...IMAGES, qualities: [60] },
-			{ ...want, images: vercel({ sizes: [640, 1280] }).images }
+			{ sizes: [640, 1280], domains: [], qualities: [60, 80], localPatterns: IMAGES.localPatterns },
+			{ ...want, images: vercel().images }
 		)
-	).toEqual(['qualities (any 1–100: vercel() names no qualities, but images lists some)']);
+	).toEqual(expect.arrayContaining(['formats image/avif']));
 	expect(vercel_config_missing(IMAGES, { ...want, assets: 'https://cdn.example.com' })).toEqual([
 		'remote host cdn.example.com'
 	]);
