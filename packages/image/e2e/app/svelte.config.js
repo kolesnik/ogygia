@@ -21,6 +21,7 @@ const config = {
 		adapter: STATIC
 			? static_adapter({ pages: PAGES, fallback: '404.html', strict: true })
 			: adapter(),
+		outDir: process.env.OGYGIA_E2E_OUT_DIR,
 		paths: { base: BASE },
 		prerender: { origin: 'https://example.com' }
 	}

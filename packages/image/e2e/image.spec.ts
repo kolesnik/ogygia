@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { test, expect } from '@ogygia/tooling/e2e';
+import { E2E_OUT_DIR } from '@ogygia/tooling/e2e/build.ts';
 import { server_log } from '@ogygia/tooling/e2e/server-log.ts';
 import { marked_files } from './marks.ts';
 
@@ -489,7 +490,7 @@ test.describe('a build', () => {
 	test("leaves the build's mark in no file of its output, Kit's or the adapter's", () => {
 		const app = fileURLToPath(new URL('./app/', import.meta.url));
 		const dirs = MODE === 'static' ? ['build/static'] : ['build'];
-		const found = marked_files(app, [...dirs, '.svelte-kit/output'], (rel) =>
+		const found = marked_files(app, [...dirs, `${E2E_OUT_DIR}/output`], (rel) =>
 			MODE === 'static' ? false : rel.startsWith('build/static')
 		);
 		expect(found.read).toBeGreaterThan(50);
