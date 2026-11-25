@@ -46,8 +46,43 @@ import {
 import { message, verify } from './verify.ts';
 
 type OnDisk = typeof import('./on-disk.ts');
-let DISK: OnDisk | null = null;
-let disk_ready: Promise<void> | null = null;
+
+/** What the realm reads and notes on disk (dev and the build only): loaded from `setup`, waited
+ *  for by `request`, and the prerender's origin, noted on its first request. */
+class DiskHalf {
+	/** The loaded module, or null: not loaded (yet, or on a live server). */
+	disk: OnDisk | null = null;
+	#ready: Promise<void> | null = null;
+	#unnoted: BuildHandoff | null = null;
+
+	/** Load it, then hand it to `then`. */
+	load(then: (disk: OnDisk) => void): void {
+		this.#ready = import('./on-disk.ts').then((disk) => {
+			this.disk = disk;
+			then(disk);
+		});
+	}
+
+	/** Wait until it is loaded, if it is loading. */
+	async ready(): Promise<void> {
+		if (this.#ready !== null) await this.#ready;
+	}
+
+	/** Note the origin of the first request after `run` started prerendering. */
+	note_origin_of(run: BuildHandoff): void {
+		this.#unnoted = run;
+	}
+
+	/** Note `origin` for the prerender waiting for one. */
+	note_origin(origin: string): void {
+		const run = this.#unnoted;
+		if (run === null || this.disk === null) return;
+		this.#unnoted = null;
+		this.disk.note_origin(run.minted, origin);
+	}
+}
+
+const DISK = new DiskHalf();
 
 const { base: BASE, assets: ASSETS } = config.paths;
 const PREFIXES: readonly string[] = [ASSETS, BASE];
@@ -69,7 +104,8 @@ class Originals {
 	has(tail: string): boolean {
 		if (this.#tails.has(tail)) return true;
 		const root = DEV_ROOT;
-		return root !== null && DISK !== null && published(tail) && DISK.exists(root, tail);
+		const disk = DISK.disk;
+		return root !== null && disk !== null && published(tail) && disk.exists(root, tail);
 	}
 }
 
@@ -91,7 +127,6 @@ function original_of(recipe: ParsedRecipe): string {
 }
 
 const noted = new Set<string>();
-let origin_unnoted: BuildHandoff | null = null;
 const SIGNED_MAX = 10_000;
 
 function root_relative(url: string): boolean {
@@ -125,7 +160,7 @@ function start(app: ServerApp<unknown>, disk: OnDisk | null): void {
 		return;
 	}
 	if (disk !== null && run?.minted) {
-		origin_unnoted = run;
+		DISK.note_origin_of(run);
 		set_minter((recipe) => prerendered(disk, run, recipe));
 		return;
 	}
@@ -146,20 +181,13 @@ function start(app: ServerApp<unknown>, disk: OnDisk | null): void {
 
 const server: ServerPlugin<unknown> = defineServer<unknown>({
 	setup(app) {
-		if (!dev && !building) return start(app, null);
-		disk_ready = import('./on-disk.ts').then((disk) => {
-			DISK = disk;
-			start(app, disk);
-		});
+		if (dev || building) DISK.load((disk) => start(app, disk));
+		else start(app, null);
 	},
 
 	async request({ event, app }) {
-		if (disk_ready !== null) await disk_ready;
-		const run = origin_unnoted;
-		if (run && DISK !== null) {
-			origin_unnoted = null;
-			DISK.note_origin(run.minted, event.url.origin);
-		}
+		await DISK.ready();
+		DISK.note_origin(event.url.origin);
 		const at = BASE + IMAGE_PREFIX;
 		const { pathname } = event.url;
 		if (!pathname.startsWith(at)) return;
