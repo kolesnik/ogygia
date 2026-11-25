@@ -1,10 +1,14 @@
-// The fixture app built with adapter-cloudflare and run by `wrangler dev` (workerd, local), with
-// today's encoder, `sharp()` (`IMAGE_E2E_MODE=cloudflare`): every page prerendered but /late, which
-// the Worker renders on request.
+// The fixture app built with adapter-cloudflare and `cloudflare({ links: false })`, run by
+// `wrangler dev` (workerd, local) with its Images binding in local mode (`IMAGE_E2E_MODE=cloudflare`):
+// every page prerendered but /late, which the Worker renders on request and whose files the
+// Worker's endpoint makes with the binding.
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
 import { test, expect } from '@ogygia/tooling/e2e';
-import { server_log } from '@ogygia/tooling/e2e/server-log.ts';
 
 const APP = fileURLToPath(new URL('./app/', import.meta.url));
 const PRERENDERED = ['/', '/blog/first-post', '/blog/second-post', '/blog/third-post', '/island'];
@@ -66,20 +70,32 @@ test("a built file that is not there is the asset layer's 404, and Kit's _header
 	expect(res.headers()['cache-control']).toBe(KEPT);
 });
 
-test('a live page names signed URLs, and the Worker, with no encoder, answers each 500 kept nowhere and says image_no_encoder', async ({
+test('every file a live page names is made by the Images binding, cut to its box, and kept forever', async ({
 	request
 }) => {
 	const urls = await named(request, ['/late'], SIGNED_RE);
-	expect(urls.length).toBeGreaterThan(0);
+	const late = urls.filter((u) => u.includes('/one.'));
+	expect(late.map((u) => /-(\d+x\d+)-ptop\/.*\.(\w+)$/.exec(u)!.slice(1).join(' ')).sort()).toEqual(
+		['160x80 avif', '160x80 webp', '80x40 avif', '80x40 webp']
+	);
+	expect(urls.length).toBeGreaterThan(late.length);
 	for (const url of urls) {
 		const res = await request.get(url);
-		expect(res.status(), url).toBe(500);
-		expect(res.headers()['cache-control'], url).toBe('no-store');
+		expect(res.status(), url).toBe(200);
+		const format = /\.(\w+)$/.exec(url)![1]!;
+		expect(res.headers()['content-type'], url).toBe(`image/${format}`);
+		expect(res.headers()['cache-control'], url).toBe('public, max-age=31536000, immutable');
+		const meta = await sharp(await res.body()).metadata();
+		const [w, h] = /-(\d+)x(\d+)[-/]/.exec(url)!.slice(1).map(Number);
+		expect([meta.format === 'heif' ? 'avif' : meta.format, meta.width, meta.height], url).toEqual([
+			format,
+			w,
+			h
+		]);
+		const again = await request.get(url);
+		expect(again.status(), url).toBe(200);
+		expect(Buffer.compare(await again.body(), await res.body()), url).toBe(0);
 	}
-	const said = fs.readFileSync(server_log()!, 'utf8');
-	expect(said).toMatch(/https:\/\/ogygiajs\.dev\/e\/image_adapter_no_encoder/);
-	expect(said).toMatch(/this server cannot make image files: the encoder \(sharp\) did not load/);
-	expect(said).toMatch(/https:\/\/ogygiajs\.dev\/e\/image_no_encoder\?reason=/);
 });
 
 test('the endpoint refuses a forged signature and a POST, kept nowhere', async ({ request }) => {
@@ -95,4 +111,25 @@ test('the endpoint refuses a forged signature and a POST, kept nowhere', async (
 	const posted = await request.post(url);
 	expect(posted.status()).toBe(405);
 	expect(posted.headers()['cache-control']).toBe('no-store');
+});
+
+test('the Worker wrangler would deploy holds the binding maker and none of sharp', () => {
+	const out = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-worker-'));
+	try {
+		execFileSync(
+			process.execPath,
+			['node_modules/wrangler/bin/wrangler.js', 'deploy', '--dry-run', '--outdir', out],
+			{ cwd: APP, env: { ...process.env, WRANGLER_SEND_METRICS: 'false' }, stdio: 'pipe' }
+		);
+		const worker = fs.readFileSync(path.join(out, '_worker.js'), 'utf8');
+		expect(worker).toContain('binding_maker');
+		expect(worker).toContain('ogygia-image.invalid');
+		expect(worker).not.toMatch(
+			/from ["']sharp["']|require\(["']sharp["']\)|import\(["']sharp["']\)/
+		);
+		for (const engine of ['encode_recipe', 'limitInputPixels', 'runtime_store', 'mozjpeg'])
+			expect(worker, engine).not.toContain(engine);
+	} finally {
+		fs.rmSync(out, { recursive: true, force: true });
+	}
 });

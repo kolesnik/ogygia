@@ -1,8 +1,13 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { ogygia } from 'ogygia/vite';
 import { content } from '@ogygia/content/vite';
-import { image } from '@ogygia/image/vite';
+import { cloudflare, image } from '@ogygia/image/vite';
 import { defineConfig } from 'vite';
+
+const encoder =
+	process.env.IMAGE_E2E_ADAPTER === 'cloudflare'
+		? cloudflare({ links: process.env.IMAGE_E2E_LINKS === '1' })
+		: undefined;
 
 export default defineConfig({
 	define: {
@@ -22,7 +27,8 @@ export default defineConfig({
 				prose: { width: 720 },
 				motion: { width: 40, sizes: '33vw' }
 			},
-			markdown: { animated: 'motion' }
+			markdown: { animated: 'motion' },
+			...(encoder ? { encoder } : {})
 		}),
 		sveltekit()
 	]

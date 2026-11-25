@@ -1,14 +1,17 @@
-// @ogygia/image's e2e suite against its fixture app (e2e/app), in one of five modes (`IMAGE_E2E_MODE`):
+// @ogygia/image's e2e suite against its fixture app (e2e/app), in one of eight modes (`IMAGE_E2E_MODE`):
 // - `node` (default): built with adapter-node and served (`vite preview`): files made on request;
 // - `server`: the same build served by the adapter's own output (`node build`), as a deploy runs it;
 // - `static`: every page prerendered with adapter-static and served as plain files, no server;
 // - `dev`: the dev server;
 // those four run image.spec.ts, the same pages and specs each time;
 // - `base`: prerendered under `paths.base` (`/base`) and served as plain files there (base.spec.ts);
-// - `cloudflare`: built with adapter-cloudflare and run by `wrangler dev` (cloudflare.spec.ts);
+// - `cloudflare`: built with adapter-cloudflare and `cloudflare({ links: false })`, run by
+//   `wrangler dev` with a local Images binding (cloudflare.spec.ts);
+// - `cloudflare-links`: the same with `cloudflare()`, whose links are checked by shape
+//   (cloudflare-links.spec.ts);
 // - `vercel`: built with adapter-vercel, its static files and its function served
 //   (e2e/serve-vercel.ts), its routes read by the specs (vercel.spec.ts).
-// `pnpm --filter @ogygia/image e2e` runs all seven.
+// `pnpm --filter @ogygia/image e2e` runs all eight.
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { suite } from '@ogygia/tooling/e2e/config.ts';
 import { port } from '@ogygia/tooling/e2e/servers.ts';
@@ -51,6 +54,17 @@ function served(mode: string): PlaywrightTestConfig {
 			env: { IMAGE_E2E_ADAPTER: 'cloudflare', WRANGLER_SEND_METRICS: 'false' },
 			command: `node ${build} && node node_modules/wrangler/bin/wrangler.js dev --port ${port(3067)} --ip 127.0.0.1`
 		});
+	if (mode === 'cloudflare-links')
+		return suite({
+			port: 3069,
+			serve: app,
+			env: {
+				IMAGE_E2E_ADAPTER: 'cloudflare',
+				IMAGE_E2E_LINKS: '1',
+				WRANGLER_SEND_METRICS: 'false'
+			},
+			command: `node ${build} && node node_modules/wrangler/bin/wrangler.js dev --port ${port(3069)} --ip 127.0.0.1`
+		});
 	if (mode === 'vercel')
 		return suite({
 			port: 3068,
@@ -70,10 +84,11 @@ function served(mode: string): PlaywrightTestConfig {
 const OWN_SPEC: Readonly<Record<string, string>> = {
 	base: 'base.spec.ts',
 	cloudflare: 'cloudflare.spec.ts',
+	'cloudflare-links': 'cloudflare-links.spec.ts',
 	vercel: 'vercel.spec.ts'
 };
 const SPECS: readonly string[] = ['image.spec.ts', ...Object.values(OWN_SPEC)];
-const CHROMIUM_ONLY: ReadonlySet<string> = new Set(['cloudflare', 'vercel']);
+const CHROMIUM_ONLY: ReadonlySet<string> = new Set(['cloudflare', 'cloudflare-links', 'vercel']);
 
 function config(mode: string): PlaywrightTestConfig {
 	const own = OWN_SPEC[mode] ?? 'image.spec.ts';
