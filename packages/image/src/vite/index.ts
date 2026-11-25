@@ -98,7 +98,6 @@ function render_config(
 	};
 }
 
-/** Every format the plugin and its presets ask for. */
 function formats_asked(opts: ImagePluginOptions): OutputFormat[] {
 	const all = [
 		...(opts.formats ?? DEFAULT_FORMATS),

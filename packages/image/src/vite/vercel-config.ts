@@ -61,7 +61,6 @@ export function vercel_config_missing(have: unknown, want: VercelWant): string[]
 	return [...new Set(out)];
 }
 
-/** The output config adapter-vercel writes, from the working directory, as it writes it. */
 const OUTPUT_CONFIG = '.vercel/output/config.json';
 
 /** The plugin that checks the adapter's output once Kit's adapter ran, in a server build that lists
