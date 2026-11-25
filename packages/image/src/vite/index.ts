@@ -30,7 +30,7 @@ import {
 	type RenderConfig
 } from '../config.ts';
 import { OgygiaError, warn } from '../messages.ts';
-import type { BuildHandoff } from '../store.ts';
+import { UNPUBLISHED_RE, type BuildHandoff } from '../store.ts';
 import {
 	save_warm,
 	settle_minted,
@@ -62,7 +62,6 @@ const SOURCE_GLOBS: readonly string[] = [
 	'!/src/**/__tests__/**',
 	'!/src/**/*.{test,spec}.*'
 ];
-const UNPUBLISHED_RE = /^src\/lib\/server\/|(?:^|\/)__tests__\/|\.(?:test|spec)\.[^/]+$/;
 const NO_NATIVE_ADAPTER_RE = /cloudflare|deno|-edge\b/i;
 
 /** The render settings `<Img>` reads, from the plugin's options. */
@@ -136,7 +135,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 		configResolved(c) {
 			config = c;
 			paths = kit_paths(c.define);
-			handoff = handoff_for(build());
+			handoff = handoff_for(build(), c.root);
 			const adapter = c.define?.__SVELTEKIT_ADAPTER_NAME__;
 			if (server_build() && typeof adapter === 'string' && NO_NATIVE_ADAPTER_RE.test(adapter))
 				warn('image_adapter_no_encoder', { adapter: JSON.parse(adapter) as string });

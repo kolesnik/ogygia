@@ -34,6 +34,8 @@ export interface BuildHandoff {
 	store: string;
 	/** The file every URL minted while prerendering is noted in, one per line. */
 	minted: string;
+	/** The app's root (Vite's `root`). */
+	root: string;
 }
 
 /** The handoff the plugin left in the environment, or null on a live server. */
@@ -42,7 +44,20 @@ export function build_handoff(): BuildHandoff | null {
 	if (!raw) return null;
 	const v = JSON.parse(raw) as Partial<BuildHandoff>;
 	if (typeof v.store !== 'string' || typeof v.minted !== 'string') return null;
-	return { store: v.store, minted: v.minted };
+	return { store: v.store, minted: v.minted, root: typeof v.root === 'string' ? v.root : '' };
+}
+
+/** Images under `src/` that are never published: the server's own folder and test files. The
+ *  plugin's sources glob leaves out the same. */
+export const UNPUBLISHED_RE: RegExp =
+	/^src\/lib\/server\/|(?:^|\/)__tests__\/|\.(?:test|spec)\.[^/]+$/;
+
+const RASTER_RE = /\.(?:png|jpe?g|webp|avif|gif|tiff?)$/i;
+
+/** Is `rel` (a path from the app's root) an original the image endpoint may read: a raster under
+ *  `src/` that is published (what the sources glob takes)? */
+export function published(rel: string): boolean {
+	return rel.startsWith('src/') && RASTER_RE.test(rel) && !UNPUBLISHED_RE.test(rel);
 }
 
 /** Note `url` in the build's `minted` file, its folder made again if the build's end removed it

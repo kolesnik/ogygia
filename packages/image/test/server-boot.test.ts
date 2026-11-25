@@ -6,7 +6,7 @@ vi.mock('virtual:ogygia-image/sources', () => ({
 vi.mock('virtual:ogygia-image/config', () => ({
 	default: { paths: { base: '', assets: '', app_dir: '_app' } }
 }));
-vi.mock('$app/environment', () => ({ building: false }));
+vi.mock('$app/environment', () => ({ building: false, dev: false }));
 
 function native_libraries(): string[] {
 	const report = process.report.getReport() as unknown as { sharedObjects: string[] };

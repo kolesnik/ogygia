@@ -7,7 +7,7 @@ vi.mock('virtual:ogygia-image/sources', () => ({
 vi.mock('virtual:ogygia-image/config', () => ({
 	default: { paths: { base: '', assets: '', app_dir: '_app' } }
 }));
-vi.mock('$app/environment', () => ({ building: false }));
+vi.mock('$app/environment', () => ({ building: false, dev: false }));
 vi.mock('$app/server', () => ({ read: () => new Response(new Uint8Array(8)) }));
 vi.mock('sharp', () => {
 	throw new Error('Could not load the "sharp" module using the linuxmusl-x64 runtime');

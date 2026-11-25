@@ -17,7 +17,7 @@ vi.mock('virtual:ogygia-image/sources', () => ({
 vi.mock('virtual:ogygia-image/config', () => ({
 	default: { paths: { base: '', assets: '', app_dir: '_app' } }
 }));
-vi.mock('$app/environment', () => ({ building: false }));
+vi.mock('$app/environment', () => ({ building: false, dev: false }));
 vi.mock('$app/server', () => ({
 	read: () => {
 		io.reads++;

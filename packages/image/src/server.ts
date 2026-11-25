@@ -12,7 +12,9 @@
  *
  * @packageDocumentation
  */
-import { building } from '$app/environment';
+import fs from 'node:fs';
+import path from 'node:path';
+import { building, dev } from '$app/environment';
 import { defineServer, type ServerPlugin } from '@ogygia/core/plugin';
 import { cache } from '@ogygia/machine';
 import config from 'virtual:ogygia-image/config';
@@ -27,14 +29,34 @@ import {
 	source_tail,
 	type ParsedRecipe
 } from './recipe.ts';
-import { build_handoff, note_minted_url } from './store.ts';
+import { build_handoff, note_minted_url, published } from './store.ts';
 
 const { base: BASE, assets: ASSETS } = config.paths;
 const PREFIXES: readonly string[] = [ASSETS, BASE];
 
-const ORIGINALS: ReadonlySet<string> = new Set(
-	Object.values(sources).map((url) => source_tail(url, PREFIXES))
-);
+/** The originals the endpoint may read: every image under `src/`, by the tail a recipe names. */
+class Originals {
+	#tails: ReadonlySet<string>;
+
+	constructor(list: Readonly<Record<string, string>>) {
+		this.#tails = Originals.#of(list);
+	}
+
+	static #of(list: Readonly<Record<string, string>>): ReadonlySet<string> {
+		return new Set(Object.values(list).map((url) => source_tail(url, PREFIXES)));
+	}
+
+	/** Is `tail` one? In dev, also an image under `src/` added since the server started, by the
+	 *  same rule the sources follow: the realm module is not run again for it. */
+	has(tail: string): boolean {
+		if (this.#tails.has(tail)) return true;
+		const root = DEV_ROOT;
+		return root !== null && published(tail) && fs.existsSync(path.join(root, tail));
+	}
+}
+
+const DEV_ROOT: string | null = (dev && build_handoff()?.root) || null;
+const ORIGINALS = new Originals(sources);
 
 function message(path: string): string {
 	return `image|${path}`;

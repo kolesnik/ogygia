@@ -67,9 +67,14 @@ function remove_old_runs(runs: string): void {
  * config more than once in one build); a dev server or a preview takes any there is, or starts one
  * with no notes.
  */
-export function handoff_for(build: boolean): BuildHandoff {
+export function handoff_for(build: boolean, root: string = process.cwd()): BuildHandoff {
 	const open = build_handoff();
-	if (open && (!build || (open.minted && fs.existsSync(path.dirname(open.minted))))) return open;
+	if (open && (!build || (open.minted && fs.existsSync(path.dirname(open.minted))))) {
+		if (open.root === root) return open;
+		const rooted = { ...open, root };
+		process.env[BUILD_ENV] = JSON.stringify(rooted);
+		return rooted;
+	}
 	const cache = new BuildCache('image').dir() ?? fs.mkdtempSync(path.join(os.tmpdir(), 'og-img-'));
 	let minted = '';
 	if (build) {
@@ -80,7 +85,8 @@ export function handoff_for(build: boolean): BuildHandoff {
 	}
 	const handoff: BuildHandoff = {
 		store: open_build_store(path.join(cache, 'files'), VIPS_VERSION),
-		minted
+		minted,
+		root
 	};
 	process.env[BUILD_ENV] = JSON.stringify(handoff);
 	return handoff;
