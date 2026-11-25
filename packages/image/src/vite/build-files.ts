@@ -32,15 +32,9 @@ import { lay_out, preset_request } from '../layout.ts';
 import { OgygiaError } from '../messages.ts';
 import { pixels } from './encoder.ts';
 import { built_file, built_url, parse_recipe, recipe_file, type Recipe } from '../recipe.ts';
-import {
-	build_handoff,
-	BUILD_ENV,
-	FileStore,
-	open_build_store,
-	origin_of,
-	source_id,
-	type BuildHandoff
-} from '../store.ts';
+import { build_handoff, BUILD_ENV, type BuildHandoff } from '../handoff.ts';
+import { source_id } from '../source-id.ts';
+import { FileStore, open_build_store, origin_of } from '../store.ts';
 
 const PARALLEL = Math.max(1, Math.min(8, os.availableParallelism()));
 

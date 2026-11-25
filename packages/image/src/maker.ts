@@ -1,0 +1,35 @@
+/**
+ * What a MAKER is: the module that turns an original's bytes into one recipe's file on the server,
+ * and the store it keeps its files in. The plugin picks exactly one at build, from the app's encoder,
+ * as `virtual:ogygia-image/maker` (./makers/sharp.ts), so a server bundle holds no other. ./settle.ts
+ * runs it.
+ *
+ * @packageDocumentation
+ */
+import type { ParsedRecipe } from './recipe.ts';
+
+/** A kept file, opened to read. */
+export interface Kept {
+	body: ReadableStream<Uint8Array>;
+	size: number;
+}
+
+/** Where a maker keeps the files it made, by key (../recipe.ts `recipe_file`). */
+export interface MadeStore {
+	/** The file of `key`, when it is kept (anything but null). */
+	find(key: string): Promise<unknown>;
+	/** The file of `key` opened to read, when it is kept. */
+	open(key: string): Promise<Kept | null>;
+	/** Keep `data` as the file of `key`; false when it could not be kept. */
+	keep(key: string, data: Uint8Array): Promise<boolean>;
+}
+
+/** What a maker module exports. */
+export interface Maker {
+	/** How many files it makes at once. */
+	parallel: number;
+	/** One recipe's file from its original's bytes. */
+	make(bytes: Uint8Array, recipe: ParsedRecipe): Promise<Uint8Array>;
+	/** Where its files are kept, or null: each is made per ask (and kept in memory). */
+	store: MadeStore | null;
+}

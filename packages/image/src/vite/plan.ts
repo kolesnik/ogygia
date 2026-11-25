@@ -1,7 +1,7 @@
 /**
  * COMPILE: one image file → its source plan (id, shown size, format, whether it moves, its
  * placeholder). No file is encoded here: pages ask for those at render, and the image endpoint makes
- * them. The id names the source's bytes alone (../store.ts `source_id`), so whoever makes a file can
+ * them. The id names the source's bytes alone (../source-id.ts `source_id`), so whoever makes a file can
  * check its original against it. The plan is kept in the build cache by the id and the source's
  * options, so a warm build or a dev restart reads no pixels it already measured.
  *
@@ -13,7 +13,7 @@ import { BuildCache } from '@ogygia/compiler';
 import type { Metadata } from 'sharp';
 import type { ImageFormat, ImageOps } from '../descriptor.ts';
 import { OgygiaError } from '../messages.ts';
-import { source_id } from '../store.ts';
+import { source_id } from '../source-id.ts';
 import { pixels } from './encoder.ts';
 import type { ImageOptions, ImagePluginOptions } from './options.ts';
 

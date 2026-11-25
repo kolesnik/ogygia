@@ -7033,19 +7033,19 @@
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > request",
+			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > request",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > setup",
+			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > setup",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > setup > set_minter:0~ce73a5",
-			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path and built_url are measured; test/server.test.ts runs it"
+			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > setup > set_minter:0~d7e7fc",
+			"reason": "the server realm's glue over the encoder's namer (constant: no link for sharp), app.sign (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path and built_url are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > setup > set_minter:0~162035",
+			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > setup > set_minter:0~51269c",
 			"reason": "prerender only: hands each recipe to prerendered (exempt below); test/server-prerender.test.ts runs it"
 		},
 		{
@@ -7065,27 +7065,27 @@
 			"reason": "constant work: one set lookup per image request (in dev, on a miss, one regex test and one stat); test/server.test.ts and the e2e dev mode run it"
 		},
 		{
-			"id": "packages/image/src/server.ts > not_found",
+			"id": "packages/image/src/verify.ts > not_found",
 			"reason": "constant work: one 404 response, on a refusal only; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~d4ea05 > run",
-			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
+			"id": "packages/image/src/settle.ts > call:0~127bb0 > run",
+			"reason": "the image endpoint's encode path: the reader (Kit's read()) and the maker (sharp), once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~d4ea05 > run > limited:0~58d772",
-			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
+			"id": "packages/image/src/settle.ts > call:0~127bb0 > run > limited:0~68b5ab",
+			"reason": "the image endpoint's encode path: the reader (Kit's read()) and the maker (sharp), once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~d4ea05 > keep",
+			"id": "packages/image/src/settle.ts > call:0~127bb0 > keep",
 			"reason": "constant work: whether a made file is on disk, once per encode; test/settle-store-fails.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~d4ea05 > weigh",
+			"id": "packages/image/src/settle.ts > call:0~127bb0 > weigh",
 			"reason": "constant work: a made file's byte length, once per encode; test/settle-store-fails.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > opened",
+			"id": "packages/image/src/store.ts > FileStore > open",
 			"reason": "the image endpoint's store read: one stat and one open per kept file asked for; test/server.test.ts runs it"
 		},
 		{
@@ -7109,15 +7109,15 @@
 			"reason": "constant work: one rejection, for an ask that waited past its deadline; test/settle-live.test.ts runs the line it guards"
 		},
 		{
-			"id": "packages/image/src/settle.ts > queue:0~c8cc65 > start",
-			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+			"id": "packages/image/src/settle.ts > queue:0~542874 > start",
+			"reason": "the image endpoint's encode path: the reader (Kit's read()) and the maker (sharp), once per file, then a disk read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > queue:0~c8cc65 > start > finally:0~4717e4",
-			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+			"id": "packages/image/src/settle.ts > queue:0~542874 > start > finally:0~4717e4",
+			"reason": "the image endpoint's encode path: the reader (Kit's read()) and the maker (sharp), once per file, then a disk read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > queue:0~c8cc65 > stale",
+			"id": "packages/image/src/settle.ts > queue:0~542874 > stale",
 			"reason": "constant work: one rejection, for an ask that waited past its deadline; test/settle-live.test.ts runs the line it guards"
 		},
 		{
@@ -7241,8 +7241,8 @@
 			"reason": "config time, once per resolved config: one package.json read and a node_modules walk up the app's folders; packages/image/test/encoder-check.test.ts runs every branch"
 		},
 		{
-			"id": "packages/image/src/vite/encoder.ts > decisions:0~ffc984 > decide",
-			"reason": "a decision table's plan, once per resolved config: three comparisons; the test walks every row"
+			"id": "packages/image/src/vite/encoder.ts > decisions:0~1e2744 > decide",
+			"reason": "a decision table's plan, once per resolved config: four comparisons; the test walks every row"
 		},
 		{
 			"id": "packages/image/src/vite/encoder.ts > encoder_runtime",
@@ -7263,6 +7263,66 @@
 		{
 			"id": "packages/image/src/vite/encoder.ts > pixels",
 			"reason": "a dynamic import the module loader caches: the pixel work it hands out is measured in its own benches"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > sharp",
+			"reason": "config time: one small object, once per vite.config load"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > encoders_of",
+			"reason": "config time, once per plugin: an array check; packages/image/test/plugin.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > maker_of",
+			"reason": "config time: a find over the app's encoders (one or two), once per resolved config and per maker module load"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > maker_of > find:0~65061e",
+			"reason": "config time: one comparison per encoder the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > maker_module",
+			"reason": "config time: one string per build, when Vite loads virtual:ogygia-image/maker; packages/image/test/plugin.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > namer_module",
+			"reason": "config time: one constant string per build, when Vite loads virtual:ogygia-image/namer; packages/image/test/plugin.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > file_of",
+			"reason": "module load: three fileURLToPath calls, once per process"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > check_encoders",
+			"reason": "config time, once per plugin: a check over the app's encoders (one or two); packages/image/test/options.test.ts runs every branch"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > check_encoders > map:0~b8435c",
+			"reason": "config time: one set lookup per encoder the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/options.ts > check_encoders > map:0~fdc38d",
+			"reason": "config time: one set lookup per encoder the app lists"
+		},
+		{
+			"id": "packages/image/src/namers/endpoint.ts > name",
+			"reason": "constant work: returns null (sharp has no links), once per live file URL a render names"
+		},
+		{
+			"id": "packages/image/src/makers/none.ts > make",
+			"reason": "constant work: one rejection per endpoint ask, in an app whose encoders make no file at its endpoint"
+		},
+		{
+			"id": "packages/image/src/on-disk.ts > exists",
+			"reason": "one existsSync, in dev (an image added since start) or after the build's end (an SPA fallback page) only; test/server-after-build.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/reader.ts > read_original",
+			"reason": "the image endpoint's read: Kit's read() and one sha256 over the original, once per file made (beside the encode, which costs far more); test/source-identity.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/verify.ts > verify",
+			"reason": "constant work per endpoint request around app.verify (core's HMAC, measured in core's capability benches) and parse_recipe (measured); test/server.test.ts runs every refusal"
 		},
 		{
 			"id": "packages/content/src/markdown/rehype-text-lt.ts > escape_text_lt",
@@ -7373,7 +7433,7 @@
 			"reason": "constant work: the signer's refusal response (a 403 with two headers), on a refusal only"
 		},
 		{
-			"id": "packages/image/src/server.ts > message",
+			"id": "packages/image/src/verify.ts > message",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
@@ -7429,8 +7489,8 @@
 			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/store.ts > build_handoff",
-			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+			"id": "packages/image/src/handoff.ts > build_handoff",
+			"reason": "one environment read and a small JSON parse, when the realm, the maker or the plugin starts, off the render path; test/server.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/store.ts > FileStore > load",
@@ -7497,7 +7557,7 @@
 			"reason": "once per store opened: the mark, the tidy and the load started; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/store.ts > published",
+			"id": "packages/image/src/handoff.ts > published",
 			"reason": "constant work: two regex tests and a prefix check, in dev on an unknown original only; the e2e dev mode runs it"
 		},
 		{
@@ -7537,7 +7597,7 @@
 			"reason": "build time, once per build: the warmed and the noted files, encoded side by side with sharp (or read from the store); the e2e static and base builds run it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~694019 > setup > set_minter:0~2cdb03",
+			"id": "packages/image/src/server.ts > defineServer:0~d70e8e > setup > set_minter:0~a4c2cd",
 			"reason": "a page rendered after the build's end (an SPA fallback, which Kit renders without SSR): one existsSync per recipe; test/server-after-build.test.ts runs it"
 		},
 		{
@@ -7557,7 +7617,7 @@
 			"reason": "once per build: one small file read at the build's end; test/build-write.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/store.ts > source_id",
+			"id": "packages/image/src/source-id.ts > source_id",
 			"reason": "one sha256 over the original's bytes, once per file made (beside the encode it guards, which costs far more) and once per source planned; test/source-identity.test.ts runs it"
 		},
 		{

@@ -201,6 +201,10 @@ export function parse_recipe(path: string): ParsedRecipe | null {
 	return out;
 }
 
+/** The app's encoder's own URL of a live file (a CDN's link), in the server and in the browser, or
+ *  null: the endpoint makes it. The plugin picks one at build as `virtual:ogygia-image/namer`. */
+export type Namer = (recipe: Recipe) => string | null;
+
 /** What the server realm hands `<Img>`: a recipe's URL. `built` says the build made the file (a
  *  warmed preset's); a prerender names every file as one the build makes. */
 export type Minter = (recipe: Recipe, built: boolean) => string;

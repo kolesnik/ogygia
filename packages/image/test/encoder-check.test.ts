@@ -133,13 +133,18 @@ test('every row of the encoder table: nothing goes on without sharp listed and i
 	check(ENCODER, {
 		'no sharp installed fails': (r) => !('plan' in r) || r.input.installed || r.plan === 'missing',
 		'not listed fails': (r) => !('plan' in r) || r.input.listed !== 'none' || r.plan === 'missing',
-		'a server goes on only with sharp in dependencies': (r) =>
+		'a server whose maker is sharp goes on only with sharp in dependencies': (r) =>
 			!('plan' in r) ||
+			r.input.maker !== 'sharp' ||
 			r.input.runtime !== 'server' ||
 			r.plan !== 'ok' ||
 			r.input.listed === 'dependencies',
-		'an edge build that has sharp warns': (r) =>
-			!('plan' in r) || r.input.runtime !== 'edge' || r.plan !== 'ok'
+		'an edge build whose maker is sharp warns': (r) =>
+			!('plan' in r) || r.input.maker !== 'sharp' || r.input.runtime !== 'edge' || r.plan !== 'ok',
+		'with no maker, sharp is needed only to build': (r) =>
+			!('plan' in r) ||
+			r.input.maker !== 'none' ||
+			r.plan === (r.input.installed && r.input.listed !== 'none' ? 'ok' : 'missing')
 	});
 	expect(dead_fields(ENCODER)).toEqual([]);
 });

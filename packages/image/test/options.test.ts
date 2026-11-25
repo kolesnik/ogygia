@@ -1,5 +1,6 @@
 // The plugin's option checks: a typo or a wrong value fails the build with a code.
 import { expect, test } from 'vitest';
+import { sharp } from '../src/vite/encoder.ts';
 import { check_plugin_options } from '../src/vite/options.ts';
 
 const presets = { prose: { width: 720 }, motion: { width: 240, sizes: '33vw' } };
@@ -29,4 +30,13 @@ test('an unknown markdown key still fails, naming the known ones', () => {
 	expect(() => check_plugin_options({ markdown: { animate: 'motion' } })).toThrow(
 		/unknown image option 'animate'\. Known: width, animated/
 	);
+});
+
+test('encoder takes sharp() or a list of encoders, each at most once', () => {
+	expect(check_plugin_options({ encoder: sharp() }).encoder).toEqual(sharp());
+	expect(check_plugin_options({ encoder: [sharp()] }).encoder).toEqual([sharp()]);
+	for (const encoder of [[], [sharp(), sharp()], 'sharp', {}, { name: 'squoosh' }, [sharp(), null]])
+		expect(() => check_plugin_options({ encoder })).toThrow(
+			/'encoder' must be an encoder from @ogygia\/image\/vite \(sharp\(\)\), or a non-empty list of them, each at most once[\s\S]*\/e\/image_option_invalid/
+		);
 });

@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { BUILD_ENV } from '../src/store.ts';
+import { BUILD_ENV } from '../src/handoff.ts';
 
 const FIXTURE = fileURLToPath(new URL('../e2e/app', import.meta.url));
 const COPIED: readonly string[] = [

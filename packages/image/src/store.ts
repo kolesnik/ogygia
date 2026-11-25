@@ -25,75 +25,11 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import { cache, clock, random, type Cache } from '@ogygia/machine';
+import type { Kept } from './maker.ts';
 import { warn } from './messages.ts';
-
-/** Bump when the encoder's output changes for the same input: every cached file is made again, and
- *  every source gets a new id, so every file a new name. */
-export const ENCODER_VERSION = 4;
-
-/** A source's id: its bytes (and the encoder's version), so every file made from it names its
- *  content. Whoever makes a file checks the original it read against the id it is named by. */
-export function source_id(bytes: Uint8Array): string {
-	return crypto
-		.createHash('sha256')
-		.update(bytes)
-		.update(`\0encoder ${ENCODER_VERSION}`)
-		.digest('base64url')
-		.slice(0, 16);
-}
-
-/** What the plugin hands the processes of one `vite build` or dev server (and Kit's prerender
- *  worker, which inherits the environment): the store's folder, the file the prerender notes its
- *  recipes in, and the build's mark. Internal: the plugin writes it, nothing else should. */
-export const BUILD_ENV = '__OGYGIA_IMAGE_BUILD';
-
-/** The build's handoff, when this process runs under the plugin. */
-export interface BuildHandoff {
-	/** The store's folder. */
-	store: string;
-	/** The file every recipe a prerendered page names is noted in, one per line (its path below
-	 *  the endpoint's prefix, unsigned: the build's end makes each). */
-	minted: string;
-	/** What a prerendered page's file URL starts with until the build's end makes the file: a host no
-	 *  crawler follows (`//<random>.ogygia.invalid`), removed from every prerendered page then. Empty
-	 *  outside a build. */
-	mark: string;
-	/** Once the build's end wrote its files: the client output's app folder they sit under (empty
-	 *  until then, with no notes and no mark after). A page rendered after that (an adapter's SPA
-	 *  fallback) names those files as they are. */
-	written: string;
-	/** The app's root (Vite's `root`). */
-	root: string;
-}
-
-/** The handoff the plugin left in the environment, or null on a live server. */
-export function build_handoff(): BuildHandoff | null {
-	const raw = typeof process === 'undefined' ? undefined : process.env[BUILD_ENV];
-	if (!raw) return null;
-	const v = JSON.parse(raw) as Partial<BuildHandoff>;
-	if (typeof v.store !== 'string' || typeof v.minted !== 'string') return null;
-	return {
-		store: v.store,
-		minted: v.minted,
-		mark: typeof v.mark === 'string' ? v.mark : '',
-		written: typeof v.written === 'string' ? v.written : '',
-		root: typeof v.root === 'string' ? v.root : ''
-	};
-}
-
-/** Images under `src/` that are never published: the server's own folder and test files. The
- *  plugin's sources glob leaves out the same. */
-export const UNPUBLISHED_RE: RegExp =
-	/^src\/lib\/server\/|(?:^|\/)__tests__\/|\.(?:test|spec)\.[^/]+$/;
-
-const RASTER_RE = /\.(?:png|jpe?g|webp|avif|gif|tiff?)$/i;
-
-/** Is `rel` (a path from the app's root) an original the image endpoint may read: a raster under
- *  `src/` that is published (what the sources glob takes)? */
-export function published(rel: string): boolean {
-	return rel.startsWith('src/') && RASTER_RE.test(rel) && !UNPUBLISHED_RE.test(rel);
-}
+import { ENCODER_VERSION } from './source-id.ts';
 
 /** Note a recipe's path in the build's `minted` file, its folder made again if the build's end
  *  removed it (a `vite build --watch` rebuild prerenders again). */
@@ -186,6 +122,20 @@ export class FileStore {
 		}
 		if (this.#files.get(file) === undefined) this.#files.set(file, size);
 		return { file, size };
+	}
+
+	/** The file of `key` opened to read, when it is made: its bytes as a stream, and its size. */
+	async open(key: string): Promise<Kept | null> {
+		const found = await this.find(key);
+		if (!found) return null;
+		try {
+			const handle = await fs.promises.open(found.file);
+			const body = Readable.toWeb(handle.createReadStream()) as ReadableStream<Uint8Array>;
+			return { body, size: found.size };
+			// oxlint-disable-next-line ogygia/no-silent-failures -- a file the store let go since it was found is a miss: it is made again
+		} catch {
+			return null;
+		}
 	}
 
 	static #open = new Map<string, FileStore>();
@@ -322,7 +272,7 @@ function owned(dir: string): boolean {
 /** A live server's store: `<tmp>/ogygia-image-<uid>/<version>/`, made owner-only. Null (no store:
  *  each file is made per ask, flights still share one) when the folder is not safely this user's: a
  *  folder another user made first, or a link, could hand out bytes it chose. `vips` is the libvips
- *  version the files are made with (read where sharp is loaded: ./settle.ts). */
+ *  version the files are made with (read where sharp is loaded: ./makers/sharp.ts). */
 export function runtime_store(vips: string, tmp: string = os.tmpdir()): FileStore | null {
 	const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
 	const root = path.join(tmp, `ogygia-image-${uid}`);

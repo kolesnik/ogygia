@@ -6,7 +6,8 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { beforeAll, expect, test, vi } from 'vitest';
 import type { RenderConfig } from '../src/config.ts';
-import { build_handoff, note_built, note_origin } from '../src/store.ts';
+import { build_handoff } from '../src/handoff.ts';
+import { note_built, note_origin } from '../src/store.ts';
 import { handoff_for, write_built } from '../src/vite/build-files.ts';
 import { id_of, make_images } from './fixtures.ts';
 

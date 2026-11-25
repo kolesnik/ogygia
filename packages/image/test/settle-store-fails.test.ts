@@ -4,7 +4,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { beforeAll, expect, test, vi } from 'vitest';
 import { startPlugin } from '@ogygia/core/plugin/testing';
-import { ENCODER_VERSION } from '../src/store.ts';
+import { ENCODER_VERSION } from '../src/source-id.ts';
 import { id_of, make_images } from './fixtures.ts';
 
 const io = vi.hoisted(() => ({ file: '', reads: 0 }));

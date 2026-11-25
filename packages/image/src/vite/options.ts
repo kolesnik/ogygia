@@ -9,6 +9,7 @@ import type { ImageOps } from '../descriptor.ts';
 import { parse_aspect, type ImagePreset, type OutputFormat } from '../config.ts';
 import { OgygiaError } from '../messages.ts';
 import { POSITIONS } from '../recipe.ts';
+import type { Encoder } from './encoder.ts';
 
 export type { ImageOps } from '../descriptor.ts';
 export type { ImageLayout, ImagePosition, ImagePreset, OutputFormat } from '../config.ts';
@@ -48,6 +49,10 @@ export interface ImagePluginOptions {
 	 *  or WebP) takes instead, with its own width and `sizes`; `false` leaves markdown images as
 	 *  plain `<img>`. Default `{}` (each image as wide as itself). */
 	markdown?: { width?: number; animated?: string } | false;
+	/** Who makes the image files, and what URL names each: an encoder from `@ogygia/image/vite`, or
+	 *  a list of them, each at most once. Default `sharp()`: the app's own endpoint makes every live
+	 *  file. A prerendered page's files are made by the build, with sharp, whatever this says. */
+	encoder?: Encoder | Encoder[];
 }
 
 export { DEFAULT_BREAKPOINTS, DEFAULT_FORMATS } from '../config.ts';
@@ -74,8 +79,10 @@ const PLUGIN_KEYS: ReadonlySet<string> = new Set([
 	'placeholder',
 	'breakpoints',
 	'presets',
-	'markdown'
+	'markdown',
+	'encoder'
 ]);
+const ENCODER_NAMES: ReadonlySet<string> = new Set(['sharp']);
 const PRESET_KEYS: ReadonlySet<string> = new Set([
 	'layout',
 	'width',
@@ -128,6 +135,20 @@ function check_pixels(where: string, key: string, n: unknown): void {
 
 function check_boolean(where: string, key: string, b: unknown): void {
 	if (b !== undefined && typeof b !== 'boolean') invalid(where, key, 'true or false');
+}
+
+function check_encoders(where: string, e: unknown): void {
+	if (e === undefined) return;
+	const list: unknown[] = Array.isArray(e) ? e : [e];
+	const names = list.map((x) =>
+		is_object(x) && typeof x.name === 'string' && ENCODER_NAMES.has(x.name) ? x.name : null
+	);
+	if (!names.length || names.includes(null) || new Set(names).size !== names.length)
+		invalid(
+			where,
+			'encoder',
+			`an encoder from @ogygia/image/vite (${[...ENCODER_NAMES].map((n) => `${n}()`).join(', ')}), or a non-empty list of them, each at most once`
+		);
 }
 
 /** Check one source's options (`where` names the call in a message; `presets`, the names
@@ -214,6 +235,7 @@ export function check_plugin_options(o: unknown): ImagePluginOptions {
 			check_preset(name, preset);
 		}
 	}
+	check_encoders(where, opts.encoder);
 	if (opts.markdown !== undefined && opts.markdown !== false) {
 		if (!is_object(opts.markdown)) invalid(where, 'markdown', 'an object or false');
 		unknown_keys(`${where} markdown`, opts.markdown, MARKDOWN_KEYS);

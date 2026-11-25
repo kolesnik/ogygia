@@ -30,9 +30,16 @@ import {
 	type RenderConfig
 } from '../config.ts';
 import { OgygiaError } from '../messages.ts';
-import { UNPUBLISHED_RE, type BuildHandoff } from '../store.ts';
+import { UNPUBLISHED_RE, type BuildHandoff } from '../handoff.ts';
 import { handoff_for, write_built, type WarmSource } from './build-files.ts';
-import { check_encoder, encoder_runtime } from './encoder.ts';
+import {
+	check_encoder,
+	encoder_runtime,
+	encoders_of,
+	maker_module,
+	maker_of,
+	namer_module
+} from './encoder.ts';
 import { plan_image, settle } from './plan.ts';
 import { EXTENSION_API, markdown_extension } from './markdown.ts';
 import { image_call_edits, options_of_query, QUERY } from './macro.ts';
@@ -47,10 +54,14 @@ export type {
 	ImagePreset,
 	OutputFormat
 } from './options.ts';
+export { sharp, type Encoder } from './encoder.ts';
 
 const QUERY_RE = new RegExp(`[?&]${QUERY}(?:=|&|$)`);
 const CONFIG_ID = 'virtual:ogygia-image/config';
 const SOURCES_ID = 'virtual:ogygia-image/sources';
+const MAKER_ID = 'virtual:ogygia-image/maker';
+const NAMER_ID = 'virtual:ogygia-image/namer';
+const VIRTUAL_IDS: ReadonlySet<string> = new Set([CONFIG_ID, SOURCES_ID, MAKER_ID, NAMER_ID]);
 const SOURCE_GLOBS: readonly string[] = [
 	'/src/**/*.{png,PNG,jpg,JPG,jpeg,JPEG,webp,WEBP,avif,AVIF,gif,GIF,tif,TIF,tiff,TIFF}',
 	'!/src/lib/server/**',
@@ -98,6 +109,7 @@ function descriptor_module(file: string, plan: Omit<ImageDescriptor, 'src' | 'al
 export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const opts = check_plugin_options(options);
 	const presets = Object.keys(opts.presets ?? {});
+	const encoders = encoders_of(opts.encoder);
 	let config: ResolvedConfig | undefined;
 	let paths: AppPaths | null = null;
 	let handoff: BuildHandoff | null = null;
@@ -129,17 +141,19 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			const named = c.define?.__SVELTEKIT_ADAPTER_NAME__;
 			const adapter = typeof named === 'string' ? (JSON.parse(named) as string) : null;
 			const runtime = encoder_runtime(c.command, !!c.build.ssr, preview, adapter);
-			if (runtime !== null) check_encoder(c.root, runtime, adapter);
+			if (runtime !== null) check_encoder(c.root, runtime, adapter, maker_of(encoders));
 			handoff = await handoff_for(build(), c.root);
 		},
 		async buildStart() {
 			if (config && build()) handoff = await handoff_for(true, config.root);
 		},
 		resolveId(id) {
-			if (id === CONFIG_ID || id === SOURCES_ID) return `\0${id}`;
+			if (VIRTUAL_IDS.has(id)) return `\0${id}`;
 			return null;
 		},
 		async load(id) {
+			if (id === `\0${MAKER_ID}`) return maker_module(encoders);
+			if (id === `\0${NAMER_ID}`) return namer_module();
 			if (id === `\0${CONFIG_ID}`) {
 				if (!paths) throw new OgygiaError('image_no_kit');
 				return `export default ${JSON.stringify(render_config(opts, paths, build()))};\n`;

@@ -6,7 +6,7 @@ Responsive images for [ogygia](https://ogygiajs.dev) apps. The build reads each 
 pnpm add @ogygia/image sharp
 ```
 
-sharp, the encoder, is a peer: list it in your app's `dependencies` (a server build fails with `image_sharp_missing` without it).
+sharp, the encoder, is a peer: list it in your app's `dependencies` (a server build fails with `image_sharp_missing` without it). `image({ encoder: sharp() })` (from `@ogygia/image/vite`) is the default.
 
 ```ts
 // vite.config.ts
