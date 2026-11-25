@@ -37,6 +37,7 @@ const config = {
 	},
 	kit: {
 		adapter: adapted(),
+		outDir: process.env.OGYGIA_E2E_OUT_DIR,
 		paths: { base: BASE },
 		prerender: { origin: 'https://example.com' }
 	}

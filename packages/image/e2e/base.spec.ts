@@ -3,6 +3,7 @@
 // is a file the build wrote, whether an <img> named it, a CSS background did, or a preset was warmed.
 import { fileURLToPath } from 'node:url';
 import { test, expect } from '@ogygia/tooling/e2e';
+import { E2E_OUT_DIR } from '@ogygia/tooling/e2e/build.ts';
 import { marked_files } from './marks.ts';
 
 const PAGES = ['/base/', '/base/blog/first-post', '/base/blog/third-post', '/base/island'];
@@ -56,7 +57,7 @@ test("no file of the build keeps the build's mark, its SPA fallback page include
 	expect(html).toContain('kit.start');
 	expect(html).not.toMatch(/ogygia\.invalid/);
 	const app = fileURLToPath(new URL('./app/', import.meta.url));
-	const found = marked_files(app, ['build/static', '.svelte-kit/output']);
+	const found = marked_files(app, ['build/static', `${E2E_OUT_DIR}/output`]);
 	expect(found.read).toBeGreaterThan(50);
 	expect(found.marked).toEqual([]);
 });
