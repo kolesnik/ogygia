@@ -86,6 +86,7 @@
 		"@sveltejs/kit": "catalog:",
 		"@types/node": "catalog:",
 		"@typescript/native": "catalog:tsgo",
+		"ogygia-internal-macros": "workspace:*",
 		"svelte": "catalog:",
 		"tsdown": "catalog:",
 		"typescript": "catalog:",

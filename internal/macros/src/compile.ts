@@ -1,0 +1,49 @@
+/**
+ * Compiling one file's macros: null when nothing in it changes (it uses no macro, imports no marked
+ * function, and awaits no STALE-capable call), so the build keeps the file as it is.
+ *
+ * @packageDocumentation
+ */
+import { Compiler, type CompileOptions, type CompileResult } from './compiler.ts';
+import { reaches_marks } from './marks.ts';
+import { may_call_machines } from './machine-sites.ts';
+import { MACHINE } from './macros.ts';
+import { calls_makers } from './options-pass.ts';
+
+export type { CompileOptions, CompileResult, Mode } from './compiler.ts';
+export { MacroError } from 'ogygia-internal-compilerkit';
+
+/** Compiles one file's macros; null when it uses none and imports no marked function. */
+export function compile(code: string, file: string, options: CompileOptions): CompileResult | null {
+	const reaches =
+		reaches_marks(code, options.path) ||
+		awaits_stale(code) ||
+		calls_makers(code) ||
+		(options.types !== undefined && may_call_machines(code));
+	if (!reaches && !Compiler.may_want(code)) return null;
+	const compiler = new Compiler(code, file, options);
+	if (compiler.uses.size === 0 && !reaches) return null;
+	const out = compiler.run();
+	return out.code === code && out.warnings.length === 0 ? null : out;
+}
+
+/** Compiles only the `$machine` macro and its machines' call sites in `code`: for code that drives
+ *  a package's machines but is not its source (its benches), so it moves them as that package's
+ *  production build does and nothing else in it changes. Null when it has none. */
+export function compile_machine_sites(
+	code: string,
+	file: string,
+	options: CompileOptions
+): CompileResult | null {
+	if (!may_call_machines(code)) return null;
+	const out = new Compiler(code, file, options, [MACHINE]).run();
+	return out.code === code ? null : out;
+}
+
+const AWAIT_RE = /\bawait\b/;
+const STALE_CALL_RE = /\.(?:task|wait|ask)\(/;
+
+/** Whether `code` may await a wait that settles STALE (so the build checks it is an `$await`). */
+function awaits_stale(code: string): boolean {
+	return AWAIT_RE.test(code) && STALE_CALL_RE.test(code);
+}

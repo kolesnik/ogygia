@@ -19,6 +19,7 @@
 	"devDependencies": {
 		"@types/node": "catalog:",
 		"fast-check": "catalog:",
+		"ogygia-internal-macros": "workspace:*",
 		"parse5": "catalog:sim",
 		"rolldown": "catalog:",
 		"typescript": "catalog:tsgo",

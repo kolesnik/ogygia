@@ -8,7 +8,11 @@ const config = {
 	compilerOptions: {
 		experimental: { async: true }
 	},
-	kit: { adapter: adapter(), experimental: { remoteFunctions: true } }
+	kit: {
+		adapter: adapter(),
+		outDir: process.env.OGYGIA_E2E_OUT_DIR,
+		experimental: { remoteFunctions: true }
+	}
 };
 
 export default config;

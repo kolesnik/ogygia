@@ -42,7 +42,7 @@
  */
 import { machine_error, report_thrown } from './messages.ts';
 import { clock } from './ports.ts';
-import { MAX_TIMEOUT_MS, scope, type Scope } from './scope.ts';
+import { Life, MAX_TIMEOUT_MS, type Scope } from './scope.ts';
 
 export interface QueueOptions<J> {
 	/** Names the queue in messages. */
@@ -56,7 +56,7 @@ export interface QueueOptions<J> {
 	/** The clock deadlines and the budget are read on (ms). `clock.mono()` when left out. */
 	now?: () => number;
 	/** Closing it makes every waiting job stale, and any pushed after. */
-	owner?: Scope;
+	owner?: Scope | Life;
 	/** A waiting job's rank, read at the start of every pass: the higher starts first, ties in the
 	 *  order pushed. */
 	priority?: (job: J) => number;
@@ -130,7 +130,7 @@ abstract class Line<J> implements Queue<J> {
 	protected readonly _max: number;
 	protected readonly _start: (job: J, place: Place) => void;
 	protected readonly _now: () => number;
-	protected readonly _owner: Scope | null;
+	protected readonly _owner: Life | null;
 	protected readonly _jobs: Array<J | typeof GONE> = [];
 	protected readonly _deadlines: number[] = [];
 	protected _head = 0;
@@ -139,8 +139,8 @@ abstract class Line<J> implements Queue<J> {
 	readonly #stale: ((job: J) => void) | null;
 	#timed = 0;
 	#armed_at = Infinity;
-	#disarm: (() => void) | null = null;
-	#timers: Scope | null = null;
+	#disarm: Life | null = null;
+	#timers: Life | null = null;
 
 	constructor(o: QueueOptions<J>) {
 		this._name = o.name ?? 'queue';
@@ -148,8 +148,8 @@ abstract class Line<J> implements Queue<J> {
 		this._start = o.start;
 		this.#stale = o.stale ?? null;
 		this._now = o.now ?? clock.mono;
-		this._owner = o.owner ?? null;
-		this._owner?.defer(() => this.#leave_where(() => true));
+		this._owner = o.owner === undefined ? null : (o.owner as Life);
+		if (this._owner !== null) this._owner.defer(() => this.#leave_where(() => true));
 	}
 
 	get waiting(): number {
@@ -161,7 +161,7 @@ abstract class Line<J> implements Queue<J> {
 	}
 
 	push(job: J, deadline = Infinity): void {
-		if (this._owner?.closed) return this._stale_job(job);
+		if (this._owner?._closed) return this._stale_job(job);
 		this._jobs.push(job);
 		this._deadlines.push(deadline);
 		this._waiting++;
@@ -204,22 +204,23 @@ abstract class Line<J> implements Queue<J> {
 	/** A waiting job with a deadline left: the last one takes the timer with it. */
 	protected _untime(): void {
 		if (--this.#timed > 0 || this.#disarm === null) return;
-		this.#disarm();
+		this.#disarm.close();
 		this.#disarm = null;
 		this.#armed_at = Infinity;
 	}
 
 	/** The one timer goes off at `at` (the earliest deadline waiting). */
 	#arm(at: number): void {
-		this.#disarm?.();
+		if (this.#disarm !== null) this.#disarm.close();
 		this.#armed_at = at;
-		const timers = (this.#timers ??= this._owner?.child() ?? scope());
+		const timers = (this.#timers ??= this._owner === null ? new Life() : this._owner.child());
 		const ms = Math.min(MAX_TIMEOUT_MS, Math.max(0, at - this._now()));
-		this.#disarm = timers.timeout(() => this.#expire(), ms);
+		(this.#disarm = timers.child()).later(() => this.#expire(), ms);
 	}
 
 	/** The deadlines that came: those jobs are stale; the timer goes on to the next one. */
 	#expire(): void {
+		if (this.#disarm !== null) this.#disarm.close();
 		this.#disarm = null;
 		this.#armed_at = Infinity;
 		const now = this._now();
@@ -262,7 +263,7 @@ class PlainLine<J> extends Line<J> {
 	}
 
 	protected _drain(): void {
-		if (this._owner?.closed) return;
+		if (this._owner?._closed) return;
 		while (this._holding < this._max && this._head < this._jobs.length) {
 			const at = this._head++;
 			const job = this._jobs[at];
@@ -333,7 +334,7 @@ class PassLine<J> extends Line<J> {
 	protected _drain(): void {
 		const state = this.#state;
 		if (state === 'running' || state === 'ending') this.#state = 'again';
-		if (state !== 'idle' || this._waiting === 0 || this._owner?.closed) return;
+		if (state !== 'idle' || this._waiting === 0 || this._owner?._closed) return;
 		const budget = this.#budget;
 		if (budget?.defer) {
 			this.#state = 'deferred';
@@ -422,7 +423,7 @@ class PassLine<J> extends Line<J> {
 	}
 
 	#settled(budget: QueueBudget): void {
-		if (this._owner?.closed) return this.#end();
+		if (this._owner?._closed) return this.#end();
 		if (this._waiting > 0 && this._now() >= this.#until) return this.#yield(budget);
 		this.#run();
 	}
@@ -440,7 +441,7 @@ class PassLine<J> extends Line<J> {
 	}
 
 	#ended(): void {
-		if (this.#state !== 'again' || this._waiting === 0 || this._owner?.closed) return this.#end();
+		if (this.#state !== 'again' || this._waiting === 0 || this._owner?._closed) return this.#end();
 		this.#state = 'running';
 		this.#until = this._now() + this.#budget!.ms;
 		this.#run();
@@ -452,7 +453,7 @@ class PassLine<J> extends Line<J> {
 		const resume = () => {
 			if (resumed || this.#state !== waited) return;
 			resumed = true;
-			if (this._owner?.closed) return this.#end();
+			if (this._owner?._closed) return this.#end();
 			this.#state = 'running';
 			this.#until = this._now() + budget.ms;
 			this.#run();
@@ -581,6 +582,72 @@ function cap(option: string, value: number): void {
 /** A bounded queue of jobs: first come, first served, or by the rules its options give (see the
  *  module). */
 export function queue<J>(options: QueueOptions<J>): Queue<J> {
+	check_queue(options);
+	return trusted_queue(options);
+}
+
+/** {@link queue} for options its caller's build checked ({@link check_queue}, run on a literal). */
+export function trusted_queue<J>(options: QueueOptions<J>): Queue<J> {
+	if (
+		options.max === undefined ||
+		options.priority !== undefined ||
+		options.ready !== undefined ||
+		options.windows !== undefined ||
+		options.budget !== undefined
+	)
+		return new PassLine(options);
+	return new PlainLine(options);
+}
+
+/** `passQueue`: {@link queue} for options that rank, gate, window or budget its jobs (or set no
+ *  max): a runtime whose queues all do carries no first-come-first-served line. ogygia's build
+ *  checks a call's options and makes it `trustedPassQueue`. */
+export function pass_queue<J>(options: QueueOptions<J>): Queue<J> {
+	check_queue(options);
+	return new PassLine(options);
+}
+
+/** `trustedPassQueue`: `passQueue` for options its caller's build checked (`checkQueue`). */
+export function trusted_pass_queue<J>(options: QueueOptions<J>): Queue<J> {
+	return new PassLine(options);
+}
+
+/** `plainQueue`: {@link queue} for a bounded first-come-first-served line (a `max`, and no
+ *  priority, ready, windows or budget): a server whose queues are all plain carries no passes. */
+export function plain_queue<J>(options: QueueOptions<J>): Queue<J> {
+	check_plain_queue(options);
+	return new PlainLine(options);
+}
+
+/** `trustedPlainQueue`: `plainQueue` for options its caller's build checked (`checkPlainQueue`). */
+export function trusted_plain_queue<J>(options: QueueOptions<J>): Queue<J> {
+	return new PlainLine(options);
+}
+
+/** {@link plain_queue}'s checks: {@link check_queue}'s, a `max`, and none of what only passes take. */
+export function check_plain_queue<J>(options: QueueOptions<J>): void {
+	check_queue(options);
+	if (options.max === undefined)
+		throw machine_error('machine_bad_option', {
+			option: 'max',
+			value: 'missing',
+			rule: 'given to plainQueue(), a bounded line'
+		});
+	if (
+		options.priority !== undefined ||
+		options.ready !== undefined ||
+		options.windows !== undefined ||
+		options.budget !== undefined
+	)
+		throw machine_error('machine_bad_option', {
+			option: 'priority, ready, windows or budget',
+			value: 'given to plainQueue()',
+			rule: 'given to queue() or passQueue() only'
+		});
+}
+
+/** {@link queue}'s checks of its options alone: `machine_bad_option` for one it refuses. */
+export function check_queue<J>(options: QueueOptions<J>): void {
 	const { max } = options;
 	if (max !== undefined && !(Number.isInteger(max) && max >= 1))
 		throw machine_error('machine_bad_option', {
@@ -588,26 +655,16 @@ export function queue<J>(options: QueueOptions<J>): Queue<J> {
 			value: String(max),
 			rule: 'a whole number of at least 1'
 		});
-	if (
-		max === undefined ||
-		options.priority !== undefined ||
-		options.ready !== undefined ||
-		options.windows !== undefined ||
-		options.budget !== undefined
-	)
-		return passes(options);
-	return new PlainLine(options);
-}
-
-function passes<J>(options: QueueOptions<J>): Queue<J> {
-	const windows = options.windows ?? [];
-	if (windows.length > MAX_WINDOWS)
-		throw machine_error('machine_bad_option', {
-			option: 'windows',
-			value: String(windows.length),
-			rule: `at most ${MAX_WINDOWS} windows`
-		});
-	for (let w = 0; w < windows.length; w++) cap(`windows[${w}].max`, windows[w].max);
+	const windows = options.windows;
+	if (windows !== undefined) {
+		if (windows.length > MAX_WINDOWS)
+			throw machine_error('machine_bad_option', {
+				option: 'windows',
+				value: String(windows.length),
+				rule: `at most ${MAX_WINDOWS} windows`
+			});
+		for (let w = 0; w < windows.length; w++) cap(`windows[${w}].max`, windows[w].max);
+	}
 	const ms = options.budget?.ms;
 	if (ms !== undefined && !(Number.isFinite(ms) && ms >= 0))
 		throw machine_error('machine_bad_option', {
@@ -615,5 +672,4 @@ function passes<J>(options: QueueOptions<J>): Queue<J> {
 			value: String(ms),
 			rule: 'a time of at least 0 ms'
 		});
-	return new PassLine(options);
 }

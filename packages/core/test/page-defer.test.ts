@@ -9,6 +9,7 @@ import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 import { parse, stringify } from 'devalue';
 import { scope } from '@ogygia/machine';
 import { link_boot } from '../src/runtime/boot-link.ts';
+import { init } from '../src/runtime/lazy-link.ts';
 import { load_devalue } from '../src/runtime/devalue-lane.ts';
 import { analyze } from '../src/seed-refs.ts';
 import {
@@ -40,7 +41,7 @@ const revivers = (): Parameters<typeof parse>[1] =>
 
 // (the runtime's boot link and devalue, as a booted page whose seed carries promises has them)
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
 });
 

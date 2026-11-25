@@ -5,6 +5,9 @@
 
 declare module 'ogygia:region' {
 export const kit_transport: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/kit-transport']['transport'];
+export const HAS_FRAMES: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/programs']['HAS_FRAMES'];
+export const HAS_LAKES: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/programs']['HAS_LAKES'];
+export const HAS_LIVE: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/programs']['HAS_LIVE'];
 export const transport: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/transport']['transport'];
 export const encoders: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/transport']['encoders'];
 export const decoders: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/transport']['decoders'];
@@ -13,6 +16,10 @@ export const wire_all: import('../dist/contract/virtual-modules.js').VirtualModu
 }
 declare module 'ogygia:region/kit-transport' {
 const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/kit-transport'];
+export = module;
+}
+declare module 'ogygia:region/programs' {
+const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:region/programs'];
 export = module;
 }
 declare module 'ogygia:region/transport' {

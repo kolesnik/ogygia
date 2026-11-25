@@ -13,6 +13,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { connect } from 'node:net';
 import { setTimeout as pause } from 'node:timers/promises';
 import { clock, machine } from '@ogygia/machine';
+import { E2E_BUILD_ENV } from './build.ts';
 import { append_server_log } from './server-log.ts';
 
 /** A port a suite owns, moved up by `E2E_PORT_OFFSET`: when one machine runs a suite as several
@@ -124,7 +125,7 @@ export async function spawn_server(opts: SpawnServerOptions): Promise<SpawnedSer
 	const logs: string[] = [];
 	const child = spawn(opts.cmd, opts.args, {
 		cwd: opts.cwd,
-		env: { ...process.env, ...opts.env },
+		env: { ...process.env, ...E2E_BUILD_ENV, ...opts.env },
 		stdio: ['ignore', 'pipe', 'pipe'],
 		detached: true
 	});

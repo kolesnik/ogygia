@@ -17,8 +17,24 @@
  * Server-only (`node:crypto`), reached from Region.svelte through the client-stubbed
  * `ogygia:server/region-endpoint` — Region computes a fingerprint only on the server.
  */
-import { createHash } from 'node:crypto';
+import * as node_crypto from 'node:crypto';
+
+/** The longest props text hashed in one native call: past it, joining the text to its entry costs
+ *  more than the streaming hash's object (test/fingerprint-one-shot.test.ts holds both equal). */
+export const ONE_SHOT_MAX = 1024;
+
+// @why crypto.hash is Node 20.12+ and absent from some server runtimes' node:crypto; a named import of it would fail the module's link there (test: test/fingerprint-one-shot.test.ts › streams where the runtime has no one-shot hash)
+const one_shot: typeof node_crypto.hash | undefined =
+	typeof node_crypto.hash === 'function' ? node_crypto.hash : undefined;
 
 export function region_fingerprint(entry: string, canonical: string): string {
-	return createHash('sha1').update(entry).update(' ').update(canonical).digest('hex').slice(0, 16);
+	if (one_shot !== undefined && canonical.length <= ONE_SHOT_MAX)
+		return one_shot('sha1', `${entry} ${canonical}`, 'hex').slice(0, 16);
+	return node_crypto
+		.createHash('sha1')
+		.update(entry)
+		.update(' ')
+		.update(canonical)
+		.digest('hex')
+		.slice(0, 16);
 }

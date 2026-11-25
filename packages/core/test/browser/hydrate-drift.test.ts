@@ -2,12 +2,11 @@
 // light DOM of a sleeping island against the server copy it connected with.
 import { beforeAll, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_lakes } from '../../src/runtime/lakes.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { repair_if_drifted } from '../../src/runtime/hydrate-core.ts';
 
 beforeAll(() => {
-	link_boot();
-	install_lakes();
+	init(link_boot());
 });
 
 beforeEach(() => {

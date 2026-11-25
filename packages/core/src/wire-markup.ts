@@ -438,6 +438,70 @@ export function unknown_markers(names: Iterable<string>): string[] {
 	return out;
 }
 
+const KIT_ASSIGN = /__sveltekit_\w+\s*=/;
+
+/** Whether an inline script (no `src`) is Kit's boot: it assigns a `__sveltekit_*` global, and it is
+ *  not one of ogygia's side-channel scripts (their payload may echo the URL). The DOM probe below and
+ *  the server's string probe (server/html-scan.ts) both ask this. */
+export function is_kit_boot_script(
+	type: string,
+	has: (attr: string) => boolean,
+	text: string
+): boolean {
+	if (type.startsWith('application/ogygia-')) return false;
+	if (has(OGYGIA_PROPS) || has(OGYGIA_PAGE) || has(OGYGIA_REMOTE)) return false;
+	return KIT_ASSIGN.test(text);
+}
+
+/**
+ * The route fact, when the server stamped it: `<meta name="ogygia-csr" content="true">` on a
+ * csr=true document. `null` when the document carries no such meta (an older document, a
+ * fragment): then {@link KitBoot}'s inline-script probe decides. Apart from the class, so a build
+ * that reads only the meta (no kit-pages feature, runtime/kit-boot.ts) ships no probe.
+ */
+export function kit_meta_of(doc: ParentNode): boolean | null {
+	const meta = doc.querySelector('meta[name="ogygia-csr"]');
+	return meta ? meta.getAttribute('content') === 'true' : null;
+}
+
+/**
+ * Detect whether a document is a Kit csr=true page (Kit boots and hydrates the tree). Must NOT treat
+ * ogygia side-channel scripts as evidence — their payloads can reflect attacker-controlled URL
+ * substrings like `__sveltekit_` (P0). The runtime asks it once per page (runtime/kit-boot.ts
+ * `kit_hydrates_page`); island code asks the runtime ({@link KIT_HYDRATES_KEY}), or it, on a page the
+ * runtime never booted on.
+ */
+export class KitBoot {
+	/** Meta first ({@link kit_meta_of}); else ONE probe over the document's inline scripts
+	 *  (side-channel scripts skipped). */
+	static document_has(doc: ParentNode = document): boolean {
+		const meta = kit_meta_of(doc);
+		if (meta !== null) return meta;
+		for (const s of doc.querySelectorAll('script:not([src])'))
+			if (
+				is_kit_boot_script(
+					s.getAttribute('type') || '',
+					(a) => s.hasAttribute(a),
+					s.textContent || ''
+				)
+			)
+				return true;
+		return false;
+	}
+}
+
+/** Where the booted runtime publishes its answer to "does Kit hydrate this page?" (cached per page
+ *  visit, runtime/kit-boot.ts), for island code: a module both import would be split out of the
+ *  boot into a file of its own (compiler test/runtime-boot-svelte-free.test.ts). */
+export const KIT_HYDRATES_KEY: unique symbol = Symbol.for('ogygia.kit-hydrates');
+
+/** The booted runtime's answer ({@link KIT_HYDRATES_KEY}); `null` on a page no runtime booted on
+ *  (or one an older runtime runs), where the caller asks the document itself. */
+export function kit_answer(): boolean | null {
+	const ask = (globalThis as unknown as Record<symbol, unknown>)[KIT_HYDRATES_KEY];
+	return typeof ask === 'function' ? (ask as () => boolean)() : null;
+}
+
 // THE TAG WALK lives in ./markup-walk.ts (its own module, so the boot never fetches it), and is
 // read through here like the rest of the markup.
 export * from './markup-walk.ts';

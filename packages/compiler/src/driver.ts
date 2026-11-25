@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { cache, say } from '@ogygia/machine';
-import { fnv1a32, key_label, key_of, OWN_FILE_RE } from '@ogygia/core/contract';
+import { feature_word, fnv1a32, key_label, key_of, OWN_FILE_RE } from '@ogygia/core/contract';
 import {
 	transformHost,
 	transformTsRegions,
@@ -21,7 +21,7 @@ import {
 import { run_module_macros } from './macros/pipeline.ts';
 import { fn_manifest_entries } from './macros/dollar.ts';
 import { is_script_request } from './script-request.ts';
-import { resolveFeatures, type RuntimeMarks } from './link/runtime-entry.ts';
+import { resolveFeatures, type FeatureId, type RuntimeMarks } from './link/runtime-entry.ts';
 import { FOUC_CSS_PREFIX, FOUC_SCOPED_PREFIX } from './fouc-css.ts';
 import { resolve_app_spec } from './app-spec.ts';
 import {
@@ -869,12 +869,16 @@ export class Compiler implements CoreApp {
 		return [...compiled].filter((f) => !scan.has(f) && !is_island_path(f) && !OWN_FILE_RE.test(f));
 	}
 
-	/** Walk each registered region's island closure (what reaches Kit's page world). */
-	#walk_closures(): void {
+	/** Walk each registered region's island closure (what reaches Kit's page world); `page_by`
+	 *  hears the component whose closure first reads the page. */
+	#walk_closures(page_by?: (component: string) => void): void {
 		const { prof, P } = this.profiler;
 		const __ws = P ? performance.now() : 0;
 		for (const entry of this.program.registry.values()) {
-			if (entry.componentPath) this.mark_island_closure(entry.componentPath);
+			if (!entry.componentPath) continue;
+			const read = this.program.island_reads_page;
+			this.mark_island_closure(entry.componentPath);
+			if (!read && this.program.island_reads_page) page_by?.(entry.componentPath);
 		}
 		if (P) prof.prescanMs += performance.now() - __ws;
 	}
@@ -885,8 +889,7 @@ export class Compiler implements CoreApp {
 		const ctx = this.#ctx;
 		const { runtime_marks } = this.program;
 		runtime_marks.foreign = ctx.foreign_hydrate;
-		runtime_marks.page =
-			this.program.island_reads_page || runtime_marks.foreign || ctx.client_plugins.length > 0;
+		runtime_marks.page = this.program.island_reads_page || runtime_marks.foreign;
 		runtime_marks.complete = true;
 		return createHash('sha256')
 			.update(resolveFeatures(runtime_marks).join(','))
@@ -905,19 +908,46 @@ export class Compiler implements CoreApp {
 
 	#seal_server_runtime(): HandedRuntime {
 		this.prescan();
+		const word = this.program.server_word;
+		const needed_by = new Map<FeatureId, string>(this.program.server_late);
 		for (const f of this.#compiled_unread(this.program.ssr_transformed)) {
 			const readable = this.#readable(f);
-			if (readable) this.#scan_facts(f, readable.src, readable.kind);
+			if (!readable) continue;
+			this.#scan_facts(f, readable.src, readable.kind);
+			if (word === null) continue;
+			for (const id of resolveFeatures({ ...this.program.runtime_marks, complete: true }))
+				if (!(word & feature_word([id])) && !needed_by.has(id)) needed_by.set(id, f);
 		}
-		this.#walk_closures();
+		this.#walk_closures((component) => needed_by.set('page', component));
 		const feature_hash = this.#seal_marks();
 		const marks = structuredClone(this.program.runtime_marks);
+		if (word !== null) this.#refuse_late_features(marks, word, needed_by);
 		const shipped = this.program.shipped_features;
 		if (!shipped) return { marks, feature_hash };
 		const unnamed = resolveFeatures(marks).filter((f) => !shipped.has(f));
 		if (unnamed.length)
 			throw new OgygiaError('runtime_features_unnamed', { features: unnamed.join(', ') });
 		return { marks, feature_hash: this.#build.scan?.feature_hash ?? feature_hash };
+	}
+
+	/** Stops the build when the server's settled runtime needs a feature its bundle's word, fixed as
+	 *  `ogygia:server/runtime-flags` loaded, left out: the server code for it is not in the bundle. */
+	#refuse_late_features(
+		marks: RuntimeMarks,
+		word: number,
+		needed_by: ReadonlyMap<FeatureId, string>
+	): void {
+		const left = resolveFeatures(marks).filter((id) => !(word & feature_word([id])));
+		if (!left.length) return;
+		const modules = new Set<string>();
+		for (const id of left) {
+			const file = needed_by.get(id);
+			if (file) modules.add(prescan_rel(this.#ctx, file));
+		}
+		throw new OgygiaError('server_features_late', {
+			features: left.join(', '),
+			modules: [...modules].join(', ') || 'a region one of them reaches'
+		});
 	}
 
 	/** Whether the regions of `id` are read: always (app source, a declared `ogygia.files` file), when
@@ -1105,6 +1135,11 @@ export class Compiler implements CoreApp {
 	/** The server leg's real module graph, for the client-leg handoff (link/emit-gate.ts). */
 	ssr_transformed_hosts(): string[] {
 		return [...this.program.ssr_transformed].sort();
+	}
+
+	/** The feature word the server bundle was made with, for the handoff (null: it never loaded). */
+	server_word(): number | null {
+		return this.program.server_word;
 	}
 
 	/**

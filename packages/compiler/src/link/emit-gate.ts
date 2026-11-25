@@ -24,13 +24,16 @@ export interface ServerRegionRoot {
  * secret check (link/build-output.ts `refuse_client_secrets`). `server_regions`: its FINAL
  * server-only regions, a library host it reached late included: the client leg builds each one's
  * styles from this list, since in Kit 2 its own program never sees a host only the server bundle
- * imports (test/server-region-late.test.ts).
+ * imports (test/server-region-late.test.ts). `word`: the feature word the server bundle was made
+ * with (`ogygia:server/runtime-flags`), null when it never loaded; what the server's code for each
+ * feature is checked against (apps/palaestra/e2e/server-size.ts, the leak gate).
  */
 export interface ServerHandoff {
 	readonly hosts: Set<string>;
 	readonly build_key: string;
 	readonly server_regions: ServerRegionRoot[];
 	readonly runtime: HandedRuntime | null;
+	readonly word: number | null;
 }
 
 /** The runtime the server leg named in the pages it renders, made once its bundle was complete: the
@@ -45,9 +48,10 @@ export function server_handoff_json(
 	hosts: readonly string[],
 	build_key: string,
 	server_regions: readonly ServerRegionRoot[],
-	runtime: HandedRuntime | null = null
+	runtime: HandedRuntime | null = null,
+	word: number | null = null
 ): string {
-	return JSON.stringify({ hosts, build_key, server_regions, runtime });
+	return JSON.stringify({ hosts, build_key, server_regions, runtime, word });
 }
 
 /** The handoff file's contents. A malformed field reads as empty: nothing gated, no region named,
@@ -58,6 +62,7 @@ export function parse_server_handoff(json: string): ServerHandoff {
 		build_key?: unknown;
 		server_regions?: unknown;
 		runtime?: { marks?: unknown; feature_hash?: unknown } | null;
+		word?: unknown;
 	} | null;
 	const hosts = Array.isArray(o?.hosts) ? o.hosts.filter((x) => typeof x === 'string') : [];
 	const regions: unknown[] = Array.isArray(o?.server_regions) ? o.server_regions : [];
@@ -80,7 +85,8 @@ export function parse_server_handoff(json: string): ServerHandoff {
 				typeof r === 'object' &&
 				typeof (r as ServerRegionRoot).iid === 'string' &&
 				typeof (r as ServerRegionRoot).abs === 'string'
-		)
+		),
+		word: typeof o?.word === 'number' ? o.word : null
 	};
 }
 

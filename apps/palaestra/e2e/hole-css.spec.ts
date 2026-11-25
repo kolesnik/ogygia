@@ -6,13 +6,11 @@
 // could not resolve a package specifier and stopped at a `.ts` module, and the island's exact chunk
 // CSS was written into the hole render's head, which the endpoint never shipped.
 import { readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { test, expect, check } from '@ogygia/tooling/e2e';
+import { built } from './_built.ts';
 
-const assets = fileURLToPath(
-	new URL('../.svelte-kit/output/client/_app/immutable/assets/', import.meta.url)
-);
+const assets = built('client/_app/immutable/assets');
 
 test.describe('hole css through a workspace package barrel and a local barrel', () => {
 	test('the hole’s sheet carries the components its tree takes, and none of the rest', () => {

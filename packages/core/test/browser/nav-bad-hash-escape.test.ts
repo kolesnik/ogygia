@@ -2,7 +2,7 @@
 // an element by its raw text then, as the browser reads it, and the navigation ends as any other.
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 
@@ -10,8 +10,7 @@ const real_fetch = window.fetch;
 const home = location.href;
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.body.innerHTML = '<p>first</p>';
 	prepare_spa_document();
 	window.fetch = async () =>

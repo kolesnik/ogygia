@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { feature_word } from '@ogygia/core/contract';
 import { renderId } from './region/identity.ts';
 import { resolveFeatures, type FeatureId, type RuntimeMarks } from './link/runtime-entry.ts';
 import { warn } from './messages.ts';
@@ -44,6 +45,10 @@ export interface IslandDescriptor {
 	kind?: 'hydrate' | 'defer' | 'lake';
 	server?: boolean;
 	fetchWhen?: string;
+	/** a hole's `prefetch` schedule */
+	prefetch?: string;
+	/** a lake's `remount.revalidate` schedule */
+	revalidate?: string;
 	strategy?: string;
 	wakeAfter?: string;
 	held?: boolean;
@@ -101,6 +106,9 @@ export class Program {
 	 *  chunk — or drag its imports into a client build whose server pass never saw them (a
 	 *  `.remote.ts` there fails Kit's "expected to find metadata" check). */
 	readonly ssr_transformed: Set<string> = new Set();
+	/** BUILD, server leg: the feature word its bundle was made with, set as
+	 *  `ogygia:server/runtime-flags` loads (null before), for the server handoff. */
+	server_word: number | null = null;
 	/** Every scanned file's facts, and the app-wide answers folded from them (./scan-facts.ts). */
 	readonly scan: ScanFacts = new ScanFacts();
 	/** Absolute paths of app modules that define a transportable class, in scan order. */
@@ -164,6 +172,8 @@ export class Program {
 			remoteSeeds: false,
 			hydrate: [],
 			defer: [],
+			prefetch: [],
+			revalidate: [],
 			persistKeys: [],
 			router: init.router,
 			live: false,
@@ -197,6 +207,14 @@ export class Program {
 		}
 		if (patch.defer) {
 			runtime_marks.defer = [...new Set([...(runtime_marks.defer || []), ...patch.defer])];
+		}
+		if (patch.prefetch) {
+			runtime_marks.prefetch = [...new Set([...(runtime_marks.prefetch || []), ...patch.prefetch])];
+		}
+		if (patch.revalidate) {
+			runtime_marks.revalidate = [
+				...new Set([...(runtime_marks.revalidate || []), ...patch.revalidate])
+			];
 		}
 		if (patch.persistKeys) {
 			runtime_marks.persistKeys = [
@@ -271,6 +289,8 @@ export class Program {
 			if (kind === 'defer') this.note_runtime_mark({ defer: [isl.fetchWhen || 'load'] });
 			if (kind === 'hydrate') this.note_runtime_mark({ hydrate: [isl.strategy || 'load'] });
 			if (isl.wakeAfter) this.note_runtime_mark({ hydrate: [isl.wakeAfter] });
+			if (isl.prefetch) this.note_runtime_mark({ prefetch: [isl.prefetch] });
+			if (isl.revalidate) this.note_runtime_mark({ revalidate: [isl.revalidate] });
 			if (kind === 'lake') this.note_runtime_mark({ lakes: true, hydrate: ['none'] });
 			if (isl.held) this.note_runtime_mark({ live: true, morph: true });
 			if (isl.lakes?.length) this.note_runtime_mark({ lakes: true });
@@ -362,6 +382,17 @@ export class Program {
 		}
 		host_index.set(key, idx);
 		this.#check_late(hostId);
+		this.#note_server_late(hostId);
+	}
+
+	/** BUILD, server leg: each feature the server's word left out, and the module whose regions
+	 *  first needed it after the word was fixed (driver.ts `#refuse_late_features`). */
+	readonly server_late: Map<FeatureId, string> = new Map();
+	#note_server_late(host: string): void {
+		const word = this.server_word;
+		if (word === null) return;
+		for (const id of resolveFeatures({ ...this.runtime_marks, complete: true }))
+			if (!(word & feature_word([id])) && !this.server_late.has(id)) this.server_late.set(id, host);
 	}
 
 	/** A deleted component: every region of it goes, with every host's claim on it (a claim kept

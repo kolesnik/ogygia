@@ -226,6 +226,30 @@ describe('after: refused definitions', () => {
 		).not.toThrow();
 	});
 
+	it('a time made from the state that throws: reported, and the state does not end at once', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const timed = machine<{ a: {}; b: {} }>()({
+			name: 'throwing time',
+			initial: 'a',
+			steps: { a: ['b'], b: [] },
+			after: {
+				a: {
+					ms: () => {
+						throw new Error('no time');
+					},
+					to: 'b'
+				}
+			}
+		});
+		const m = timed.create();
+		expect(error).toHaveBeenCalledOnce();
+		expect(String(error.mock.calls[0]?.[0])).toContain('machine_timeout_failed');
+		expect(vi.getTimerCount()).toBe(0);
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(m.now.kind).toBe('a');
+		expect(m.go('b')).toBe(true);
+	});
+
 	it('a time made from the state that is not a time: reported, and the state does not end at once', async () => {
 		vi.useFakeTimers();
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {});

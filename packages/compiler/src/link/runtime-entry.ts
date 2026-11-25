@@ -1,8 +1,18 @@
-import { dedent } from '@ogygia/core/contract';
+import {
+	dedent,
+	feature_word,
+	F_FRAMES,
+	F_LAKES,
+	F_LIVE,
+	parse_trigger,
+	WAKE,
+	type FeatureName
+} from '@ogygia/core/contract';
 import { client_realms_source, type ClientRealmFile } from './caps.ts';
 
 const HYPHEN = /-/g;
 const BACKSLASH = /\\/g;
+const JS_EXT = /\.js$/;
 
 /**
  * Runtime feature catalog — maps build-time marks → installable plugins.
@@ -14,6 +24,10 @@ export type RuntimeMarks = {
 	complete?: boolean;
 	hydrate?: string[];
 	defer?: string[];
+	/** A hole's `prefetch` schedules (warming its HTML ahead of its `fetch`). */
+	prefetch?: string[];
+	/** A lake's `remount.revalidate` schedules (a cached lake fetched again). */
+	revalidate?: string[];
 	persist?: boolean;
 	persistKeys?: string[];
 	router?: boolean;
@@ -29,8 +43,8 @@ export type RuntimeMarks = {
 	context?: boolean;
 	/** Island code can reach Kit's page world: `$app/state` / `$app/stores` / `$app/navigation`
 	 *  (anything under `$app/` but `environment` and `paths`), or code the driver's island-closure walk
-	 *  cannot follow (a package, an unresolvable import), or a client plugin / federation that hands
-	 *  the runtime islands the walk never saw. Gates the page seed and the MPA navigation handle. */
+	 *  cannot follow (a package, an unresolvable import), or federation, which hands the runtime
+	 *  islands the walk never saw. Gates the page seed and the MPA navigation handle. */
 	page?: boolean;
 	/** The page can carry regions this build never compiled (federation: a peer's fragment brings its
 	 *  own islands, holes and lakes, at run time). Their kinds are unknown here, so every feature a
@@ -40,23 +54,12 @@ export type RuntimeMarks = {
 	foreign?: boolean;
 };
 
-export type FeatureId =
-	| 'remote-seeds'
-	| 'page'
-	| 'wire'
-	| 'wire-classes'
-	| 'frames'
-	| 'lakes'
-	| 'morph'
-	| 'live'
-	| 'interaction'
-	| 'forms'
-	| 'mpa-nav'
-	| 'router'
-	| 'context';
+/** A runtime feature, numbered by core's feature word (`@ogygia/core/contract` features.ts). */
+export type FeatureId = FeatureName;
 
 /**
- * WHICH CHUNK a feature lives in. The runtime ships as two static, feature-sized phases:
+ * WHICH CHUNK a feature lives in. The runtime ships as two static, feature-sized phases (and code
+ * the element itself keeps or folds):
  *
  * - `boot` — the runtime entry (`og-runtime.*.js`), loaded by the `<script>` in `<head>`. Defines
  *   `<ogygia-region>`, schedules wakes, fetches holes, morphs, routes. It must never reach Svelte:
@@ -65,20 +68,31 @@ export type FeatureId =
  * - `hydrate` — the hydrate core (`runtime/hydrate-core.js`), loaded by the runtime's single existing
  *   `import()` when the first island wakes, together with Svelte (which `hydrate()` needs anyway). A
  *   feature whose slot only the hydrate core reads belongs here, installed as the chunk evaluates.
+ * - `element` — no module: code inside the always-on region element, kept or folded by the
+ *   feature's bit in `HAS` alone (a schedule's arm: `idle`, `visible`, `media`; the island graph's
+ *   reader: `graph`).
  *
  * Both phases are generated from the same marks, so each is exactly as big as the app needs; no
  * feature adds a dynamic import of its own. `test/runtime-boot-svelte-free.test.ts` pins the boot.
  */
-export type FeaturePhase = 'boot' | 'hydrate';
+export type FeaturePhase = 'boot' | 'hydrate' | 'element';
 
 export type FeatureDef = {
-	/** Path relative to `runtime/` (no leading ./). */
-	module: string;
+	/** Path relative to `runtime/` (no leading ./). None for an `element` feature. */
+	module?: string;
 	deps: FeatureId[];
 	detect: (m: RuntimeMarks) => boolean;
 	/** Default `boot`. See {@link FeaturePhase}. */
 	phase?: FeaturePhase;
 };
+
+function schedules(m: RuntimeMarks): string[] {
+	return [...(m.hydrate || []), ...(m.defer || []), ...(m.prefetch || []), ...(m.revalidate || [])];
+}
+
+function schedules_unseen(m: RuntimeMarks): boolean {
+	return m.foreign === true || m.live === true;
+}
 
 export const FEATURES: Record<FeatureId, FeatureDef> = {
 	interaction: {
@@ -94,7 +108,7 @@ export const FEATURES: Record<FeatureId, FeatureDef> = {
 	'mpa-nav': {
 		module: 'nav-handle.js',
 		deps: [],
-		detect: (m) => m.page !== false
+		detect: (m) => m.page !== false && m.router !== true
 	},
 	router: {
 		module: 'router.js',
@@ -164,6 +178,27 @@ export const FEATURES: Record<FeatureId, FeatureDef> = {
 		deps: [],
 		phase: 'hydrate',
 		detect: (m) => m.foreign === true || m.context === true
+	},
+	idle: {
+		deps: [],
+		phase: 'element',
+		detect: (m) => schedules_unseen(m) || schedules(m).includes('idle')
+	},
+	visible: {
+		deps: [],
+		phase: 'element',
+		detect: (m) => schedules_unseen(m) || schedules(m).includes('visible')
+	},
+	graph: {
+		deps: [],
+		phase: 'element',
+		detect: (m) => schedules_unseen(m) || (m.hydrate || []).some((w) => w !== 'none')
+	},
+	media: {
+		deps: [],
+		phase: 'element',
+		detect: (m) =>
+			schedules_unseen(m) || schedules(m).some((w) => parse_trigger(w, WAKE)?.on === 'media')
 	}
 };
 
@@ -180,7 +215,11 @@ export const FEATURE_ORDER: FeatureId[] = [
 	'forms',
 	'mpa-nav',
 	'router',
-	'context'
+	'context',
+	'idle',
+	'visible',
+	'media',
+	'graph'
 ];
 
 /** Resolve the closed feature set for a marks manifest. */
@@ -209,7 +248,8 @@ export function resolveFeatures(marks: RuntimeMarks): FeatureId[] {
 }
 
 const to_alias = (id: string) => id.replace(HYPHEN, '_');
-const runtime_path = (runtimeDir: string, mod: string) =>
+/** A runtime module's path in `runtimeDir`, as an import names it (POSIX). */
+export const runtime_path = (runtimeDir: string, mod: string): string =>
 	`${runtimeDir}/${mod}`.replace(BACKSLASH, '/');
 
 /** The selected features of one {@link FeaturePhase}, in FEATURE_ORDER. */
@@ -218,8 +258,9 @@ export function phaseFeatures(marks: RuntimeMarks, phase: FeaturePhase): Feature
 }
 
 /**
- * Emit the BOOT entry: core + the selected boot-phase features (see {@link FeaturePhase}). The
- * entry boots and exports nothing.
+ * Emit the BOOT entry: core, booted with the plugins' browser halves. Core installs the selected
+ * boot-phase features itself (see {@link FeaturePhase}), from `ogygia:boot/feature-code`
+ * ({@link generateFeatureCodeSource}, the same marks). The entry boots and exports nothing.
  * @param runtimeDir Absolute directory containing `core.js` + the feature modules.
  * @param clientPlugins the plugins' browser halves, in plugin order
  */
@@ -233,44 +274,73 @@ export function generateRuntimeEntrySource(
 	const lines: string[] = [];
 	lines.push(`/** generated ogygia runtime — features: ${features.join(', ') || '(core only)'} */`);
 	lines.push(`import { boot } from ${JSON.stringify(runtime_path(runtimeDir, 'core.js'))};`);
-	for (const id of features) {
-		lines.push(
-			`import * as ${to_alias(id)} from ${JSON.stringify(runtime_path(runtimeDir, FEATURES[id].module))};`
-		);
-	}
 	if (cp.imports) lines.push(cp.imports.slice(0, -1));
 	lines.push('');
-	lines.push('boot([');
-	for (const id of features) lines.push(`  ${to_alias(id)}.install,`);
-	lines.push(cp.list ? `], ${cp.list});` : ']);');
+	lines.push(cp.list ? `boot(${cp.list});` : 'boot();');
+	return { code: `${lines.join('\n')}\n`, features };
+}
+
+/** The hydrate-phase features the hydrate core reads (`ogygia:boot/hydrate-features`); remote
+ *  seeds are a module of their own ({@link generateRemoteSeedsSource}). */
+export const HYDRATE_CODE: readonly FeatureId[] = FEATURE_ORDER.filter(
+	(id) => FEATURES[id].phase === 'hydrate' && id !== 'remote-seeds'
+);
+
+function feature_modules(
+	ids: readonly FeatureId[],
+	marks: RuntimeMarks,
+	runtimeDir: string,
+	all: boolean,
+	ext: string,
+	on = false
+): { code: string; features: FeatureId[] } {
+	const selected = all ? FEATURE_ORDER : resolveFeatures(marks);
+	const features = ids.filter((id) => selected.includes(id));
+	const lines = ids.flatMap((id) => {
+		const file = FEATURES[id].module!.replace(JS_EXT, ext);
+		const name = to_alias(id);
+		const has = features.includes(id);
+		const code = has
+			? `export * as ${name} from ${JSON.stringify(runtime_path(runtimeDir, file))};`
+			: `export const ${name} = null;`;
+		return on ? [code, `export const ${name}_on = ${has};`] : [code];
+	});
 	return { code: `${lines.join('\n')}\n`, features };
 }
 
 /**
- * Emit the HYDRATE-phase feature module (`ogygia:boot/hydrate-features`), which the hydrate core
- * imports statically and installs as its chunk evaluates — so these features ride the hydrate core's
- * one existing `import()`, sized by the same marks as the boot. `all` (dev / no marks): every one.
+ * Emit the HYDRATE-phase feature module (`ogygia:boot/hydrate-features`): {@link HYDRATE_CODE}'s
+ * modules, each `null` where the build leaves the feature out (a hyphen in an id is an underscore
+ * in its name), and each as a boolean, `<name>_on`, which the hydrate core tests in place of `HAS`
+ * (a namespace tested as a value is built as an object; a boolean is inlined into every chunk that
+ * reads it). The hydrate core imports it statically, so these features ride its one existing
+ * `import()`, sized by the same marks as the boot. `all` (dev / no marks): every one.
  * @param runtimeDir Absolute directory containing the feature modules.
+ * @param ext the modules' extension (`.ts` where the dev server serves core's source)
  */
 export function generateHydrateFeaturesSource(
 	marks: RuntimeMarks,
 	runtimeDir: string,
-	all = false
+	all = false,
+	ext = '.js'
 ): { code: string; features: FeatureId[] } {
-	const features = all
-		? FEATURE_ORDER.filter((id) => FEATURES[id].phase === 'hydrate')
-		: phaseFeatures(marks, 'hydrate');
-	const lines: string[] = [];
-	lines.push(`/** generated ogygia hydrate-phase features: ${features.join(', ') || '(none)'} */`);
-	for (const id of features) {
-		lines.push(
-			`import * as ${to_alias(id)} from ${JSON.stringify(runtime_path(runtimeDir, FEATURES[id].module))};`
-		);
-	}
-	lines.push('export function install() {');
-	for (const id of features) lines.push(`  ${to_alias(id)}.install();`);
-	lines.push('}');
-	return { code: `${lines.join('\n')}\n`, features };
+	return feature_modules(HYDRATE_CODE, marks, runtimeDir, all, ext, true);
+}
+
+/**
+ * Emit `ogygia:boot/remote-seeds`: the remote-seeds feature's module, or `null` where the build leaves
+ * it out. The hydrate core and the page feature read it; the navigation chunk imports the page
+ * feature too, and seeds the next page's remote queries whether or not an island woke before.
+ * @param runtimeDir Absolute directory containing the feature modules.
+ * @param ext the modules' extension (`.ts` where the dev server serves core's source)
+ */
+export function generateRemoteSeedsSource(
+	marks: RuntimeMarks,
+	runtimeDir: string,
+	all = false,
+	ext = '.js'
+): string {
+	return feature_modules(['remote-seeds'], marks, runtimeDir, all, ext, true).code;
 }
 
 /**
@@ -280,9 +350,10 @@ export function generateHydrateFeaturesSource(
  * guards ships exactly when the feature it serves does. Same marks as the entries; `all` (dev / no
  * marks): every flag on.
  *
- * - `FRAMES`: the `frames` feature is in the build — some region streams HTML (a deferred hole, a
- *   live region, a lake). Without the frame store a region's fetch has nowhere to land, so the
- *   element's fetch / apply / morph / renew path is dead code then.
+ * - `HAS`: the build's feature word, a bit per selected feature (core contract/features.ts). The
+ *   element tests it: without `F_FRAMES` (no region streams HTML: a deferred hole, a live region, a
+ *   lake) a region's fetch has nowhere to land, so its fetch / apply / morph / renew path is dead
+ *   code. `all`: every feature's bit.
  * - `load_wire_codec`: `null` where the `wire` feature (the codec) is in the build up front, else
  *   the codec's `import()`, for a wake whose props carry a live value the marks did not predict
  *   (core runtime/wire-on-use.ts). Generated here, not written in core, so a build with the codec
@@ -295,12 +366,69 @@ export function generateRuntimeFlagsSource(
 	runtimeDir: string,
 	all = false
 ): string {
-	const features = resolveFeatures(marks);
-	const frames = all || features.includes('frames');
-	const codec = JSON.stringify(runtime_path(runtimeDir, FEATURES.wire.module));
-	const load_wire_codec = all || features.includes('wire') ? 'null' : `() => import(${codec})`;
+	const features = all ? FEATURE_ORDER : resolveFeatures(marks);
+	const codec = JSON.stringify(runtime_path(runtimeDir, FEATURES.wire.module!));
+	const load_wire_codec = features.includes('wire') ? 'null' : `() => import(${codec})`;
 	return `${dedent`
-		export const FRAMES = ${frames};
+		export const HAS = ${feature_word(features)};
 		export const load_wire_codec = ${load_wire_codec};
+	`}\n`;
+}
+
+/** The boot features whose module the boot calls directly (`ogygia:boot/feature-code`): every
+ *  boot-phase feature with a module. */
+export const FEATURE_CODE: readonly FeatureId[] = FEATURE_ORDER.filter(
+	(id) => (FEATURES[id].phase ?? 'boot') === 'boot' && FEATURES[id].module !== undefined
+);
+
+/**
+ * Emit `ogygia:boot/feature-code`: each of {@link FEATURE_CODE}'s modules as a namespace where the
+ * build selects the feature, else `null` (`mpa-nav` as `mpa_nav`). The boot calls them under the
+ * feature's bit in `HAS` ({@link generateRuntimeFlagsSource}, the same marks), so the bundler binds
+ * each call to the function itself, and a build without the feature imports nothing of its module:
+ * no call, no state. `all` (dev / no marks): every one.
+ * @param runtimeDir Absolute directory containing the feature modules.
+ * @param ext the modules' extension (`.ts` where the dev server serves core's source)
+ */
+export function generateFeatureCodeSource(
+	marks: RuntimeMarks,
+	runtimeDir: string,
+	all = false,
+	ext = '.js'
+): string {
+	return feature_modules(FEATURE_CODE, marks, runtimeDir, all, ext).code;
+}
+
+/** The server's feature word for `marks` (`all`: every feature), as
+ *  {@link generateServerFlagsSource} writes it. */
+export function server_feature_word(marks: RuntimeMarks, all = false): number {
+	return feature_word(all ? FEATURE_ORDER : resolveFeatures(marks));
+}
+
+/**
+ * Emit `ogygia:server/runtime-flags`: the same feature word as the browser's `HAS`
+ * ({@link generateRuntimeFlagsSource}), for the server build. The server's code for a feature (a
+ * hole's render and endpoint, a lake's, a live region's) is written against it, so a server only
+ * writes into a page what the page's runtime can revive. The marks only grow while a build runs and
+ * the server leg reads them first, so its word never holds a feature the browser's lacks.
+ */
+export function generateServerFlagsSource(marks: RuntimeMarks, all = false): string {
+	return `export const HAS = ${server_feature_word(marks, all)};\n`;
+}
+
+/**
+ * Emit `ogygia:region/programs`: the three programs a region's render writes for, as booleans, on
+ * each leg from the same marks as its word ({@link generateRuntimeFlagsSource},
+ * {@link generateServerFlagsSource}). `HAS_FRAMES` (a hole's fetch, a deferred region's),
+ * `HAS_LAKES`, `HAS_LIVE` (a held region's updates). Region.svelte reads them in both realms, so a
+ * region whose program the build left out renders its waiting UI on the server and in the browser
+ * alike (a hydration that agrees), and the browser's island code drops the branches they switch off.
+ */
+export function generateProgramsSource(marks: RuntimeMarks, all = false): string {
+	const word = feature_word(all ? FEATURE_ORDER : resolveFeatures(marks));
+	return `${dedent`
+		export const HAS_FRAMES = ${(word & F_FRAMES) !== 0};
+		export const HAS_LAKES = ${(word & F_LAKES) !== 0};
+		export const HAS_LIVE = ${(word & F_LIVE) !== 0};
 	`}\n`;
 }

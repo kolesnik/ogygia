@@ -16,6 +16,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { test, check, REPO as repo } from '@ogygia/tooling/e2e';
 import { spawn_server, port, type SpawnedServer } from '@ogygia/tooling/e2e/servers.ts';
+import { downloads, hear_downloads } from '@ogygia/tooling/e2e/downloads.ts';
 import { dedent } from '@ogygia/core/plugin/utils';
 
 // `ogygia` (what apps install) is a thin package over `@ogygia/core`: both are unpacked
@@ -156,6 +157,7 @@ test.describe('dev: an installed (not linked) ogygia runs as one copy in the bro
 		const errors: string[] = [];
 		page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 		page.on('pageerror', (e) => errors.push(e.message));
+		await hear_downloads(page);
 		// (the first visit may optimize the app's own deps and reload once: land on a settled page)
 		await page.goto(`${base}/`, { waitUntil: 'load' });
 		await page.waitForTimeout(2500);
@@ -204,20 +206,18 @@ test.describe('dev: an installed (not linked) ogygia runs as one copy in the bro
 		// from the dep optimizer's bundle (where a second copy of its state would live)
 		// (by path AND query, Vite's `v=` / `t=` stamps aside: a component with styles is requested twice
 		// by design — its module, and its `?svelte&type=style` sheet — and that is not a second copy)
-		const loaded = await page.evaluate(() =>
-			performance.getEntriesByType('resource').map((r) => {
-				const u = new URL(r.name);
-				for (const k of ['v', 't']) u.searchParams.delete(k);
-				return u.pathname + u.search;
-			})
-		);
+		const loaded = (await downloads(page)).map((r) => {
+			const u = new URL(r.name);
+			for (const k of ['v', 't']) u.searchParams.delete(k);
+			return u.pathname + u.search;
+		});
 		// (ogygia's files: the `ogygia` package's and the `@ogygia/core` it re-exports)
 		const own = loaded.filter(
 			(p) => p.includes('/node_modules/ogygia/') || p.includes('/node_modules/@ogygia/core/')
 		);
 		check(
-			'the page loads ogygia’s runtime and its slots from ogygia’s own files',
-			own.some((p) => p.endsWith('/runtime/slots.js')) &&
+			'the page loads ogygia’s runtime and its lazy chunks’ link from ogygia’s own files',
+			own.some((p) => p.endsWith('/runtime/lazy-link.js')) &&
 				own.some((p) => p.endsWith('/runtime/hydrate-core.js')),
 			`${own.length} files`
 		);

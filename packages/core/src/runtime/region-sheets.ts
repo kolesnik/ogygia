@@ -1,8 +1,9 @@
-import { machine, type Machine } from '@ogygia/machine';
+import type { Run } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
 import { connected_regions } from './connected.ts';
-import { head_owners } from '../head-owners.ts';
-import { OG_FP, OG_OWNER, OGYGIA_REGION_CSS } from '../wire-markup.ts';
+import { OG_FP, OGYGIA_REGION_CSS } from '../wire-markup.ts';
 import { runtime_session } from './session.ts';
+import { resolved_urls } from './resolved-url.ts';
 
 type SheetStates = {
 	loading: {};
@@ -16,7 +17,7 @@ const sheet_steps = {
 	failed: []
 } as const;
 
-const sheet_definition = machine<SheetStates>()({
+const sheet_definition = $machine<SheetStates>()({
 	name: 'region-sheet',
 	initial: 'loading',
 	steps: sheet_steps
@@ -29,7 +30,7 @@ const sheet_definition = machine<SheetStates>()({
  * an answer that finds the sheet waits only on a loading one, and puts a failed one back with a fresh
  * link, which asks for it again (#274).
  */
-export type RegionSheet = Machine<SheetStates, typeof sheet_steps>;
+export type RegionSheet = Run<SheetStates, typeof sheet_steps>;
 
 const sheets = new WeakMap<HTMLLinkElement, RegionSheet>();
 
@@ -43,10 +44,11 @@ const sheets = new WeakMap<HTMLLinkElement, RegionSheet>();
 export function sheet_of(link: HTMLLinkElement): RegionSheet {
 	const known = sheets.get(link);
 	if (known !== undefined) return known;
-	const s = sheet_definition.create();
+	const s = fsm.createRun(sheet_definition);
 	sheets.set(link, s);
-	s.scope.on(link, 'load', () => s.go('loaded'));
-	s.scope.on(link, 'error', () => s.go('failed'));
+	const visit = s.visit();
+	visit.listen(link, 'load', () => s.go('loaded'));
+	visit.listen(link, 'error', () => s.go('failed'));
 	if (link.sheet !== null) s.go('loaded');
 	return s;
 }
@@ -75,10 +77,12 @@ export function note_code_sheets<T>(url: string, loading: Promise<T>): Promise<T
 	if (typeof document === 'undefined') return loading;
 	const before = new Set<Element>(document.head.children);
 	return loading.then((module) => {
+		const file = resolved_urls.resolve(url, document.baseURI);
+		if (file === null) return module;
 		let dir: string;
 		try {
-			dir = new URL('.', new URL(url, document.baseURI)).href;
-			// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL, so no folder of its own to own sheets in
+			dir = new URL('.', file.href).href;
+			// oxlint-disable-next-line ogygia/no-silent-failures -- not a base URL (data:, blob:), so no folder of its own to own sheets in
 		} catch {
 			return module;
 		}
@@ -114,22 +118,17 @@ export function use_code_sheets(region: Element, module: object): void {
 	for (const s of sheets) if (!s.isConnected) document.head.appendChild(s);
 }
 
-/**
- * After a navigation's swap: of the region head nodes the new page's head does not list
- * (`unlisted`: region sheets, and every tag that names an owning region), take out each one no
- * region on the page uses or owns any more. A tag names its owners (`data-og-owner`, the outermost
- * islands' fingerprints, space-separated) because the server skips a region the browser already
- * has, and the tags its inner regions wrote with it (#806). A sheet several outer islands share
- * names them all (#854, head-owners.ts). "On the page" is read from the document: a region the
- * swap took out leaves `connected_regions` only at its teardown, a microtask later, and uses no
- * sheet from the moment it left (#799, test/browser/nav-region-sheet-left.test.ts).
- *
- * Every owner list is cut to the owners still on the page (kept to its first when none is): one
- * that left can come back only rendered again, and its tags name it again then.
- */
-export function release_head_nodes(unlisted: readonly Element[]): void {
-	const shared = document.head.querySelectorAll(`[${OG_OWNER}*=" "]`);
-	if (unlisted.length === 0 && shared.length === 0) return;
+/** The head nodes the regions on the page use, and the islands they are (fingerprints). */
+export interface SheetsInUse {
+	readonly used: ReadonlySet<Element>;
+	readonly owners: ReadonlySet<string>;
+}
+
+/** What the regions on the page use and own, read for a navigation's release of the head nodes it
+ *  left (./head-release.ts). "On the page" is read from the document: a region the swap took out
+ *  leaves `connected_regions` only at its teardown, a microtask later, and uses no sheet from the
+ *  moment it left (#799, test/browser/nav-region-sheet-left.test.ts). */
+export function sheets_in_use(): SheetsInUse {
 	const used = new Set<Element>();
 	const owners = new Set<string>();
 	for (const region of connected_regions) {
@@ -141,15 +140,5 @@ export function release_head_nodes(unlisted: readonly Element[]): void {
 		const fp = region.getAttribute(OG_FP);
 		if (fp) owners.add(fp);
 	}
-	for (const node of unlisted) {
-		if (used.has(node)) continue;
-		if (head_owners(node).some((o) => owners.has(o))) continue;
-		node.remove();
-	}
-	for (const node of Array.from(shared)) {
-		if (!node.isConnected) continue;
-		const list = head_owners(node);
-		const on_page = list.filter((o) => owners.has(o));
-		node.setAttribute(OG_OWNER, (on_page.length ? on_page : list.slice(0, 1)).join(' '));
-	}
+	return { used, owners };
 }

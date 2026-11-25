@@ -34,7 +34,7 @@ const config = {
 	},
 	kit: {
 		adapter: adapter({ runtime: 'nodejs22.x' }),
-		...(out ? { outDir: `${out}/.svelte-kit` } : {}),
+		outDir: out ? `${out}/.svelte-kit` : process.env.OGYGIA_E2E_OUT_DIR,
 		experimental: { remoteFunctions: true },
 		alias: { $boot: 'src/lib/boot' },
 		// the same inline-vs-link number as the palaestra: the region-css channel ships tiny sheets inline

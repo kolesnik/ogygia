@@ -4,6 +4,11 @@
 // retired. End to end, with a real island and a real navigation: e2e/head-ownership.spec.ts.
 import { beforeEach, expect, test } from 'vitest';
 import { RuntimeSession } from '../../src/runtime/session.ts';
+import {
+	mark_head,
+	record_island_head,
+	retire_page_head_copies
+} from '../../src/runtime/head-copies.ts';
 
 const LD = '<script type="application/ld+json">{"@type":"BreadcrumbList"}</script>';
 const SERVER_HEAD = `<meta charset="utf-8"><title>Server title</title>${LD}<meta name="island" content="x"><style>.hero{color:red}</style><link rel="preload" as="image" href="/hero.avif"><link rel="stylesheet" href="/island.css">`;
@@ -17,12 +22,12 @@ beforeEach(() => {
 
 /** What an island's fresh `<svelte:head>` render appends: the same content, live. */
 function island_renders(html: string): Element[] {
-	const mark = s.mark_head();
+	const mark = mark_head();
 	const tpl = document.createElement('template');
 	tpl.innerHTML = html;
 	const added = Array.from(tpl.content.children);
 	document.head.append(...added);
-	s.record_island_head(mark);
+	record_island_head(s, mark);
 	return added;
 }
 
@@ -38,7 +43,7 @@ function marked(step: () => void, observer: boolean): Element[] {
 	const saved = globalThis.MutationObserver;
 	if (!observer) delete (globalThis as { MutationObserver?: unknown }).MutationObserver;
 	try {
-		const mark = s.mark_head();
+		const mark = mark_head();
 		step();
 		return mark.added();
 	} finally {
@@ -145,7 +150,7 @@ test('a later pass (after a navigation merge) retires the new page’s copy of a
 	const copy = tpl.content.firstElementChild!;
 	document.head.append(copy);
 	s.claim_page_head(copy);
-	s.retire_page_head_copies();
+	retire_page_head_copies(s);
 	expect(copy.isConnected).toBe(false);
 	expect(document.head.querySelectorAll('script[type="application/ld+json"]').length).toBe(1);
 });
@@ -158,7 +163,7 @@ test('an island torn down: its nodes are dropped from the watch list, the page k
 	const copy = tpl.content.firstElementChild!;
 	document.head.append(copy);
 	s.claim_page_head(copy);
-	s.retire_page_head_copies();
+	retire_page_head_copies(s);
 	expect(copy.isConnected).toBe(true);
 	expect(s.island_head.size).toBe(0);
 });

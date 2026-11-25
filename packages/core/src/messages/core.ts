@@ -111,6 +111,19 @@ export const ERRORS = {
 			fail, and keep their server HTML. Reloading the page loads Kit again. Said once per file.
 		`
 	},
+	kit_page_unbuilt: {
+		text: (): string => prose`
+			SvelteKit hydrates this page (csr=true), but this app's build proved it had no such page and
+			left the runtime's csr=true code out. The runtime does not start here: Kit runs the page.
+		`,
+		details: (): string => prose`
+			The build reads every \`csr\` option in the app's routes. When each one is a literal
+			\`false\` (pages, layouts and error pages alike), it ships a runtime without the code that
+			shares a page with SvelteKit. This page says Kit hydrates it all the same, so its regions
+			keep their server HTML and Kit hydrates the page as it would without ogygia. A page from
+			another build, or a route file the build did not read, does this; else ${BUG}
+		`
+	},
 	chunk_reload_needed: {
 		text: (a: { url: string }): string =>
 			`a file this page needs cannot load until the page reloads: ${a.url}`,
@@ -149,6 +162,35 @@ export const ERRORS = {
 		details: (): string => prose`
 			The island's module loaded, but hydrating it threw. The error follows the message: it is
 			usually the component itself throwing while it initializes.
+		`
+	},
+	region_program_missing: {
+		text: (a: { entry: string; program: 'hole' | 'live' }): string => prose`
+			region ${a.entry} needs the ${a.program} program, which this build left out: it keeps the
+			HTML the server wrote.
+		`,
+		details: (): string => prose`
+			The build reads the app's regions and ships only the programs they need: a deferred
+			region's fetch (the hole program), a held region's updates (the live program). This page
+			has a region that needs one, and the build saw none that did, so the region keeps the HTML
+			the server wrote and never updates. A region written into the page from outside the app's
+			code (HTML from a CMS, a page from another build) does this; else ${BUG}
+		`
+	},
+	region_schedule_missing: {
+		text: (a: { region: string; value: string }): string => prose`
+			region ${a.region} is scheduled on "${a.value}", which this build left out: it runs on
+			load.
+		`,
+		details: (): string => prose`
+			The build reads when the app's regions run (a wake, a hole's fetch or prefetch, a lake's
+			revalidation) and ships only the schedules they use: \`idle\`, \`visible\` and media
+			queries each have code of their own, left out when no region asks for them. This page
+			has a region scheduled on one the build saw no region use, so it runs on load instead,
+			sooner than asked. A region written into the page from outside the app's code (HTML
+			from a CMS, a page from another build) does this, and so does a value no schedule
+			holds (a typo) in a build without media queries, which cannot tell the two apart; else
+			${BUG}
 		`
 	},
 	interaction_hydrate_failed: {
@@ -195,7 +237,7 @@ export const ERRORS = {
 	},
 	slot_not_linked: {
 		text: (a: { name: string }): string =>
-			`runtime chunk used \`slots.${a.name}\` before the boot linked it`,
+			`runtime chunk used the boot's \`${a.name}\` before the boot handed it its link`,
 		details: (): string => BUG
 	},
 
@@ -1147,6 +1189,17 @@ export const WARNINGS = {
 			ships only those. Island code read a key the server had and the seed left out, so it saw
 			\`undefined\`. A read the analysis missed: please report it with the island's code.
 			Removing \`dataShake()\` ships all of \`page.data\` again.
+		`
+	},
+	rule_region_program_shipped: {
+		text: (a: { detail: string }): string =>
+			`rule broken, every region on the page has its program in the build: ${a.detail}`,
+		details: (): string => prose`
+			Dev and e2e builds only (a rule ogygia checks on itself). The build reads the app's regions
+			and ships only the programs they need: a deferred region's fetch (the hole program), a held
+			region's updates (the live program). A region on the page needs one the build left out, so
+			it keeps the HTML the server wrote. A region written into the page from outside the app's
+			code does this; else ${BUG}
 		`
 	}
 };

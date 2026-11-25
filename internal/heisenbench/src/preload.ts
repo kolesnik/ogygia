@@ -3,24 +3,35 @@
  * runner adds it whenever this file exists). Outside Vite, the specifiers only the plugin or Kit
  * serve (`ogygia:*`, `$app/*`) resolve to the unit-test stubs in packages/core/test/_stubs,
  * the same ones packages/core/vitest.config.ts aliases: `$app/env` -> app-env.ts,
- * `ogygia:server/sign` -> server.sign.ts. And the hydrate core's `svelte` resolves to a stand-in
+ * `ogygia:server/sign` -> server.sign.ts; a stub's `.native` twin first, where one stands in for
+ * production's native work a browser test cannot load (server.region-endpoint.native.ts: the island
+ * fingerprint's SHA-1), so a bench counts what production runs. And the hydrate core's `svelte` resolves to a stand-in
  * for Svelte's client `hydrate` (svelte-hydrate.ts, below). And a bench page's island files, which a
  * browser fetches from the page's origin (runtime/code-origins.ts refuses any other), are the
  * stand-in island module, one instance per file: `<ISLAND_FILES><name>` -> island-module.ts?entry=<name>.
  * And a `.svelte` file a module imports (core's RenderSnippet.svelte) is compiled for the server by
- * core's own Svelte, as the app's Vite would.
+ * core's own Svelte, as the app's Vite would. And a core file with macros loads as core's build
+ * compiles it (./macros.ts). And each copy of a bench file loads in Node's own world: the globals
+ * installed since the run began (a browser's, core's hydration benches; ogygia's slots) are taken
+ * off first.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire, registerHooks, stripTypeScriptTypes } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { register_macro_mirror } from './macros.ts';
 
 const core_require = createRequire(new URL('../../../packages/core/package.json', import.meta.url));
 const { compile, compileModule } = core_require(
 	'svelte/compiler'
 ) as typeof import('svelte/compiler');
 const RUNES_MODULE_RE = /\.svelte\.(ts|js)$/;
+/** What Heisenbench's counted code reaches its runtime by (its runtime/index.ts). */
+const HEISENBENCH_RUNTIME = Symbol.for('heisenbench.runtime');
 
 const STUBS = new URL('../../../packages/core/test/_stubs/', import.meta.url);
+/** Core's source: its own `#` imports resolve to source there (package.json, `ogygia-source`), as
+ *  core's tests resolve them; every other reader gets dist. */
+const CORE_SRC = new URL('../../../packages/core/src/', import.meta.url).href;
 /** Where the bench page's island files are (packages/core/bench/hydration-page.ts `island_file`). */
 const ISLAND_FILES = 'https://shop.example.test/_app/ogygia/';
 const APP = '$app/';
@@ -46,8 +57,56 @@ function hydrate_core_import(context: { parentURL?: string }): boolean {
 	return (q === -1 ? parent : parent.slice(0, q)).endsWith(HYDRATE_CORE);
 }
 
+/** Heisenbench counts this run: it compiles every runes module it loads (each one it counts, and it
+ *  counts every module but its own and the bench files), so this preload compiles none of them (a
+ *  second compile fails on the first one's output). */
+function counted(): boolean {
+	return (globalThis as Record<symbol, unknown>)[HEISENBENCH_RUNTIME] !== undefined;
+}
+
+/** A bench file, as Heisenbench imports it (each fresh copy with its own query). */
+const BENCH_FILE_RE = /\.bench\.[cm]?ts(?:\?|$)/;
+/** ogygia's process slots (`slot()`, @ogygia/machine: `globalThis[Symbol.for('ogygia.…')]`). */
+const SLOT_PREFIX = 'ogygia.';
+/** Node's own globals a bench file replaced, as it found them (packages/core/bench/world.ts). */
+const REPLACED = Symbol.for('ogygia.bench-world.replaced');
+
+/** The world each copy of a bench file loads in: Node's own, the world the run started in. */
+class BenchWorld {
+	/** The globals the run had when its first bench file loaded. */
+	static #own: ReadonlySet<string | symbol> | null = null;
+
+	/**
+	 * A copy of a bench file is about to load (Heisenbench's fresh copy for each run of a case):
+	 * every global installed since the run's first bench file loaded is taken off, as the copy's
+	 * modules are its own. The browser a hydration bench installs (a server file after it reads no
+	 * `window`: esm-env's BROWSER, the `typeof window` checks); ogygia's process slots (the readers
+	 * a server bench installed, a plugin that joined core's shared hooks at load); and a global Node
+	 * has that a file replaced (bench/world.ts) is Node's again. So each run of a case, the warm-up
+	 * and the two measured ones, starts in the same world, whatever ran before it.
+	 */
+	static load(): void {
+		const g = globalThis as unknown as Record<string | symbol, unknown>;
+		if (BenchWorld.#own === null) {
+			BenchWorld.#own = new Set(Reflect.ownKeys(g));
+			return;
+		}
+		const replaced = g[REPLACED] as Map<string, PropertyDescriptor> | undefined;
+		for (const [name, own] of replaced ?? []) Object.defineProperty(g, name, own);
+		for (const key of Reflect.ownKeys(g))
+			if (!BenchWorld.#own.has(key) && BenchWorld.#installed(key)) delete g[key];
+	}
+
+	/** Whether `key` is a global a bench file installs: a name, or one of ogygia's slots
+	 *  (Heisenbench keeps its own state under its own symbols). */
+	static #installed(key: string | symbol): boolean {
+		return typeof key === 'string' || (key.description?.startsWith(SLOT_PREFIX) ?? false);
+	}
+}
+
 registerHooks({
 	resolve(specifier, context, next) {
+		if (BENCH_FILE_RE.test(specifier)) BenchWorld.load();
 		if (specifier === 'svelte' && hydrate_core_import(context))
 			return { url: new URL('svelte-hydrate.ts', STUBS).href, shortCircuit: true };
 		if (specifier.startsWith(ISLAND_FILES)) {
@@ -55,8 +114,15 @@ registerHooks({
 			file.searchParams.set('entry', specifier.slice(ISLAND_FILES.length));
 			return { url: file.href, shortCircuit: true };
 		}
+		if (specifier.startsWith('#') && context.parentURL?.includes(CORE_SRC))
+			return next(specifier, {
+				...context,
+				conditions: ['ogygia-source', ...(context.conditions ?? [])]
+			});
 		const name = stub_name(specifier);
 		if (name === null) return next(specifier, context);
+		const native = new URL(`${name}.native.ts`, STUBS);
+		if (existsSync(native)) return { url: native.href, shortCircuit: true };
 		const file = new URL(`${name}.ts`, STUBS);
 		if (!existsSync(file))
 			throw new Error(`heisenbench preload: no stub for ${specifier} (expected ${file.pathname})`);
@@ -70,10 +136,12 @@ registerHooks({
 			return { format: 'module', source: js.code, shortCircuit: true };
 		}
 		const runes = RUNES_MODULE_RE.exec(filename);
-		if (!runes) return next(url, context);
+		if (!runes || counted()) return next(url, context);
 		const source = readFileSync(filename, 'utf8');
 		const plain = runes[1] === 'ts' ? stripTypeScriptTypes(source, { mode: 'strip' }) : source;
 		const { js } = compileModule(plain, { generate: 'server', filename });
 		return { format: 'module', source: js.code, shortCircuit: true };
 	}
 });
+
+register_macro_mirror();

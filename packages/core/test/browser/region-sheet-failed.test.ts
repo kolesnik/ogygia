@@ -10,6 +10,7 @@ import { afterEach, beforeEach, expect, vi } from 'vitest';
 import { commands } from 'vitest/browser';
 import { it_with_network_routes } from './_browsers.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { region_fragment } from './_html.ts';
 
 declare module 'vitest/browser' {
@@ -28,7 +29,7 @@ let probe: HTMLElement;
 beforeEach(() => {
 	vi.stubEnv('DEV', false);
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
-	link_boot();
+	init(link_boot());
 	for (const l of sheets()) l.remove();
 	probe = document.createElement('p');
 	probe.className = 'og-region-sheet-probe';

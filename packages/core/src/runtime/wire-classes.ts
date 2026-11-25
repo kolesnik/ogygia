@@ -1,32 +1,25 @@
-import { cache, flights } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
 import { wire_loaders, wire_all } from 'ogygia:region';
 import { import_again } from './import-again.ts';
 import { props_sidecar_of } from './sidecar.ts';
 import { yield_task } from './schedule.ts';
-import { slots } from './slots.ts';
 import { download } from '../policies.ts';
 import { OG_WIRE, OGYGIA_PROVIDE, OGYGIA_PROVIDE_PAGE } from '../wire-markup.ts';
 
-/** Feature entry: fill the `wire_classes` slot. */
-export function install(): void {
-	slots.wire_classes = wire_classes_for;
-}
-
 const loaders = wire_loaders;
 const paths = Object.keys(loaders);
-const imports = cache<string, () => Promise<unknown>>({
-	name: 'class module loaders',
-	max: Math.max(1, paths.length)
-});
-const loads = flights({
+const imports: ReadonlyMap<string, { load?: () => Promise<unknown> }> = new Map(
+	paths.map((p) => [p, {}])
+);
+const loads = plainFlights({
 	name: 'wire class',
 	run: (path: string) => {
-		let import_class = imports.get(path);
-		if (!import_class) {
+		const slot = imports.get(path)!;
+		if (!slot.load) {
 			const [load, file, base] = loaders[path]!;
-			imports.set(path, (import_class = import_again(load, undefined, file, base)));
+			slot.load = import_again(load, undefined, file, base);
 		}
-		return yield_task().then(import_class);
+		return yield_task().then(slot.load);
 	},
 	retry: download
 });

@@ -13,7 +13,11 @@ import {
 	type RuntimeMarks
 } from '../src/link/runtime-entry.ts';
 import { partial_ctx_init } from './_compile-ctx.ts';
-import { dedent } from '@ogygia/core/contract';
+import { dedent, F_FRAMES } from '@ogygia/core/contract';
+
+/** Whether generated runtime flags hold the frames feature's bit. */
+const frames_bit = (flags: string): boolean =>
+	(Number(/HAS = (\d+);/.exec(flags)![1]) & F_FRAMES) !== 0;
 
 const roots: string[] = [];
 afterEach(() => {
@@ -114,6 +118,16 @@ describe('page mark', () => {
 		expect(resolveFeatures(marks)).toEqual(expect.arrayContaining(['page', 'mpa-nav']));
 	});
 
+	test("with the router, the router's handle is the page's navigation handle: no MPA handle ships", () => {
+		const marks = { complete: true, hydrate: ['load'], page: true };
+		expect(resolveFeatures({ ...marks, router: true })).toEqual(
+			expect.arrayContaining(['page', 'router'])
+		);
+		expect(resolveFeatures({ ...marks, router: true })).not.toContain('mpa-nav');
+		expect(resolveFeatures({ ...marks, router: false })).toContain('mpa-nav');
+		expect(resolveFeatures({ ...marks, router: true, foreign: true })).not.toContain('mpa-nav');
+	});
+
 	test('`$app/navigation` reaches the navigation handle', () => {
 		expect(marks_for(script(`\timport { goto } from '$app/navigation';`)).page).toBe(true);
 	});
@@ -149,16 +163,16 @@ describe('page mark', () => {
 		expect(marks.page).toBe(true);
 	});
 
-	test('a federated or plugin-woken island is a reader the walk never saw', () => {
+	test('a federated island is a reader the walk never saw', () => {
 		const island = script(`\timport { untrack } from 'svelte';`);
 		expect(marks_for(island, {}, { foreign_hydrate: true }).page).toBe(true);
-		expect(
-			marks_for(
-				island,
-				{},
-				{ client_plugins: [{ name: '@x/plugin', module: '/x/plugin/client.js' }] }
-			).page
-		).toBe(true);
+	});
+
+	test("a plugin's browser half wakes no island, so it is no reader", () => {
+		const island = script(`\timport { untrack } from 'svelte';`);
+		const client = { client_plugins: [{ name: '@x/plugin', module: '/x/plugin/client.js' }] };
+		expect(marks_for(island, {}, client).page).toBe(false);
+		expect(marks_for(island, {}, { ...client, foreign_hydrate: true }).page).toBe(true);
 	});
 });
 
@@ -172,7 +186,7 @@ describe('foreign regions', () => {
 	test('an app with no deferred region of its own does not ship the frame store', () => {
 		const marks = marks_for(island);
 		expect(resolveFeatures(marks)).not.toContain('frames');
-		expect(generateRuntimeFlagsSource(marks, '/rt')).toContain('FRAMES = false');
+		expect(frames_bit(generateRuntimeFlagsSource(marks, '/rt'))).toBe(false);
 	});
 
 	test("a federated app ships what a peer's regions need, with no region of its own needing it", () => {
@@ -180,7 +194,7 @@ describe('foreign regions', () => {
 		expect(resolveFeatures(marks)).toEqual(
 			expect.arrayContaining(['frames', 'morph', 'lakes', 'interaction'])
 		);
-		expect(generateRuntimeFlagsSource(marks, '/rt')).toContain('FRAMES = true');
+		expect(frames_bit(generateRuntimeFlagsSource(marks, '/rt'))).toBe(true);
 	});
 
 	// The rule over every combination: whatever regions a peer's build compiled (its marks), a

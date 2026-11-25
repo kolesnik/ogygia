@@ -4865,7 +4865,7 @@ class Profiler {
 		try {
 			// the recorder leaving `background` (the holder's next move), or the deadline: no poll
 			wait.timeout(() => wait.close(), PAGE_WAITS_FOR_BACKGROUND_MS);
-			await wait.task(() => this.#holder.wait('free'));
+			$await(wait.task(() => this.#holder.wait('free')));
 		} finally {
 			wait.close();
 			this.#page_waiting--;

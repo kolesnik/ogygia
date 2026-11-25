@@ -12,7 +12,8 @@ import {
 	WIRE_FORMAT_JSON
 } from '../src/server/props-wire.ts';
 import { OG_FORMAT as WIRE_FORMAT_ATTR } from '../src/wire-markup.ts';
-import { analyze, SeedIndex, SEED_REF_KEY, seed_ref_reviver } from '../src/seed-refs.ts';
+import { analyze, SEED_REF_KEY, seed_ref_reviver } from '../src/seed-refs.ts';
+import { SeedIndex } from '../src/seed-index.ts';
 import { fingerprint_of } from '../src/contract/hash.ts';
 import { region_fingerprint } from '../src/server/fingerprint.ts';
 

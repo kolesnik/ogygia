@@ -4,6 +4,7 @@
 // then sat out the scheduler's whole 48 ms snapshot wait (62–84 ms late on a scroll, with nothing
 // ahead of it). Both must hear every change, and one leaving must not silence the other.
 import { expect, test } from 'vitest';
+import { lifeOf } from '@ogygia/machine';
 import { on_screen, once_on_screen, watch_viewport } from '../../src/runtime/viewport.ts';
 import { hydrate_turn, register_region, unregister_region } from '../../src/runtime/schedule.ts';
 import { scope, type Scope } from '@ogygia/machine';
@@ -79,7 +80,7 @@ test('a watcher that joins late gets the last known state (the browser will not 
 
 test('a visible island woken on screen gets its turn without the 48 ms snapshot wait', async () => {
 	const el = box();
-	register_region(el, scope()); // the scheduler's snapshot (at connect)
+	register_region(el, lifeOf(scope())); // the scheduler's snapshot (at connect)
 	let woke_at = 0;
 	once_on_screen(el, '0px', () => (woke_at = performance.now())); // the island's wake, same margin
 	await expect.poll(() => woke_at > 0).toBe(true);

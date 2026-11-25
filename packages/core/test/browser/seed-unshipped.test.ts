@@ -3,9 +3,10 @@
 // (`rule_seed_key_unshipped`), a key the seed carries or never had is not.
 import { afterEach, expect, it } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { page_seed_of } from '../../src/runtime/seeds.ts';
 
-link_boot();
+init(link_boot());
 
 const MARK = 'bbbbbbbbbbbbbbbbbbbbbbbb';
 const heard: string[] = [];

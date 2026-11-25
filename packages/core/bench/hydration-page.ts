@@ -9,11 +9,13 @@
  *   was observed (a browser reports after layout); an element is in view when the page put it in
  *   `in_view`.
  * - `addEventListener`, `location`: what the runtime's modules touch at load.
+ * - `PerformanceObserver`: the page's resource timeline, on the bench's loop (./timeline.ts).
  *
  * And the page: a CMS document of a header, a list of blocks and a footer, every region
  * with its props sidecar in the keyed tail at the end of the body, as the server renders it.
  * Setup only: nothing here runs inside a measured window, except the stand-ins' own callbacks.
  */
+import './timeline.ts';
 import { DomElement, document, el, frag, type DomNode } from '../test/_stubs/dom.ts';
 import { encode_island_graph } from '../src/island-graph.ts';
 import { OGYGIA_GRAPH as ISLAND_GRAPH_ATTR } from '../src/wire-markup.ts';
@@ -31,7 +33,10 @@ g.scheduler = {
 };
 g.addEventListener ??= () => {};
 g.removeEventListener ??= () => {};
-g.location ??= { origin: 'https://shop.example.test', href: 'https://shop.example.test/catalog' };
+g.location ??= {
+	origin: 'https://shop.example.test',
+	href: 'https://shop.example.test/catalog'
+};
 
 /** The elements the stand-in observer reports as intersecting (the page's first screen). */
 export const in_view = new WeakSet<object>();
@@ -222,7 +227,12 @@ export function cms_page(blocks: number, rows = 6, edit = true): PageRegion[] {
 	const body = document.body as unknown as DomElement;
 	body.replaceChildren();
 	page_head(blocks);
-	const parts: Array<{ html: string; wake: Wake; entry: string; props: string }> = [];
+	const parts: Array<{
+		html: string;
+		wake: Wake;
+		entry: string;
+		props: string;
+	}> = [];
 	const h = header();
 	parts.push({
 		html: header_html(12),
@@ -279,6 +289,35 @@ export function cms_page(blocks: number, rows = 6, edit = true): PageRegion[] {
 }
 
 /**
+ * A page's island graph and the islands that wake on it: `entries` island files, each with four
+ * chunks of its own and three every island shares, the head holding the framework's own
+ * modulepreload links, and `regions` islands spread over the files (the identity each region loads).
+ */
+export function graph_page(entries: number, regions: number): string[] {
+	const body = document.body as unknown as DomElement;
+	body.replaceChildren();
+	const head = ['<meta charset="utf-8"><title>Catalog</title>'];
+	for (let i = 0; i < 10; i++) head.push(`<link rel="modulepreload" href="${chunk_of(900 + i)}">`);
+	(document.head as unknown as DomElement).replaceChildren(...frag(head.join('')));
+	const graph = new Map<string, string[]>();
+	for (let e = 0; e < entries; e++)
+		graph.set(island_entry(e), [
+			chunk_of(e * 4),
+			chunk_of(e * 4 + 1),
+			chunk_of(e * 4 + 2),
+			chunk_of(e * 4 + 3),
+			chunk_of(800),
+			chunk_of(801),
+			chunk_of(900)
+		]);
+	for (const n of frag(
+		`<div hidden><script type="application/json" ${ISLAND_GRAPH_ATTR}>${encode_island_graph(graph)}</script></div>`
+	))
+		body.appendChild(n);
+	return Array.from({ length: regions }, (_, i) => island_entry(i % entries));
+}
+
+/**
  * A page of one product-grid island whose component renders its cards at its root (an `{#each}` with
  * no wrapper element): `cards` root elements in the island's anchor pair.
  */
@@ -293,7 +332,9 @@ export function grid_page(cards: number): PageRegion {
 			`<article class="card"><h3>Product ${i}</h3> <p>${(i * 13) % 97} USD</p></article>`
 		);
 	const inner = `<!--[-->${cards_html.join('')}<!--]-->`;
-	const props = JSON.stringify({ ids: Array.from({ length: cards }, (_, i) => i) });
+	const props = JSON.stringify({
+		ids: Array.from({ length: cards }, (_, i) => i)
+	});
 	for (const n of frag(
 		`${region_open(0, 'load', entry) + inner}</ogygia-region>${sidecar(0, props)}`
 	))

@@ -4,5 +4,5 @@
 		"declaration": false,
 		"isolatedDeclarations": false
 	},
-	"include": [".", "../src", "../heisenbench.config.ts"]
+	"include": [".", "../src", "../../../internal/macros/macros.d.ts", "../heisenbench.config.ts"]
 }

@@ -76,8 +76,16 @@ function compiler(root: string, is_dev: boolean): Compiler {
 		kit_wire_path: '/nowhere/kit/shared.js',
 		client_binding_stub_file: '/nowhere/stub.js',
 		app_shims: {},
-		client_plugins: [{ name: 'p', module: '/nowhere/plugin/client.js' }],
-		server_plugins: [{ name: 'p', module: '/nowhere/plugin/server.js', options: {} }],
+		client_plugins: [
+			{
+				name: 'p',
+				module: '/nowhere/plugin/client.js',
+				hooks: ['regionMount', 'regionHydrated', 'navigated']
+			}
+		],
+		server_plugins: [
+			{ name: 'p', module: '/nowhere/plugin/server.js', options: {}, hooks: ['measures'] }
+		],
 		measure: true,
 		devtools: false
 	};
@@ -123,7 +131,7 @@ const SPECIFIERS: [string, Realm][] = [
 ];
 /** A module's realm imports, as an app's code writes them. */
 const IMPORTS = `import { region_ttl, renew_window, sign, region_css as css } from 'ogygia:server';
-import { FRAMES, transport } from 'ogygia:boot';
+import { HAS, transport } from 'ogygia:boot';
 export { kit_transport as transport } from 'ogygia:region';`;
 const size = (out: string | { code: string } | null): number =>
 	out === null ? 0 : typeof out === 'string' ? out.length : out.code.length;
@@ -247,11 +255,10 @@ bench('virtual constants: the define map of two option sets, and their generated
 		devtools: false,
 		devtools_lazy: false,
 		rules: false,
-		client_plugins: false,
-		hooks: [],
 		kit_major: null,
 		version: '0.0.0',
-		dev_server: false
+		dev_server: false,
+		kit_pages: false
 	};
 	const on: ConstantInput = {
 		continuity_forms: true,
@@ -259,11 +266,10 @@ bench('virtual constants: the define map of two option sets, and their generated
 		devtools: true,
 		devtools_lazy: true,
 		rules: true,
-		client_plugins: true,
-		hooks: ['regionMount', 'regionHydrated', 'navigated'],
 		kit_major: 3,
 		version: '1.2.3',
-		dev_server: true
+		dev_server: true,
+		kit_pages: true
 	};
 	let n = 0;
 	for (const input of [base, on]) n += Object.keys(core_defines(input)).length;

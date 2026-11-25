@@ -1,8 +1,8 @@
 // Prerender checks: a static page carrying a normal island + a personalized server-island hole.
 // Usage: pnpm exec playwright test prerender
 import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { test, check } from '@ogygia/tooling/e2e';
+import { built } from './_built.ts';
 import {
 	AMP_ENTITY_G_RE,
 	EARLY_HOLES_RE,
@@ -23,12 +23,8 @@ const SWR_REGION_RE = /<ogygia-region[^>]*remount="swr"[^>]*>/;
 const EXP_RE = /(?:&amp;|[?&])exp=(\d+)/;
 const WELCOME_ADA_RE = /Welcome, Ada!/;
 
-const prerenderedFile = fileURLToPath(
-	new URL('../.svelte-kit/output/prerendered/pages/static.html', import.meta.url)
-);
-const lakeFile = fileURLToPath(
-	new URL('../.svelte-kit/output/prerendered/pages/static-lake.html', import.meta.url)
-);
+const prerenderedFile = built('prerendered/pages/static.html');
+const lakeFile = built('prerendered/pages/static-lake.html');
 
 // The SSR document is fetched once: the fetch checks read it, and the on-disk legs need its
 // dev/prod sniff (a dev server does not prerender).

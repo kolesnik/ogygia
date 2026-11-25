@@ -2,12 +2,14 @@
 // and the references islands make into it, and the document tail that writes them all out. Per
 // island and per page, on the palaestra's CMS page (twenty ~35 KB blocks, a ~300 KB header config).
 import { bench } from '@bench/heisenbench/bench';
-import { stringify } from 'devalue';
-import { encode_island_graph, decode_island_graph } from '../src/island-graph.ts';
-import { SeedIndex, SeedRefPlan, __heisenbench as seed_refs } from '../src/seed-refs.ts';
+import { encode_island_graph } from '../src/island-graph.ts';
+import { decode_island_graph } from '../src/island-graph-read.ts';
+import { MeasureMemo, measure } from '../src/seed-refs.ts';
+import { SeedIndex, StructureHashes } from '../src/seed-index.ts';
 import { DocumentTail } from '../src/server/document-tail.ts';
 import { region_fingerprint } from '../src/server/fingerprint.ts';
 import { PageSeed } from '../src/server/page-seed.ts';
+import { devalue_text } from '../src/server/devalue-text.ts';
 import { PropsWire, __heisenbench as props_wire } from '../src/server/props-wire.ts';
 import { encode_region_props } from '../src/server/region-props.ts';
 import { block, header, island_entry, page_of, page_tree, rich_block } from './fixtures.ts';
@@ -33,6 +35,24 @@ bench(
 );
 
 bench(
+	'island fingerprint: forty-eight small props texts and the header config',
+	({ small, big }) => {
+		let n = 0;
+		for (let i = 0; i < small.length; i++)
+			n += region_fingerprint(island_entry(i), small[i]!).length;
+		return n + region_fingerprint(island_entry(99), big).length;
+	},
+	{
+		setup: () => ({
+			small: Array.from({ length: 48 }, (_, i) =>
+				JSON.stringify({ label: `Card ${i}`, n: i, tone: i % 2 ? 'warm' : 'cool', on: true })
+			),
+			big: new PropsWire(header(), 'header').canonical
+		})
+	}
+);
+
+bench(
 	'props wire: live snippet entries in a devalue payload',
 	({ text }) => props_wire.live_entries_in(text),
 	{
@@ -50,14 +70,14 @@ bench(
 	}
 );
 
-bench('measure: the walk over a page.data tree', ({ tree }) => seed_refs.measure(tree, new Map()), {
+bench('measure: the walk over a page.data tree', ({ tree }) => measure(tree, new MeasureMemo()), {
 	setup: () => ({ tree: page_of(4) }),
 	scale: (_ctx, k) => ({ tree: page_of(4 * k) })
 });
 
 bench(
-	'hash_subtree: structural hash of a page.data tree',
-	({ tree }) => seed_refs.hash_subtree(tree, new Map(), new Set()),
+	'structure hashes: the structural hash of a page.data tree',
+	({ tree }) => new StructureHashes().of(tree),
 	{
 		setup: () => ({ tree: page_of(4) }),
 		scale: (_ctx, k) => ({ tree: page_of(4 * k) })
@@ -69,7 +89,20 @@ bench(
 	({ data }) => {
 		const index = new SeedIndex(data, 96);
 		let count = 0;
-		for (const b of data.catalog.blocks) count += new SeedRefPlan(index, { block: b }).count;
+		for (const b of data.catalog.blocks) count += index.plan({ block: b }).count;
+		return count;
+	},
+	{ setup: () => ({ data: page_tree() }), scale: (_ctx, k) => ({ data: page_of(20 * k) }) }
+);
+
+bench(
+	'seed index: the seed walked after the islands that hold its blocks were measured',
+	({ data }) => {
+		const memo = new MeasureMemo();
+		for (const block of data.catalog.blocks) measure({ block }, memo);
+		const index = new SeedIndex(data, 96, memo);
+		let count = 0;
+		for (const b of data.catalog.blocks) count += index.plan({ block: b }).count;
 		return count;
 	},
 	{ setup: () => ({ data: page_tree() }), scale: (_ctx, k) => ({ data: page_of(20 * k) }) }
@@ -80,7 +113,7 @@ bench(
 	({ data, props }) => {
 		const index = new SeedIndex(data, 96);
 		let count = 0;
-		for (const p of props) count += new SeedRefPlan(index, p).count;
+		for (const p of props) count += index.plan(p).count;
 		return count;
 	},
 	{
@@ -93,7 +126,10 @@ function clones_of(data: ReturnType<typeof page_tree>) {
 	return { data, props: data.catalog.blocks.map((b) => ({ block: structuredClone(b) })) };
 }
 
-bench('page seed: the JSON lane', ({ page }) => PageSeed.serialize(page, stringify, true), {
+/** The seed's devalue writer, as the handle hands it (server/document-seeds.ts `seed_codecs`). */
+const seed_text = ((v: unknown) => devalue_text(v, {})) as Parameters<typeof PageSeed.serialize>[1];
+
+bench('page seed: the JSON lane', ({ page }) => PageSeed.serialize(page, seed_text, true), {
 	setup: () => ({
 		page: {
 			url: { href: 'https://example.test/catalog' },
@@ -106,7 +142,7 @@ bench('page seed: the JSON lane', ({ page }) => PageSeed.serialize(page, stringi
 	scale: (ctx, k) => ({ page: { ...ctx.page, data: page_of(4 * k) } })
 });
 
-bench('page seed: the devalue lane', ({ page }) => PageSeed.serialize(page, stringify, false), {
+bench('page seed: the devalue lane', ({ page }) => PageSeed.serialize(page, seed_text, false), {
 	setup: () => ({
 		page: {
 			url: { href: 'https://example.test/catalog' },
@@ -149,6 +185,32 @@ bench(
 	{
 		setup: () => ({ data: page_tree(), header_props: header() }),
 		scale: (ctx, k) => ({ data: page_of(20 * k), header_props: ctx.header_props })
+	}
+);
+
+bench(
+	'document tail: a CMS page whose islands wake at load, with the early start of their code',
+	({ data }) => {
+		const tail = new DocumentTail();
+		const wake = () => Array.from({ length: 21 }, (_, i) => `/_app/immutable/chunks/w${i}.js`);
+		for (const [i, b] of data.catalog.blocks.entries()) {
+			const entry = island_entry(i);
+			const plan = new PropsWire({ block: b }, entry);
+			const fp = region_fingerprint(entry, plan.canonical);
+			tail.props(fp, plan);
+			const hrefs = [
+				`/_app/immutable/chunks/svelte.js`,
+				`/_app/immutable/chunks/${fp.slice(0, 6)}.js`
+			];
+			tail.graph(entry, hrefs, fp);
+			if (i % 2 === 0)
+				tail.load_island(`/_app/immutable/og-region.${fp.slice(0, 8)}.js`, hrefs, wake);
+		}
+		return tail.wakes_at_load ? tail.render(SeedIndex.of(data), false, '', true).length : 0;
+	},
+	{
+		setup: () => ({ data: page_tree() }),
+		scale: (_ctx, k) => ({ data: page_of(20 * k) })
 	}
 );
 

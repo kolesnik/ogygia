@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { batch_stream, type BatchAnswer } from '../src/server/stream-regions.ts';
 import { ConcurrencyGate } from '../src/runtime/concurrency.ts';
+import { scope } from '@ogygia/machine';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -71,6 +72,17 @@ describe('batch_stream: a cancelled batch (#245)', () => {
 		for (const id of ['h0', 'h1', 'h2']) expect(text).toContain(`<p>${id}</p>`);
 		expect(text).toContain('__ogygia_done__');
 		expect(gate.active).toBe(0);
+	});
+
+	it('made for a request that already ended (the visitor left as its body was read): no hole renders, and it ends empty', async () => {
+		const gate = new ConcurrencyGate(2);
+		const h = holes(gate, 5, 5);
+		const owner = scope();
+		owner.close();
+		const text = await new Response(batch_stream(['h0', 'h1'], h.render, owner)).text();
+		await sleep(20);
+		expect(h.started).toEqual([]);
+		expect(text).toBe('');
 	});
 });
 

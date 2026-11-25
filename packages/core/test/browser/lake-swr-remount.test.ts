@@ -53,3 +53,36 @@ test('the islands inside a remounted swr lake wake once its refresh lands', asyn
 		})
 		.toBe(true);
 });
+
+test.each([
+	['(min-width: 1px)', 1],
+	['(max-width: 1px)', 0]
+] as const)(
+	'a remounted swr lake on the media query %s refreshes only while it matches',
+	async (when, fetches) => {
+		const entry = `lake-swr-media-${fetches}`;
+		const calls: string[] = [];
+		window.fetch = async (input) => {
+			calls.push(String(input));
+			return new Response('<p>fresh</p>', {
+				status: 200,
+				headers: { 'content-type': 'text/html' }
+			});
+		};
+		const media_lake = (inner: string) =>
+			`<ogygia-region wake="none" remount="swr" when="${when}" entry="${entry}" endpoint="${ENDPOINT}">${inner}</ogygia-region>`;
+		document.body.innerHTML = media_lake('<p>server</p>');
+		bootDev();
+		await new Promise((r) => setTimeout(r, 50));
+		document.body.innerHTML = '';
+		await new Promise((r) => setTimeout(r, 50));
+		const box = document.createElement('div');
+		box.innerHTML = media_lake('');
+		document.body.append(box);
+		await new Promise((r) => setTimeout(r, 300));
+		expect(calls, `fetches on ${when}`).toHaveLength(fetches);
+		expect(box.querySelector('ogygia-region')!.textContent, 'the kept copy is painted').toContain(
+			fetches ? 'fresh' : 'server'
+		);
+	}
+);

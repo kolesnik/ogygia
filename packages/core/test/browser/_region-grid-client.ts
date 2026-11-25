@@ -7,6 +7,10 @@ import { setNested } from '../../src/nested.ts';
 import { setInLake, setInLiveSnippet } from '../../src/context.ts';
 import { hole_slot_sequence, HOLE_SLOT_SEQUENCE } from '../../src/region-snippet.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
+import { publish_kit_hydrates } from '../../src/runtime/kit-boot.ts';
+
+// (the booted runtime's answer, as its boot hands it to island code)
+publish_kit_hydrates();
 import { props_for, type ClientPlace, type GridCase } from '../_region-grid.ts';
 
 export { CLIENT_PLACES, HYDRATE_PLACES } from '../_region-grid-axes.ts';

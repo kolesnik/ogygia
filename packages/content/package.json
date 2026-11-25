@@ -137,6 +137,7 @@
 		"@typescript/native": "catalog:tsgo",
 		"@vitest/browser": "catalog:",
 		"@vitest/browser-playwright": "catalog:",
+		"ogygia-internal-macros": "workspace:*",
 		"shiki": "catalog:",
 		"svelte": "catalog:",
 		"svelte-check": "catalog:",

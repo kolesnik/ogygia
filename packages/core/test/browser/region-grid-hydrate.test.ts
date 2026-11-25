@@ -24,8 +24,11 @@ declare module 'vitest/browser' {
 	interface BrowserCommands {
 		region_grid_ssr: (
 			kind: string,
-			place: Place
-		) => Promise<Array<{ name: string; head: string; body: string; thrown: string | null }>>;
+			place: Place,
+			word?: number
+		) => Promise<
+			Array<{ name: string; head: string; body: string; thrown: string | null; said: string }>
+		>;
 	}
 }
 

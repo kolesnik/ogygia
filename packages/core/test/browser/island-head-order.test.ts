@@ -9,26 +9,28 @@ import { beforeAll, expect, inject, test } from 'vitest';
 import { from_b64 } from './b64.ts';
 import type { Component } from 'svelte';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { boot_link } from '../../src/runtime/slots.ts';
+import { boot_link, init } from '../../src/runtime/lazy-link.ts';
+import { L_RUNTIME_SESSION } from '../../src/runtime/boot-link-index.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
 import {
 	hydrate_island,
 	neutralize_head_hydration_markers
 } from '../../src/runtime/hydrate-core.ts';
 import { RuntimeSession } from '../../src/runtime/session.ts';
+import { mark_head, record_island_head } from '../../src/runtime/head-copies.ts';
 import HeadStyle from './fixtures/HeadStyle.svelte';
 
 const decode = (key: 'head_style_head_b64' | 'head_style_body_b64') => from_b64(inject(key));
 const as_module = (c: unknown) => ({ default: c as Component<Record<string, unknown>> });
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
 });
 
 test("islands' head tags keep the server order when the islands wake in the other order", () => {
 	document.head.innerHTML = `<meta charset="utf-8"><title>page</title>${decode('head_style_head_b64')}<meta name="after" content="x">`;
-	boot_link().runtime_session.adopt_document_head();
+	boot_link()[L_RUNTIME_SESSION].adopt_document_head();
 	document.body.innerHTML = decode('head_style_body_b64');
 	const order = () =>
 		[...document.head.querySelectorAll('meta[name="head-style"]')].map((s) =>
@@ -50,7 +52,7 @@ test("a style written over several lines in an island's head is one copy once th
 	document.head.innerHTML = `<meta charset="utf-8"><title>page</title>${decode('head_style_head_b64')}<meta name="after" content="x">`;
 	// (the first hydrate in this file already ran it, once per document; this head is a fresh page's)
 	neutralize_head_hydration_markers();
-	boot_link().runtime_session.adopt_document_head();
+	boot_link()[L_RUNTIME_SESSION].adopt_document_head();
 	document.body.innerHTML = decode('head_style_body_b64');
 	const styles = () =>
 		[...document.head.querySelectorAll('style[data-head-style]')].map((s) =>
@@ -80,13 +82,13 @@ test("a page style that differs from an island's only in its text is the page's,
  *  head() renders a block fresh; `between`, a node the head already held, is moved inside that run
  *  while it renders. */
 function step_adds(s: RuntimeSession, html: string, between: Element | null = null): Node[] {
-	const mark = s.mark_head();
+	const mark = mark_head();
 	const tpl = document.createElement('template');
 	tpl.innerHTML = html;
 	const nodes: Node[] = [...tpl.content.childNodes, document.createTextNode('')];
 	document.head.append(...nodes);
 	if (between) (nodes[0] as Element).after(between);
-	s.record_island_head(mark);
+	record_island_head(s, mark);
 	return nodes;
 }
 

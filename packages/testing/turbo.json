@@ -12,6 +12,7 @@
 				"$TURBO_ROOT$/packages/devtools/e2e/app/**",
 				"!$TURBO_ROOT$/packages/devtools/e2e/app/**/node_modules/**",
 				"!$TURBO_ROOT$/packages/devtools/e2e/app/.svelte-kit/**",
+				"!$TURBO_ROOT$/packages/devtools/e2e/app/.svelte-kit-e2e/**",
 				"!$TURBO_ROOT$/packages/devtools/e2e/app/.vercel/**",
 				"!$TURBO_ROOT$/packages/devtools/e2e/app/.ogygia/**",
 				"!$TURBO_ROOT$/packages/devtools/e2e/app/.cache-check/**",

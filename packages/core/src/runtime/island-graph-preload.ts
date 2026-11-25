@@ -1,14 +1,15 @@
-import { decode_island_graph, decode_island_locations } from '../island-graph.ts';
+import { decode_island_graph, decode_island_locations } from '../island-graph-read.ts';
 import { OGYGIA_GRAPH, OGYGIA_GRAPH_PRELOAD } from '../wire-markup.ts';
 import { note_entry_location } from './entry-locations.ts';
 import { code_url } from './code-origins.ts';
-import { cache } from '@ogygia/machine';
+import { resolved_urls } from './resolved-url.ts';
+import { lru } from '@ogygia/machine';
 import { runtime_session } from './session.ts';
 
 const GRAPH_SELECTOR = `script[${OGYGIA_GRAPH}]`;
 const MODULEPRELOAD_SELECTOR = 'link[rel="modulepreload"]';
 
-const graph = cache<string, string[]>({ name: 'island graph', max: 5000 });
+const graph = lru<string, string[]>({ name: 'island graph', max: 5000 });
 let read_scripts = new WeakSet<Element>();
 
 type Priority = 'high' | 'auto' | 'low';
@@ -20,12 +21,7 @@ function priority_of(link: HTMLLinkElement): Priority {
 }
 
 function absolute(href: string, base: string): string | null {
-	try {
-		return new URL(href, base).href;
-		// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: no preload for it
-	} catch {
-		return null;
-	}
+	return resolved_urls.resolve(href, base)?.href ?? null;
 }
 
 /** Merge one graph script's text; hrefs resolve against `base` (the document the text came from).

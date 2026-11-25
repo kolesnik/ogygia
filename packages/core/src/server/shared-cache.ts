@@ -27,45 +27,6 @@ import { RENEW_WINDOW_SEC } from '../contract/capability.ts';
 export { RENEW_WINDOW_SEC };
 
 /**
- * How long shared caches may serve a document with this `cache-control`, in seconds: its freshness
- * (`s-maxage`, else `max-age`) plus `stale-while-revalidate`. 0 when shared caches may not keep it
- * (`private`, `no-store`) or must revalidate every use (`no-cache`). `max-age` counts without
- * `public`: a shared cache may store any response not marked `private` (RFC 9111 §3).
- * `stale-if-error` does not count: it serves a stale copy only while the origin is failing, when a
- * hole could not render anyway.
- */
-export function shared_cache_lifetime(cache_control: string): number {
-	let s_maxage = -1;
-	let max_age = -1;
-	let swr = 0;
-	for (const part of cache_control.toLowerCase().split(',')) {
-		const eq = part.indexOf('=');
-		const name = (eq === -1 ? part : part.slice(0, eq)).trim();
-		if (name === 'private' || name === 'no-store' || name === 'no-cache') return 0;
-		if (eq === -1) continue;
-		const n = seconds(part.slice(eq + 1));
-		if (n === null) continue;
-		if (name === 's-maxage') s_maxage = n;
-		else if (name === 'max-age') max_age = n;
-		else if (name === 'stale-while-revalidate') swr = n;
-	}
-	if (s_maxage >= 0) return s_maxage + swr;
-	return (max_age >= 0 ? max_age : 0) + swr;
-}
-
-/** A delta-seconds value (optionally quoted), or null. */
-function seconds(raw: string): number | null {
-	let v = raw.trim();
-	if (v.length >= 2 && v[0] === '"' && v[v.length - 1] === '"') v = v.slice(1, -1);
-	if (v === '' || v.length > 10) return null;
-	for (let i = 0; i < v.length; i++) {
-		const c = v.charCodeAt(i);
-		if (c < 48 || c > 57) return null;
-	}
-	return Number(v);
-}
-
-/**
  * The capability lifetime to mint with: prerender-grade for a stored page (prerender / postrender);
  * for an anonymous hole on a document shared caches keep for `shared` seconds, twice that (so the
  * window-aligned expiry still covers the whole cache life), capped at prerender-grade; else
@@ -121,9 +82,10 @@ const slot = shared<Slot>({
 	make: () => ({ by_request: new WeakMap() })
 });
 
-/** The handle: a load set `cache-control` on this page request. */
-export function note_cache_control(request: Request, cache_control: string): void {
-	slot.by_request.set(request, shared_cache_lifetime(cache_control));
+/** The handle: shared caches keep this page request's document for `seconds` (server/cache-control.ts
+ *  reads them from the `cache-control` a load set). */
+export function note_shared_lifetime(request: Request, seconds: number): void {
+	slot.by_request.set(request, seconds);
 }
 
 /** The mint: how long shared caches keep the document this request renders (0 = unknown / none). */

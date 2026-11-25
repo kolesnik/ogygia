@@ -3,7 +3,7 @@
 // anchors and order. Each one is settled and remembered when the host's hydrate releases them.
 import { expect, test } from 'vitest';
 import { hold, release } from '../../src/runtime/lakes.ts';
-import { runtime_session } from '../../src/runtime/session.ts';
+import { lake_state } from '../../src/runtime/lakes.ts';
 
 test('a host’s hold moves no lake, its own or a snippet’s, and its release settles every one', () => {
 	document.body.innerHTML = `<ogygia-region wake="load" data-host><ogygia-region wake="none" entry="own"><p data-own>own</p><!----></ogygia-region><ogygia-snippet style="display:contents"><ogygia-region wake="none" entry="live"><p data-live>live</p><!----></ogygia-region></ogygia-snippet><ogygia-snippet data-og-static style="display:contents"><ogygia-region wake="none" entry="frozen"><p data-frozen>frozen</p></ogygia-region></ogygia-snippet></ogygia-region>`;
@@ -17,7 +17,7 @@ test('a host’s hold moves no lake, its own or a snippet’s, and its release s
 
 	release(host, held);
 	expect(lakes.map((l) => l.innerHTML)).toEqual(html);
-	for (const lake of lakes) expect(runtime_session.lake_settled(lake)).toBe(true);
+	for (const lake of lakes) expect(lake_state.lake_settled(lake)).toBe(true);
 	for (const id of ['own', 'live', 'frozen'])
-		expect(runtime_session.initialized_lakes.has(id)).toBe(true);
+		expect(lake_state.initialized_lakes.has(id)).toBe(true);
 });

@@ -5,6 +5,7 @@
 // manifest only when a decoder can revive a fn ref).
 import { describe, expect, it } from 'vitest';
 import { dedent } from '../../../packages/core/src/contract/dedent.ts';
+import { F_FRAMES } from '../../../packages/core/src/contract/features.ts';
 import { memory_fs } from '../../../packages/compiler/src/fs.ts';
 import {
 	SERVER_MAP_TOKENS,
@@ -81,10 +82,14 @@ describe('what each mode and leg is told', () => {
 		const bare = { [`${ROUTES}/+page.svelte`]: '<h1>page</h1>\n' };
 		const dev = await load(warm(bare, true), 'ogygia:boot/runtime-flags', 'client');
 		const build = await load(warm(bare), 'ogygia:boot/runtime-flags', 'client');
-		expect(dev).toMatch(/^export const FRAMES = true;\nexport const load_wire_codec = null;\n$/);
+		expect(dev).toMatch(/^export const HAS = \d+;\nexport const load_wire_codec = null;\n$/);
 		expect(build).toMatch(
-			/^export const FRAMES = false;\nexport const load_wire_codec = \(\) => import\(/
+			/^export const HAS = \d+;\nexport const load_wire_codec = \(\) => import\(/
 		);
+		const frames = (flags: string | null) =>
+			(Number(/HAS = (\d+);/.exec(flags ?? '')![1]) & F_FRAMES) !== 0;
+		expect(frames(dev)).toBe(true);
+		expect(frames(build)).toBe(false);
 	});
 
 	it('the browser bundle carries no fn manifest, wired or not (the page inlines it)', async () => {

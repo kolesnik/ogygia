@@ -27,6 +27,7 @@
 		"ogygia-internal-html-fuzz": "workspace:*",
 		"svelte": "catalog:",
 		"typescript": "catalog:",
+		"vite": "catalog:",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {

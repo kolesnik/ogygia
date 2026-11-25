@@ -9,7 +9,7 @@ import { streamFrames } from '../../src/runtime/frame-nav.ts';
 import { _reset, ensure } from '../_frames.ts';
 import { frameAddress } from '../../src/frame.ts';
 import { build_parcel } from '../../src/server/stream-regions.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 
 const ep = (sig: string) => `/__ogygia__?id=bbbbbbbbbbbb&props=${sig}&exp=9999999999&sig=${sig}`;
 
@@ -130,7 +130,7 @@ describe('a stalled batch stream', () => {
 				)
 		);
 		const missed: { sent: number; delivered: number; status: number }[] = [];
-		slots.hooks = { holeBatchMissed: (e) => void missed.push(e) };
+		hear({ holeBatchMissed: (e) => void missed.push(e) });
 		try {
 			const ended = streamFrames([ep('s1'), ep('s2')]);
 			for (const e of [ep('s1'), ep('s2')])
@@ -138,7 +138,7 @@ describe('a stalled batch stream', () => {
 			await vi.advanceTimersByTimeAsync(15_000);
 			await ended;
 		} finally {
-			slots.hooks = undefined;
+			hear_none();
 		}
 		expect(missed).toEqual([expect.objectContaining({ sent: 2, delivered: 0, status: 0 })]);
 	});

@@ -11,7 +11,8 @@
 		"verbatimModuleSyntax": true,
 		"erasableSyntaxOnly": true,
 		"allowImportingTsExtensions": true,
-		"types": ["node"]
+		"types": ["node"],
+		"customConditions": ["ogygia-source"]
 	},
-	"include": ["src"]
+	"include": ["src", "../../internal/macros/macros.d.ts"]
 }

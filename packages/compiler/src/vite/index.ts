@@ -29,7 +29,6 @@ import {
 	QUERY_MAKERS,
 	RUNTIME_DIR,
 	OGYGIA_VERSION,
-	type RuntimeHookName,
 	type BarrelLeftReason,
 	type ChunkBarrel
 } from '@ogygia/core/contract';
@@ -97,6 +96,7 @@ import { assert_known_options, validate_region_presets, resolve_options } from '
 import {
 	clientBuildWillSkip,
 	hasAnyCsrFalseRoute,
+	kit_may_hydrate,
 	route_reader,
 	keep_client_dir,
 	inject_keep_client_route,
@@ -135,6 +135,7 @@ import {
 } from '../link/island-deps.ts';
 import { report_seed_shaping } from '../link/build-output.ts';
 import { unpatched } from '../link/relocations.ts';
+import { bundler_reshake, shake_server_bundle, type ShakeBundle } from '../link/dead-exports.ts';
 import { emit_island_deps_handoff, refuse_client_secrets } from '../link/build-output.ts';
 import {
 	server_handoff_path,
@@ -216,7 +217,6 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 	let app_plugins: PluginDefinition[] = [];
 	let server_plugins: ServerRealm[] = [];
 	let client_plugins: ClientRealmFile[] = [];
-	let runtime_hooks: RuntimeHookName[] = [];
 	let route_config: string[] = [];
 	let foreign_hydrate = false;
 	let macros: ResolvedPlugins['macros'] = [];
@@ -491,7 +491,6 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 					({
 						servers: server_plugins,
 						clients: client_plugins,
-						client_hooks: runtime_hooks,
 						route_config,
 						foreign_hydrate,
 						macros,
@@ -517,9 +516,11 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 							});
 						}
 
+					const route_files = route_reader(node_fs);
+					if (env.command === 'build') route_files.db.reread();
 					if (env.command === 'build' && !standalone && isMainThread) {
 						const routes = kit.dirs.routes_dir;
-						if (clientBuildWillSkip(route_reader(node_fs), routes)) {
+						if (clientBuildWillSkip(route_files, routes)) {
 							inject_keep_client_route(routes);
 							arm_keep_client_cleanup(routes);
 						} else {
@@ -553,9 +554,11 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 							devtools: devtools_effective,
 							devtools_lazy,
 							rules: process.env.OGYGIA_RULES === '1',
-							client_plugins: client_plugins.length > 0,
-							hooks: runtime_hooks,
 							kit_major: kit_major(path.resolve(userConfig.root ?? '.')),
+							kit_pages:
+								env.command === 'serve' ||
+								foreign_hydrate ||
+								kit_may_hydrate(route_files, kit.dirs.routes_dir),
 							version: OGYGIA_VERSION,
 							dev_server: env.command === 'serve'
 						}),
@@ -798,7 +801,8 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 						compiler.ssr_transformed_hosts(),
 						build_secret,
 						compiler.server_island_css_roots(),
-						compiler.server_runtime()
+						compiler.server_runtime(),
+						compiler.server_word()
 					);
 					try {
 						const handoff = server_handoff_path(kit.dirs.out_dir);
@@ -1020,7 +1024,10 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 				const chunks = Object.values(bundle).filter((item) => item.type === 'chunk');
 				for (const r of unpatched(leg.server, chunks))
 					warn('relocation_unpatched', { name: r.name, leg: leg.name });
-				if (leg.server) return;
+				if (leg.server) {
+					await shake_server_bundle(bundle as unknown as ShakeBundle, await bundler_reshake());
+					return;
+				}
 				for (const file of compiler.location_maps(leg, (ref) => this.getFileName(ref)))
 					this.emitFile({ type: 'asset', fileName: file.fileName, source: file.source });
 				const modules = markup.flatMap((m) => (m.modules ? [...m.modules] : []));
@@ -1112,7 +1119,8 @@ export function ogygia(options: OgygiaOptions = {}): Plugin[] {
 					page_reads && ((module_id) => page_reads!.keys(module_id)),
 					readFile,
 					entries.runtime_file,
-					{ islands: entries.islands, runtime: entries.runtime }
+					{ islands: entries.islands, runtime: entries.runtime },
+					real_posix(path.join(RUNTIME_DIR, 'hydrate-core.js'))
 				);
 				const page_why = page_reads
 					? report_seed_shaping(

@@ -27,33 +27,42 @@ export class IslandWire {
 	readonly #props: () => Props;
 	readonly #children: () => Snippet | undefined;
 
-	as_dual: DualRegion | undefined = $derived.by(() => {
+	get as_dual(): DualRegion | undefined {
 		const value = this.#rp.resolved;
 		return value?.kind === 'dual' ? value : undefined;
-	});
-	entry: string = $derived.by(() => {
-		if (this.as_dual) return this.as_dual.module;
+	}
+	get entry(): string {
+		const dual = this.as_dual;
+		if (dual) return dual.module;
 		const s = this.#rp.settings;
 		return s.mode === 'island' ? (s.entry ?? '') : '';
-	});
-	component: Component | undefined = $derived.by(() =>
-		this.as_dual ? (this.as_dual.component as Component) : this.#rp.settings.component
-	);
-	props: Props = $derived.by(() => (this.as_dual ? (this.as_dual.props as Props) : this.#props()));
+	}
+	get component(): Component | undefined {
+		const dual = this.as_dual;
+		return dual ? (dual.component as Component) : this.#rp.settings.component;
+	}
+	get props(): Props {
+		const dual = this.as_dual;
+		return dual ? (dual.props as Props) : this.#props();
+	}
 	props_ready: Props = $derived.by(() =>
 		this.#rp.plan.inline ? this.props : prepare_region_props(this.props!)
 	);
-	has_slot_children: boolean = $derived.by(() => this.#children() != null);
-	props_body: Props = $derived.by(() =>
-		this.has_slot_children && !BROWSER
+	get has_slot_children(): boolean {
+		return this.#children() != null;
+	}
+	/** The props the island's markup renders with (read once, by its render). */
+	get props_body(): Props {
+		return this.has_slot_children && !BROWSER
 			? { ...this.props_ready, children: this.#slot_children }
-			: this.props_ready
-	);
-	wake: { on: string; margin: string | undefined } = $derived.by(() =>
-		this.as_dual
-			? { on: this.as_dual.hydrate!, margin: this.as_dual.hydrateMargin || undefined }
-			: { on: this.#rp.settings.wake || 'load', margin: this.#rp.settings.wakeMargin }
-	);
+			: this.props_ready;
+	}
+	wake: { on: string; margin: string | undefined } = $derived.by(() => {
+		const dual = this.as_dual;
+		return dual
+			? { on: dual.hydrate!, margin: dual.hydrateMargin || undefined }
+			: { on: this.#rp.settings.wake || 'load', margin: this.#rp.settings.wakeMargin };
+	});
 	module_url: string = $derived.by(() =>
 		this.#rp.plan.nested || !this.entry ? '' : kit_asset(this.entry)
 	);
@@ -81,19 +90,29 @@ export class IslandWire {
 			? this.fp
 			: null
 	);
-	in_tail: boolean = $derived.by(() => !!this.#rp.tail && !!this.wire && !!this.fp);
-	props_inline: string = $derived.by(() =>
-		this.in_tail || !this.wire
+	get in_tail(): boolean {
+		return !!this.#rp.tail && !!this.wire && !!this.fp;
+	}
+	/** The props sidecar written beside the island, when the page has no tail for it (read once, by
+	 *  its render). */
+	get props_inline(): string {
+		const wire = this.wire;
+		return this.in_tail || !wire
 			? ''
-			: props_sidecar(this.fp, this.wire.wire(null), 'adjacent', this.wire.wire_modules)
-	);
+			: props_sidecar(this.fp, wire.wire(null), 'adjacent', wire.wire_modules);
+	}
 
-	/** An island in its place: it warns about a wake its parent overrides, and hands its props to
-	 *  Kit's tail when the page has one. */
+	/** An island in its place; {@link record} hands it to the page. */
 	constructor(rp: RegionPlan, props: () => Props, children: () => Snippet | undefined) {
 		this.#rp = rp;
 		this.#props = props;
 		this.#children = children;
+	}
+
+	/** Warns about a wake its parent overrides, and hands its props to Kit's tail when the page has
+	 *  one. Region calls it after the region's page ask: the page is recorded, and its seed walked,
+	 *  before these props are measured (seed-index.ts). */
+	record(): void {
 		untrack(() => this.#record());
 	}
 

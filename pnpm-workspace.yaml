@@ -50,6 +50,9 @@ catalog:
   oxlint-tsgolint: 7.0.2005
   '@types/node': ^26.1.2
   magic-string: ^1.4.5
+  # the macro compiler's kit (internal/compilerkit): scopes of a parse, and its one walk
+  periscopic: ^4.0.3
+  zimmerframe: ^1.1.4
   '@jridgewell/remapping': ^2.3.5
   '@jridgewell/trace-mapping': ^0.3.31
   # test

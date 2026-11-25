@@ -1,32 +1,22 @@
 import { after_document_painted, yield_task } from './schedule.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
-import {
-	clock,
-	flights,
-	machine,
-	queue,
-	scope,
-	type InFlight,
-	type Place,
-	type Queue,
-	type Scope,
-	type Stale
-} from '@ogygia/machine';
+import { clock, type InFlight, type Place, type Queue, type Stale } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import { passQueue } from '@ogygia/machine';
 import { emit as dt_emit } from '../events/bus.ts';
 import { class_at, PRIORITY, type LoadClass } from './load-class.ts';
 import { on_screen, watch_viewport } from './viewport.ts';
 import type { CriticalOutcome } from '../contract/runtime-hooks.ts';
-import { slots } from './slots.ts';
+import { criticalSettled, loadStarted } from 'ogygia:boot/hooks';
 import { downloaded, hear_responses } from './import-again.ts';
 
 export { fetch_priority_of, type LoadClass } from './load-class.ts';
 
-const HOOK_CRITICAL_SETTLED =
-	typeof __OGYGIA_HOOK_CRITICAL_SETTLED__ !== 'undefined' ? __OGYGIA_HOOK_CRITICAL_SETTLED__ : true;
-const HOOK_LOAD_STARTED =
-	typeof __OGYGIA_HOOK_LOAD_STARTED__ !== 'undefined' ? __OGYGIA_HOOK_LOAD_STARTED__ : true;
-
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 
 /** `code`: an island's modules. `content`: HTML (a hole's answer, a prefetched page). */
 export type LoadKind = 'code' | 'content';
@@ -51,7 +41,7 @@ export function viewport_class(el: Element): 'visible' | 'ahead' {
 export type { CriticalOutcome };
 type CriticalReport = { outcome: CriticalOutcome; resources: number; waited_ms: number };
 
-const gate_definition = machine<{
+const gate_definition = $machine<{
 	fresh: {};
 	touched: {};
 	waiting: { t0: number; resources: number };
@@ -71,18 +61,21 @@ const is_background = (cls: LoadClass): boolean => cls === 'ahead' || cls === 's
 
 function waits_for_critical(kind: LoadKind, cls: LoadClass): boolean {
 	if (cls === 'user') return false;
-	if (kit_hydrates_page()) return false;
+	if (KIT_PAGES && kit_hydrates_page()) return false;
 	return !(kind === 'content' && cls === 'visible');
 }
 
 class LoadScheduler {
-	gate = gate_definition.create();
-	readonly critical = flights({ name: 'critical resources', run: () => this.#until_critical() });
-	#owner: Scope = scope();
+	gate = fsm.createRun(gate_definition);
+	readonly critical = plainFlights({
+		name: 'critical resources',
+		run: () => this.#until_critical()
+	});
+	#owner: Life = life.rootLife();
 	line: Queue<LoadSlot> = this.#open_line();
 
 	#open_line(): Queue<LoadSlot> {
-		return queue<LoadSlot>({
+		return passQueue<LoadSlot>({
 			name: 'downloads',
 			owner: this.#owner,
 			priority: (s) => PRIORITY[s.cls()],
@@ -103,11 +96,11 @@ class LoadScheduler {
 	}
 
 	critical_done(): boolean {
-		return this.gate.now.kind === 'settled';
+		return this.gate.kind === 'settled';
 	}
 
 	on_first_input(): void {
-		const kind = this.gate.now.kind;
+		const kind = this.gate.kind;
 		if (kind === 'fresh') this.gate.go('touched');
 		else if (kind === 'waiting') this.settle_critical('input');
 	}
@@ -121,8 +114,8 @@ class LoadScheduler {
 				: { outcome, resources: 0, waited_ms: 0 };
 		this.gate.go('settled', { report });
 		if (DEVTOOLS) dt_emit({ domain: 'runtime', name: 'load.critical', ...report });
-		if (HOOK_CRITICAL_SETTLED)
-			slots.hooks?.criticalSettled?.({
+		if (criticalSettled)
+			criticalSettled({
 				outcome: report.outcome,
 				resources: report.resources,
 				waitedMs: report.waited_ms
@@ -139,27 +132,27 @@ class LoadScheduler {
 				s.kind === 'touched' || document.visibilityState === 'hidden' ? [] : pending_critical();
 			if (!waiting.length) return this.settle_critical('none');
 			gate.go('waiting', { t0: now(), resources: waiting.length });
-			const wait = gate.scope;
-			wait.timeout(() => this.settle_critical('cap'), CRITICAL_CAP_MS);
+			const wait = gate.visit();
+			wait.later(() => this.settle_critical('cap'), CRITICAL_CAP_MS);
 			let left = waiting.length;
 			const one = () => {
 				if (--left === 0) this.settle_critical('arrived');
 			};
 			for (const el of waiting) {
-				wait.on(el, 'load', one, { once: true });
-				wait.on(el, 'error', one, { once: true });
+				wait.listen(el, 'load', one, { once: true });
+				wait.listen(el, 'error', one, { once: true });
 			}
-			await gate.wait('settled');
+			$await(gate.wait('settled'));
 		});
 	}
 
 	reset(): void {
 		this.#owner.close();
-		this.#owner = scope();
+		this.#owner = life.rootLife();
 		this.line = this.#open_line();
 		this.critical.drop(() => true);
 		this.gate.stop();
-		this.gate = gate_definition.create();
+		this.gate = fsm.createRun(gate_definition);
 	}
 }
 
@@ -298,8 +291,8 @@ export class LoadSlot {
 				label: this.label,
 				waited_ms: Math.round(now() - this.queued_at)
 			});
-		if (HOOK_LOAD_STARTED)
-			slots.hooks?.loadStarted?.({
+		if (loadStarted)
+			loadStarted({
 				class: cls,
 				kind: this.kind,
 				...(this.label !== undefined ? { label: this.label } : {}),

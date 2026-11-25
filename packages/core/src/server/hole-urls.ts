@@ -24,14 +24,42 @@ import { REGION_CSS_ANY_CASE } from './html-scan.ts';
 // an island inside a hole imported `/<page>/_app/…` and woke on a redirect to an HTML page)
 const REGION_URL_ATTRS = ['entry', 'src', 'endpoint'] as const;
 
-function resolve_attr(value: string, base: URL): string {
+const PLAIN_RELATIVE_RE = /^\.\/([\w\-.~!$&()*+,;=:@/]*)(\?[\w\-.~!$&()*+,;=:@/?%]*)?$/;
+
+/** The root path each `./` or `../` URL of a hole's answer resolves to against the endpoint request URL
+ *  (its base). A plain `./` URL (the ones ogygia writes) is the base's directory, the path and the
+ *  query, as the URL parser resolves it (test/property-root-paths.test.ts); any other goes through it. */
+export class RootPaths {
+	readonly #base: URL;
+	#dir: string | null = null;
+
+	constructor(base: URL) {
+		this.#base = base;
+	}
+
+	/** `value` as a root path (`/…`, its query and hash), or null when it resolves to another origin. */
+	resolve(value: string): string | null {
+		const plain = PLAIN_RELATIVE_RE.exec(value);
+		if (plain !== null && !`/${plain[1]}`.includes('/.')) {
+			if (this.#dir === null) {
+				const path = this.#base.pathname;
+				this.#dir = path.slice(0, path.lastIndexOf('/') + 1);
+			}
+			const query = plain[2];
+			return this.#dir + plain[1] + (query === undefined || query.length === 1 ? '' : query);
+		}
+		const resolved = new URL(value, this.#base);
+		if (resolved.origin !== this.#base.origin) return null;
+		return resolved.pathname + resolved.search + resolved.hash;
+	}
+}
+
+function resolve_attr(value: string, roots: RootPaths): string {
 	if (!value || !(value.startsWith('./') || value.startsWith('../'))) return value;
-	const resolved = new URL(
-		value.indexOf('&amp;') === -1 ? value : value.replaceAll('&amp;', '&'),
-		base
+	const resolved = roots.resolve(
+		value.indexOf('&amp;') === -1 ? value : value.replaceAll('&amp;', '&')
 	);
-	if (resolved.origin !== base.origin) return value;
-	return escape_amp(resolved.pathname + resolved.search + resolved.hash);
+	return resolved === null ? value : escape_amp(resolved);
 }
 
 /** One value rewrite: `html[at, end)` becomes `text`. */
@@ -47,12 +75,12 @@ function splice_value(
 	tag: FoundTag,
 	name: string,
 	attr: string,
-	base: URL,
+	roots: RootPaths,
 	out: Splice[]
 ): void {
 	const value = tag.attr(attr);
 	if (value === undefined) return;
-	const next = resolve_attr(value, base);
+	const next = resolve_attr(value, roots);
 	if (next === value) return;
 	const at = value_at(html, tag, name, attr);
 	if (at !== -1) out.push({ at, end: at + value.length, text: next });
@@ -62,6 +90,7 @@ function splice_value(
  *  paths resolved against `base` (the endpoint request URL). */
 export function absolutize_hole_html(html: string, base: URL): string {
 	const splices: Splice[] = [];
+	const roots = new RootPaths(base);
 	// (a relative value holds `./`: a region tag whose span has none is passed without a read)
 	const dot = new Needle(html, './');
 	if (dot.gone) return html;
@@ -74,7 +103,7 @@ export function absolutize_hole_html(html: string, base: URL): string {
 		if (dot.gone) break;
 		if (!held) continue;
 		for (const attr of REGION_URL_ATTRS)
-			splice_value(html, t, 'ogygia-region', attr, base, splices);
+			splice_value(html, t, 'ogygia-region', attr, roots, splices);
 	}
 	// region CSS: only a tag whose span holds the attribute's name gets an attribute read
 	for (const name of ['link', 'style'] as const) {
@@ -84,7 +113,7 @@ export function absolutize_hole_html(html: string, base: URL): string {
 			const held = mark.holds(t);
 			if (mark.gone) break;
 			if (!held || t.attr(OGYGIA_REGION_CSS) === undefined) continue;
-			splice_value(html, t, name, name === 'link' ? 'href' : OGYGIA_REGION_CSS, base, splices);
+			splice_value(html, t, name, name === 'link' ? 'href' : OGYGIA_REGION_CSS, roots, splices);
 		}
 	}
 	if (splices.length === 0) return html;

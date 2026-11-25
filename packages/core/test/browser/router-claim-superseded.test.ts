@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { history_room } from './_history-budget.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
@@ -14,8 +14,7 @@ let r: SpaRouter;
 
 beforeEach(async () => {
 	await history_room();
-	link_boot();
-	install_morph();
+	init(link_boot());
 	fetched.length = 0;
 	handed.length = 0;
 	document.body.innerHTML = '<p>first</p>';

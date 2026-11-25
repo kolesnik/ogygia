@@ -19,8 +19,11 @@ import type { RequestState } from '@sveltejs/kit/internal/server';
 import { __heisenbench as hooks } from '../src/hooks.ts';
 import { record_page } from '../src/page-seed-registry.ts';
 import { facts_of } from '../src/plugin/facts.ts';
-import { SeedIndex, SeedRefPlan, json_culprit } from '../src/seed-refs.ts';
+import { json_culprit, MeasureMemo } from '../src/seed-refs.ts';
+import { SeedIndex } from '../src/seed-index.ts';
 import { DocumentTail, document_tail } from '../src/server/document-tail.ts';
+import { remote_seed_script } from '../src/server/document-seeds.ts';
+import { __heisenbench as page_context, page_ctx_script } from '../src/server/page-context.ts';
 import { region_fingerprint } from '../src/server/fingerprint.ts';
 import {
 	__heisenbench as page_stream,
@@ -36,6 +39,8 @@ import {
 	type RequestStatsSink
 } from '../src/server/request-stats.ts';
 import { merge_seed_ask, shape_page_data, type SeedAsk } from '../src/server/seed-shape.ts';
+import { kit_asset } from '../src/kit-paths.ts';
+import { graph_hrefs as graph_hrefs_of } from '../src/region-parts/locate.ts';
 import { set_island_deps } from '../test/_stubs/server.region-deps.ts';
 import { csr_true_routes } from '../test/_stubs/server.route-csr.ts';
 import {
@@ -54,7 +59,10 @@ import {
 // Kit runs every request inside its request store (`with_request_store`, exported at runtime but
 // not in Kit's types): the handle's recorders and readers find the request bag through it.
 const { with_request_store } = kit_server as unknown as {
-	with_request_store: <T>(store: { event: RequestEvent; state: RequestState }, fn: () => T) => T;
+	with_request_store: <T>(
+		store: { event: RequestEvent; state: RequestState } | null,
+		fn: () => T
+	) => T;
 };
 
 type Handle = InstanceType<typeof hooks.OgygiaHandle>;
@@ -159,7 +167,7 @@ function bag_of(request: Request): Bag {
 		seed_asks: request_stats_detailed() ? new Map() : null,
 		remotes_wanted: new Set(),
 		tail: new DocumentTail(),
-		measure_memo: new Map(),
+		measure_memo: new MeasureMemo(),
 		deferred: null,
 		defer_next_id: 0,
 		late: null,
@@ -251,9 +259,10 @@ function content_request(blocks: number, o: PageOptions = {}): Request_ {
 	return { handle, html: content_document(blocks), state, event, bag };
 }
 
-/** The handle's `transformPageChunk` on one chunk, inside the request's Kit store (as Kit calls it). */
+/** The handle's `transformPageChunk` on one chunk, where Kit calls it: inside `resolve`, which Kit
+ *  runs with its request store cleared (runtime/server/respond.js `with_request_store(null, …)`). */
 function transform(r: Request_, html = r.html): Promise<string> {
-	return with_request_store({ event: r.event, state: r.state }, () =>
+	return with_request_store(null, () =>
 		r.handle.inject_client_seeds(html, r.state, r.event, r.bag)
 	);
 }
@@ -369,7 +378,10 @@ function resolve_of(r: Request_) {
 		opts?: { transformPageChunk?: (i: { html: string; done: boolean }) => unknown }
 	) => {
 		Object.assign(hooks.bags.get(event.request)!, records);
-		const html = (await opts!.transformPageChunk!({ html: r.html, done: true })) as string;
+		// (Kit runs `resolve` with its request store cleared)
+		const html = (await with_request_store(null, () =>
+			opts!.transformPageChunk!({ html: r.html, done: true })
+		)) as string;
 		return new Response(html, { headers: { 'content-type': 'text/html' } });
 	};
 }
@@ -440,7 +452,7 @@ bench(
 // every seed node of its byte size for its hash (same-shaped records share a size).
 bench(
 	'seed refs: a list island passed copies of the page’s products',
-	({ index, props }) => new SeedRefPlan(index, props).count,
+	({ index, props }) => index.plan(props).count,
 	{ setup: () => copies_of(2500), scale: (_ctx, k) => copies_of(250 * k) }
 );
 
@@ -521,7 +533,7 @@ bench(
 
 bench(
 	'page_ctx_script: the drop-in setContext values, one script',
-	({ bag }) => hooks.page_ctx_script(bag.request).length,
+	({ bag }) => page_ctx_script(bag.request).length,
 	{
 		setup: () => ctx_bag(12),
 		scale: (_ctx, k) => ctx_bag(12 * k)
@@ -537,8 +549,8 @@ function ctx_bag(keys: number): { bag: Bag } {
 
 /** The context a request's render set, as the handle's recorder keeps it. */
 function ctx_of(request: Request): Map<string, unknown> {
-	let ctx = hooks.request_ctx.get(request);
-	if (ctx === undefined) hooks.request_ctx.set(request, (ctx = new Map()));
+	let ctx = page_context.request_ctx.get(request);
+	if (ctx === undefined) page_context.request_ctx.set(request, (ctx = new Map()));
 	return ctx;
 }
 
@@ -579,7 +591,7 @@ bench('seed index: a page.data dictionary (prices by SKU)', ({ data }) => SeedIn
 
 bench(
 	'seed refs: copies of the page’s list and dictionary, each matched whole',
-	({ index, props }) => new SeedRefPlan(index, props).count,
+	({ index, props }) => index.plan(props).count,
 	{ setup: () => whole_copies(2500), scale: (_ctx, k) => whole_copies(250 * k) }
 );
 
@@ -653,14 +665,14 @@ function promises_of(count: number): { handle: Handle; deferred: Deferred[] } {
 }
 
 bench(
-	'build_remote_seed_script: a page of many remote queries',
-	({ handle, state, wanted }) => handle.build_remote_seed_script(state, wanted),
+	'remote_seed_script: a page of many remote queries',
+	({ state, wanted }) => remote_seed_script(state, wanted),
 	{ setup: () => remotes_of(24, 8), scale: (_ctx, k) => remotes_of(24 * k, 8) }
 );
 
 bench(
-	'build_remote_seed_script: one query answering a long list',
-	({ handle, state, wanted }) => handle.build_remote_seed_script(state, wanted),
+	'remote_seed_script: one query answering a long list',
+	({ state, wanted }) => remote_seed_script(state, wanted),
 	{ setup: () => remotes_of(1, 400), scale: (_ctx, k) => remotes_of(1, 400 * k) }
 );
 
@@ -680,5 +692,61 @@ function remotes_of(queries: number, rows: number) {
 		transport: TRANSPORT,
 		remote: { implicit, data: new Map() }
 	} as unknown as RequestState;
-	return { handle: new hooks.OgygiaHandle(), state, wanted: new Set([REMOTE_HASH]) };
+	return { state, wanted: new Set([REMOTE_HASH]) };
 }
+
+// KIT'S `asset()` FOR A PAGE'S URLS: every URL Region writes for an island (its chunk, its location,
+// the chunks of its graph) goes through Kit's `asset()`, inside the render's request store.
+
+/** The URLs a page of `islands` islands of twelve kinds writes: each island's chunk and location, and
+ *  its kind's graph (eight chunks, shared between kinds). */
+function page_urls(islands: number): string[] {
+	const urls: string[] = [];
+	for (let i = 0; i < islands; i++) {
+		const kind = i % 12;
+		urls.push(`/_app/immutable/entry/island-${kind}.js`, `/_app/immutable/entry/island-${kind}.js`);
+		for (let k = 0; k < 8; k++) urls.push(`/_app/immutable/chunks/c${(kind * 3 + k) % 20}.js`);
+	}
+	return urls;
+}
+
+bench(
+	'kit_asset: the URLs a page of forty islands writes, in one request',
+	({ urls, event, state }) =>
+		with_request_store({ event, state }, () => {
+			let n = 0;
+			for (const url of urls) n += kit_asset(url).length;
+			return n;
+		}),
+	{
+		setup: () => ({ urls: page_urls(40), ...event_of(false) }),
+		scale: (_ctx, k) => ({ urls: page_urls(40 * k), ...event_of(false) })
+	}
+);
+
+/** An island of `live` live snippets as a router page renders it: its module's eight chunks, and each
+ *  live module's chunk and twenty chunks, most of them shared with the island's and each other's. */
+function live_island(live: number): { entry: string; self: string; live: string[] } {
+	const entry = '/_app/immutable/entry/island-live.js';
+	const deps: Record<string, string[]> = { [entry]: graph_hrefs(900) };
+	const modules: string[] = [];
+	for (let m = 0; m < live; m++) {
+		const id = `src/lib/Live${m}.svelte`;
+		modules.push(id);
+		deps[id] = [...graph_hrefs(900), ...graph_hrefs(901 + (m % 3), 12)];
+	}
+	set_island_deps(deps);
+	return { entry, self: entry, live: modules };
+}
+
+bench(
+	'graph_hrefs: an island with six live snippets, in one request',
+	({ island, event, state }) =>
+		with_request_store({ event, state }, () =>
+			graph_hrefs_of(island.entry, island.self, island.live)
+		).length,
+	{
+		setup: () => ({ island: live_island(6), ...event_of(false) }),
+		scale: (_ctx, k) => ({ island: live_island(6 * k), ...event_of(false) })
+	}
+);

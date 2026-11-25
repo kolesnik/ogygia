@@ -1,7 +1,8 @@
 // PRELOAD AN ISLAND'S GRAPH AT WAKE (runtime/island-graph-preload.ts): the page's graph script lists
 // each entry's chunks; `preload_island_graph(entry)` inserts one modulepreload per chunk not yet
 // linked — only for that entry, only when called. End to end (the gate, a real build): e2e/wake-gate.
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, inject, test } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import {
 	preload_island_graph,
 	register_island_graph,
@@ -9,6 +10,17 @@ import {
 } from '../../src/runtime/island-graph-preload.ts';
 import { OGYGIA_GRAPH_PRELOAD as GRAPH_PRELOAD_ATTR } from '../../src/wire-markup.ts';
 import { island_graph_script } from '../../src/server/document-tail.ts';
+import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
+import { F_GRAPH } from '../../src/contract/features.ts';
+import { bootDev } from '../../src/runtime/full.ts';
+import { from_b64 } from './b64.ts';
+import { L_REGISTER_ISLAND_GRAPH } from '../../src/runtime/boot-link-index.ts';
+import { link_boot, make_boot_link } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
+import { warm_island_module } from '../../src/runtime/island-warm.ts';
+
+const ALL = HAS;
+const downloads = new Downloads();
 
 const ours = () =>
 	[...document.head.querySelectorAll(`link[${GRAPH_PRELOAD_ATTR}]`)].map(
@@ -95,4 +107,68 @@ test('a graph read from another page resolves against that page (router warm)', 
 	);
 	preload_island_graph('/deep/page/d.js');
 	expect(ours()).toEqual(['/deep/chunks/x.js']);
+});
+
+describe('a build whose word has no graph (no island code of the app can load: F_GRAPH off)', () => {
+	afterEach(() => {
+		set_feature_word(ALL);
+		init(link_boot());
+		bootDev();
+	});
+
+	/** The boot link a boot of the current word makes. */
+	const relink = () => {
+		const link = make_boot_link();
+		init(link);
+		return link;
+	};
+
+	test('its boot links a router read to no graph reader: a fetched page’s graph links nothing', () => {
+		set_feature_word(ALL & ~F_GRAPH);
+		relink()[L_REGISTER_ISLAND_GRAPH](
+			JSON.stringify({ h: ['/g/c-dep.js'], e: { '/g/c.js': [0] } }),
+			location.href
+		);
+		preload_island_graph('/g/c.js');
+		expect(ours()).toEqual([]);
+		set_feature_word(ALL);
+		relink()[L_REGISTER_ISLAND_GRAPH](
+			JSON.stringify({ h: ['/g/c-dep.js'], e: { '/g/c.js': [0] } }),
+			location.href
+		);
+		preload_island_graph('/g/c.js');
+		expect(ours(), 'with the bit: the graph a router read').toEqual(['/g/c-dep.js']);
+	});
+
+	test('a warm preloads no graph without the bit, and its graph with it', async () => {
+		const requested = (part: string) => downloads.named(part);
+		downloads.forget();
+		const off = '/test/browser/fixtures/no-such-island.ts?t=graph-off';
+		const on = '/test/browser/fixtures/no-such-island.ts?t=graph-on';
+		register_island_graph(
+			JSON.stringify({ h: ['/g/w-off-dep.js', '/g/w-on-dep.js'], e: { [off]: [0], [on]: [1] } }),
+			location.href
+		);
+		set_feature_word(ALL & ~F_GRAPH);
+		warm_island_module(off, undefined, 'user');
+		await expect.poll(() => requested('t=graph-off').length, { timeout: 5000 }).toBe(1);
+		expect(ours(), 'without the bit').toEqual([]);
+		set_feature_word(ALL);
+		warm_island_module(on, undefined, 'user');
+		await expect.poll(() => ours(), { timeout: 5000 }).toEqual(['/g/w-on-dep.js']);
+	});
+
+	test('an island it never saw still wakes: its import finds its chunks itself', async () => {
+		set_feature_word(ALL & ~F_GRAPH);
+		const box = document.createElement('div');
+		box.innerHTML = from_b64(inject('counter_ssr_b64'));
+		document.body.append(box);
+		const region = box.querySelector('ogygia-region')!;
+		bootDev();
+		try {
+			await expect.poll(() => region.hasAttribute('data-hydrated'), { timeout: 10_000 }).toBe(true);
+		} finally {
+			box.remove();
+		}
+	});
 });

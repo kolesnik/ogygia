@@ -96,6 +96,22 @@ const wrap = (n: { start: number; end: number }, open: string, close: string): E
 const CALL_THROUGH = (p: string): string =>
 	`((h: any) => typeof h === 'function' ? function (this: any, ...a: any[]) { ${p}; return h.apply(this, a); } : h)(`;
 
+/** The opening of a wrap of an `$await`'s wait that runs probe `p` when the wait settles `STALE`
+ *  (`@ogygia/machine`'s, a registered symbol: the probed file need not import it). */
+const WHEN_STALE = (p: string): string =>
+	`((w: any) => w.then((v: any) => (v === Symbol.for('ogygia.machine.stale') && ${p}, v)))(`;
+
+/** The wait of an `$await(wait, …)` site (a STALE check the build writes after it), or null. The
+ *  mutant awaits it as `(await (0, wait))`: the `$await` pass refuses a plain await of a wait, and
+ *  a comma expression is not one. */
+function awaited_of(s: SiteNode): Node | null {
+	if (s.kind !== 'stale' || s.node.type !== 'CallExpression') return null;
+	const callee = s.node.callee as Node;
+	const wait = (s.node.arguments as Node[])[0];
+	if (callee.type !== 'Identifier' || callee.name !== '$await') return null;
+	return wait === undefined || wait.type === 'SpreadElement' ? null : wait;
+}
+
 const truthy = (id: string) => `((v: any) => (v && ${probe_call(id)}, v))(`;
 const falsy = (id: string) => `((v: any) => (!v && ${probe_call(id)}, v))(`;
 const NEGATED: ReadonlySet<string> = new Set(['!==', '!=']);
@@ -183,6 +199,8 @@ export function probe_of(s: SiteNode): Edit[] | null {
 		case 'not-ok':
 		case 'stale':
 		case 'body': {
+			const w = awaited_of(s);
+			if (w !== null) return wrap(w, WHEN_STALE(p), ')');
 			const c = check_of(s);
 			return c === null ? null : wrap(c.node, c.when ? truthy(s.id) : falsy(s.id), ')');
 		}
@@ -271,6 +289,18 @@ export function mutants_of(s: SiteNode): SiteMutant[] {
 		case 'not-ok':
 		case 'stale':
 		case 'body': {
+			const w = awaited_of(s);
+			if (w !== null)
+				return [
+					{
+						operator: 'never',
+						says: "the $await's STALE check never true",
+						edits: [
+							replace({ start: s.node.start, end: w.start }, '(await (0, '),
+							replace({ start: w.end, end: s.node.end }, '))')
+						]
+					}
+				];
 			const c = check_of(s);
 			if (c === null) return [];
 			const what =

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('ogygia:server/sign', () => import('../src/server/hmac.ts'));
 vi.mock('ogygia:server/rate-limit', () => ({ rate_limit: { max: 0, windowMs: 60_000 } }));
-vi.mock('ogygia:server/server-plugins', () => ({ plugins: [] }));
+vi.mock('ogygia:server/server-plugins', () => ({ plugins: [], plugin_count: 0, measures: 0 }));
 vi.mock('ogygia:server/route-config', () => ({ route_config: {} }));
 vi.mock('ogygia:server/devtools-boot-url', () => ({ devtools_boot_url: '' }));
 vi.mock('ogygia:server/server-manifest', () => ({
@@ -146,7 +146,7 @@ describe('a page whose headers cannot change', () => {
 describe('a page with an early hole whose headers cannot change', () => {
 	it('goes out under the platform’s own policy: the script’s hash is not added, and nothing throws', async () => {
 		const { set_request_event_stub } = await import('./_stubs/server.request-event.ts');
-		const { note_early_hole } = await import('../src/context.ts');
+		const { note_early_hole } = await import('../src/early-hole-note.ts');
 		const e = event('/a');
 		set_request_event_stub(() => e);
 		try {

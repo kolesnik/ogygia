@@ -11,7 +11,13 @@
  * verified (#1769). Signing keys are HKDF-derived (`ogygia-mac-v1`) from the raw secret so the
  * id-salt domain stays separate.
  */
-import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
+import {
+	createHmac,
+	createSecretKey,
+	hkdfSync,
+	timingSafeEqual,
+	type KeyObject
+} from 'node:crypto';
 import { cache, capability, type Capability } from '@ogygia/machine';
 import { PRERENDER_REGION_TTL_SEC, REGION_CAPABILITY_VERSION, is_lower_hex } from './endpoint.ts';
 const MAC_INFO = Buffer.from('ogygia-mac-v1');
@@ -23,14 +29,15 @@ export const MIN_SECRET_BYTES = 16;
 // The secret is a process constant (env / build), so the derived key is too: derived once per
 // distinct secret, not once per sign and once per verify (an HKDF per island mint and per hole
 // request added up on a page of twenty). Bounded: a process sees one secret, tests a handful.
-const mac_keys = cache<string, Buffer>({ name: 'mac keys', max: 16 });
+const mac_keys = cache<string, KeyObject>({ name: 'mac keys', max: 16 });
 
-/** HKDF-SHA256 → 32-byte MAC key (hex for stable logging / tests; Buffer used internally). */
-export function derive_mac_key(secret: string): Buffer {
+/** HKDF-SHA256 → the 32-byte MAC key, as the KeyObject every HMAC of it takes: made once per
+ *  secret (an HMAC keyed by bytes makes Node build a key object again for each one). */
+export function derive_mac_key(secret: string): KeyObject {
 	let key = mac_keys.get(secret);
 	if (key === undefined) {
-		key = Buffer.from(
-			hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.alloc(0), MAC_INFO, 32)
+		key = createSecretKey(
+			Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.alloc(0), MAC_INFO, 32))
 		);
 		mac_keys.set(secret, key);
 	}
@@ -50,7 +57,7 @@ export function secret_has_min_entropy(secret: string): boolean {
 }
 
 export class Hmac {
-	static sha256(key: Buffer, message: string): string {
+	static sha256(key: KeyObject, message: string): string {
 		return createHmac('sha256', key).update(message, 'utf8').digest('hex');
 	}
 
@@ -95,7 +102,7 @@ const region_caps = cache<string, Capability>({ name: 'region capabilities', max
  * Not single-use, like v1/v2. `late_sec`: how long past its expiry it still checks (a renewal).
  * Lifetimes past the longest the app mints (prerender-grade) are refused.
  */
-function region_capability(secret: string, late_sec: number): Capability {
+export function region_capability(secret: string, late_sec: number): Capability {
 	const at = `${late_sec}|${secret}`;
 	let cap = region_caps.get(at);
 	if (cap === undefined) {
@@ -117,7 +124,15 @@ function region_capability(secret: string, late_sec: number): Capability {
 	return cap;
 }
 
-const claim_fields = (c: RegionClaim) => [c.id, c.payload, c.session, c.ttl, c.render, c.wakes];
+/** The claim's fields in the order the capability signs them. */
+export const claim_fields = (c: RegionClaim): string[] => [
+	c.id,
+	c.payload,
+	c.session,
+	c.ttl,
+	c.render,
+	c.wakes
+];
 
 /** Two lowercase-hex strings of one length, compared in constant time. */
 function hex_equal(a: string, b: string): boolean {
@@ -134,25 +149,4 @@ export function region_sign(
 ): string {
 	const token = region_capability(secret, 0).mintUntil(audience, claim_fields(claim), exp * 1000);
 	return token.slice(token.lastIndexOf('.') + 1);
-}
-
-/**
- * Does `sig` sign this region capability? `version` is the URL's `v`: `'3'` checks it through
- * capability() for `audience`; anything else is refused, a capability minted before v3 (no `v`)
- * among them: its page is an earlier build's, whose runtime cannot read this build's answer
- * (#1769). `late_sec`: a renewal's window past expiry.
- */
-export function region_verify(
-	secret: string,
-	audience: string,
-	version: string,
-	exp: string,
-	claim: RegionClaim,
-	sig: string,
-	late_sec = 0
-): boolean {
-	const at = Number(exp);
-	if (version !== REGION_CAPABILITY_VERSION || !Number.isSafeInteger(at) || at < 0) return false;
-	const token = `v${version}.${at * 1000}..${sig}`;
-	return region_capability(secret, late_sec).check(token, audience, claim_fields(claim)).ok;
 }

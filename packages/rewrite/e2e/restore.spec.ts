@@ -67,6 +67,25 @@ test('a hole’s answer arrives restored, and its island hydrates after', async 
 	expect(hole).toEqual({ shadow: true, sheets: 1, healed: 0, head_sheets: 1 });
 });
 
+test('a page with nothing reshaped carries no restorer; its hole’s answer still arrives restored', async ({
+	page
+}) => {
+	await page.goto('/restore-lab/hole-only');
+	await expect(page.locator('[data-hole-count]')).toBeVisible();
+	await page.locator('[data-hole-count]').click();
+	await expect(page.locator('[data-hole-count]')).toHaveText('hole count 1');
+	const facts = await page.evaluate(() => {
+		const card = document.querySelector('[data-hole-card]')!;
+		return {
+			inline_restorer: document.querySelectorAll('script[data-og-restore]').length,
+			shadow: !!card.shadowRoot,
+			sheets: card.shadowRoot?.adoptedStyleSheets.length ?? 0,
+			healed: document.querySelectorAll('[data-og-healed],[data-og-recovered]').length
+		};
+	});
+	expect(facts).toEqual({ inline_restorer: 0, shadow: true, sheets: 1, healed: 0 });
+});
+
 test('a router navigation away and back: every restored host has its sheet, and nothing throws', async ({
 	page
 }) => {

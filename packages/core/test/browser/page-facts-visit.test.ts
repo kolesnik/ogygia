@@ -5,11 +5,12 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { stringify } from 'devalue';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { region_fragment } from './_html.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document, seed_page_once } from '../../src/runtime/seeds.ts';
-import { boot_link } from '../../src/runtime/slots.ts';
+import { boot_link } from '../../src/runtime/lazy-link.ts';
+import { L_LOAD_DEVALUE } from '../../src/runtime/boot-link-index.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { page_state, set_page } from '../../src/shims/page-store.svelte.ts';
 import { TEST_MARK_ATTR } from './_response-mark.ts';
@@ -19,8 +20,7 @@ const real_fetch = window.fetch;
 const home = location.href;
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.body.innerHTML = '<p>first</p>';
 	prepare_spa_document();
 	window.fetch = async () =>
@@ -50,7 +50,7 @@ test('an answer’s page facts are taken out of its markup, never left in the pa
 });
 
 test('facts a hole brought join page.data at the next hydrate, once', async () => {
-	await boot_link().load_devalue();
+	await boot_link()[L_LOAD_DEVALUE]();
 	seed_page_once();
 	region_fragment(
 		`<script type="application/ogygia-page-facts">${stringify({ who: 'hole' })}\x3C/script><p>hole</p>`
@@ -63,7 +63,7 @@ test('facts a hole brought join page.data at the next hydrate, once', async () =
 });
 
 test('on a Kit page the facts a hole brought stay out of page.data, and dev names the older keys', async () => {
-	await boot_link().load_devalue();
+	await boot_link()[L_LOAD_DEVALUE]();
 	seed_page_once();
 	set_page({ data: { who: 'ours' } });
 	publish_kit_page({ who: 'kit', same: 1 });
@@ -86,7 +86,7 @@ test('on a Kit page the facts a hole brought stay out of page.data, and dev name
 });
 
 test('facts a hole brought on one page do not join the next page’s page.data', async () => {
-	await boot_link().load_devalue();
+	await boot_link()[L_LOAD_DEVALUE]();
 	// a hole on the first page answers, before any island woke: its facts wait for a hydrate
 	region_fragment(
 		`<script type="application/ogygia-page-facts">${stringify({ who: 'first' })}\x3C/script><p>hole</p>`

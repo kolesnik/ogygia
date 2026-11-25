@@ -255,6 +255,12 @@
 	],
 	"covered": [
 		{
+			"site": "packages/core/src/runtime/island-warm.ts > warm_key > catch:0",
+			"reason": "a fetched page's module link whose href no URL parser takes is its own key, so the router's warmed-module ask answers no instead of throwing out of the swap; proved by hand: the catch made to rethrow turns the test red",
+			"test": "packages/core/test/browser/island-warm-key.test.ts",
+			"name": "a module link whose href no URL parser takes was never warmed, and asking does not throw"
+		},
+		{
 			"site": "packages/devtools/src/profiler/host-caps.ts > cpu_works > catch:0",
 			"reason": "a runtime whose process.cpuUsage throws (a stub that is not implemented) has no CPU clock, and every request is still answered; proved by hand: the catch made to rethrow turns the tests red",
 			"test": "packages/devtools/test/profiler-no-node-runtime.test.ts",
@@ -373,6 +379,36 @@
 			"reason": "a server that ignores SIGTERM is SIGKILLed after the grace time, not left until it exits on its own; proved by hand: the timer dropped turns the test red, twice",
 			"test": "packages/tooling/test/servers.test.ts",
 			"name": "a server that ignores SIGTERM is killed after the grace time"
+		},
+		{
+			"site": "packages/tooling/src/e2e/downloads.ts > hear_downloads > observer:0",
+			"reason": "an e2e page's downloads are heard from its first byte, a full timeline or not; proved by hand: the observer never started turns the wake-gate spec red (no download heard)",
+			"test": "apps/palaestra/e2e/wake-gate.spec.ts",
+			"name": "load / visible / idle islands fetch nothing while DOMContentLoaded is held"
+		},
+		{
+			"site": "packages/tooling/src/e2e/downloads.ts > downloads > throw:0",
+			"reason": "a spec that reads downloads with no record made before its goto throws instead of reading nothing; proved by hand: the throw taken out turns the test red",
+			"test": "packages/tooling/test/e2e-downloads.test.ts",
+			"name": "a page with no record made before its goto throws, naming the call it lacks"
+		},
+		{
+			"site": "packages/tooling/src/e2e/build.ts > assert_e2e_output > throw:0",
+			"reason": "an e2e build that wrote over .svelte-kit instead of its own folder stops, naming the kit.outDir it lacks; the test expects this throw, so taking it out turns the test red",
+			"test": "packages/tooling/test/e2e-build.test.ts",
+			"name": "the build lands in its own folder, never over the app's production build in .svelte-kit"
+		},
+		{
+			"site": "packages/tooling/src/e2e/build.ts > sync_app > throw:0",
+			"reason": "an app whose Kit cannot sync stops before its build, naming the app; the test expects this throw, so taking it out turns the test red",
+			"test": "packages/tooling/test/e2e-build.test.ts",
+			"name": "an app whose Kit cannot sync throws before building, naming the app"
+		},
+		{
+			"site": "packages/tooling/src/vitest/downloads.ts > Downloads > observer:0",
+			"reason": "a download past a full resource timeline is still heard; proved by hand: the observer replaced by a read of the timeline turns the test red on Chromium, Firefox and WebKit (83487bc18)",
+			"test": "packages/core/test/browser/hydrate-visit.test.ts",
+			"name": "a region put back while its island loads mounts it once"
 		},
 		{
 			"site": "packages/cli/src/mcp.ts > parse_marks > catch:0",
@@ -531,10 +567,10 @@
 			"name": "a fetch every caller left writes nothing, even when its fetcher answers anyway"
 		},
 		{
-			"site": "packages/core/src/runtime/entry-locations.ts > absolute > catch:0",
-			"reason": "an entry or location that is not a URL: every one the runtime writes is; proved: the catch made to throw turns the test red",
-			"test": "packages/core/test/browser/entry-locations.test.ts",
-			"name": "a location that is not a URL is kept as written: it names no file, and nothing is noted"
+			"site": "packages/core/src/runtime/resolved-url.ts > ResolvedUrls > resolve > catch:0",
+			"reason": "a URL, entry or location that is not one (against its base): every one the runtime writes is; the runtime's one parse, for entry locations, code origins, region URLs and the island graph; proved: the catch made to rethrow turns this test red, and pin-region-urls.test.ts › a relative value against a base that is no URL stays as written, and the pin goes on, and browser/entry-locations.test.ts › a location that is not a URL is kept as written",
+			"test": "packages/core/test/resolved-url.test.ts",
+			"name": "parses a pair once, a failed one too"
 		},
 		{
 			"site": "packages/core/src/runtime/entry-locations.ts > run > .catch:1",
@@ -645,7 +681,7 @@
 			"name": "a request whose method cannot be read still gets its answer"
 		},
 		{
-			"site": "packages/core/src/server/props-wire.ts > lake_identity > catch:0",
+			"site": "packages/core/src/server/region-identity.ts > lake_identity > catch:0",
 			"reason": "a lake prop no wire carries makes the fingerprint throw: the lake gets no identity and is known by its entry and place",
 			"test": "packages/core/test/lake-identity.test.ts",
 			"name": "props no wire carries give no identity, so the lake is known by its entry and place"
@@ -951,12 +987,6 @@
 			"name": "a promise that rejects streams as a failure, with its error, never as a value"
 		},
 		{
-			"site": "packages/core/src/runtime/entry-locations.ts > pin_region_urls > catch:0",
-			"reason": "a relative region URL against a base that is no URL: the sim's pages always have one: proved: that failure thrown instead of kept as written turns the test red",
-			"test": "packages/core/test/pin-region-urls.test.ts",
-			"name": "a relative value against a base that is no URL stays as written, and the pin goes on"
-		},
-		{
 			"site": "packages/core/src/runtime/entry-locations.ts > current_location > stale:0",
 			"reason": "two islands' recoveries in a rollover, one dropping the map while the other's read of it is out: a timing no sweep seed is known to hit: proved: that STALE read as a map turns the test red",
 			"test": "packages/core/test/browser/entry-location-map-race.test.ts",
@@ -1089,8 +1119,8 @@
 			"name": "a path whose percent-encoding does not decode is a 400, and the page is never rendered"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > client_ip > catch:0",
-			"reason": "an adapter that cannot name the client: proved: its failure thrown instead of failing closed (429) turns the test red, twice",
+			"site": "packages/core/src/server/region-response.ts > client_ip > catch:0",
+			"reason": "an adapter that cannot name the client: proved: its failure thrown instead of failing closed (429) turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/handle-failures.test.ts",
 			"name": "a batch from a client the adapter cannot name is a 429 (fail closed)"
 		},
@@ -1149,32 +1179,62 @@
 			"name": "a devtools browser’s page whose headers cannot change goes out without the profiling headers"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > render_batch > parse:0",
-			"reason": "a batch body that is not JSON: proved: its parse failure thrown instead of a 400 turns the test red, twice",
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_batch > parse:0",
+			"reason": "a batch body that is not JSON: proved: its parse failure thrown instead of a 400 turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/handle-failures.test.ts",
 			"name": "a batch body that is not JSON is a 400"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > render_batch > catch:0",
-			"reason": "a batch body that is not JSON: proved: the failure thrown instead of a 400 turns the test red, twice",
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_batch > catch:0",
+			"reason": "a batch body that is not JSON: proved: the failure thrown instead of a 400 turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/handle-failures.test.ts",
 			"name": "a batch body that is not JSON is a 400"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > render_component > catch:0",
-			"reason": "a hole whose render calls keepFallback(): proved: the signal treated as a failure (a 500) turns the test red, twice",
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_component > catch:0",
+			"reason": "a hole whose render calls keepFallback(): proved: the signal treated as a failure (a 500) turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/hole-keep-fallback-answer.test.ts",
 			"name": "a hole whose render keeps its fallback answers 204 with no content, and nothing is said"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > decode_region_props > catch:0",
-			"reason": "a hole whose island module throws as its props decode: proved: the failure thrown turns the test red, twice",
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > render_component > abort:0",
+			"reason": "a batch whose visitor left while its hole's props decode: the render gate refuses it: proved: the leaving not read (the refusal said as region_render_failed) turns the test red",
+			"test": "packages/core/test/batch-visitor-left.test.ts",
+			"name": "left while its hole’s props decode: the render refused for it is not said as a failure"
+		},
+		{
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > capability_parcel > abort:0",
+			"reason": "a batch whose visitor left while its hole rendered: proved: the leaving not read (the answer shaped by the app's pass) turns the test red",
+			"test": "packages/core/test/batch-visitor-left.test.ts",
+			"name": "left while its hole renders: the finished answer is not shaped by the app’s pass"
+		},
+		{
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > decode_region_props > catch:0",
+			"reason": "a hole whose island module throws as its props decode: proved: the failure thrown turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/hole-props-decode-said.test.ts",
 			"name": "in production: the server says it with a code and the error; the visitor gets an opaque 403 (#1506)"
 		},
 		{
-			"site": "packages/core/src/hooks.ts > OgygiaHandle > region_answer > .catch:0",
-			"reason": "a plugin's `measures` hook that throws: proved: its rejection left uncaught turns the test red, twice",
+			"site": "packages/core/src/server/document-seeds.ts > ship_page_seed > stale:0",
+			"reason": "a router fetch whose visitor leaves while its streamed load settles: proved: the STALE not read (it destructured as the settled values) turns the test red",
+			"test": "packages/core/test/page-seed-visitor-left.test.ts",
+			"name": "a router fetch whose visitor leaves while its load settles gets the document as Kit wrote it"
+		},
+		{
+			"site": "packages/core/src/hooks.ts > OgygiaHandle > inject_client_seeds > stale:0",
+			"reason": "the same leaving, read by the handle: proved: the STALE seed read as a shipped one turns the test red",
+			"test": "packages/core/test/page-seed-visitor-left.test.ts",
+			"name": "a router fetch whose visitor leaves while its load settles gets the document as Kit wrote it"
+		},
+		{
+			"site": "packages/core/src/browser-half.ts > unmark_html_ranges > throw:0",
+			"reason": "the server half of a browser-only work: proved: the refusal not thrown turns the test red",
+			"test": "packages/core/test/browser-half.test.ts",
+			"name": "anywhere else, taking the range marks out refuses with browser_only_on_server"
+		},
+		{
+			"site": "packages/core/src/server/islands-endpoint.ts > IslandsEndpoint > region_answer > .catch:0",
+			"reason": "a plugin's `measures` hook that throws: proved: its rejection left uncaught turns the test red, twice (again where it moved from hooks.ts)",
 			"test": "packages/core/test/server-timing-measurer.test.ts",
 			"name": "a plugin that fails to say is no vouching: the answer goes out, untimed"
 		},
@@ -1233,13 +1293,25 @@
 			"name": "no options at all is refused with a code, never a TypeError reading them"
 		},
 		{
-			"site": "packages/machine/src/cache.ts > Store > constructor > throw:0",
+			"site": "packages/machine/src/lru.ts > lru > throw:0",
+			"reason": "`throw machine_error('machine_bad_option', refused);`: dev refuses a max that is no bound",
+			"test": "packages/machine/test/lru.test.ts",
+			"name": "refuses a max that is no bound, as cache() does"
+		},
+		{
+			"site": "packages/machine/src/cache.ts > check_cache > throw:0",
+			"reason": "`throw machine_error('machine_bad_option', refused);`: the build's check of a literal cache (internal/macros options pass)",
+			"test": "internal/macros/test/options.test.ts",
+			"name": "a cache with no bound fails the build, as it throws in dev (production would refuse it)"
+		},
+		{
+			"site": "packages/machine/src/cache.ts > cache > throw:1",
 			"reason": "`throw machine_error('machine_bad_option', args);`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/cache.test.ts",
 			"name": "max is required: there is no unbounded default"
 		},
 		{
-			"site": "packages/machine/src/cache.ts > Store > constructor > throw:1",
+			"site": "packages/machine/src/cache.ts > check_keep > throw:0",
 			"reason": "`throw bad_option('keep', keep, 'a time in ms of 0 or more, or a funct…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/cache.test.ts",
 			"name": "a keep that is no time is refused: a negative one, or one that is not a number or function"
@@ -1377,67 +1449,67 @@
 			"name": "a full memory refuses a new token, never forgets a live one; an expired one makes room"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flight > onRaise > throw:0",
+			"site": "packages/machine/src/flight.ts > Flight > onRaise > throw:0",
 			"reason": "`throw bad_option('onRaise', typeof raised, 'a function');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a raise listener that is not a function is refused with a code, when it is added"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flight > _raise > catch:0",
+			"site": "packages/machine/src/flight.ts > Flight > _raise > catch:0",
 			"reason": "`catch (error) { // (the joining caller is not the one to fail: the li…`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a raise listener that throws is said, and the join and the other listeners go on"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:0",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:1",
 			"reason": "`throw bad_option('run', typeof o?.run, 'a function');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "refuses options it cannot take"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:1",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:2",
 			"reason": "`throw bad_option('key', String(fields), 'a list of the input fields t…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:2",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:3",
 			"reason": "`throw bad_option('ignore', field, 'a field the key leaves out, not on…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:3",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:4",
 			"reason": "`throw bad_option('ignore', field, 'the reason the key leaves it out');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:4",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:5",
 			"reason": "`throw bad_option('ignore', 'without key', 'beside a key');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:5",
+			"site": "packages/machine/src/flight.ts > check_retry > throw:0",
 			"reason": "`throw bad_option('retry', typeof retry, 'a policy from policy()');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "refuses options it cannot take"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:6",
+			"site": "packages/machine/src/flight.ts > check_keep > throw:0",
 			"reason": "`throw bad_option('keep', keep, 'a time in ms of 0 or more, or a funct…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "refuses options it cannot take"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:7",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:6",
 			"reason": "`throw bad_option('max', 'missing', 'given with weigh, in its unit');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a weigh with no max is refused: the default max counts answers, not the weigh’s unit"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:9",
+			"site": "packages/machine/src/flights-full.ts > Full > constructor > throw:0",
 			"reason": "`throw bad_option('world', typeof o.world, 'a world from world()');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
@@ -1449,7 +1521,7 @@
 			"name": "a caller whose signal already aborted gets STALE and starts nothing"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > get > throw:0",
+			"site": "packages/machine/src/flight.ts > priority_of > throw:0",
 			"reason": "`throw bad_option('priority', priority, 'a number (higher is sooner)');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a priority that is not a number is refused"
@@ -1497,13 +1569,13 @@
 			"name": "a keep or weigh that throws fails the flight and keeps nothing"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > _join > reject:0",
+			"site": "packages/machine/src/flight.ts > join > reject:0",
 			"reason": "`, (error: unknown) => { signal.removeEventListener('abort', leave); r…`: proved: the rejection handler removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "every caller of a failed run gets the failure, then the next get starts fresh"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > keyed > throw:0",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:0",
 			"reason": "`throw bad_option('key', 'none', 'the input fields that make the key');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "a keyed flights refuses a key it cannot use, where it is written"
@@ -1515,49 +1587,49 @@
 			"name": "acquire: an already aborted signal rejects at once and never takes it"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > notify > catch:0",
+			"site": "packages/machine/src/run.ts > notify > catch:0",
 			"reason": "`catch (error) { report('machine_observer_failed', { name }, error); }`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/machine.test.ts",
 			"name": "an observer that throws does not break the move or the other observers"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > state_of > throw:0",
+			"site": "packages/machine/src/run.ts > checked_data > throw:0",
 			"reason": "`throw machine_error('machine_kind_in_data', { name: def.name, state: …`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/machine.test.ts",
 			"name": "refuses data with its own kind"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > illegal > throw:0",
+			"site": "packages/machine/src/run.ts > illegal > throw:0",
 			"reason": "`throw machine_error('machine_illegal_move', args);`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/machine.test.ts",
 			"name": "treats state names like Object.prototype keys as plain names"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > Running > wait > throw:0",
+			"site": "packages/machine/src/run.ts > Run > wait > throw:0",
 			"reason": "`throw machine_error('machine_unknown_state', { name: this._def.name, …`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/machine.test.ts",
 			"name": "throws in dev for a state that does not exist"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > check > throw:0",
+			"site": "packages/machine/src/run.ts > check > throw:0",
 			"reason": "`throw machine_error('machine_unknown_state', { name, state: to, where…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/machine.test.ts",
 			"name": "refuses a step to a state that is not a state"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > check > throw:1",
+			"site": "packages/machine/src/run.ts > check > throw:1",
 			"reason": "`throw machine_error('machine_duplicate_step', { name, from, to });`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/machine.test.ts",
 			"name": "refuses a step listed twice"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > check > throw:2",
+			"site": "packages/machine/src/run.ts > check > throw:2",
 			"reason": "`throw machine_error('machine_unreachable_state', { name, state: kind,…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/machine.test.ts",
 			"name": "refuses a state that can never be reached"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > define > throw:0",
+			"site": "packages/machine/src/run.ts > define > throw:0",
 			"reason": "`throw machine_error('machine_unknown_state', { name, state: config.in…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/machine.test.ts",
 			"name": "refuses an initial state that is not a state"
@@ -1731,7 +1803,7 @@
 			"name": "a bad window max, too many windows or a bad budget is refused with machine_bad_option"
 		},
 		{
-			"site": "packages/machine/src/queue.ts > passes > throw:1",
+			"site": "packages/machine/src/queue.ts > check_queue > throw:2",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'budget.ms', …`: a budget below 0 or not finite is refused",
 			"test": "packages/machine/test/queue-passes.test.ts",
 			"name": "a bad window max, too many windows or a bad budget is refused with machine_bad_option"
@@ -1743,43 +1815,55 @@
 			"name": "a stale hook that throws is reported, and the other waiting jobs still go stale and none hangs"
 		},
 		{
-			"site": "packages/machine/src/queue.ts > passes > throw:0",
+			"site": "packages/machine/src/queue.ts > check_queue > throw:1",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'windows', …`: 32 windows are refused",
 			"test": "packages/machine/test/queue-passes.test.ts",
 			"name": "a bad window max, too many windows or a bad budget is refused with machine_bad_option"
 		},
 		{
-			"site": "packages/machine/src/queue.ts > queue > throw:0",
+			"site": "packages/machine/src/queue.ts > check_queue > throw:0",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'max', value: Str…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/queue.test.ts",
 			"name": "a bad max is refused with machine_bad_option"
 		},
 		{
-			"site": "packages/machine/src/say.ts > say > throw:0",
+			"site": "packages/machine/src/queue.ts > check_plain_queue > throw:0",
+			"reason": "`throw machine_error('machine_bad_option', { option: 'max', value: 'mi…`: a plain queue with no max is refused",
+			"test": "packages/machine/test/plain-queue.test.ts",
+			"name": "it refuses what only passes take, and a missing max"
+		},
+		{
+			"site": "packages/machine/src/queue.ts > check_plain_queue > throw:1",
+			"reason": "`throw machine_error('machine_bad_option', { option: 'priority, rea…`: a plain queue given a pass's option is refused",
+			"test": "packages/machine/test/plain-queue.test.ts",
+			"name": "it refuses what only passes take, and a missing max"
+		},
+		{
+			"site": "packages/machine/src/say.ts > check_say > throw:0",
 			"reason": "`throw machine_error('machine_bad_option', { option: 'max', value: Str…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/say.test.ts",
 			"name": "a bound that is not a whole number above 0 is refused"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > timeout > throw:0",
+			"site": "packages/machine/src/scope.ts > arm > throw:0",
 			"reason": "`throw machine_error('machine_bad_time', { where: 'timeout()', ms: Str…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "refuses a time a timer cannot hold"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > every > throw:0",
+			"site": "packages/machine/src/scope.ts > Life > every > throw:0",
 			"reason": "`throw machine_error('machine_bad_time', { where: 'every()', ms: Strin…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "refuses a time a timer cannot hold"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > task > catch:0",
+			"site": "packages/machine/src/scope.ts > Life > task > catch:0",
 			"reason": "`catch (error) { out = Promise.reject(error); }`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "a failure while open rejects; a throw at once too"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > task > reject:1",
+			"site": "packages/machine/src/scope.ts > Life > task > reject:1",
 			"reason": "`, (error: unknown) => { signal.removeEventListener('abort', on_close)…`: proved: the rejection handler removed turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "a failure while open rejects; a throw at once too"
@@ -1791,31 +1875,31 @@
 			"name": "refuses what cannot dispose itself"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > _said > reject:0",
+			"site": "packages/machine/src/scope.ts > said > reject:0",
 			"reason": "`, (error: unknown) => report('machine_dispose_failed', { owner: this.…`: proved: the rejection handler removed turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "`await using` gets the errors of an async disposal; a plain close reports them"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > close > catch:0",
+			"site": "packages/machine/src/scope.ts > Life > close > catch:0",
 			"reason": "`catch (error) { (errors ??= []).push(error); }`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "what a child throws is thrown by the parent’s close, after its own cleanups ran"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > close > catch:1",
+			"site": "packages/machine/src/scope.ts > Life > close > catch:1",
 			"reason": "`catch (error) { (errors ??= []).push(error); }`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "a release that throws does not stop the other releases or the cleanups (#346)"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > close > catch:2",
+			"site": "packages/machine/src/scope.ts > Life > close > catch:2",
 			"reason": "`catch (error) { (errors ??= []).push(error); }`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "a cleanup that throws does not stop the others; close throws it after all have run"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > close > throw:0",
+			"site": "packages/machine/src/scope.ts > Life > close > throw:0",
 			"reason": "`throw errors.length === 1 ? errors[0] : new AggregateError(errors, `[…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "a cleanup that throws does not stop the others; close throws it after all have run"
@@ -1893,13 +1977,13 @@
 			"name": "scope.task"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > constructor > throw:8",
+			"site": "packages/machine/src/flights.ts > check_flights > throw:7",
 			"reason": "`throw bad_option('max', max, 'a finite number more than 0');`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/production.test.ts",
 			"name": "a flights with no bound is thrown where it is written, even in production"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > _moved > catch:0",
+			"site": "packages/machine/src/flights-full.ts > Full > _moved > catch:0",
 			"reason": "`catch { return true; // (what it read cannot be told: made again, nev…`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/world.test.ts",
 			"name": "a touches that throws: the kept answer goes on a move, a landing fails its callers"
@@ -1923,25 +2007,25 @@
 			"name": "a touches that throws: the kept answer goes on a move, a landing fails its callers"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > Running > _arm > catch:1",
+			"site": "packages/machine/src/run.ts > timed_step > catch:0",
 			"reason": "`catch (error) { report( 'machine_timed_step_failed', { name: this._de…`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/machine/test/after.test.ts",
 			"name": "a timed step that fails (its data throws) is reported; the machine stays where it is"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > define > throw:1",
+			"site": "packages/machine/src/run.ts > define > throw:1",
 			"reason": "`throw machine_error('machine_unknown_state', { name, state: kind, whe…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/after.test.ts",
 			"name": "a state that is not a state"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > define > throw:2",
+			"site": "packages/machine/src/run.ts > define > throw:2",
 			"reason": "`throw machine_error('machine_bad_timeout', { name, state: kind, probl…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/after.test.ts",
 			"name": "a target that is not one of the state’s steps"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > define > throw:3",
+			"site": "packages/machine/src/run.ts > define > throw:3",
 			"reason": "`throw machine_error('machine_bad_timeout', { name, state: kind, probl…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/machine/test/after.test.ts",
 			"name": "a time that is not a time, or longer than a timer can hold (2^31 - 1 ms, ~24.8 days)"
@@ -2217,7 +2301,7 @@
 			"name": "page pass + tail rendered against the seed: a props subtree that is a seed node becomes a reference"
 		},
 		{
-			"site": "packages/core/src/context.ts > take_early_holes > catch:0",
+			"site": "packages/core/src/early-holes-head.ts > take_early_holes > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
 			"test": "packages/core/test/document-seed.test.ts",
 			"name": "JSON lane: a plain pageState goes out as JSON and parses back"
@@ -2253,14 +2337,68 @@
 			"name": "attr() makes one whole attribute, or nothing"
 		},
 		{
-			"site": "packages/core/src/island-graph.ts > decode_island_locations > catch:0",
+			"site": "packages/core/src/island-graph-read.ts > decode_island_locations > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
 			"test": "packages/core/test/property-decoders.test.ts",
 			"name": "any text decodes to a graph of strings, without a throw"
 		},
 		{
-			"site": "packages/core/src/island-graph.ts > decode_island_graph > catch:0",
+			"site": "packages/core/src/island-graph-read.ts > decode_island_graph > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
+			"test": "packages/core/test/property-decoders.test.ts",
+			"name": "any text decodes to a graph of strings, without a throw"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > flatten > throw:0",
+			"reason": "a function no reducer claims, or a symbol, goes to devalue, which refuses it: proved: writing it instead turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > write_object > throw:0",
+			"reason": "a thenable goes to devalue, which refuses it: proved: writing it as an object turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > write_object > throw:1",
+			"reason": "a sparse array goes to devalue, which writes its holes: proved: writing its hole turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > write_object > throw:2",
+			"reason": "an own `__proto__` key goes to devalue, which refuses it: proved: writing the key turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > write_object > throw:3",
+			"reason": "anything else (a RegExp, a URL, a boxed value, a class instance no reducer claims, a null-prototype object) goes to devalue: proved: writing it as an object turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "any value, with reducers that claim objects, functions and strings: the same text, or the same refusal"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > catch:0",
+			"reason": "a reducer's own error passes through, never to devalue (which would ask the reducer again): proved: the error kept turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "a reducer’s own error passes through, and the reducer is asked once"
+		},
+		{
+			"site": "packages/core/src/server/devalue-text.ts > devalue_text > throw:0",
+			"reason": "a reducer's own error passes through, never to devalue (which would ask the reducer again): proved: the error kept turns the test red",
+			"test": "packages/core/test/devalue-text.test.ts",
+			"name": "a reducer’s own error passes through, and the reducer is asked once"
+		},
+		{
+			"site": "packages/core/src/island-graph-read.ts > decode_island_locations > parse:0",
+			"reason": "text that is not JSON gives no locations: proved: its parse failure thrown turns the test red",
+			"test": "packages/core/test/property-decoders.test.ts",
+			"name": "any text decodes to a graph of strings, without a throw"
+		},
+		{
+			"site": "packages/core/src/island-graph-read.ts > decode_island_graph > parse:0",
+			"reason": "text that is not JSON gives an empty graph: proved: its parse failure thrown turns the test red",
 			"test": "packages/core/test/property-decoders.test.ts",
 			"name": "any text decodes to a graph of strings, without a throw"
 		},
@@ -2277,7 +2415,7 @@
 			"name": "on the endpoint (the hole is the render root): the branded signal, as before"
 		},
 		{
-			"site": "packages/core/src/kit-paths.ts > kit_asset > catch:0",
+			"site": "packages/core/src/kit-paths.ts > kit_call > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
 			"test": "packages/core/test/seed-refs.test.ts",
 			"name": "page pass + tail rendered against the seed: a props subtree that is a seed node becomes a reference"
@@ -2349,13 +2487,49 @@
 			"name": "throws when a marked binding has no component/signer (client leg)"
 		},
 		{
-			"site": "packages/core/src/runtime/client-plugins.ts > isolated > .catch:0",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the .catch handler made to rethrow turns the test red",
-			"test": "packages/core/test/runtime-hooks-compose.test.ts",
-			"name": "a subscriber's rejected promise is reported, never awaited"
+			"site": "packages/core/src/runtime/region-hooks.ts > region_urls > catch:0",
+			"reason": "a region whose src no URL parser takes is told as mounted with its entry alone; proved by hand: the catch made to rethrow turns the test red",
+			"test": "packages/core/test/browser/region-hooks.test.ts",
+			"name": "a file no URL parser takes is left out, and the mount is still told"
 		},
 		{
-			"site": "packages/core/src/runtime/client-plugins.ts > isolated > catch:0",
+			"site": "packages/core/src/runtime/hook-told.ts > told > reject:0",
+			"reason": "a subscriber's rejected wait is waited past (isolated() reported it), so an answer goes on without that subscriber; proved by hand: the rejection let through turns the test red",
+			"test": "packages/core/test/runtime-hooks-compose.test.ts",
+			"name": "subscribers that answer with a promise: the call waits for every one, a rejection reported and waited past"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > import:0",
+			"reason": "the realm's restorer chunk that does not download: the page says it and the answers waiting go on; proved by hand: the rejection rethrown turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > reject:0",
+			"reason": "the restorer's failed load is handled: said, and the wait settles; proved by hand: the rejection rethrown turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > import:1",
+			"reason": "the wording chunk lost too: the error itself is printed; proved by hand: that fallback emptied turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/rewrite/src/client.ts > load_restorer > reject:1",
+			"reason": "the wording chunk's failed load prints the error alone; proved by hand: that fallback emptied turns the test red",
+			"test": "packages/rewrite/test/browser-chunk-lost/client-restorer-lost.test.ts",
+			"name": "a restorer that does not load is said, and the answers waiting for it go on"
+		},
+		{
+			"site": "packages/core/src/runtime/hook-told.ts > isolated > .catch:0",
+			"reason": "a test reaches its recovery path; proved by the autopilot: the .catch handler made to rethrow turns the test red",
+			"test": "packages/core/test/runtime-hooks-compose.test.ts",
+			"name": "a subscriber's rejected promise is reported, and the call's wait settles past it"
+		},
+		{
+			"site": "packages/core/src/runtime/hook-told.ts > isolated > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch body emptied turns the test red",
 			"test": "packages/core/test/runtime-hooks-compose.test.ts",
 			"name": "a throwing subscriber is reported once and never stops the ones after it"
@@ -2439,10 +2613,16 @@
 			"name": "falls back to a macrotask when postTask throws (older invalid-priority impl)"
 		},
 		{
-			"site": "packages/core/src/runtime/slots.ts > linked > throw:0",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/core/test/slots-linked.test.ts",
-			"name": "a lazy chunk that runs before its boot linked it says so loudly, by its code and the link"
+			"site": "packages/core/src/runtime/lazy-link.ts > boot_link > throw:0",
+			"reason": "a test reaches its recovery path; the throw removed turns the test red",
+			"test": "packages/core/test/lazy-link.test.ts",
+			"name": "a lazy chunk that runs before the boot handed it its link says so loudly, by its code and the link"
+		},
+		{
+			"site": "packages/core/src/runtime/reconcile.ts > morph_sync_attributes > throw:0",
+			"reason": "a test reaches its recovery path; the throw removed turns the test red",
+			"test": "packages/core/test/lazy-link.test.ts",
+			"name": "a navigation that needs morph’s attribute sync in a build without morph says so loudly"
 		},
 		{
 			"site": "packages/core/src/script.ts > script > throw:1",
@@ -2493,12 +2673,6 @@
 			"name": "is not imported as written: refused with its code, nothing requested"
 		},
 		{
-			"site": "packages/core/src/runtime/code-origins.ts > is_location_of > catch:0",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the catch body emptied turns the test red",
-			"test": "packages/core/test/browser/entry-locations.test.ts",
-			"name": "a location that is not a URL is kept as written: it names no file, and nothing is noted"
-		},
-		{
 			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > absorb > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch made to rethrow turns the test red",
 			"test": "packages/core/test/browser/kept-props-newest.test.ts",
@@ -2517,7 +2691,7 @@
 			"name": "a hole that leaves the page while its answer waits on a sheet ends its paint"
 		},
 		{
-			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > morph_live > stale:0",
+			"site": "packages/core/src/runtime/live-program.ts > morph_live > stale:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the STALE check never true turns the test red",
 			"test": "packages/core/test/browser/paint-left-mid-wait.test.ts",
 			"name": "a static live region that leaves the page while its tick waits on a sheet ends its paint"
@@ -2535,7 +2709,7 @@
 			"name": "an interaction island that fails to wake says so, and its click is replayed on the server markup"
 		},
 		{
-			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > live_hydrate > catch:0",
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch body emptied turns the test red",
 			"test": "packages/core/test/browser/live-region-failed-file.test.ts",
 			"name": "a live region whose island file cannot load settles: no start per tick, nothing thrown, said once"
@@ -2583,13 +2757,13 @@
 			"name": "a page's own click listener hears an early click once when the island fails to wake: replayed onto the server markup (#922)"
 		},
 		{
-			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > run > reject:0",
+			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > (module) > reject:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the rejection handler made to rethrow turns the test red",
 			"test": "packages/core/test/browser/kit-page-thread.test.ts",
 			"name": "a wait for a Kit whose boot import failed ends: it fails with kit_boot_failed, said once (#820)"
 		},
 		{
-			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > run > reject:1",
+			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > (module) > reject:1",
 			"reason": "a test reaches its recovery path: a route node Kit's start loads fails, and the wait ends with kit_boot_failed",
 			"test": "packages/core/test/browser/kit-page-thread.test.ts",
 			"name": "a wait for a Kit whose start failed on a page node (its entries loaded) ends with kit_boot_failed (#2002): %s"
@@ -2625,7 +2799,7 @@
 			"name": "the mpa-nav feature publishes the MPA handle; the router feature replaces it with the SPA API"
 		},
 		{
-			"site": "packages/core/src/runtime/region-endpoint-url.ts > make_warms > run > catch:0",
+			"site": "packages/core/src/runtime/island-warm.ts > make_warms > run > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch body emptied turns the test red",
 			"test": "packages/core/test/browser/entry-locations.test.ts",
 			"name": "a warm that failed is not kept: the module does not count as warmed"
@@ -2783,12 +2957,6 @@
 		{
 			"site": "packages/flags/src/index.ts > ask_source > stale:0",
 			"reason": "`out === STALE`: proved: the STALE check made never true turns the test red, twice",
-			"test": "packages/flags/test/source-failed.test.ts",
-			"name": "a source that never answers holds no request: past its deadline the flags fall to their native rule, and it is said"
-		},
-		{
-			"site": "packages/flags/src/index.ts > ask_source > throw:0",
-			"reason": "`throw new DOMException( `the flag source did not answer within ${SOUR…`: proved: the throw removed turns the test red, twice",
 			"test": "packages/flags/test/source-failed.test.ts",
 			"name": "a source that never answers holds no request: past its deadline the flags fall to their native rule, and it is said"
 		},
@@ -3603,6 +3771,66 @@
 			"name": "a registry with no marks is returned unchanged; an unparsable one is null"
 		},
 		{
+			"site": "packages/compiler/src/link/dead-exports.ts > read_chunk > not-ok:0",
+			"reason": "a chunk that does not parse stops the whole pass (what it imports is unknown) and is said as failed; proved: the !ok check made never true turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a chunk that does not parse: nothing changes anywhere"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > catch:0",
+			"reason": "a re-shake that throws leaves the chunk as written, its reason said; proved: the catch made to rethrow turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:0",
+			"reason": "the failed re-shake's result: the chunk kept, failed true; the test reads its reason",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:1",
+			"reason": "a re-shake with no map says nothing of what it kept: the chunk kept, failed true; the test reads its reason",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:2",
+			"reason": "a re-shake that drops what the chunk still exports disagrees with the chunk: kept, failed true; the test reads its reason",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:3",
+			"reason": "a chunk that calls eval keeps every export by rule; proved: the eval check made never true turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a chunk that calls eval keeps every export"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > shake_chunk > result:4",
+			"reason": "a cut chunk whose statements read differently (no semicolons: two lines join) is not written; proved: the reread check made never true turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a cut that would join the lines around it into one statement (no semicolons) leaves the chunk as written"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > drop_dead_exports > not-ok:0",
+			"reason": "a chunk the shake refused keeps its text and is settled; proved: the !ok check made never true turns four tests red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "the re-shake throws, or writes no map, or drops what the chunk still exports"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > import:0",
+			"reason": "a bundler path that does not load gives no re-shake (the build says server_exports_kept); the test hands it a missing file",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a bundler that cannot be found or loaded gives no re-shake"
+		},
+		{
+			"site": "packages/compiler/src/link/dead-exports.ts > bundler_reshake > catch:0",
+			"reason": "a bundler that cannot be found or loaded gives null, never a throw out of the build; proved: the catch made to rethrow turns the test red",
+			"test": "packages/compiler/test/dead-exports.test.ts",
+			"name": "a bundler that cannot be found or loaded gives no re-shake"
+		},
+		{
 			"site": "packages/compiler/src/parse/oxc.ts > parse_module > catch:0",
 			"reason": "`catch { return { program: null, ok: false, comments: [] }; }`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/compiler/test/oxc-parse.test.ts",
@@ -3747,7 +3975,7 @@
 			"name": "a path that does not exist is kept as given, with forward slashes"
 		},
 		{
-			"site": "packages/core/src/context.ts > note_early_hole > catch:0",
+			"site": "packages/core/src/early-hole-note.ts > note_early_hole > catch:0",
 			"reason": "`catch { // ok: no request (the client, a build step): no head to star…`: proved: the catch made to rethrow turns the test red, twice",
 			"test": "packages/core/test/quiet-failures.test.ts",
 			"name": "an early hole noted outside a request is dropped"
@@ -3832,15 +4060,27 @@
 		},
 		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:0",
-			"reason": "`throw unread();`: proved: the throw removed turns the test red, twice",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
 			"name": "a client realm that does not parse, or whose defineClient spreads, cannot be read"
 		},
 		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:2",
-			"reason": "`throw unread();`: proved: the throw removed turns the test red, twice",
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:1",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm that does not parse, or whose defineClient spreads, cannot be read"
+			"name": "a client realm whose plugin object, or its hooks, sit in a named const has its hooks read"
+		},
+		{
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:2",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
+			"test": "packages/compiler/test/plugins.test.ts",
+			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
+		},
+		{
+			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:3",
+			"reason": "`throw` of an unreadable realm; proved by hand: the throw made a return of nothing turns the test red",
+			"test": "packages/compiler/test/plugins.test.ts",
+			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
 		},
 		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > resolve_plugins > routeConfig > throw:1",
@@ -4063,6 +4303,12 @@
 			"reason": "a test reaches its recovery path; proved by hand: the throw removed turns the test red",
 			"test": "packages/compiler/test/runtime-marks-reached.test.ts",
 			"name": "one compiler whose client leg shipped its runtime before the server leg found a feature stops the build, naming it"
+		},
+		{
+			"site": "packages/compiler/src/driver.ts > Compiler > refuse_late_features > throw:0",
+			"reason": "a server bundle whose feature word lacks a feature its settled runtime needs stops the build, naming the feature and the module; proved by hand: the test was red before the throw existed",
+			"test": "packages/compiler/test/runtime-marks-reached.test.ts",
+			"name": "a package component the server build compiled after its feature word was fixed, needing a feature the word left out, stops the build, naming the feature and the module"
 		},
 		{
 			"site": "packages/compiler/src/driver.ts > Compiler > resolve_id > throw:0",
@@ -4665,30 +4911,6 @@
 			"name": "a realm that is not a file, or not a location, fails loudly"
 		},
 		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:1",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm is read through casts and parentheses; a const that names itself is no answer"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:3",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "a client realm whose plugin object, or its hooks, sit in a named const has its hooks read"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:4",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
-		},
-		{
-			"site": "packages/compiler/src/vite/plugin-api.ts > client_hook_names > throw:5",
-			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
-			"test": "packages/compiler/test/plugins.test.ts",
-			"name": "the runtime hooks a client realm subscribes to are read from its file, and nothing else passes"
-		},
-		{
 			"site": "packages/compiler/src/vite/plugin-api.ts > package_resolves > catch:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the catch body emptied turns the test red",
 			"test": "packages/compiler/test/plugins.test.ts",
@@ -4743,7 +4965,7 @@
 			"name": "keep is how long a value stays; one past its age is gone, noticed as age"
 		},
 		{
-			"site": "packages/machine/src/flights.ts > Flown > _join > error-event:0",
+			"site": "packages/machine/src/flight.ts > join > error-event:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the error handler made to do nothing turns the test red",
 			"test": "packages/machine/test/flights.test.ts",
 			"name": "its own handling of a failure adds no unhandled rejection"
@@ -4755,7 +4977,7 @@
 			"name": "acquire: an abort before its turn leaves the queue and rejects with the reason"
 		},
 		{
-			"site": "packages/machine/src/machine.ts > Running > _arm > timer:0",
+			"site": "packages/machine/src/run.ts > arm > timer:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the timer's callback made to do nothing turns the test red",
 			"test": "packages/machine/test/after.test.ts",
 			"name": "still in the state when its time is up: the machine takes the step, with its data"
@@ -4791,7 +5013,7 @@
 			"name": "mid-expiry: every expired job is stale once, none skipped, after the list is compacted under it"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > task > error-event:0",
+			"site": "packages/machine/src/scope.ts > Life > task > error-event:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the error handler made to do nothing turns the test red",
 			"test": "packages/machine/test/world.test.ts",
 			"name": "a move drops the kept answers and ends the flights out: their callers get STALE"
@@ -5463,7 +5685,7 @@
 			"name": "a Kit without its client remote functions fails the browser's remote runtime by name"
 		},
 		{
-			"site": "packages/machine/src/scope.ts > Scoped > task > reject:0",
+			"site": "packages/machine/src/scope.ts > Life > task > reject:0",
 			"reason": "a task whose work closed its own scope and then failed leaves no unhandled rejection; proved by hand: the handler made to rethrow turns the test red in node and every browser, twice",
 			"test": "packages/machine/test/scope.test.ts",
 			"name": "a task whose work closes its own scope and then fails is STALE, its failure never unhandled"
@@ -5521,6 +5743,144 @@
 			"reason": "a test reaches its recovery path; proved by the autopilot: the abort check never true turns the test red",
 			"test": "packages/federation/test/sim-deploy-thaw.test.ts",
 			"name": "reaches every peer once the store and the peers are back, sent once to each"
+		},
+		{
+			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > (module) > error-event:0",
+			"reason": "a test reaches its recovery path; proved by the autopilot: the error handler made to do nothing turns the test red",
+			"test": "packages/core/test/browser/kit-page-thread-owner.test.ts",
+			"name": "a sealed global: the wait stops watching for Kit once the island that waited has left the page"
+		},
+		{
+			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > (module) > timer:0",
+			"reason": "a test reaches its recovery path; proved by the autopilot: the timer's callback made to do nothing turns the test red",
+			"test": "packages/core/test/browser/kit-page-thread.test.ts",
+			"name": "DEV: a wait that runs long warns once (diagnosable), still resolves the moment Kit applies its page"
+		},
+		{
+			"site": "packages/machine/src/machine.ts > drawn_off > throw:0",
+			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
+			"test": "packages/machine/test/observe-production.test.ts",
+			"name": "in a production build a definition draws no graph or paths: machine_graph_off, thrown"
+		},
+		{
+			"site": "packages/machine/src/scope.ts > Life > task > abort:0",
+			"reason": "a test reaches its recovery path; proved by the autopilot: the abort check never true turns the test red",
+			"test": "packages/machine/test/scope.test.ts",
+			"name": "work that closes its own scope before it returns still settles with STALE (#349)"
+		},
+		{
+			"site": "packages/machine/src/run.ts > arm > catch:0",
+			"reason": "a state's time function that throws: reported (machine_timeout_failed), no timer set, the state stays; proved: the catch made to rethrow turns the test red",
+			"test": "packages/machine/test/after.test.ts",
+			"name": "a time made from the state that throws: reported, and the state does not end at once"
+		},
+		{
+			"site": "packages/machine/src/flights.ts > check_plain_flights > throw:0",
+			"reason": "a world, weigh, touches or two-field key given to plain_flights() is refused in dev and rules builds; proved: the throw made a no-op turns the test red",
+			"test": "packages/machine/test/plain-flights.test.ts",
+			"name": "refuses, in dev and rules builds, what only flights() takes"
+		},
+		{
+			"site": "packages/machine/src/flights-full.ts > id_of > catch:0",
+			"reason": "an engine without symbols as WeakMap keys (before ES2023) keeps a key's symbol in a Map instead; proved by hand: the catch emptied (the symbol gets a new id each time: two flights) and made to rethrow each turn the test red",
+			"test": "packages/machine/test/flights.test.ts",
+			"name": "on an engine that cannot hold a symbol weakly, a symbol is still one key by itself"
+		},
+		{
+			"site": "packages/machine/src/scope.ts > Life > signal > abort:0",
+			"reason": "a signal first asked of a life that has closed is made aborted, so work handed it never starts; proved by hand: the check made never true turns the test red",
+			"test": "packages/machine/test/scope.test.ts",
+			"name": "is one signal for the scope’s life; a closed scope’s is already aborted"
+		},
+		{
+			"site": "packages/machine/src/flights.ts > Flown > _move > throw:0",
+			"reason": "the rules build's refusal of a step ENTRY_STEPS does not list (an internal bug, never an input): proved by hand: the throw removed turns the test red",
+			"test": "packages/machine/test/flights.test.ts",
+			"name": "an entry that went is never moved again: a rules build refuses the step with its code, and tells no one"
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > stale:2",
+			"reason": "the slot's wait is STALE when the region left while it queued: the slot, when it comes, goes straight back; proved by hand: the check made never true, and the give-up without its hand-back, each turn the test red (the background window stays a place short)",
+			"test": "packages/core/test/browser/load-slot-left.test.ts",
+			"name": "a live region taken off the page while its island code queues hands its load slot back when it comes"
+		},
+		{
+			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:1",
+			"reason": "the slot's wait is STALE when the region left while it queued: the slot, when it comes, goes straight back (this was listed equivalent with the loads' wait's reason, stale:2's: a mislabel); proved by hand: the check made never true, and the give-up without its hand-back, each turn the test red",
+			"test": "packages/core/test/browser/load-slot-left.test.ts",
+			"name": "an island taken off the page while its code queues hands its load slot back when it comes"
+		},
+		{
+			"site": "packages/core/src/runtime/hydrate-core.ts > wake_island > .catch:0",
+			"reason": "a replay that failed says so itself and the wake goes on: the island comes alive without it; proved by the autopilot's mutant by hand: the handler made to rethrow turns the test red (the island never wakes)",
+			"test": "packages/core/test/browser/interaction-replay-failed.test.ts",
+			"name": "an island a visitor woke still comes alive when its replay code cannot load"
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > stale:3",
+			"reason": "Kit's failed start is the wait's STALE (the handler beside it): the region keeps its swapped HTML; proved by hand: the check made never true turns the test red (the island hydrates on a page Kit never started)",
+			"test": "packages/core/test/browser/live-region-kit-failed.test.ts",
+			"name": "a live region on a page whose Kit cannot start keeps its HTML, hydrates nothing and goes back to rest"
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > .catch:0",
+			"reason": "Kit's failed start ends the hydrate quietly (Kit's wait said it); proved by hand: the handler made to rethrow turns the test red (the live region fails)",
+			"test": "packages/core/test/browser/live-region-kit-failed.test.ts",
+			"name": "a live region on a page whose Kit cannot start keeps its HTML, hydrates nothing and goes back to rest"
+		},
+		{
+			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > catch:0",
+			"reason": "a live tick's hydrate core that cannot load is said, coded, and the tick ends; proved by hand: the catch emptied (nothing said) and made to rethrow (the tick throws at its caller) each turn the test red",
+			"test": "packages/core/test/browser/live-region-core-failed.test.ts",
+			"name": "a live tick whose hydrate core cannot download says so and ends quietly"
+		},
+		{
+			"site": "packages/core/src/runtime/drift-watch.ts > SleepWatch > watch > observer:0",
+			"reason": "the one observer over the sleeping regions: each sleeping region's subtree is what it hears; proved by hand: the observer made to observe nothing turns this test and seven more drift-watch tests red",
+			"test": "packages/core/test/browser/drift-watch-scope.test.ts",
+			"name": "a sleeping island is watched on its own subtree, not the whole document"
+		},
+		{
+			"site": "packages/core/src/runtime/head-copies.ts > mark_head > observer:0",
+			"reason": "the hydrate step's watch of the head: what an island's hydrate adds there is its head copies; proved by hand: the observer made to observe nothing turns this test and seven more head tests red",
+			"test": "packages/core/test/browser/head-ownership.test.ts",
+			"name": "the mark finds what a scan of the head finds, in head order"
+		},
+		{
+			"site": "packages/core/src/runtime/hydrate-core.ts > snippets_settled > timer:0",
+			"reason": "the cap on a snippet boot that never settles: the region's hydrated signal comes anyway; proved by hand: the cap removed turns the test red",
+			"test": "packages/core/test/browser/snippet-boots.test.ts",
+			"name": "a snippet that never boots holds its region’s hydrated signal 10 s at most"
+		},
+		{
+			"site": "packages/core/src/runtime/arm-idle.ts > on_idle > timer:0",
+			"reason": "a browser with no idle callback (WebKit) waits a short pause, not none; proved by hand: the timer's callback made to do nothing turns the test red",
+			"test": "packages/core/test/browser/hole-when.test.ts",
+			"name": "an idle hole in a browser with no idle callback fetches after a short pause, not at once"
+		},
+		{
+			"site": "packages/core/src/runtime/arm-idle.ts > on_idle > timer:1",
+			"reason": "the browser's idle moment starts it; proved by hand: the idle callback made to do nothing turns the test red (it waits for the cap)",
+			"test": "packages/core/test/browser/hole-when.test.ts",
+			"name": "an idle hole fetches at the browser's first idle moment, well before the cap"
+		},
+		{
+			"site": "packages/core/src/runtime/arm-idle.ts > on_idle > timer:2",
+			"reason": "the cap on a page that never goes idle; proved by hand: the cap's callback made to do nothing turns the test red",
+			"test": "packages/core/test/browser/hole-when.test.ts",
+			"name": "an idle hole on a page that never goes idle still fetches within 2 s"
+		},
+		{
+			"site": "packages/core/src/early-code.ts > start_early_code > observer:0",
+			"reason": "the early start's wait for the first contentful paint: a page that never paints content (or an engine without paint timing) adds nothing, and the runtime's own wake fetches the code as before; proved: the observer made never to call back turns the test red",
+			"test": "packages/core/test/browser/early-code.test.ts",
+			"name": "after first paint: a low-priority modulepreload per file, a few at a time, none for a file already linked"
+		},
+		{
+			"site": "packages/core/src/early-code.ts > start_early_code > start > error-event:0",
+			"reason": "an early file that fails to download (a dropped connection, a 404 from a deploy that moved on) only frees its place for the next; the runtime's own import fetches and reports it; proved: the error listener removed turns the test red (the held files are answered 404: the window never moves on)",
+			"test": "packages/core/test/browser/early-code.test.ts",
+			"name": "after first paint: a low-priority modulepreload per file, a few at a time, none for a file already linked"
 		}
 	],
 	"impossible": [
@@ -5547,16 +5907,44 @@
 			"why": "the import of svelte/compiler runs only inside the ogygia Vite plugin's own generateBundle hook, and svelte is a required peer of @ogygia/compiler: a process running the plugin has svelte to import (it compiled the app's components with it already).",
 			"by": "packages/compiler/package.json",
 			"name": "\"svelte\": \"catalog:peers\""
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > throw:0",
+			"why": "the Kit page wait rejects only with kit_boot_failed's error (its one reject; a waiter's abort settles the flights' get STALE, never a rejection), and the handler turns that one into STALE: no other error reaches this throw. It stays so that one the wait learns later fails the hydrate, not passes it.",
+			"by": "packages/core/src/runtime/kit-page-thread.svelte.ts",
+			"name": "kit_boot_failed"
+		},
+		{
+			"site": "packages/core/src/runtime/entry-locations.ts > recover_location > stale:0",
+			"why": "the wait between reads is a task of `waits`, this call's own root life: nothing else holds it, and it closes only in the call's finally, after the loop. So while the loop awaits it, the task cannot settle STALE; it is a task so the timer has an owner that ends with the call.",
+			"by": "packages/core/src/runtime/entry-locations.ts",
+			"name": "recover_location"
+		},
+		{
+			"site": "packages/devtools/src/devtools/testing-engine.ts > settle_poll > stale:0",
+			"why": "the poll's wait is a task of `steps`, its caller `settled`'s own root scope: nothing else holds it, and it closes only in settled's finally, after the poll returns. So while the poll awaits it, the task cannot settle STALE; it is a task so the timer has an owner that ends with the call.",
+			"by": "packages/devtools/src/devtools/testing-engine.ts",
+			"name": "settled"
+		},
+		{
+			"site": "packages/core/src/early-code.ts > start_early_code > parse:0",
+			"why": "the data block is written by the server only (DocumentTail.render → early_code_tags: JSON.stringify of a string list, script-escaped), the same response as the script that reads it, so its text is always JSON; a page that is not ogygia's own has no such block (the script returns at its getElementById)",
+			"by": "packages/core/src/early-code.ts",
+			"name": "escape_script_text(JSON.stringify(hrefs))"
 		}
 	],
 	"equivalent": [
 		{
-			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > run > stale:0",
+			"site": "packages/core/src/runtime/kit-page-thread.svelte.ts > (module) > stale:0",
 			"why": "the entry's import is STALE only when the wait's scope closed (Kit applied its page, or every waiter left). Without the check, STALE has no node loaders, so nothing is called; and a loader called through the closed scope's task is never run: the same nothing as the check's return (test: kit-page-thread.test.ts › a wait Kit ended by applying its page does not fail later on a node)."
 		},
 		{
 			"site": "packages/router/src/stream.ts > stream_document > start > stale:0",
 			"why": "the owner's task is STALE only when the owner closed (rest.next()'s answer is an iterator result, never STALE). Without the check, STALE.done is undefined, so `n.value.slot` throws, and the catch returns at once because the owner is closed: the same early end, with no tail and no close, as the check's return."
+		},
+		{
+			"site": "packages/devtools/src/profiler/index.ts > Profiler > wait_for_background > stale:0",
+			"why": "the wait is STALE when its deadline closes it or its request ends. The await is the try block's last statement: without the check the call goes on to the finally, as the check's return does, and the finally is all that follows. Nothing anyone can see differs."
 		},
 		{
 			"site": "packages/cli/src/perf/cli.ts > sleep > .catch:0",
@@ -5567,10 +5955,6 @@
 			"why": "the same sleep: a rejection only comes with an aborted signal, so the check never sees a live signal. Taking it away rethrows inside serve's task after its scope closed, which the task turns into the STALE it already gave."
 		},
 		{
-			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:1",
-			"why": "the loads' wait is STALE only when the region's mailbox closed: none of its parts can be STALE (the island file and the hydrate core, codec and devalue flights have no world, drop or dispose), and the mailbox closes only in #teardown, which first moves the wake off this waking visit. Without the check, destructuring STALE throws, the finally still releases the slot, and the catch returns quietly because the wake is no longer `mine`: no failure is said, no state moves."
-		},
-		{
 			"site": "packages/core/src/server/page-stream.ts > stream_page_deferred > start > stream_one > stale:0",
 			"why": "the owner's task is STALE only when the stream's owner closed. Without the check, STALE.ok is undefined, so it is pushed as a failure, and push drops anything once the owner is closed: nothing reaches the stream, and nothing nested is staged."
 		},
@@ -5579,20 +5963,48 @@
 			"why": "the hydrate's waits answer STALE only once its visit is over (the region left or moved: teardown closes the visit's scope). Without the check, `[mod, core] = STALE` throws, and the catch returns at once on `this.#wake.now !== mine`, and the finally skips on the same test: the same quiet end, the load slot released either way (test: region-left-mid-wake › a region taken out while it waits for its hydrate turn never comes alive)."
 		},
 		{
-			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:3",
+			"site": "packages/core/src/runtime/hydrate-core.ts > wake_island > stale:0",
 			"why": "the hydrate's waits answer STALE only once its visit is over, and stay STALE after. Without the check, the page's seeds parse (once per page, the same parse any island does) and the next wait, the visitor's replay or the hydrate turn, answers STALE and returns: nothing anyone sees changes (test: region-left-mid-wake, both cases)."
 		},
 		{
-			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:4",
+			"site": "packages/core/src/runtime/hydrate-core.ts > wake_island > stale:1",
 			"why": "the hydrate's waits answer STALE only once its visit is over, and stay STALE after. Without the check, the next wait, the hydrate turn, answers STALE and returns at the same point (test: region-left-mid-wake, both cases)."
 		},
 		{
-			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:5",
+			"site": "packages/core/src/runtime/hydrate-core.ts > wake_island > stale:2",
 			"why": "the hydrate turn answers STALE only once the visit is over. A region taken out: hydrate_island refuses a detached region and returns null, so `!this.#app` returns (test: hydrate-island-claims › an island taken off the page before its hydrate is left as it is, and its head watch ends; deleting that check instead makes this site prove alone, but the check is hydrate_island's own contract). A region moved: it comes alive once, by its new visit, with or without the check (test: region-left-mid-wake › a region moved while it waits for its hydrate turn comes alive once, by its new visit)."
 		},
 		{
-			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:6",
+			"site": "packages/core/src/runtime/hydrate-core.ts > wake_island > stale:3",
 			"why": "the snippets wait answers STALE only once the visit is over, and the visit's teardown unmounts the island and nulls `#app`, so the `!this.#app` beside it returns at the same point: no data-hydrated, no hydrated event (test: region-left-mid-wake, both cases)."
+		},
+		{
+			"site": "packages/machine/src/scope.ts > Life > task > abort:1",
+			"why": "the late `sig.aborted` when the work answers: on_abort is listened for before the work settles and resolves STALE the moment the life closes, so on an abort the promise has settled already and this resolve changes nothing; the autopilot's never mutant leaves all of machine's tests green"
+		},
+		{
+			"site": "packages/machine/src/scope.ts > Life > task > abort:2",
+			"why": "the late `sig.aborted` when the work fails: as abort:1, on_abort settled STALE first, so a reject after it is a no-op (no unhandled rejection: a settled promise ignores it); the never mutant leaves every test green"
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > apply_live > stale:0",
+			"why": "the sheets' wait is STALE only when the region's mailbox closed (`ready` itself never settles STALE), and the mailbox closes only in the region's teardown, which first moves the live region off this hydrating visit (to idle: a new epoch). Without the check, the `live.epoch !== mine` test right after it returns at the same point: nothing is painted, nothing moves (test: live-region-leaves.test.ts › a live region taken off the page while its island loads goes back to rest, and nothing hydrates)."
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > stale:0",
+			"why": "the parse wait is STALE only when the region's mailbox closed (dom_ready never settles STALE), and the mailbox closes only in the region's teardown, which first moves the live region off this visit (a new epoch) as the region leaves the page. Without the check, `ours()` right after it is false on both counts and returns at the same point."
+		},
+		{
+			"site": "packages/core/src/runtime/live-program.ts > live_hydrate > stale:1",
+			"why": "the loads' wait is STALE only when the region's mailbox closed: none of its parts can be STALE (the island file and the hydrate core and devalue flights have no world, drop or dispose), and the mailbox closes only in the region's teardown, which first moves the live region off this visit. Without the check, destructuring STALE throws, the finally still releases the slot, and the catch returns quietly because the epoch is no longer `mine`, and the outer finally skips on the same test: no failure said, no state moves (as core.ts hydrate stale:2)."
+		},
+		{
+			"site": "packages/core/src/runtime/core.ts > OgygiaRegion > fetch_html > stale:0",
+			"why": "the answer's wait is STALE only when the hole's fetching visit ended (any move: a new epoch) or the region's mailbox closed, which happens only in the teardown, after it moves the hole to idle (a new epoch too). Without the check, the code after the try goes idle only `if (this.#hole.epoch === mine)`, which is then false: nothing moves, the same as the return (test: hole-lifecycle.test.ts › a refresh that re-mints a hole while its first fetch is out shows the new address’s answer, not the old one)."
+		},
+		{
+			"site": "packages/core/src/server/stream-regions.ts > batch_stream > start > stale:0",
+			"why": "the renders' task is STALE only when the batch's streaming visit ended, and the batch leaves streaming only for cancelled (the request's owner ended, or the stream was cancelled). Without the check, `batch.move('streaming', 'ended')` right after it is refused (the batch is cancelled) and returns at the same point: no done parcel, no close of a cancelled stream (test: batch-stream-cancel.test.ts › cancelled after its first hole: the holes not started never start, and no late write throws)."
 		}
 	],
 	"baseline": [
@@ -5771,12 +6183,6 @@
 		"packages/core/src/events/sinks.ts > ingest_server_events > catch:0",
 		"packages/core/src/head-owners.ts > adopt_owner_record > parse:0",
 		"packages/core/src/head-owners.ts > adopt_owner_record > catch:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > inject_client_seeds > stale:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > render_component > abort:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > capability_parcel > abort:0",
-		"packages/core/src/hooks.ts > OgygiaHandle > capability_parcel > abort:1",
-		"packages/core/src/island-graph.ts > decode_island_locations > parse:0",
-		"packages/core/src/island-graph.ts > decode_island_graph > parse:0",
 		"packages/core/src/keep-fallback.ts > keepFallback > catch:0",
 		"packages/core/src/plugin/css.ts > run > import:0",
 		"packages/core/src/plugin/reads.ts > observe_reads > fetch:0",
@@ -5805,8 +6211,6 @@
 		"packages/core/src/region.ts > make_awaitable > value > reject:0",
 		"packages/core/src/request-event.ts > requestEvent > catch:0",
 		"packages/core/src/rules.ts > Rules > broken > catch:0",
-		"packages/core/src/runtime/client-plugins.ts > region_urls > catch:0",
-		"packages/core/src/runtime/code-origins.ts > origin_of > catch:0",
 		"packages/core/src/runtime/code-origins.ts > import_code > import:0",
 		"packages/core/src/runtime/concurrency.ts > ConcurrencyGate > run > abort:0",
 		"packages/core/src/runtime/concurrency.ts > ConcurrencyGate > run > abort:1",
@@ -5815,7 +6219,6 @@
 		"packages/core/src/runtime/concurrency.ts > within > timer:0",
 		"packages/core/src/runtime/core.ts > (module) > import:0",
 		"packages/core/src/runtime/core.ts > absorb_page_facts_now > reject:0",
-		"packages/core/src/runtime/core.ts > snippets_settled > timer:0",
 		"packages/core/src/runtime/core.ts > region_fragment > reject:0",
 		"packages/core/src/runtime/core.ts > region_fragment > timer:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > fire_hydrate > reject:0",
@@ -5824,21 +6227,10 @@
 		"packages/core/src/runtime/core.ts > OgygiaRegion > prefetch_html > .catch:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > fetch_failed > catch:0",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > fetch_failed > refused:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > on_idle > timer:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > on_idle > timer:1",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > on_idle > timer:2",
 		"packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > stale:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > hydrate > .catch:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > stale:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > live_hydrate > ours > stale:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > live_hydrate > stale:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > live_hydrate > stale:1",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > live_hydrate > .catch:0",
-		"packages/core/src/runtime/core.ts > OgygiaRegion > live_hydrate > throw:0",
 		"packages/core/src/runtime/core.ts > apply_dev_head_region_css > .catch:0",
 		"packages/core/src/runtime/devalue-lane.ts > (module) > import:0",
 		"packages/core/src/runtime/devalue-lane.ts > with_devalue > stale:0",
-		"packages/core/src/runtime/drift-watch.ts > watch_region > observer:0",
 		"packages/core/src/runtime/form-continuity.ts > url_of > catch:0",
 		"packages/core/src/runtime/frame-nav.ts > streamFrames > body:0",
 		"packages/core/src/runtime/frame-nav.ts > streamFrames > .catch:0",
@@ -5868,10 +6260,7 @@
 		"packages/core/src/runtime/interaction.ts > wake > reject:1",
 		"packages/core/src/runtime/interaction.ts > wake > stale:1",
 		"packages/core/src/runtime/interaction.ts > replay_ahead > reject:0",
-		"packages/core/src/runtime/island-graph-preload.ts > absolute > catch:0",
 		"packages/core/src/runtime/kit-page-thread.svelte.ts > page_applied > catch:0",
-		"packages/core/src/runtime/kit-page-thread.svelte.ts > run > error-event:0",
-		"packages/core/src/runtime/kit-page-thread.svelte.ts > run > timer:0",
 		"packages/core/src/runtime/load-scheduler.ts > preload_urls > catch:0",
 		"packages/core/src/runtime/morph.ts > carry_shadows > catch:0",
 		"packages/core/src/runtime/nav-handle.ts > (module) > import:0",
@@ -5879,7 +6268,6 @@
 		"packages/core/src/runtime/page-defer.ts > install_page_defer > live > catch:0",
 		"packages/core/src/runtime/region-endpoint-url.ts > capability_expired > catch:0",
 		"packages/core/src/runtime/region-endpoint-url.ts > deny_of > catch:0",
-		"packages/core/src/runtime/region-endpoint-url.ts > warm_key > catch:0",
 		"packages/core/src/runtime/region-sheets.ts > sheet_of > error-event:0",
 		"packages/core/src/runtime/region-sheets.ts > note_code_sheets > catch:0",
 		"packages/core/src/runtime/router-nav.ts > fetch_page > abort:0",
@@ -5908,7 +6296,6 @@
 		"packages/core/src/runtime/schedule.ts > drain_after > timer:0",
 		"packages/core/src/runtime/seeds.ts > parse_page_seed > catch:0",
 		"packages/core/src/runtime/seeds.ts > apply_page_seed > catch:0",
-		"packages/core/src/runtime/session.ts > RuntimeSession > mark_head > observer:0",
 		"packages/core/src/runtime/speculate-hint.ts > speculate_url > catch:0",
 		"packages/core/src/runtime/stale-deps.ts > confirm_and_reload > fetch:0",
 		"packages/core/src/runtime/stale-deps.ts > confirm_and_reload > catch:0",
@@ -6386,15 +6773,12 @@
 		"packages/insights/src/session-insights.ts > path_of > catch:0",
 		"packages/insights/src/session-insights.ts > same_origin_get > catch:0",
 		"packages/insights/src/third-party.ts > host_of > catch:0",
-		"packages/machine/src/flights.ts > id_of > catch:0",
-		"packages/machine/src/machine.ts > Running > _arm > catch:0",
 		"packages/machine/src/mailbox.ts > Box > _start > reject:0",
 		"packages/machine/src/policy.ts > under_policy > throw:3",
 		"packages/machine/src/ports/net.ts > fetch > fetch:0",
 		"packages/machine/src/ports/timers.ts > after > timer:0",
 		"packages/machine/src/ports/timers.ts > keep > timer:0",
 		"packages/machine/src/ports/timers.ts > timeout > abort:0",
-		"packages/machine/src/scope.ts > Scoped > signal > abort:0",
 		"packages/machine/src/stage.ts > Staged > constructor > refused:0",
 		"packages/ogygia/src/cli.ts > installed > catch:0",
 		"packages/postrender/src/adapters/akamai.ts > AkamaiEdge > signed_post > fetch:0",
@@ -6509,7 +6893,8 @@
 		"packages/tsdown-plugin-svelte/src/index.ts > default_preprocess > import:0",
 		"packages/tsdown-plugin-svelte/src/index.ts > default_preprocess > catch:0",
 		"packages/tsdown-plugin-svelte/src/index.ts > default_preprocess > throw:0",
-		"packages/tsdown-plugin-svelte/src/index.ts > svelte > writeBundle > import:0"
+		"packages/tsdown-plugin-svelte/src/index.ts > svelte > writeBundle > import:0",
+		"packages/core/src/runtime/core.ts > OgygiaRegion > apply_live > stale:0"
 	],
 	"step_points": [
 		{

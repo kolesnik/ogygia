@@ -4,8 +4,8 @@
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import type { Component } from 'svelte';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
-import { install as install_live } from '../../src/runtime/live.ts';
 import { hydrate_live } from '../../src/runtime/hydrate-core.ts';
 import PropsProbe from './fixtures/PropsProbe.svelte';
 
@@ -24,9 +24,8 @@ function island_props(props: Record<string, unknown>): Record<string, unknown> {
 const mutations = () => said.filter((s) => s.includes('prop_mutation'));
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
-	install_live();
 });
 beforeEach(() => {
 	document.body.innerHTML = '';

@@ -620,16 +620,79 @@ function next_end_candidate(html: string, from: number, name: string): number {
  *  none. The walk stops there: it never reads the body, and a chunk with no `</head` at all is not
  *  walked (test/document-assembly.test.ts). */
 export function head_end(html: string): number {
-	let candidate = next_end_candidate(html, 0, 'head');
-	for (let i = 0; candidate !== -1 && step(html, i, null);) {
-		if (TOKEN.lt > candidate) {
+	return walk_head(html, null, false, 0, false);
+}
+
+/** Start tags a head walk kept, in order: each as `next_tag` reads it, and its name. */
+export interface HeadTagList {
+	readonly tags: FoundTag[];
+	/** Each tag's name, in lower case. */
+	readonly names: HeadTagName[];
+}
+
+/** A document's head as one walk reads it: where it ends (`head_end`'s answer) and, when it has an
+ *  end, its `head`, `script`, `link` and `meta` start tags in order. The page transform asks every
+ *  question of the head through these (server/head-presence.ts `HeadTags`), so the head is walked
+ *  once per response. */
+export interface HeadRead extends HeadTagList {
+	readonly end: number;
+}
+
+/** The start tags a `HeadTagList` keeps. */
+export type HeadTagName = 'head' | 'link' | 'meta' | 'script';
+
+/** `html`'s head, read once (see `HeadRead`); no tags when it has no end. */
+export function read_head(html: string): HeadRead {
+	const list: HeadTagList = { tags: [], names: [] };
+	const end = walk_head(html, list, false, 0, false);
+	return end === -1 ? { end, tags: [], names: [] } : { end, tags: list.tags, names: list.names };
+}
+
+/** The next `head`, `link`, `meta` or `script` start tag of `html` from `from` (a point the walk
+ *  reads as markup: 0, or what the last call returned), pushed onto `list`. Returns where to go on
+ *  from, or -1 when none comes (or the walk stops where `next_tag` stops: the HTML ends inside a
+ *  comment, a tag or a raw text). */
+export function read_head_tag(html: string, from: number, list: HeadTagList): number {
+	return walk_head(html, list, true, from, true);
+}
+
+function head_tag_name(html: string, ns: number, ne: number): HeadTagName | null {
+	const n = ne - ns;
+	if (n === 4) {
+		if (name_is(html, ns, ne, 'link')) return 'link';
+		if (name_is(html, ns, ne, 'meta')) return 'meta';
+		if (name_is(html, ns, ne, 'head')) return 'head';
+		return null;
+	}
+	return n === 6 && name_is(html, ns, ne, 'script') ? 'script' : null;
+}
+
+function walk_head(
+	html: string,
+	keep: HeadTagList | null,
+	whole: boolean,
+	from: number,
+	one: boolean
+): number {
+	let candidate = whole ? html.length : next_end_candidate(html, 0, 'head');
+	for (let i = from; candidate !== -1 && step(html, i, null);) {
+		if (!whole && TOKEN.lt > candidate) {
 			// (the candidate was inside a script, a comment or a value: the next one, if any)
 			candidate = next_end_candidate(html, TOKEN.lt, 'head');
 			if (candidate === -1) return -1;
 		}
 		if (TOKEN.kind === 2) {
-			if (TOKEN.lt === candidate) return candidate;
+			if (!whole && TOKEN.lt === candidate) return candidate;
 			i = TOKEN.end;
+			continue;
+		}
+		const name = keep === null ? null : head_tag_name(html, TOKEN.ns, TOKEN.ne);
+		if (name !== null) {
+			const t = found_token(html);
+			keep!.tags.push(t);
+			keep!.names.push(name);
+			i = t.next;
+			if (one) return i;
 			continue;
 		}
 		i = after_start(html);

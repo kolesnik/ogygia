@@ -38,8 +38,7 @@ import { document_counts, type SlotSeq } from './server/document-counts.ts';
 import { PORTABLE_FORM, with_portable_forms } from './portable-form.ts';
 import { analyze } from './seed-refs.ts';
 import { fnv1a, fnv1a32 } from './contract/hash.ts';
-import { import_entry } from './runtime/entry-locations.ts';
-import { unmark_html_ranges } from './runtime/html-ranges.ts';
+import { import_entry, unmark_html_ranges } from '#browser-half';
 import { OgygiaError } from './messages/island.ts';
 import { OG_SLOT, OG_STATIC, OGYGIA_REGION_CSS } from './wire-markup.ts';
 import { escape_attr } from './escape.ts';
@@ -228,7 +227,7 @@ function make(desc: RegionSnippetDescriptor, live_entry: Component | null = null
 					});
 				};
 				if (live_entry) boot(live_entry);
-				else
+				else if (BROWSER)
 					hold_host(
 						el,
 						// its location (the page's island graph named it), not the stable name

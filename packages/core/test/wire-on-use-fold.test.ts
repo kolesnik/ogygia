@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rolldown } from 'rolldown';
 import { dedent } from '../src/contract/dedent.ts';
+import { core_macros } from '../macros.config.ts';
 import { REF_WIRE_KEY } from '../src/ref-key.ts';
 
 const SRC = fileURLToPath(new URL('../src/', import.meta.url));
@@ -24,6 +25,7 @@ async function build(load_wire_codec: string): Promise<string> {
 		input: file,
 		external: [/^svelte(\/|$)/, /^\$app\//, 'esm-env', /\.svelte$/, /^node:/, 'codec'],
 		plugins: [
+			core_macros(),
 			{
 				name: 'boot-flags',
 				resolveId: (id) => (id === 'ogygia:boot' ? '\0ogygia:boot' : null),

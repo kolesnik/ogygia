@@ -1,5 +1,12 @@
 import { dispose_ids, page_ids } from '../ref.ts';
-import { boot_link, morph_sync_attributes, slots } from './slots.ts';
+import { boot_link, boot_link_or_null } from './lazy-link.ts';
+import {
+	L_PROPS_SIDECAR_OF,
+	L_RECORD_SERVER_BODY,
+	L_SERVER_BODY_ATTRIBUTES,
+	L_SERVER_BODY_CHILD,
+	L_SYNC_ATTRIBUTES
+} from './boot-link-index.ts';
 import { ids_released } from './region-ids.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import { OG_FP, OG_NO_RECONCILE, OGYGIA_KEEP } from '../wire-markup.ts';
@@ -9,16 +16,25 @@ const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS_
 import { fnv1a, endpoint_key, signature_of, fingerprint_of } from '../contract/hash.ts';
 export { fnv1a, endpoint_key, signature_of, fingerprint_of };
 
-const props_sidecar_of = (region: Element) => boot_link().props_sidecar_of(region);
+const props_sidecar_of = (region: Element) => boot_link()[L_PROPS_SIDECAR_OF](region);
+
+/** Morph's attribute sync, from the boot's link: a navigation's head and body take the next page's
+ *  attributes with it (the morph feature, which every router build holds). */
+export function morph_sync_attributes(): typeof import('./morph.ts').sync_attributes {
+	const sync = boot_link()[L_SYNC_ATTRIBUTES];
+	if (sync === null)
+		throw new Error('[ogygia] https://ogygiajs.dev/e/slot_not_linked?name=sync_attributes');
+	return sync;
+}
 
 function body_record(live: Element) {
-	const link = slots.boot;
-	return link && link.server_body_attributes(live) !== null ? link : null;
+	const link = boot_link_or_null();
+	return link && link[L_SERVER_BODY_ATTRIBUTES](live) !== null ? link : null;
 }
 
 function sync_body_attributes(live: Element, next: Element): void {
 	morph_sync_attributes()(live, next, true);
-	const sent = body_record(live)?.server_body_attributes(live);
+	const sent = body_record(live)?.[L_SERVER_BODY_ATTRIBUTES](live);
 	if (sent) for (const name of sent) if (!next.hasAttribute(name)) live.removeAttribute(name);
 }
 
@@ -26,16 +42,17 @@ function page_own_children(live: Element): Set<Node> {
 	const own = new Set<Node>();
 	const record = body_record(live);
 	if (record === null) return own;
-	for (let n = live.firstChild; n; n = n.nextSibling) if (!record.server_body_child(n)) own.add(n);
+	for (let n = live.firstChild; n; n = n.nextSibling)
+		if (!record[L_SERVER_BODY_CHILD](n)) own.add(n);
 	return own;
 }
 
 function renew_server_body(live: Element, next: Element, own: ReadonlySet<Node>): void {
-	const link = slots.boot;
+	const link = boot_link_or_null();
 	if (!link) return;
 	const children: Node[] = [];
 	for (let n = live.firstChild; n; n = n.nextSibling) if (!own.has(n)) children.push(n);
-	link.record_server_body(live, next, children);
+	link[L_RECORD_SERVER_BODY](live, next, children);
 }
 
 /** The `<script data-ogygia-props>` seed text of a region — keyed at the end of the body or the

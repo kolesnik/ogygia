@@ -23,18 +23,12 @@
  * imports nothing of the boot (only `@ogygia/machine`, which the boot runs on); the boot hands it
  * its message (`on_reload_needed`).
  */
-import {
-	buggify,
-	cache,
-	flights,
-	machine,
-	noop,
-	registry,
-	say,
-	scope,
-	STALE,
-	type Scope
-} from '@ogygia/machine';
+import { buggify, noop, registry, say, STALE } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import { lru } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
 import { code_url_or_refuse, import_code, type CodeUrl } from './code-origins.ts';
 
 // dev and rules builds (a buggify point); folded out of any other
@@ -54,18 +48,18 @@ const ENTRY_WAIT_MS = 1000;
 /** Downloads recorded, at most (the oldest go first): enough for every file a page loads. */
 const RESPONSES_MAX = 2000;
 /** Each download heard: its status (`null`: no response came, a dropped download). */
-const responses = cache<string, number | null>({ name: 'heard downloads', max: RESPONSES_MAX });
+const responses = lru<string, number | null>({ name: 'heard downloads', max: RESPONSES_MAX });
 /** Callers waiting for a download's entry, each held by its wait's scope: called with its status
  *  when it lands. */
 const landing = registry<{ url: string; done: (status: number | null) => void }>();
 /** The observer's owner, once it is up (the document's: a file's load outlives any page visit). */
-let timeline: Scope | null = null;
+let timeline: Life | null = null;
 
 /** Starts the record (once; the boot does, as early as ogygia runs): what the timeline holds, then
  *  every download after it, the timeline full or not. */
 export function hear_responses(): void {
 	if (timeline !== null || typeof PerformanceObserver === 'undefined') return;
-	timeline = scope();
+	timeline = life.rootLife();
 	try {
 		// (buffered: what the timeline already holds is heard at once, then every entry after it)
 		timeline
@@ -100,14 +94,14 @@ function heard(url: string, status: number | null): void {
 function response_landed(url: string): Promise<number | null> {
 	const now = response_of(url);
 	if (now !== null || responses.has(url) || timeline === null) return Promise.resolve(now);
-	const wait = scope();
+	const wait = life.rootLife();
 	return new Promise<number | null>((resolve) => {
 		const done = (status: number | null) => {
 			wait.close();
 			resolve(status);
 		};
 		landing.add({ url, done }, wait);
-		wait.timeout(() => done(null), ENTRY_WAIT_MS);
+		wait.later(done, ENTRY_WAIT_MS, null);
 	});
 }
 
@@ -220,7 +214,7 @@ export function import_again<T>(
 	base?: string
 ): () => Promise<T> {
 	hear_responses();
-	const state = file_definition.create();
+	const state = fsm.createRun(file_definition);
 	const next = (): Promise<T> => {
 		const s = state.now;
 		if (s.kind === 'loaded') return s.run as Promise<T>;
@@ -262,7 +256,7 @@ export function import_again<T>(
 		// oxlint-disable-next-line ogygia/no-silent-failures -- the failure is the caller's: `run` itself is returned and rejects to it
 		run.then(
 			() => {
-				if (state.now.kind !== 'loaded') state.go('loaded', { run });
+				if (state.kind !== 'loaded') state.go('loaded', { run });
 			},
 			() => {}
 		);
@@ -283,7 +277,7 @@ export function import_again<T>(
  * is that load (a fresh URL after a success would be a second copy of the module). `stuck`: a retry's
  * own file came and it still failed, a dependency's failure: every later call fails at once with it.
  */
-const file_definition = machine<{
+const file_definition = $machine<{
 	fresh: {};
 	failed: { url: string; attempt: number; verdict?: Promise<void> };
 	loaded: { run: Promise<unknown> };
@@ -304,7 +298,7 @@ const file_definition = machine<{
  *  asks for next (the file, or a fresh URL after a failed download). The files this document's
  *  islands came from; past the bound the least recently loaded goes (its next load starts fresh,
  *  and the browser's module map still holds what it loaded). */
-const file_loaders = cache<string, () => Promise<unknown>>({
+const file_loaders = lru<string, () => Promise<unknown>>({
 	name: 'island file loaders',
 	max: 2000
 });
@@ -313,7 +307,7 @@ const file_loaders = cache<string, () => Promise<unknown>>({
  *  one retry, so a failure gets one fresh URL and the module runs once (#271). */
 type FileLoads = { readonly get: (url: string) => Promise<unknown> };
 
-const file_loads: FileLoads = flights({
+const file_loads: FileLoads = plainFlights({
 	name: 'island file',
 	run: (url: string) => {
 		let again = file_loaders.get(url);

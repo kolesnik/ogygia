@@ -3,14 +3,16 @@
 // `/dashboard/orders`, one file. A client navigation between the two must see one file, so the head
 // keeps one node for it, as a fresh load of the next page has.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 
 const real_fetch = window.fetch;
 const home = location.href;
+const downloads = new Downloads();
 // (under a base path, so the file differs from what the same text names against any other page)
 const FILE = '/shop/_app/immutable/og-key-depth.js';
 const ASSET = '_app/immutable/og-key-depth.js';
@@ -19,8 +21,7 @@ const added: Element[] = [];
 let next_extra = '';
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	history.replaceState(history.state, '', '/shop/nested');
 	// the server's head of `/nested`: its asset written relative to it
 	const script = document.createElement('script');
@@ -111,8 +112,7 @@ test('a kept, loaded sheet is not fetched again across depths, and still names i
 	runtime_session.adopt_document_head();
 	let loads = 0;
 	sheet.addEventListener('load', () => loads++);
-	const fetched = () =>
-		performance.getEntriesByType('resource').filter((e) => e.name.endsWith(SHEET)).length;
+	const fetched = () => downloads.named(SHEET).filter((e) => e.name.endsWith(SHEET)).length;
 	const before = fetched();
 	const css = sheet.sheet;
 	// the next page, one level deeper, lists the same file written relative to it

@@ -462,6 +462,7 @@ test.describe('a lazy chunk whose dependency fails says a reload is needed (#262
 	// by the end of its load: nothing later is recorded there. Whether a retry's own file came must
 	// not depend on that shared buffer (here: full after the document's own entry).
 	test('the same, on a page whose resource timing buffer is full', async ({ page }) => {
+		// oxlint-disable-next-line ogygia/downloads-heard -- the case is the page's timeline full: the runtime's own record must not read it
 		await page.addInitScript(() => performance.setResourceTimingBufferSize(1));
 		await dropped_shared_chunk(page);
 	});

@@ -16,10 +16,14 @@ import {
 	document_tail,
 	props_preview
 } from '../src/server/document-tail.ts';
-import { decode_island_graph } from '../src/island-graph.ts';
+import { decode_island_graph } from '../src/island-graph-read.ts';
 import { PropsWire } from '../src/server/props-wire.ts';
-import { SeedIndex } from '../src/seed-refs.ts';
-import { set_island_deps } from './_stubs/server.region-deps.ts';
+import { SeedIndex } from '../src/seed-index.ts';
+import {
+	set_entry_locations,
+	set_island_deps,
+	set_wake_code
+} from './_stubs/server.region-deps.ts';
 import { region_props } from './_region-settings.ts';
 
 const region = Region as unknown as Component<Record<string, unknown>>;
@@ -302,5 +306,30 @@ describe('Region.svelte × the tail', () => {
 		const out = render_in_kit_pass([{ ...island({ n: 7 }), load: undefined, visible: true }]);
 		expect(out.head).not.toContain('modulepreload');
 		expect(tail.size).toEqual({ hints: 0, graph: 1, props: 1, holes: 0 });
+	});
+
+	it('an island that wakes at load gives the early start its file and chunks; a visible one does not', () => {
+		set_entry_locations({ '/islands/tiny.js': '/immutable/tiny.HASH.js' });
+		set_wake_code(['/chunks/core.js', '/chunks/svelte.js']);
+		try {
+			install_tail();
+			void render_in_kit_pass([{ ...island({ n: 7 }), load: undefined, visible: true }]).body;
+			expect(tail.wakes_at_load).toBe(false);
+			install_tail();
+			void render_in_kit_pass([
+				island({ n: 1 }),
+				{ ...island({ n: 2 }), load: undefined, visible: true }
+			]).body;
+			expect(tail.wakes_at_load).toBe(true);
+			const data = /id="ogygia-early-code">([^<]*)</.exec(tail.render(null, false, '', true));
+			expect(JSON.parse(data![1]!)).toEqual([
+				'/chunks/core.js',
+				'/chunks/svelte.js',
+				'/immutable/tiny.HASH.js'
+			]);
+		} finally {
+			set_entry_locations({});
+			set_wake_code([]);
+		}
 	});
 });

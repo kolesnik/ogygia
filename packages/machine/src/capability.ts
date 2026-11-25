@@ -145,9 +145,10 @@ export function capability(options: CapabilityOptions): Capability {
 	const seen = new Map<string, number>();
 
 	const message = (audience: string, exp: number, n: string, fields: readonly string[]) => {
-		const m = [`${head}${lp(audience)}|${lp(String(exp))}|${lp(n)}|${fields.length}`];
-		for (const f of fields) m.push(lp(f));
-		return m.join('|');
+		let m = `${head}${lp(audience)}|${lp(String(exp))}|${lp(n)}|${fields.length}`;
+		// oxlint-disable-next-line ogygia/no-string-concat -- a token's few fields: one join costs more than the appends (region_sign -35% in steps, capability.bench / region-capability.bench)
+		for (const f of fields) m += `|${f.length}:${f}`;
+		return m;
 	};
 	const clock = (where: string): number => {
 		const t = now();

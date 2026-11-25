@@ -5,6 +5,7 @@
  */
 import type { ServerPluginEntry } from '../plugin/server.ts';
 import type { BarrelLeftReason } from './barrels.ts';
+import type { LazyHookName, LazyHooks, RuntimeHookName, RuntimeHooks } from './runtime-hooks.ts';
 
 /** A re-export barrel a chunk still holds: its name, the modules it brings, and why the barrel pass
  *  left it (when it said). */
@@ -24,6 +25,9 @@ export type CodecMap = Record<
 export interface RegionDepsModule {
 	/** Public URLs of hashed dependency chunks for a hydrate island entry (`/_app/immutable/…`). */
 	region_deps(entry: string): string[];
+	/** Public URLs of the hydrate core's chunk and its static imports: what the runtime's first
+	 *  island wake imports. `[]` in dev and with a handoff from before it. */
+	wake_code(): string[];
 	/** WAKE ADVISOR: what the island's own components do, from the build; `null` without facts. */
 	region_interactivity(entry: string): {
 		handlers: number;
@@ -110,17 +114,79 @@ export interface KitTransportModule {
 	transport: CodecMap;
 }
 
+/** `ogygia:boot/hydrate-features`: the hydrate-phase features' modules, each `null` where the build
+ *  leaves the feature out, and `<name>_on`, which says so (the hydrate core tests it before every
+ *  use). Only the hydrate core imports it (the remote seeds are `ogygia:boot/remote-seeds`), so the
+ *  features ride the hydrate core's one `import()`. */
 export interface HydrateFeaturesModule {
-	/** installs the hydrate-phase features the app's marks selected */
-	install(): void;
+	readonly page: typeof import('../runtime/seeds.ts');
+	readonly page_on: boolean;
+	readonly wire: typeof import('../live-transport.ts');
+	readonly wire_on: boolean;
+	readonly live: typeof import('../runtime/live.ts');
+	readonly live_on: boolean;
+	readonly context: typeof import('../runtime/context.ts');
+	readonly context_on: boolean;
+}
+
+/** `ogygia:boot/remote-seeds`: the remote-seeds feature's module, `null` where the build leaves it
+ *  out (`remote_seeds_on` says so). Its readers are the hydrate core and the page feature, which the
+ *  navigation chunk imports too, so it is a module of its own (the navigation never loads the other
+ *  hydrate features). */
+export interface RemoteSeedsModule {
+	readonly remote_seeds: typeof import('../runtime/remote-seeds.ts');
+	readonly remote_seeds_on: boolean;
 }
 
 export interface RuntimeFlagsModule {
-	/** the `frames` feature is in the build: some region streams HTML */
-	FRAMES: boolean;
+	/** the build's feature word: a bit per feature its marks select (./features.ts) */
+	HAS: number;
 	/** `null` where the `wire` feature (the codec) is in the build up front; else its load, which a
 	 *  wake runs on use */
 	load_wire_codec: (() => Promise<{ install(): void }>) | null;
+}
+
+/** `ogygia:boot/feature-code`: the boot features' modules the boot calls directly, each `null` where
+ *  the build leaves the feature out (its bit is off in `HAS`, which the boot tests before every
+ *  call). Only the boot imports it, so a feature's module, its state included, is in a boot exactly
+ *  when its bit is. */
+export interface FeatureCodeModule {
+	readonly wire_classes: typeof import('../runtime/wire-classes.ts');
+	readonly frames: typeof import('../runtime/frames.ts');
+	readonly lakes: typeof import('../runtime/lakes.ts');
+	readonly morph: typeof import('../runtime/morph.ts');
+	readonly interaction: typeof import('../runtime/interaction.ts');
+	readonly forms: typeof import('../runtime/form-continuity.ts');
+	readonly mpa_nav: typeof import('../runtime/nav-handle.ts');
+	readonly router: typeof import('../runtime/router.ts');
+}
+
+/** `ogygia:boot/hooks`: each runtime hook the app's client realms subscribe to, as the function the
+ *  boot calls (it tells every realm that subscribes); every other hook `0`, so the call folds out. */
+export type HooksModule = { readonly [K in RuntimeHookName]: RuntimeHooks[K] | 0 } & {
+	/** how many client realms the app lists (`0`: the plugin boot folds out) */
+	readonly realm_count: number;
+	/** the lazy chunks' hooks the realms subscribe to, for the boot link; `0` when none */
+	readonly lazy_hooks: LazyHooks | 0;
+};
+
+/** `ogygia:boot/hook-bits`: a lazy chunk's hooks, `1` each where a client realm subscribes, else
+ *  `0` (one character: the bundler inlines it in every chunk, so no chunk imports the module). */
+export type HookBitsModule = { readonly [K in LazyHookName]: 0 | 1 };
+
+export interface ServerFlagsModule {
+	/** the build's feature word, the browser's `HAS` (./features.ts): the server writes into a page
+	 *  only what the page's runtime can revive */
+	HAS: number;
+}
+
+export interface ProgramsModule {
+	/** the build's frames bit, on each leg (a region streams HTML: holes, held regions) */
+	HAS_FRAMES: boolean;
+	/** the build's lakes bit */
+	HAS_LAKES: boolean;
+	/** the build's live bit (a held region's updates) */
+	HAS_LIVE: boolean;
 }
 
 export interface TransportablesModule {
@@ -137,6 +203,10 @@ export interface TransportablesModule {
 export interface ServerPluginsModule {
 	/** the server halves of the plugins listed beside `ogygia()`, in plugin order */
 	plugins: readonly ServerPluginEntry[];
+	/** how many there are (`0`: nothing a plugin adds to a request, a fact or a shared hook, runs) */
+	plugin_count: number;
+	/** `1` where some server half implements core's shared hook `measures`, else `0` */
+	measures: 0 | 1;
 }
 
 export interface RouteConfigModule {
@@ -219,13 +289,19 @@ export interface VirtualModules {
 	'ogygia:boot/runtime-entry': SideEffectModule;
 	'ogygia:boot/runtime-flags': RuntimeFlagsModule;
 	'ogygia:boot/hydrate-features': HydrateFeaturesModule;
+	'ogygia:boot/remote-seeds': RemoteSeedsModule;
+	'ogygia:boot/feature-code': FeatureCodeModule;
+	'ogygia:boot/hooks': HooksModule;
+	'ogygia:boot/hook-bits': HookBitsModule;
 	'ogygia:boot/devtools-meta': DevtoolsMetaModule;
 	'ogygia:region/transport': TransportModule;
 	'ogygia:region/transportables': TransportablesModule;
 	'ogygia:region/kit-transport': KitTransportModule;
 	'ogygia:region/transportables-eager': SideEffectModule;
+	'ogygia:region/programs': ProgramsModule;
 	'ogygia:dev/hmr': SideEffectModule;
 	'ogygia:dev/devtools-boot': SideEffectModule;
+	'ogygia:server/runtime-flags': ServerFlagsModule;
 	'ogygia:server/runtime-url': RuntimeUrlModule;
 	'ogygia:server/devtools-boot-url': DevtoolsBootUrlModule;
 	'ogygia:server/region-deps': RegionDepsModule;
@@ -251,27 +327,8 @@ export interface VirtualConstants {
 	__OGYGIA_DEVTOOLS__: boolean;
 	__OGYGIA_DEVTOOLS_LAZY__: boolean;
 	__OGYGIA_RULES__: boolean;
-	__OGYGIA_CLIENT_PLUGINS__: boolean;
-	__OGYGIA_HOOK_REGION_MOUNT__: boolean;
-	__OGYGIA_HOOK_REGION_UNMOUNT__: boolean;
-	__OGYGIA_HOOK_REGION_HYDRATED__: boolean;
-	__OGYGIA_HOOK_REGION_FAILED__: boolean;
-	__OGYGIA_HOOK_HOLE_ANSWERED__: boolean;
-	__OGYGIA_HOOK_HOLE_FAILED__: boolean;
-	__OGYGIA_HOOK_HOLE_BATCH_MISSED__: boolean;
-	__OGYGIA_HOOK_ENTRY_FALLBACK__: boolean;
-	__OGYGIA_HOOK_RELOAD_NEEDED__: boolean;
-	__OGYGIA_HOOK_NAVIGATED__: boolean;
-	__OGYGIA_HOOK_CRITICAL_SETTLED__: boolean;
-	__OGYGIA_HOOK_WARNING__: boolean;
-	__OGYGIA_HOOK_REGION_HYDRATE__: boolean;
-	__OGYGIA_HOOK_ANSWER_PARSED__: boolean;
-	__OGYGIA_HOOK_ANSWER_PLACED__: boolean;
-	__OGYGIA_HOOK_REGION_WOKE__: boolean;
-	__OGYGIA_HOOK_REGION_MISMATCHED__: boolean;
-	__OGYGIA_HOOK_NAV_STARTED__: boolean;
-	__OGYGIA_HOOK_LOAD_STARTED__: boolean;
 	__OGYGIA_KIT_MAJOR__: number | null;
+	__OGYGIA_KIT_PAGES__: boolean;
 	__OGYGIA_VERSION__: string;
 	__OGYGIA_DEV_HMR_URL__: string;
 }

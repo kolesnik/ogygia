@@ -4,9 +4,7 @@
 // the other; the sheet is render output, so it goes when the next render has none, as a fresh load
 // of that page has none.
 import { expect, test } from 'vitest';
-import { morph_children, install as install_morph } from '../../src/runtime/morph.ts';
-
-install_morph();
+import { morph_children } from '../../src/runtime/morph.ts';
 
 const SHEET =
 	'<link rel="stylesheet" href="/_app/immutable/assets/og-region.x.css" data-ogygia-region-css="">';

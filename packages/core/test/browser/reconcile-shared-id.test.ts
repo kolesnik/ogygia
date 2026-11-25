@@ -3,15 +3,14 @@
 // A navigation that keeps one and removes the other must not dispose the object the kept one still
 // shows; one that removes both does.
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { morph_children, install as install_morph } from '../../src/runtime/morph.ts';
+import { morph_children } from '../../src/runtime/morph.ts';
 import { reconcile_body } from '../../src/runtime/reconcile.ts';
 import { record_server_body } from '../../src/runtime/ownership.ts';
 import { record_region_id } from '../../src/runtime/region-ids.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { register_kind, resolve, dispose_ids } from '../../src/ref.ts';
-
-install_morph();
-link_boot();
+init(link_boot());
 
 let disposed: number[] = [];
 register_kind({

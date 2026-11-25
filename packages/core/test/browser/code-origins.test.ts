@@ -7,13 +7,14 @@
 // The origins are read once per document, at the first ask: the server's head is in place by then.
 // This file's head names one peer before anything asks.
 import { beforeAll, describe, expect, test } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import {
 	entry_location,
 	import_entry,
 	island_entry_of,
 	note_entry_location
 } from '../../src/runtime/entry-locations.ts';
-import { warm_island_module } from '../../src/runtime/region-endpoint-url.ts';
+import { warm_island_module } from '../../src/runtime/island-warm.ts';
 import { code_url } from '../../src/runtime/code-origins.ts';
 import {
 	preload_island_graph,
@@ -23,8 +24,8 @@ import { encode_island_graph } from '../../src/island-graph.ts';
 import { OGYGIA_GRAPH_PRELOAD } from '../../src/wire-markup.ts';
 
 const PEER = 'https://peer.example';
-const requested = (part: string) =>
-	performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
+const downloads = new Downloads();
+const requested = (part: string) => downloads.named(part);
 const element = (entry: string, src: string) => {
 	const el = document.createElement('ogygia-region');
 	el.setAttribute('entry', entry);

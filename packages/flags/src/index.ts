@@ -28,7 +28,6 @@ import {
 	registry,
 	say,
 	scope,
-	STALE,
 	timers
 } from '@ogygia/machine';
 
@@ -308,6 +307,11 @@ export function prime_flags(c: CtxLike): Promise<void> {
  *  (test/source-failed.test.ts). */
 const SOURCE_DEADLINE_MS = 1_000;
 
+function source_down(c: CtxLike, error: unknown): void {
+	set_prime(c, { kind: 'resolved', map: {} });
+	source_failed(error);
+}
+
 async function ask_source(c: CtxLike, source: NonNullable<typeof _source>): Promise<void> {
 	const mark = source_mark();
 	const asking = scope();
@@ -316,12 +320,16 @@ async function ask_source(c: CtxLike, source: NonNullable<typeof _source>): Prom
 		// the source sees the identity a read hashes on: it primes above the router, where no
 		// `c.visitor` exists yet, so a vendor's per-user targeting would otherwise have no key
 		const queries = [..._registry.values()].map((d) => d.query);
-		const out = await asking.task(() => source(queries, { ...c, visitor: visitor_of(c) }));
-		if (out === STALE)
-			throw new DOMException(
-				`the flag source did not answer within ${SOURCE_DEADLINE_MS} ms`,
-				'TimeoutError'
-			);
+		const out = $await(
+			asking.task(() => source(queries, { ...c, visitor: visitor_of(c) })),
+			source_down(
+				c,
+				new DOMException(
+					`the flag source did not answer within ${SOURCE_DEADLINE_MS} ms`,
+					'TimeoutError'
+				)
+			)
+		);
 		const map: Record<string, Decision> = {};
 		for (const q of queries) {
 			const raw = out?.[q.name];
@@ -334,8 +342,7 @@ async function ask_source(c: CtxLike, source: NonNullable<typeof _source>): Prom
 		set_prime(c, { kind: 'resolved', map });
 		source_answered(mark);
 	} catch (error) {
-		set_prime(c, { kind: 'resolved', map: {} }); // source down → everything falls through to native
-		source_failed(error);
+		source_down(c, error);
 	} finally {
 		asking.close();
 	}

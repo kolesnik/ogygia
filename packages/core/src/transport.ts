@@ -15,6 +15,7 @@
  * export const transport = { ...ogygiaTransport };
  * ```
  */
+import { BROWSER } from 'esm-env';
 import { REGION_BRAND } from './region-brand.ts';
 import { frameAddress, mark_written, type FrameOrder } from './frame.ts';
 import { shown_version, ticket, write } from './runtime/frame-store.ts';
@@ -127,7 +128,7 @@ function decode_region(raw: EncodedRegion) {
 		// no capability url) has no frame address, so there is nothing to write; it renders where
 		// it's placed instead.
 		let order: FrameOrder | undefined;
-		if (raw.x != null && raw.u && typeof document !== 'undefined') {
+		if (BROWSER && raw.x != null && raw.u && typeof document !== 'undefined') {
 			const a = frameAddress(raw.u);
 			const v = ticket(a);
 			const d = raw.d;

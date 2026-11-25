@@ -4,10 +4,14 @@ import { afterEach, beforeAll, beforeEach, expect, inject, test, vi } from 'vite
 import { from_b64 } from './b64.ts';
 import type { Component } from 'svelte';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
-import { install as install_live } from '../../src/runtime/live.ts';
-import { install as install_lakes } from '../../src/runtime/lakes.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { reset_hydrate_features, set_hydrate_feature } from '../_stubs/boot.hydrate-features.ts';
+import { set_remote_seeds } from '../_stubs/boot.remote-seeds.ts';
+import * as seeds from '../../src/runtime/seeds.ts';
+import * as remote_seeds from '../../src/runtime/remote-seeds.ts';
+import * as live_transport from '../../src/live-transport.ts';
+import { hear, hear_none } from '../_hooks.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { ids_released } from '../../src/runtime/region-ids.ts';
 import { resolve_sink } from '../../src/ref-sink.ts';
@@ -29,7 +33,6 @@ const decode = (key: 'counter_render_b64' | 'counter_ssr_b64') => from_b64(injec
 let said: string[] = [];
 const codes = (code: string) => said.filter((s) => s.includes(code));
 let kit_page: boolean | undefined;
-let saved = { ...slots };
 
 /** A region holding `html`, in the page (or not), with `attrs`. */
 function region_with(
@@ -54,12 +57,9 @@ function sidecar_after(region: Element, text: string): HTMLScriptElement {
 }
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
-	install_live();
-	install_lakes();
 	kit_page = runtime_session.kit_page;
-	saved = { ...slots };
 });
 beforeEach(() => {
 	document.body.innerHTML = '';
@@ -72,7 +72,8 @@ beforeEach(() => {
 });
 afterEach(() => {
 	vi.restoreAllMocks();
-	Object.assign(slots, saved);
+	reset_hydrate_features();
+	set_remote_seeds(remote_seeds);
 	runtime_session.kit_page = kit_page;
 	delete (globalThis as { __og_probe_context?: unknown }).__og_probe_context;
 	document.head.querySelectorAll('[data-test-island-head]').forEach((n) => n.remove());
@@ -98,8 +99,8 @@ test('server nodes with no anchor pair that start and end with comments of their
 
 test('the page’s seeds are read before the island renders, on both hydrate paths', () => {
 	const order: string[] = [];
-	slots.page = { ...saved.page!, seed_page_once: () => void order.push('page') };
-	slots.remoteSeeds = { ...saved.remoteSeeds!, seed_once: () => void order.push('remote') };
+	set_hydrate_feature('page', { ...seeds, seed_page_once: () => void order.push('page') });
+	set_remote_seeds({ ...remote_seeds, seed_once: () => void order.push('remote') });
 	const island = claims(1, () => order.push('island'));
 	hydrate_island(region_with('<!--[--><p>a</p><!--]-->'), '/a', island, null, false);
 	expect(order).toEqual(['remote', 'page', 'island']);
@@ -109,17 +110,17 @@ test('the page’s seeds are read before the island renders, on both hydrate pat
 });
 
 test('an app with no page feature and no remote seeds hydrates all the same', () => {
-	slots.page = null as never;
-	slots.remoteSeeds = null;
+	set_hydrate_feature('page', null);
+	set_remote_seeds(null);
 	const region = region_with('<!--[--><p>a</p><!--]-->');
 	expect(hydrate_island(region, '/a', claims(1), null, false)).not.toBeNull();
 });
 
 test('a seed reference reads the seed of the document its props came from', () => {
-	slots.page = {
-		...saved.page!,
+	set_hydrate_feature('page', {
+		...seeds,
 		seed_data_of: (doc: Document) => ({ counter: doc === document ? 'live page' : 'next page' })
-	};
+	});
 	const next = document.implementation.createHTMLDocument('');
 	const sidecar = next.createElement('script');
 	sidecar.setAttribute('data-ogygia-props', '');
@@ -217,7 +218,9 @@ test('a kept island on a page without the router is said in dev; with it, not', 
 });
 
 test('a <Provide> above the island reaches its context, on both hydrate paths', () => {
-	slots.context = () => new Map([['probe', 'provided']]);
+	set_hydrate_feature('context', {
+		collect_provided_context: () => new Map([['probe', 'provided']])
+	});
 	hydrate_island(region_with(''), '/ctx', as_mod(ContextProbe), null, false);
 	expect((globalThis as { __og_probe_context?: unknown }).__og_probe_context).toBe('provided');
 	delete (globalThis as { __og_probe_context?: unknown }).__og_probe_context;
@@ -229,27 +232,28 @@ test('a <Provide> above the island reaches its context, on both hydrate paths', 
 const held = (id: string) => ids_released([id], [], document, {}).length === 0;
 
 test('the hub ids an island resolves from its props and its provided context are its region’s', () => {
-	slots.wire = {
-		...saved.wire!,
-		REF_WIRE_KEY: 'TestRef',
+	set_hydrate_feature('wire', {
+		...live_transport,
 		resolve: (d: never) => {
 			resolve_sink?.(String(d));
 			return d;
 		}
-	} as never;
-	slots.context = () => {
-		resolve_sink?.('from-context');
-		return undefined;
-	};
+	} as never);
+	set_hydrate_feature('context', {
+		collect_provided_context: () => {
+			resolve_sink?.('from-context');
+			return undefined;
+		}
+	});
 	const region = region_with('<!--[--><p>a</p><!--]-->');
-	sidecar_after(region, '[{"r":1},["TestRef",2],"from-props"]');
+	sidecar_after(region, '[{"r":1},["OgygiaRef",2],"from-props"]');
 	hydrate_island(region, '/ids', claims(1), null, false);
 	expect(held('from-props')).toBe(true);
 	expect(held('from-context')).toBe(true);
 	const live = region_with('');
 	hydrate_live(live, '/ids', claims(0), {});
 	const kept = region_with('');
-	const twin = sidecar_after(region_with(''), '[{"r":1},["TestRef",2],"from-twin"]');
+	const twin = sidecar_after(region_with(''), '[{"r":1},["OgygiaRef",2],"from-twin"]');
 	absorb_region_props(kept, twin);
 	twin.previousElementSibling!.remove();
 	expect(held('from-twin')).toBe(true);
@@ -272,28 +276,32 @@ test('while a live region hydrates it is the current region; after, none is', ()
 
 test('the plugins around Svelte’s hydrate run before it and after it, on both paths', () => {
 	const order: string[] = [];
-	slots.hooks = {
+	hear({
 		regionHydrate: () => {
 			order.push('before');
 			return () => void order.push('after');
 		}
-	};
-	const island = claims(1, () => order.push('hydrate'));
-	hydrate_island(region_with('<!--[--><p>a</p><!--]-->'), '/p', island, null, false);
-	expect(order).toEqual(['before', 'hydrate', 'after']);
-	order.length = 0;
-	hydrate_live(region_with('<!--[--><p>a</p><!--]-->'), '/p', island, {});
-	expect(order).toEqual(['before', 'hydrate', 'after']);
+	});
+	try {
+		const island = claims(1, () => order.push('hydrate'));
+		hydrate_island(region_with('<!--[--><p>a</p><!--]-->'), '/p', island, null, false);
+		expect(order).toEqual(['before', 'hydrate', 'after']);
+		order.length = 0;
+		hydrate_live(region_with('<!--[--><p>a</p><!--]-->'), '/p', island, {});
+		expect(order).toEqual(['before', 'hydrate', 'after']);
+	} finally {
+		hear_none();
+	}
 });
 
 test('a live region with no live feature in the build is not hydrated, and dev says so', () => {
-	slots.Pushable = null as never;
+	set_hydrate_feature('live', null);
 	expect(hydrate_live(region_with(''), '/l', claims(0), {})).toBeNull();
 	expect(codes('live_feature_missing')).toHaveLength(1);
 });
 
 test('a wired prop in a build with no wire feature fails naming the cause', () => {
-	slots.wire = null as never;
+	set_hydrate_feature('wire', null);
 	const region = region_with('');
 	sidecar_after(region, '[{"r":1},["OgygiaRef",2],"x"]');
 	expect(() => read_region_props(region)).toThrow(/no wire feature in this build/);
