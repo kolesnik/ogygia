@@ -27,10 +27,17 @@ type Extension = NonNullable<ReturnType<typeof markdown_extension>>;
 type Bridge = Omit<Extension, 'rehype'> & { rehype: Extension['rehype'][0]['plugin'] };
 
 /** The extension `image()` offers content, its one rehype entry unwrapped. */
-function bridge(width?: number, prose?: boolean): Bridge {
+function bridge(width?: number, prose?: boolean, animated?: string): Bridge {
 	const ext = markdown_extension({
-		...(width === undefined ? {} : { markdown: { width } }),
-		...(prose ? { presets: { prose: { width: 720 } } } : {})
+		...(width === undefined && animated === undefined
+			? {}
+			: {
+					markdown: { ...(width === undefined ? {} : { width }), ...(animated ? { animated } : {}) }
+				}),
+		presets: {
+			...(prose ? { prose: { width: 720 } } : {}),
+			...(animated ? { [animated]: { width: 240, sizes: '33vw' } } : {})
+		}
 	})!;
 	return { ...ext, rehype: ext.rehype[0].plugin };
 }
@@ -134,6 +141,33 @@ describe('markdown body images', () => {
 	test('a prose preset, when the config has one, is how a body image is shown', () => {
 		const { body } = compile(tree_of({ src: './harbor.jpg', alt: '' }), bridge(720, true));
 		expect(body).toContain('preset="prose"');
+		expect(body).not.toContain('width=');
+	});
+
+	test('with markdown.animated, a moving source takes that preset and a still one the prose preset', () => {
+		const { body } = compile(
+			tree_of({ src: './harbor.jpg', alt: '' }),
+			bridge(undefined, true, 'motion')
+		);
+		expect(body).toContain('preset={__og_md_image_0.animated ? "motion" : "prose"}');
+		expect(body).not.toContain('width=');
+	});
+
+	test('with markdown.animated and markdown.width, the width is a still image’s only, so the preset’s width reaches a moving one', () => {
+		const { body } = compile(
+			tree_of({ src: './harbor.jpg', alt: '' }),
+			bridge(720, false, 'motion')
+		);
+		expect(body).toContain('preset={__og_md_image_0.animated ? "motion" : undefined}');
+		expect(body).toContain('width={__og_md_image_0.animated ? undefined : 720}');
+	});
+
+	test('with markdown.animated alone, a still image is as wide as itself', () => {
+		const { body } = compile(
+			tree_of({ src: './harbor.jpg', alt: '' }),
+			bridge(undefined, false, 'motion')
+		);
+		expect(body).toContain('preset={__og_md_image_0.animated ? "motion" : undefined}');
 		expect(body).not.toContain('width=');
 	});
 

@@ -14,8 +14,10 @@ export default defineConfig({
 				cover: { layout: 'fullWidth', aspect: '16/9', priority: true },
 				thumb: { width: 200, aspect: '1/1' },
 				avatar: { layout: 'fixed', width: 48, height: 48 },
-				prose: { width: 720 }
-			}
+				prose: { width: 720 },
+				motion: { width: 40, sizes: '33vw' }
+			},
+			markdown: { animated: 'motion' }
 		}),
 		sveltekit()
 	]

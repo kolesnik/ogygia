@@ -1,0 +1,32 @@
+// The plugin's option checks: a typo or a wrong value fails the build with a code.
+import { expect, test } from 'vitest';
+import { check_plugin_options } from '../src/vite/options.ts';
+
+const presets = { prose: { width: 720 }, motion: { width: 240, sizes: '33vw' } };
+
+test('markdown.animated names a preset the config declares', () => {
+	expect(check_plugin_options({ presets, markdown: { animated: 'motion' } }).markdown).toEqual({
+		animated: 'motion'
+	});
+	expect(() =>
+		check_plugin_options({ presets, markdown: { width: 720, animated: 'motion' } })
+	).not.toThrow();
+});
+
+test('markdown.animated naming no declared preset fails the build, listing the declared ones', () => {
+	expect(() => check_plugin_options({ presets, markdown: { animated: 'motoin' } })).toThrow(
+		/image_option_invalid[\s\S]*'markdown\.animated' must be the name of a preset image\(\{ presets \}\) declares \(declared: prose, motion\)/
+	);
+	expect(() => check_plugin_options({ markdown: { animated: 'motion' } })).toThrow(
+		/declared: \(none\)/
+	);
+	expect(() => check_plugin_options({ presets, markdown: { animated: 1 } })).toThrow(
+		/'markdown\.animated' must be the name of a preset/
+	);
+});
+
+test('an unknown markdown key still fails, naming the known ones', () => {
+	expect(() => check_plugin_options({ markdown: { animate: 'motion' } })).toThrow(
+		/unknown image option 'animate'\. Known: width, animated/
+	);
+});

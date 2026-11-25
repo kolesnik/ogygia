@@ -298,6 +298,19 @@ test.describe('markdown images (/blog/[slug])', () => {
 		expect(f.bytes.includes(Buffer.from('ANIM'))).toBe(true);
 	});
 
+	test('a GIF in the body takes the markdown.animated preset, so the browser asks for its narrow files', async ({
+		page,
+		request
+	}) => {
+		await page.goto('/blog/first-post');
+		const gif = await attrs(page.getByAltText('A moving dot'));
+		expect(gif.sizes).toBe('33vw');
+		expect([gif.width, gif.height]).toEqual(['40', '27']);
+		expect(gif.srcset).toMatch(/^\S+ 40w, \S+ 80w$/);
+		for (const url of urls(gif.srcset))
+			expect((await fetch_file(request, url)).width).toBeLessThanOrEqual(80);
+	});
+
 	test("an image from another post's folder (../) resolves, title kept", async ({ page }) => {
 		await page.goto('/blog/second-post');
 		const img = page.getByAltText('The same harbor');
