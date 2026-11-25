@@ -59,7 +59,7 @@ const SOURCE_GLOBS: readonly string[] = [
 ];
 
 /** The render settings `<Img>` reads, from the plugin's options. */
-export function render_config(
+function render_config(
 	opts: ImagePluginOptions,
 	paths: AppPaths,
 	warmed: boolean
@@ -75,7 +75,7 @@ export function render_config(
 }
 
 /** Kit's paths, from the values its Vite plugin defines (JSON strings), or null without Kit. */
-export function kit_paths(define: Record<string, unknown> | undefined): AppPaths | null {
+function kit_paths(define: Record<string, unknown> | undefined): AppPaths | null {
 	const read = (key: string): string | null => {
 		const v = define?.[key];
 		return typeof v === 'string' ? (JSON.parse(v) as string) : null;
@@ -90,7 +90,7 @@ export function kit_paths(define: Record<string, unknown> | undefined): AppPaths
 }
 
 /** The descriptor module of one source: its original imported as an asset, its plan as data. */
-export function descriptor_module(
+function descriptor_module(
 	file: string,
 	plan: Omit<ImageDescriptor, 'src' | 'alt'>
 ): string {
