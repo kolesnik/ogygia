@@ -318,7 +318,7 @@ The enclosure's type follows the file's format (a preset with `formats: ['jpeg']
 
 Link the feed from a layout (`<link rel="alternate" type="application/rss+xml" href="/feed.xml">`) so Kit's crawler prerenders it. On a live server the same code names the signed URLs at the request's origin.
 
-The default encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter with `sharp()` says so once (`image_no_encoder`). Prerendered pages and warmed presets are made by the build as static files, so they work there. On Cloudflare Workers, use `cloudflare()` (below).
+The default encoder, sharp, is a native Node module. A runtime that cannot load it (an edge or Workers runtime) answers image requests with a coded 500 (`image_no_encoder`), and a build for such an adapter with `sharp()` says so once (`image_no_encoder`). Prerendered pages and warmed presets are made by the build as static files, so they work there. On Cloudflare Workers, use `cloudflare()`; on Vercel, `vercel()` (below).
 
 Without `OGYGIA_SECRET`, each server build signs with its own random key, so a server-rendered page's signed URLs change with each deploy. Set the secret to keep them. A prerendered page's files need no secret.
 
@@ -368,6 +368,44 @@ What each encoder can make:
 
 A page rendered on request that asks Cloudflare for something it cannot make fails to render with `image_encoder_cannot`, naming the encoder and the need: pick another position or op, prerender the page, or warm the preset (the build makes warmed files with sharp). Cloudflare and sharp blur, sharpen and scale differently, so their files differ a little. An animated image keeps its frames (Cloudflare delivers one past 50 megapixels over all its frames untransformed). The Worker's bundle holds no sharp.
 
+## Vercel: `vercel()`
+
+On adapter-vercel, `vercel()` names each file of a page rendered on request as a link to Vercel's [Image Optimization](https://vercel.com/docs/image-optimization), `/_vercel/image?url=%2F_app%2Fimmutable%2Fassets%2Fhero.Ab12.jpg&w=640&q=60`, made and kept by Vercel's CDN. An island names the same links in the browser. A prerendered page's files are still made by the build, with sharp, as static files.
+
+Vercel only resizes: it keeps the source's shape, makes only the widths its `images.sizes` lists and the qualities its `images.qualities` lists, and picks AVIF or WebP from the browser's `Accept` header. It cannot crop (an `aspect`, a `height` with a `width`), place a crop (`position`), apply an operation (`ops`), name PNG or JPEG, or resize a GIF, a TIFF or an animated image (it sends those as they are). So list `sharp()` after it, and the first encoder that can make a file makes it: Vercel's link for a plain resize, the app's own sharp endpoint for the rest.
+
+```ts
+// image.config.ts: one encoder, read by both configs
+import { sharp, vercel } from '@ogygia/image/vite';
+
+export const VERCEL = vercel({ sizes: [256, 640, 960, 1280, 1920] });
+export const encoder = [VERCEL, sharp()];
+```
+
+```js
+// svelte.config.js
+import adapter from '@sveltejs/adapter-vercel';
+import { VERCEL } from './image.config.ts';
+
+export default { kit: { adapter: adapter({ images: VERCEL.images }) } };
+```
+
+```ts
+// vite.config.ts
+import { encoder } from './image.config.ts';
+
+image({ presets, encoder });
+```
+
+| Option      | Default                                                               | What it does                                                                                                        |
+| ----------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `sizes`     | 16, 32, 48, 64, 96, 128, 256, 384, then 320 to 2048 (the breakpoints) | The widths Vercel may make. Every width a page asks for is snapped up to one of these, or to the image's own width. |
+| `qualities` | any                                                                   | The qualities Vercel may make, 1 to 100. A file at another quality is not Vercel's to make.                         |
+
+`VERCEL.images` is the adapter's `images` config: `{ sizes, qualities, formats: ['image/avif', 'image/webp'], domains: [] }`. The build checks it: once adapter-vercel has written `.vercel/output/config.json`, a width, quality or format the app names that its `images` lacks, or the host of a full-URL `paths.assets` missing from `domains` or `remotePatterns`, fails the build with `image_vercel_config` and the exact value to pass. So does `vercel()` on another adapter: `/_vercel/image` exists only on Vercel.
+
+With `vercel()` alone (no `sharp()` after it), the server holds no encoder at all, and the function's bundle no sharp (sharp is needed to build only). A page rendered on request that asks for a file Vercel cannot make fails to render with `image_encoder_cannot`, naming the need; so does the dev server, which makes every file with sharp but refuses what production could not. Each width keeps its two `<source>` rows (AVIF at quality 60, WebP at 80): the browser picks the row, Vercel the format. `vercel dev` does not run the optimizer, so these files load only once deployed. adapter-vercel's deprecated `runtime: 'edge'` cannot build an ogygia server today: its bundle cannot import Node's `crypto` and `fs`, which ogygia's server uses.
+
 ## Formats and options
 
 By default each image is offered as AVIF (quality 60) and WebP (quality 80), and the `<img>` fallback is WebP. Some files are special:
@@ -386,7 +424,7 @@ The plugin's options:
 | `placeholder` | `true`                                   | Make the blur placeholder.                                                                                                                                              |
 | `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.                                                                                     |
 | `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `{ animated }` names the preset a moving image takes; `false` turns them off. |
-| `encoder`     | `sharp()`                                | Who makes the files: `sharp()` or `cloudflare()` from `@ogygia/image/vite`, or a list of encoders, each at most once.                                                   |
+| `encoder`     | `sharp()`                                | Who makes the files: `sharp()`, `cloudflare()` or `vercel()` from `@ogygia/image/vite`, or a list (each at most once): the first that can make a file makes it.         |
 
 A source's own options, in the macro's second argument, belong to the file whatever page shows it:
 
