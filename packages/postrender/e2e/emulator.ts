@@ -146,7 +146,10 @@ export function start_edge_emulator(options: {
 		}
 
 		// ── the REAL purge API surfaces ──────────────────────────────────────────────────────
-		if (name === 'akamai' && url.pathname.startsWith('/ccu/v3/invalidate/')) {
+		if (
+			name === 'akamai' &&
+			(url.pathname.startsWith('/ccu/v3/delete/') || url.pathname.startsWith('/ccu/v3/invalidate/'))
+		) {
 			const auth_ok = EDGEGRID_AUTH_RE.test(req.headers.authorization ?? '');
 			const body = JSON.parse(String(await read_body(req)) || '{}') as { objects?: string[] };
 			if (fail_mode === 'purge-500') {
@@ -160,7 +163,7 @@ export function start_edge_emulator(options: {
 				res.end('{"detail":"bad EdgeGrid auth"}');
 				return;
 			}
-			const is_tag = url.pathname.includes('/invalidate/tag');
+			const is_tag = url.pathname.includes('/tag/');
 			for (const obj of body.objects ?? []) {
 				if (is_tag) {
 					purges.push({ kind: 'tag', value: obj, auth_ok });
@@ -174,7 +177,7 @@ export function start_edge_emulator(options: {
 				}
 			}
 			res.writeHead(201, { 'content-type': 'application/json' });
-			res.end('{"httpStatus":201,"detail":"queued"}');
+			res.end('{"httpStatus":201,"purgeId":"emu-purge","supportId":"emu-sup","detail":"queued"}');
 			return;
 		}
 		if (

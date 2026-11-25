@@ -168,8 +168,13 @@ export async function evict_tags(
 		}
 	}
 	const jobs: Job[] = [];
-	for (const key of keys)
-		for (const edge of edges) jobs.push(edge_job(edge, (e) => e.purgeUrl(key)));
+	for (const edge of edges) {
+		if (edge.purgeTags) {
+			jobs.push(edge_job(edge, (e) => e.purgeTags!(tags)));
+		} else {
+			for (const key of keys) jobs.push(edge_job(edge, (e) => e.purgeUrl(key)));
+		}
+	}
 	await settle_all('invalidate(tags)', jobs);
 	return { keys: [...keys], failed };
 }

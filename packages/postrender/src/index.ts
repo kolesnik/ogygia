@@ -41,6 +41,7 @@ export { CloudFrontEdge } from './adapters/cloudfront.ts';
 export { CloudflareEdge } from './adapters/cloudflare.ts';
 export type {
 	PostrenderEntry,
+	VariantTrieNode,
 	PostrenderStore,
 	PostrenderPutOptions,
 	PostrenderMeta,
@@ -50,6 +51,6 @@ export type {
 export type { ValkeyLike } from './adapters/valkey.ts';
 export type { UpstashConfig } from './adapters/upstash.ts';
 export type { KvNamespaceLike } from './adapters/cloudflare-kv.ts';
-export type { AkamaiConfig } from './adapters/akamai.ts';
+export type { AkamaiConfig, AkamaiPurgeAudit } from './adapters/akamai.ts';
 export type { CloudfrontConfig } from './adapters/cloudfront.ts';
 export type { CloudflareConfig } from './adapters/cloudflare.ts';

@@ -1,13 +1,28 @@
+import { fnv1a32 } from '@ogygia/core/plugin/utils';
+
 /** The store key for a request URL: the decoded pathname, verbatim (trailing slash preserved —
  *  `/fr/fr/` and `/fr/fr` are different documents to Kit and to the CDN). */
 export function store_key(pathname: string): string {
 	return pathname;
 }
 
-/** Whether `key` is in the subtree of a normalized prefix: the prefix itself or a page under it
- *  (`/fr/fr` holds `/fr/fr` and `/fr/fr/x`, never `/fr/fright`). */
+/** Store key for a variant-keyed page entry under `pathname`. */
+export function variant_store_key(
+	pathname: string,
+	variants: ReadonlyArray<readonly [string, string]>
+): string {
+	const suffix = variants.map(([k, v]) => `${k}=${v}`).join('&');
+	return `${pathname}\0v:${suffix}`;
+}
+
+/** Whether `key` is in the subtree of a normalized prefix: the prefix itself, a variant key of it,
+ *  or a page under it (`/fr/fr` holds `/fr/fr` and `/fr/fr/x`, never `/fr/fright`). */
 export function in_subtree(key: string, normalized: string): boolean {
-	return key === normalized || key.startsWith(subtree_prefix(normalized));
+	return (
+		key === normalized ||
+		key.startsWith(`${normalized}\0`) ||
+		key.startsWith(subtree_prefix(normalized))
+	);
 }
 
 /** How many leading path segments become edge prefix tags (`p:/fr`, `p:/fr/fr`, `p:/fr/fr/x`).
@@ -36,4 +51,30 @@ export function prefix_tags(pathname: string): string[] {
 		out.push(`/${segs.slice(0, i).join('/')}`);
 	}
 	return out;
+}
+
+const AKAMAI_TAG_DISALLOWED_G = /[^A-Za-z0-9!#$%'+./^_`|~-]/g;
+const AKAMAI_TAG_MAX_LEN = 128;
+export const AKAMAI_MAX_TAGS = 128;
+
+/** Sanitize a string into an Akamai-legal Edge-Cache-Tag token (no colons/spaces, <= 128 chars). */
+export function akamai_tag(raw: string): string {
+	return raw.replace(AKAMAI_TAG_DISALLOWED_G, '_').slice(0, AKAMAI_TAG_MAX_LEN);
+}
+
+/** Akamai prefix tag for a normalized prefix (`/fr/fr` -> `og_p/fr/fr`, `/` -> `og_p`). */
+export function akamai_prefix_tag(normalized: string): string {
+	return normalized === '/' ? 'og_p' : akamai_tag(`og_p${normalized}`);
+}
+
+/** Akamai URL tag for a pathname (`og_u_<fnv1a32>`), used to purge all variant ARLs atomically. */
+export function akamai_url_tag(pathname: string): string {
+	return `og_u_${fnv1a32(pathname)}`;
+}
+
+/** Map an internal or app cache tag (`s:...`, `b:...`, `p:...`, or plain tag) to an Akamai-legal tag. */
+export function akamai_external_tag(tag: string): string {
+	if (tag.startsWith('p:')) return akamai_prefix_tag(normalize_prefix(tag.slice(2)));
+	if (tag.startsWith('s:') || tag.startsWith('b:')) return `og_${tag[0]}_${fnv1a32(tag)}`;
+	return akamai_tag(tag);
 }
