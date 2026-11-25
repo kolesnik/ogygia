@@ -11,9 +11,5 @@ vi.mock('$app/environment', () => ({ building: false, dev: true }));
 vi.mock('../src/on-disk.ts', () => new Promise(() => {}));
 
 test('in dev, the realm module loads before its disk half does', async () => {
-	const loaded = await Promise.race([
-		import('../src/server.ts').then(() => 'loaded'),
-		new Promise((resolve) => setTimeout(resolve, 1000, 'waiting'))
-	]);
-	expect(loaded).toBe('loaded');
+	await expect(import('../src/server.ts')).resolves.toHaveProperty('default');
 });
