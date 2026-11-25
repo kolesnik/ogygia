@@ -33,10 +33,10 @@ export async function GET({ url }) {
 		);
 		const cover = new URL(layOut(post.data.cover, { width: 600 }).src, url).href;
 		const link = new URL(resolve('/blog/[slug]', { slug: ref.id }), url).href;
+		const title = `<title>${escape(post.data.title)}</title>`;
+		const enclosure = `<enclosure url="${cover}" type="image/webp" length="0"/>`;
 		items.push(
-			`<item><title>${escape(post.data.title)}</title><link>${link}</link>` +
-				`<enclosure url="${cover}" type="image/webp" length="0"/>` +
-				`<description>${escape(html)}</description></item>`
+			`<item>${title}<link>${link}</link>${enclosure}<description>${escape(html)}</description></item>`
 		);
 	}
 	const xml = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>A blog</title>${items.join('')}</channel></rss>`;

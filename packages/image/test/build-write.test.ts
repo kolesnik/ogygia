@@ -118,16 +118,13 @@ async function written(page: (marked: string) => string, origin?: string): Promi
 }
 
 test("a marked URL made absolute against the page's URL (an og:image, a feed's enclosure) names the file at Kit's prerender origin", async () => {
-	const html = await written(
-		(marked) =>
-			`<meta property="og:image" content="${new URL(marked, 'https://example.com/blog/a').href}">` +
-			`<enclosure url="${new URL(marked, 'http://example.com/').href}"/>`,
-		'https://example.com'
-	);
-	expect(html).toBe(
-		`<meta property="og:image" content="https://example.com/_app/immutable/og/${id}-64x43.webp">` +
-			`<enclosure url="https://example.com/_app/immutable/og/${id}-64x43.webp"/>`
-	);
+	const html = await written((marked) => {
+		const share = new URL(marked, 'https://example.com/blog/a').href;
+		const enclosure = new URL(marked, 'http://example.com/').href;
+		return `<meta property="og:image" content="${share}"><enclosure url="${enclosure}"/>`;
+	}, 'https://example.com');
+	const file = `https://example.com/_app/immutable/og/${id}-64x43.webp`;
+	expect(html).toBe(`<meta property="og:image" content="${file}"><enclosure url="${file}"/>`);
 });
 
 test("a marked URL made absolute while Kit's prerender origin is its default fails the build with a code that says to set it", async () => {

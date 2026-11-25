@@ -257,12 +257,10 @@ export async function GET({ url }) {
       (_, attr: string, value: string) => `${attr}="${absolute(value, url)}"`
     );
     const cover = new URL(layOut(post.data.cover, { width: 1200 }).src, url).href;
-    items.push(
-      `<item><title>${escape(post.data.title)}</title>` +
-        `<link>${new URL(`/blog/${ref.id}`, url).href}</link>` +
-        `<enclosure url="${cover}" type="image/webp" length="0"/>` +
-        `<description>${escape(html)}</description></item>`
-    );
+    const title = `<title>${escape(post.data.title)}</title>`;
+    const link = `<link>${new URL(`/blog/${ref.id}`, url).href}</link>`;
+    const enclosure = `<enclosure url="${cover}" type="image/webp" length="0"/>`;
+    items.push(`<item>${title}${link}${enclosure}<description>${escape(html)}</description></item>`);
   }
   return new Response(
     `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>A blog</title>${items.join('')}</channel></rss>`,
