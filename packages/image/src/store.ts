@@ -26,16 +26,26 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { BroadcastChannel } from 'node:worker_threads';
 import { cache, clock, random, type Cache } from '@ogygia/machine';
 import type { Kept } from './maker.ts';
 import { warn } from './messages.ts';
 import { ENCODER_VERSION } from './source-id.ts';
 
+/** The name of the channel a build's prerender tells it each recipe on, as it notes it: the build
+ *  starts the file at once. */
+export function built_channel(minted: string): string {
+	return `ogygia-image-build:${minted}`;
+}
+
 /** Note a recipe's path in the build's `minted` file, its folder made again if the build's end
- *  removed it (a `vite build --watch` rebuild prerenders again). */
+ *  removed it (a `vite build --watch` rebuild prerenders again), and tell the build. */
 export function note_built(minted: string, recipe_path: string): void {
 	fs.mkdirSync(path.dirname(minted), { recursive: true });
 	fs.appendFileSync(minted, `${recipe_path}\n`);
+	const channel = new BroadcastChannel(built_channel(minted));
+	channel.postMessage(recipe_path);
+	channel.close();
 }
 
 const ORIGIN_FILE = 'origin.txt';

@@ -13,7 +13,6 @@ declare module 'virtual:ogygia-image/maker' {
 	export const parallel: import('./maker.ts').Maker['parallel'];
 	export const make: import('./maker.ts').Maker['make'];
 	export const store: import('./maker.ts').Maker['store'];
-	export const in_build: import('./maker.ts').Maker['in_build'];
 }
 
 declare module 'virtual:ogygia-image/namer' {

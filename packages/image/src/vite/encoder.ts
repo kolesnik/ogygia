@@ -250,7 +250,6 @@ export function maker_module(encoders: readonly Encoder[], dev: boolean): string
 		export const parallel = maker.parallel;
 		export const make = maker.make;
 		export const store = maker.store;
-		export const in_build = maker.in_build;
 	`;
 }
 

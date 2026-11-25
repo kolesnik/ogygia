@@ -7,8 +7,9 @@
  *   a CDN keeps it forever);
  * - in Kit's prerender, every file is one the build makes: a static file under the app folder, named
  *   by its recipe alone, the same in every build with no key. Each recipe is noted on disk (the
- *   prerender runs in a worker) and its file started at once; the build's end writes every one and
- *   points the pages at them (./vite/build-files.ts). Until then the URL carries the build's mark, a
+ *   prerender runs in a worker) and the build is told, which starts its file at once; the build's
+ *   end writes every one and points the pages at them (./vite/build-files.ts). The prerender makes
+ *   no file itself. Until then the URL carries the build's mark, a
  *   host Kit's crawler does not follow: it would ask for a file not there yet under the app folder,
  *   which Kit answers 404 before any hook runs;
  * - in a page the build renders after its end wrote the files (an adapter's SPA fallback), the file
@@ -35,7 +36,6 @@ import {
 	built_url,
 	encode_tail,
 	IMAGE_PREFIX,
-	parse_recipe,
 	recipe_file,
 	recipe_path,
 	set_minter,
@@ -126,12 +126,6 @@ function prerendered(disk: OnDisk, run: BuildHandoff, noted: Set<string>, recipe
 	if (!noted.has(path)) {
 		noted.add(path);
 		disk.note_built(run.minted, path);
-		const parsed = parse_recipe(path);
-		if (parsed !== null && ORIGINALS.has(parsed.tail))
-			// oxlint-disable-next-line ogygia/no-silent-failures -- a head start only: the build's end makes the file again and fails out loud
-			void import('./settle.ts')
-				.then((m) => m.prepare(parsed, recipe_file(parsed), original_of(parsed)))
-				.catch(() => {});
 	}
 	const url = built_url(config.paths, recipe);
 	return root_relative(url) ? run.mark + url : url;

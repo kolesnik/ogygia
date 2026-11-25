@@ -25,8 +25,10 @@ vi.mock('virtual:ogygia-image/config', () => ({
 	default: { paths: { base: '/shop', assets: '', app_dir: '_app' } }
 }));
 vi.mock('$app/environment', () => ({ building: true, dev: false }));
+const reads = vi.hoisted(() => ({ count: 0 }));
 vi.mock('$app/server', () => ({
 	read: () => {
+		reads.count++;
 		throw new Error('not read in this test');
 	}
 }));
@@ -70,5 +72,11 @@ describe('a prerendered page', () => {
 		expect(
 			lines.filter((l) => l === 'h1-640x427/_app/immutable/assets/harbor%20dusk.Ab12.jpg.webp')
 		).toHaveLength(1);
+	});
+
+	test('reads no original and makes no file: the build makes every file the prerender names', async () => {
+		mint({ ...HARBOR, width: 960, height: 640, format: 'avif' as const }, false);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(reads.count).toBe(0);
 	});
 });

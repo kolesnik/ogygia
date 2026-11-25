@@ -117,6 +117,10 @@ function kit_paths(define: Record<string, unknown> | undefined): AppPaths | null
 	};
 }
 
+function output_of(c: ResolvedConfig): string {
+	return path.dirname(path.resolve(c.root, c.build.outDir));
+}
+
 function originals_of(paths: AppPaths | null): string {
 	return `${paths?.base ?? ''}/${paths?.app_dir ?? '_app'}/immutable/assets/`;
 }
@@ -172,7 +176,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			handoff = await handoff_for(build(), c.root);
 		},
 		async buildStart() {
-			if (config && build()) handoff = await handoff_for(true, config.root);
+			if (config && build()) handoff = await handoff_for(true, config.root, output_of(config));
 		},
 		resolveId(id) {
 			if (VIRTUAL_IDS.has(id)) return `\0${id}`;
@@ -227,7 +231,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 					handoff,
 					render_config(opts, paths, true, widths),
 					warmed.values(),
-					path.dirname(path.resolve(config.root, config.build.outDir))
+					output_of(config)
 				);
 			}
 		}

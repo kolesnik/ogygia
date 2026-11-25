@@ -8,9 +8,12 @@
  * - WARMED: `import.meta.og.image(src, { warm: 'cover' })` asks for the `cover` preset's files, for a
  *   page rendered on a live server. Every source the server build read with `warm` is listed.
  * - PRERENDERED: every file a prerendered page names. The server realm notes each recipe on disk
- *   (Kit's prerender runs in a worker) and starts it at once, and names it with the build's mark in
- *   front (Kit's crawler does not follow it: it would 404 a file under the app folder that is not
- *   there yet).
+ *   (Kit's prerender runs in a worker) and tells the build, which starts it at once, and names it
+ *   with the build's mark in front (Kit's crawler does not follow it: it would 404 a file under the
+ *   app folder that is not there yet).
+ *
+ * One build makes each file once: every make, the prerender's head start and the build's end alike,
+ * runs in the build's own thread as one flight per file, a few at once.
  *
  * Each file is written to the client output, under `<appDir>/immutable/og/`, which every adapter
  * serves as a file kept forever; then the mark is removed from every prerendered file, so its URLs
@@ -25,16 +28,34 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { BuildCache } from '@ogygia/compiler';
-import { clock, random } from '@ogygia/machine';
+import { BroadcastChannel } from 'node:worker_threads';
+import {
+	clock,
+	flights,
+	queue,
+	random,
+	scope,
+	STALE,
+	type Place,
+	type Queue,
+	type Scope
+} from '@ogygia/machine';
 import type { RenderConfig } from '../config.ts';
 import type { ImageDescriptor } from '../descriptor.ts';
 import { lay_out, preset_request } from '../layout.ts';
 import { OgygiaError } from '../messages.ts';
 import { pixels } from './encoder.ts';
-import { built_file, built_url, parse_recipe, recipe_file, type Recipe } from '../recipe.ts';
+import {
+	built_file,
+	built_url,
+	parse_recipe,
+	recipe_file,
+	type ParsedRecipe,
+	type Recipe
+} from '../recipe.ts';
 import { build_handoff, BUILD_ENV, type BuildHandoff } from '../handoff.ts';
 import { source_id } from '../source-id.ts';
-import { FileStore, open_build_store, origin_of } from '../store.ts';
+import { built_channel, FileStore, open_build_store, origin_of } from '../store.ts';
 
 const PARALLEL = Math.max(1, Math.min(8, os.availableParallelism()));
 
@@ -64,17 +85,20 @@ function remove_old_runs(runs: string): void {
  * mark (a random host: no page names it by chance). A build
  * keeps the one it started until its end removes the notes' folder (Kit and its plugins resolve the
  * config more than once in one build); a dev server or a preview takes any there is, or starts one
- * with no notes.
+ * with no notes. Given Kit's build `output` (by the build's start, never by a config that Kit's
+ * workers resolve for themselves), this thread starts each file the prerender notes as the note
+ * comes, from the original in that output: one thread makes the build's files.
  */
 export async function handoff_for(
 	build: boolean,
-	root: string = process.cwd()
+	root: string = process.cwd(),
+	output: string | null = null
 ): Promise<BuildHandoff> {
 	const open = build_handoff();
 	if (open && (!build || (open.minted && fs.existsSync(path.dirname(open.minted))))) {
-		if (open.root === root) return open;
-		const rooted = { ...open, root };
-		process.env[BUILD_ENV] = JSON.stringify(rooted);
+		const rooted = open.root === root ? open : { ...open, root };
+		if (rooted !== open) process.env[BUILD_ENV] = JSON.stringify(rooted);
+		if (build && output !== null) BuildMakes.of(rooted, output);
 		return rooted;
 	}
 	const cache = new BuildCache('image').dir() ?? fs.mkdtempSync(path.join(os.tmpdir(), 'og-img-'));
@@ -96,6 +120,7 @@ export async function handoff_for(
 		root
 	};
 	process.env[BUILD_ENV] = JSON.stringify(handoff);
+	if (build && output !== null) BuildMakes.of(handoff, output);
 	return handoff;
 }
 
@@ -107,21 +132,107 @@ export interface WarmSource {
 	presets: string[];
 }
 
-async function each<T>(items: readonly T[], work: (item: T) => Promise<void>): Promise<unknown[]> {
-	const failures: unknown[] = [];
-	let next = 0;
-	const lane = async (): Promise<void> => {
-		while (next < items.length) {
-			const item = items[next++]!;
-			try {
-				await work(item);
-			} catch (e) {
-				failures.push(e);
-			}
+interface Turn {
+	run: () => Promise<void>;
+	gone: () => void;
+}
+
+function line_of(name: string, owner: Scope): Queue<Turn> {
+	return queue<Turn>({
+		name,
+		max: PARALLEL,
+		owner,
+		start: (turn: Turn, place: Place) => {
+			// oxlint-disable-next-line ogygia/no-silent-failures -- run() settles its caller's promise with the failure and never rejects itself
+			void turn.run().finally(() => place.release());
+		},
+		stale: (turn: Turn) => turn.gone()
+	});
+}
+
+function in_turn<T>(line: Queue<Turn>, work: () => Promise<T>): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		line.push({
+			run: () => work().then(resolve, reject),
+			gone: () => reject(new Error('the build ended before its turn came'))
+		});
+	});
+}
+
+function noted_original(output: string, recipe: ParsedRecipe): Uint8Array {
+	for (const side of ['client', 'server']) {
+		const file = path.join(output, side, ...recipe.tail.split('/'));
+		if (fs.existsSync(file)) return fs.readFileSync(file);
+	}
+	throw new Error(`its original ${recipe.tail} is not in the build output`);
+}
+
+interface Ask {
+	key: string;
+	recipe: Omit<Recipe, 'src'>;
+	original: () => Uint8Array;
+}
+
+class BuildMakes {
+	static #open = new Map<string, BuildMakes>();
+
+	readonly #minted: string;
+	readonly #store: FileStore;
+	readonly #scope: Scope = scope();
+	readonly #encodes: Queue<Turn> = line_of('image build encodes', this.#scope);
+	readonly #writes: Queue<Turn> = line_of('image build writes', this.#scope);
+	readonly #makes = flights.keyed<Ask>()<'key', 'recipe' | 'original', Promise<Uint8Array>>({
+		name: 'image build files',
+		key: ['key'],
+		ignore: {
+			recipe: 'the key is the recipe',
+			original: 'the key names the source by content, and a make checks the original against it'
+		},
+		keep: 0,
+		run: ({ key, recipe, original }: Ask): Promise<Uint8Array> =>
+			in_turn(this.#encodes, () => made(this.#store, key, recipe, original))
+	});
+
+	private constructor(handoff: BuildHandoff, output: string) {
+		this.#minted = handoff.minted;
+		this.#store = FileStore.shared(handoff.store);
+		const channel = new BroadcastChannel(built_channel(handoff.minted));
+		channel.unref();
+		channel.onmessage = (event: unknown) => {
+			const recipe = parse_recipe(String((event as MessageEvent).data));
+			if (recipe === null) return;
+			// oxlint-disable-next-line ogygia/no-silent-failures -- a head start only: the build's end asks for the file again and fails out loud
+			void this.make(recipe, () => noted_original(output, recipe)).catch(() => {});
+		};
+		this.#scope.defer(() => channel.close());
+	}
+
+	static of(handoff: BuildHandoff, output: string): BuildMakes {
+		let makes = BuildMakes.#open.get(handoff.minted);
+		if (!makes) {
+			makes = new BuildMakes(handoff, output);
+			BuildMakes.#open.set(handoff.minted, makes);
 		}
-	};
-	await Promise.all(Array.from({ length: Math.min(PARALLEL, items.length) }, lane));
-	return failures;
+		return makes;
+	}
+
+	async make(recipe: Omit<Recipe, 'src'>, original: () => Uint8Array): Promise<Uint8Array> {
+		const data = await this.#makes.get({ key: recipe_file(recipe), recipe, original });
+		if (data === STALE) throw new Error('the build ended before the file was made');
+		return data;
+	}
+
+	write(dest: string, data: Uint8Array): Promise<void> {
+		return in_turn(this.#writes, async () => {
+			await fs.promises.mkdir(path.dirname(dest), { recursive: true });
+			await fs.promises.writeFile(dest, data);
+		});
+	}
+
+	close(): void {
+		BuildMakes.#open.delete(this.#minted);
+		this.#scope.close();
+	}
 }
 
 async function made(
@@ -182,13 +293,7 @@ function jobs_of(
 		jobs.set(built_file(recipe), {
 			recipe,
 			source: recipe.tail,
-			original: () => {
-				for (const side of ['client', 'server']) {
-					const file = path.join(output, side, ...recipe.tail.split('/'));
-					if (fs.existsSync(file)) return fs.readFileSync(file);
-				}
-				throw new Error(`its original ${recipe.tail} is not in the build output`);
-			}
+			original: () => noted_original(output, recipe)
 		});
 	}
 	return jobs;
@@ -258,26 +363,32 @@ export async function write_built(
 	warmed: Iterable<WarmSource>,
 	output: string
 ): Promise<void> {
-	const jobs = jobs_of(handoff, cfg, warmed, output);
-	const store = FileStore.shared(handoff.store);
+	const makes = BuildMakes.of(handoff, output);
 	const client = path.join(output, 'client', cfg.paths.app_dir);
-	const failures = await each([...jobs], async ([name, { recipe, source, original }]) => {
-		try {
-			const data = await made(store, recipe_file(recipe), recipe, original);
-			const dest = path.join(client, ...name.split('/'));
-			await fs.promises.mkdir(path.dirname(dest), { recursive: true });
-			await fs.promises.writeFile(dest, data);
-		} catch (e) {
-			throw new OgygiaError('image_unsettled', {
-				url: built_url(cfg.paths, recipe),
-				source,
-				reason: (e as Error).message
-			});
-		}
-	});
+	let settled: PromiseSettledResult<void>[];
+	try {
+		const jobs = jobs_of(handoff, cfg, warmed, output);
+		settled = await Promise.allSettled(
+			[...jobs].map(async ([name, { recipe, source, original }]) => {
+				try {
+					const data = await makes.make(recipe, original);
+					await makes.write(path.join(client, ...name.split('/')), data);
+				} catch (e) {
+					throw new OgygiaError('image_unsettled', {
+						url: built_url(cfg.paths, recipe),
+						source,
+						reason: (e as Error).message
+					});
+				}
+			})
+		);
+	} finally {
+		makes.close();
+	}
 	const origin = origin_of(handoff.minted);
 	fs.rmSync(path.dirname(handoff.minted), { recursive: true, force: true });
-	if (failures.length) throw failures[0];
+	const failed = settled.find((s) => s.status === 'rejected');
+	if (failed) throw failed.reason;
 	if (handoff.mark) unmark(path.join(output, 'prerendered'), handoff.mark, origin);
 	const done: BuildHandoff = { ...handoff, minted: '', mark: '', written: client };
 	process.env[BUILD_ENV] = JSON.stringify(done);
