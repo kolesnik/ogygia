@@ -2,22 +2,28 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test, vi } from 'vitest';
-import { handoff_for, save_warm, settle_minted } from '../src/vite/build-files.ts';
-import { note_minted_url } from '../src/store.ts';
+import type { RenderConfig } from '../src/config.ts';
+import { handoff_for, write_built } from '../src/vite/build-files.ts';
+import { note_built } from '../src/store.ts';
 
 vi.hoisted(() => {
 	delete process.env.__OGYGIA_IMAGE_BUILD;
 });
 
-const PATHS = { base: '', assets: '', app_dir: '_app' };
+const CFG: RenderConfig = {
+	formats: ['webp'],
+	breakpoints: [],
+	presets: {},
+	paths: { base: '', assets: '', app_dir: '_app' },
+	warmed: true
+};
 
-test('a watch rebuild after the build ended notes its prerender and its warm list again', async () => {
+test('a watch rebuild after the build ended notes its prerender again', async () => {
 	const handoff = handoff_for(true);
 	const output = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-out-'));
-	await settle_minted(handoff, PATHS, output);
-	expect(() => save_warm(handoff, [])).not.toThrow();
-	expect(() => note_minted_url(handoff.minted, '/__ogygia__/i/x/a-1x1/a.jpg.webp')).not.toThrow();
-	expect(fs.readFileSync(handoff.minted, 'utf8')).toBe('/__ogygia__/i/x/a-1x1/a.jpg.webp\n');
+	await write_built(handoff, CFG, [], output);
+	expect(() => note_built(handoff.minted, 'a-1x1/a.jpg.webp')).not.toThrow();
+	expect(fs.readFileSync(handoff.minted, 'utf8')).toBe('a-1x1/a.jpg.webp\n');
 });
 
 test('a run a failed build left behind is removed by a later build, once a day old', () => {

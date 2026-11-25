@@ -1,6 +1,7 @@
 /**
- * The FILE STORE: every file made from a recipe, kept on disk by its key (the recipe's unsigned path,
- * which names its source by content), so the next ask is a file read. One store per place it runs:
+ * The FILE STORE: every file made from a recipe, kept on disk by its key (the recipe's file name,
+ * ./recipe.ts `recipe_file`, which names its source by content), so the next ask is a file read. One
+ * store per place it runs:
  *
  * - the build and the dev server (the plugin hands its process the build cache's folder,
  *   `node_modules/.ogygia/image/files/v<encoder>-<libvips>/`): a warm build or a CI run with the
@@ -28,16 +29,21 @@ import { warn } from './messages.ts';
 export const ENCODER_VERSION = 3;
 
 /** What the plugin hands the processes of one `vite build` or dev server (and Kit's prerender
- *  worker, which inherits the environment): the store's folder, and the file the build's mints are
- *  noted in. Internal: the plugin writes it, nothing else should. */
+ *  worker, which inherits the environment): the store's folder, the file the prerender notes its
+ *  recipes in, and the build's mark. Internal: the plugin writes it, nothing else should. */
 export const BUILD_ENV = '__OGYGIA_IMAGE_BUILD';
 
 /** The build's handoff, when this process runs under the plugin. */
 export interface BuildHandoff {
 	/** The store's folder. */
 	store: string;
-	/** The file every URL minted while prerendering is noted in, one per line. */
+	/** The file every recipe a prerendered page names is noted in, one per line (its path below
+	 *  the endpoint's prefix, unsigned: the build's end makes each). */
 	minted: string;
+	/** What a prerendered page's file URL starts with until the build's end makes the file: a host no
+	 *  crawler follows (`//<random>.ogygia.invalid`), removed from every prerendered page then. Empty
+	 *  outside a build. */
+	mark: string;
 	/** The app's root (Vite's `root`). */
 	root: string;
 }
@@ -48,7 +54,12 @@ export function build_handoff(): BuildHandoff | null {
 	if (!raw) return null;
 	const v = JSON.parse(raw) as Partial<BuildHandoff>;
 	if (typeof v.store !== 'string' || typeof v.minted !== 'string') return null;
-	return { store: v.store, minted: v.minted, root: typeof v.root === 'string' ? v.root : '' };
+	return {
+		store: v.store,
+		minted: v.minted,
+		mark: typeof v.mark === 'string' ? v.mark : '',
+		root: typeof v.root === 'string' ? v.root : ''
+	};
 }
 
 /** Images under `src/` that are never published: the server's own folder and test files. The
@@ -64,11 +75,11 @@ export function published(rel: string): boolean {
 	return rel.startsWith('src/') && RASTER_RE.test(rel) && !UNPUBLISHED_RE.test(rel);
 }
 
-/** Note `url` in the build's `minted` file, its folder made again if the build's end removed it
- *  (a `vite build --watch` rebuild prerenders again). */
-export function note_minted_url(minted: string, url: string): void {
+/** Note a recipe's path in the build's `minted` file, its folder made again if the build's end
+ *  removed it (a `vite build --watch` rebuild prerenders again). */
+export function note_built(minted: string, recipe_path: string): void {
 	fs.mkdirSync(path.dirname(minted), { recursive: true });
-	fs.appendFileSync(minted, `${url}\n`);
+	fs.appendFileSync(minted, `${recipe_path}\n`);
 }
 
 function version_dir(vips: string): string {

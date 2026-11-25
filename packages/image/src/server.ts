@@ -1,14 +1,17 @@
 /**
- * The image plugin's server realm. `setup` hands `<Img>` a minter: each recipe's URL, signed with
- * the app's key in this plugin's own domain (`app.sign`: no expiry, so a recipe has one URL on every
- * render, in every process, and a CDN or a static host keeps it forever). `request` is the endpoint
- * that makes the files: in dev, in Kit's prerender (whose crawler asks for every `src` / `srcset` a
- * page names, and saves each answer as a file) and on a live server alike.
+ * The image server realm. `setup` hands `<Img>` the URL of each file:
  *
- * While prerendering, each URL minted is also noted on disk and its file started at once (the
- * crawler asks one at a time; the encodes run side by side): the build writes every noted file the
- * crawler did not ask for (a `layOut()` CSS background, `prerender.crawl` off) once the prerender
- * ends (./vite/build-files.ts).
+ * - on a live server and in dev, a recipe's URL signed with the app's key in this plugin's own domain
+ *   (`app.sign`: no expiry, so a recipe has one URL on every render, in every process, and a CDN
+ *   keeps it forever), or the build's static file for a warmed preset;
+ * - in Kit's prerender, every file is one the build makes: a static file under the app folder, named
+ *   by its recipe alone, the same in every build with no key. Each recipe is noted on disk (the
+ *   prerender runs in a worker) and its file started at once; the build's end writes every one and
+ *   points the pages at them (./vite/build-files.ts). Until then the URL carries the build's mark, a
+ *   host Kit's crawler does not follow: it would ask for a file not there yet under the app folder,
+ *   which Kit answers 404 before any hook runs.
+ *
+ * `request` is the endpoint that makes the signed files, in dev and on a live server.
  *
  * @packageDocumentation
  */
@@ -21,15 +24,18 @@ import config from 'virtual:ogygia-image/config';
 import sources from 'virtual:ogygia-image/sources';
 import { warn } from './messages.ts';
 import {
+	built_url,
 	encode_tail,
 	IMAGE_PREFIX,
 	parse_recipe,
+	recipe_file,
 	recipe_path,
 	set_minter,
 	source_tail,
-	type ParsedRecipe
+	type ParsedRecipe,
+	type Recipe
 } from './recipe.ts';
-import { build_handoff, note_minted_url, published } from './store.ts';
+import { build_handoff, note_built, published, type BuildHandoff } from './store.ts';
 
 const { base: BASE, assets: ASSETS } = config.paths;
 const PREFIXES: readonly string[] = [ASSETS, BASE];
@@ -83,30 +89,43 @@ function original_of(recipe: ParsedRecipe): string {
 const noted = new Set<string>();
 const SIGNED_MAX = 10_000;
 
-function note_minted(url: string, path: string, minted: string): void {
-	if (noted.has(url)) return;
-	noted.add(url);
-	note_minted_url(minted, url);
-	const recipe = parse_recipe(path);
-	if (recipe === null || !ORIGINALS.has(recipe.tail)) return;
-	// oxlint-disable-next-line ogygia/no-silent-failures -- a head start only: the crawler's ask, or the build's end, makes the file again and fails out loud
-	void import('./settle.ts')
-		.then((m) => m.prepare(recipe, path, original_of(recipe)))
-		.catch(() => {});
+function root_relative(url: string): boolean {
+	return url[0] === '/' && url[1] !== '/';
+}
+
+/** A prerendered page's URL of `recipe`: the build's file, noted (once) and started. */
+function prerendered(run: BuildHandoff, recipe: Recipe): string {
+	const path = recipe_path(recipe, source_tail(recipe.src, PREFIXES));
+	if (!noted.has(path)) {
+		noted.add(path);
+		note_built(run.minted, path);
+		const parsed = parse_recipe(path);
+		if (parsed !== null && ORIGINALS.has(parsed.tail))
+			// oxlint-disable-next-line ogygia/no-silent-failures -- a head start only: the build's end makes the file again and fails out loud
+			void import('./settle.ts')
+				.then((m) => m.prepare(parsed, recipe_file(parsed), original_of(parsed)))
+				.catch(() => {});
+	}
+	const url = built_url(config.paths, recipe);
+	return root_relative(url) ? run.mark + url : url;
 }
 
 const server: ServerPlugin<unknown> = defineServer<unknown>({
 	setup(app) {
-		const minted = (building && build_handoff()?.minted) || null;
+		const run = building ? build_handoff() : null;
+		if (run?.minted) {
+			set_minter((recipe) => prerendered(run, recipe));
+			return;
+		}
 		const signed = cache<string, string>({ name: 'image URLs', max: SIGNED_MAX });
-		set_minter((recipe) => {
+		set_minter((recipe, built) => {
+			if (built) return built_url(config.paths, recipe);
 			const path = recipe_path(recipe, source_tail(recipe.src, PREFIXES));
 			let url = signed.get(path);
 			if (url === undefined) {
 				url = `${BASE}${IMAGE_PREFIX}${app.sign(message(path))}/${path}`;
 				signed.set(path, url);
 			}
-			if (minted !== null) note_minted(url, path, minted);
 			return url;
 		});
 	},
@@ -122,8 +141,7 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		if (slash < 1 || !app.verify(message(path), sig)) return app.deny('sig');
 		const recipe = parse_recipe(path);
 		if (recipe === null || !ORIGINALS.has(recipe.tail)) return not_found();
-		// @why Kit throws on reading url.search while prerendering, and its crawler never adds a query (test: packages/image/e2e/image.spec.ts › every file URL every page names answers 200 with its type, static mode)
-		if (!building && event.url.search !== '')
+		if (event.url.search !== '')
 			return new Response(null, {
 				status: 308,
 				headers: { location: pathname, 'cache-control': 'public, max-age=31536000, immutable' }
@@ -134,7 +152,7 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		} catch (e) {
 			return no_encoder(e);
 		}
-		return settle(recipe, path, original_of(recipe));
+		return settle(recipe, recipe_file(recipe), original_of(recipe));
 	}
 });
 export default server;

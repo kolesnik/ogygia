@@ -56,6 +56,8 @@ describe('a prerendered page', () => {
 		mint(recipe, false);
 		mint(recipe, false);
 		const lines = fs.readFileSync(run.minted, 'utf8').split('\n');
-		expect(lines.filter((l) => l === 'h1-640x427/_app/immutable/assets/harbor%20dusk.Ab12.jpg.webp')).toHaveLength(1);
+		expect(
+			lines.filter((l) => l === 'h1-640x427/_app/immutable/assets/harbor%20dusk.Ab12.jpg.webp')
+		).toHaveLength(1);
 	});
 });

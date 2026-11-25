@@ -1,9 +1,10 @@
 /**
- * What `<Img>` asks of the plugin at render: a preset by name, and a file's URL. A preset the source
- * was warmed with names the static files the build made, on the server and in the browser alike. Any
- * other file is a signed URL on the server (the image server realm's minter); in the browser nothing
- * can sign, so a render that only happens there shows the original file. An island keeps the
- * server's URLs (`<Img>` reads them back from the page).
+ * What `<Img>` asks of the plugin at render: a preset by name, and a file's URL. The server realm
+ * names every file: in a prerender, each is a file the build makes; on a live server or in dev, a
+ * preset the source was warmed with names the static files the build made, and any other file is a
+ * signed URL. In the browser nothing can sign: a warmed preset names the build's files, and any other
+ * render that only happens there shows the original file. An island keeps the server's URLs
+ * (`<Img>` reads them back from the page).
  *
  * @packageDocumentation
  */
@@ -11,7 +12,7 @@ import config from 'virtual:ogygia-image/config';
 import type { ImagePreset } from './config.ts';
 import type { ImageDescriptor } from './descriptor.ts';
 import { lay_out, preset_request, same_files, type Laid, type LayoutRequest } from './layout.ts';
-import { mint, warm_url, type Recipe } from './recipe.ts';
+import { built_url, mint, type Recipe } from './recipe.ts';
 import { RenderError } from './render-messages.ts';
 
 const NONE: ImagePreset = {};
@@ -27,10 +28,11 @@ export function preset_of(name: string | undefined): ImagePreset {
 	});
 }
 
-/** The URL of one file of `of`. */
-export function file_url(of: ImageDescriptor, recipe: Recipe): string {
-	const url = mint(recipe);
+/** The URL of one file of `of`; `built` when the build made it (a warmed preset's). */
+export function file_url(of: ImageDescriptor, recipe: Recipe, built: boolean): string {
+	const url = mint(recipe, built);
 	if (url !== null) return url;
+	if (built) return built_url(config.paths, recipe);
 	if (typeof window === 'undefined') throw new RenderError('image_no_server');
 	return of.src;
 }
@@ -54,7 +56,5 @@ export function layOut(of: ImageDescriptor, request: LayOutRequest = {}): Laid {
 		preset !== undefined &&
 		of.warm?.includes(preset) === true &&
 		same_files(req, preset_request(p));
-	return lay_out(of, req, config, (recipe) =>
-		warmed ? warm_url(config.paths, recipe) : file_url(of, recipe)
-	);
+	return lay_out(of, req, config, (recipe) => file_url(of, recipe, warmed));
 }

@@ -58,26 +58,38 @@ beforeAll(async () => {
 
 describe('the image server realm', () => {
 	test('a minted URL is a path under /__ogygia__/i/, signed by the app, the same on every render', () => {
-		const a = mint({ ...HARBOR, width: 320, height: 213, format: 'avif' })!;
+		const a = mint({ ...HARBOR, width: 320, height: 213, format: 'avif' }, false)!;
 		expect(a).toMatch(
 			/^\/__ogygia__\/i\/[\w-]+\/h1-320x213\/_app\/immutable\/assets\/harbor%20dusk\.Ab12\.jpg\.avif$/
 		);
 		const sig = SIG_RE.exec(a)![1]!;
 		expect(app.verify(`image|${a.slice(a.indexOf(sig) + sig.length + 1)}`, sig)).toBe(true);
-		expect(mint({ ...HARBOR, width: 320, height: 213, format: 'avif' })).toBe(a);
+		expect(mint({ ...HARBOR, width: 320, height: 213, format: 'avif' }, false)).toBe(a);
 	});
 
 	test('a recipe rendered again reuses its signed URL: one signature per recipe, not per render', () => {
 		const sign = vi.spyOn(app, 'sign');
 		const recipe = { ...HARBOR, width: 333, height: 222, format: 'webp' as const };
-		const urls = [mint(recipe), mint(recipe), mint({ ...recipe })];
+		const urls = [mint(recipe, false), mint(recipe, false), mint({ ...recipe }, false)];
 		expect(new Set(urls).size).toBe(1);
 		expect(sign).toHaveBeenCalledTimes(1);
 		sign.mockRestore();
 	});
 
+	test("a warmed preset's recipe names the file the build made, signing nothing", () => {
+		const sign = vi.spyOn(app, 'sign');
+		expect(mint({ ...HARBOR, width: 48, height: 48, format: 'webp' }, true)).toBe(
+			'/_app/immutable/og/h1-48x48.webp'
+		);
+		expect(sign).not.toHaveBeenCalled();
+		sign.mockRestore();
+	});
+
 	test('the endpoint makes the file the URL describes, kept forever', async () => {
-		const url = mint({ ...HARBOR, width: 320, height: 320, format: 'webp', position: 'top' })!;
+		const url = mint(
+			{ ...HARBOR, width: 320, height: 320, format: 'webp', position: 'top' },
+			false
+		)!;
 		const res = (await get(url))!;
 		expect(res.status).toBe(200);
 		expect(res.headers.get('content-type')).toBe('image/webp');
@@ -87,7 +99,7 @@ describe('the image server realm', () => {
 	});
 
 	test('the second ask is read from the store, whole, with its length', async () => {
-		const url = mint({ ...HARBOR, width: 200, height: 133, format: 'avif' })!;
+		const url = mint({ ...HARBOR, width: 200, height: 133, format: 'avif' }, false)!;
 		const first = Buffer.from(await (await get(url))!.arrayBuffer());
 		expect(fs.readdirSync(store).length).toBeGreaterThan(0);
 		const again = (await get(url))!;
@@ -96,20 +108,23 @@ describe('the image server realm', () => {
 	});
 
 	test('an animated source stays animated', async () => {
-		const url = mint({
-			id: 's1',
-			src: '/_app/immutable/assets/spin.Cd34.gif',
-			width: 160,
-			height: 120,
-			format: 'webp'
-		})!;
+		const url = mint(
+			{
+				id: 's1',
+				src: '/_app/immutable/assets/spin.Cd34.gif',
+				width: 160,
+				height: 120,
+				format: 'webp'
+			},
+			false
+		)!;
 		const res = (await get(url))!;
 		const meta = await sharp(Buffer.from(await res.arrayBuffer()), { animated: true }).metadata();
 		expect(meta.pages).toBe(3);
 	});
 
 	test('a URL whose recipe was changed after signing is refused, naming why and the key', async () => {
-		const url = mint({ ...HARBOR, width: 48, height: 48, format: 'webp' })!;
+		const url = mint({ ...HARBOR, width: 48, height: 48, format: 'webp' }, false)!;
 		const res = (await get(url.replace('-48x48/', '-4000x4000/')))!;
 		expect(res.status).toBe(403);
 		expect(res.headers.get('x-ogygia-deny')).toBe('sig');
@@ -119,20 +134,23 @@ describe('the image server realm', () => {
 	});
 
 	test('a URL with no signature, or a forged one, is refused', async () => {
-		const url = mint({ ...HARBOR, width: 48, height: 48, format: 'webp' })!;
+		const url = mint({ ...HARBOR, width: 48, height: 48, format: 'webp' }, false)!;
 		const sig = SIG_RE.exec(url)![1]!;
 		expect((await get(url.replace(`${sig}/`, '')))!.status).toBe(403);
 		expect((await get(url.replace(sig, 'A'.repeat(sig.length))))!.status).toBe(403);
 	});
 
 	test('a signed recipe naming an original the app does not ship is not found', async () => {
-		const url = mint({
-			id: 'x',
-			src: '/_app/immutable/assets/secret.Zz.jpg',
-			width: 48,
-			height: 48,
-			format: 'webp'
-		})!;
+		const url = mint(
+			{
+				id: 'x',
+				src: '/_app/immutable/assets/secret.Zz.jpg',
+				width: 48,
+				height: 48,
+				format: 'webp'
+			},
+			false
+		)!;
 		expect((await get(url))!.status).toBe(404);
 	});
 
@@ -143,13 +161,16 @@ describe('the image server realm', () => {
 
 	test('an original that cannot be decoded is a coded 500 no cache keeps, not a hung request', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-		const url = mint({
-			id: 'b1',
-			src: '/_app/immutable/assets/broken.Ef56.jpg',
-			width: 48,
-			height: 48,
-			format: 'webp'
-		})!;
+		const url = mint(
+			{
+				id: 'b1',
+				src: '/_app/immutable/assets/broken.Ef56.jpg',
+				width: 48,
+				height: 48,
+				format: 'webp'
+			},
+			false
+		)!;
 		const res = (await get(url))!;
 		expect(res.status).toBe(500);
 		expect(res.headers.get('cache-control')).toBe('no-store');

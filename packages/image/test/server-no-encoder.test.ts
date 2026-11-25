@@ -19,13 +19,16 @@ const { ctx } = startPlugin(server, { name: '@ogygia/image' });
 
 test('a server where sharp cannot load starts, and its endpoint answers a coded 500 no cache keeps, said once', async () => {
 	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-	const url = mint({
-		id: 'a1',
-		src: '/_app/immutable/assets/a.Ab12.jpg',
-		width: 48,
-		height: 48,
-		format: 'webp'
-	})!;
+	const url = mint(
+		{
+			id: 'a1',
+			src: '/_app/immutable/assets/a.Ab12.jpg',
+			width: 48,
+			height: 48,
+			format: 'webp'
+		},
+		false
+	)!;
 	for (let i = 0; i < 2; i++) {
 		const res = (await server.request!(ctx(new Request(`http://localhost${url}`))))!;
 		expect(res.status).toBe(500);

@@ -15,6 +15,14 @@ const PAGES = ['/', '/blog/first-post', '/blog/second-post', '/blog/third-post']
 const IMAGE_URL_RE = /\/(?:__ogygia__\/i|_app\/immutable\/og)\/[^\s",)]+/g;
 const SIGNED_URL_RE = /\/__ogygia__\/i\/[^\s",)]+/g;
 
+/** An AVIF candidate of the source whose original is `name`, at `size`, as this mode names it: a
+ *  signed URL by its original, a file the build made by its recipe alone. */
+function avif_of(name: string, size = '\\d+x\\d+'): RegExp {
+	return MODE === 'static'
+		? new RegExp(`/_app/immutable/og/[\\w-]+-${size}\\.avif \\d+w`)
+		: new RegExp(`-${size}/[^ ]*${name}[^ ]*\\.avif \\d+w`);
+}
+
 /** Scroll every lazy image into view, then wait until each has decoded pixels. */
 async function every_image_loads(page: Page): Promise<void> {
 	const imgs = page.locator('img');
@@ -262,7 +270,7 @@ test.describe('markdown images (/blog/[slug])', () => {
 		await page.goto('/blog/first-post');
 		const cover = await attrs(page.locator('#cover'));
 		expect(cover.picture).toBe('yes');
-		expect(cover.avif).toMatch(/\/cover(?:\.[\w-]+)?\.jpg\.avif \d+w/);
+		expect(cover.avif).toMatch(avif_of('cover'));
 		expect([cover.width, cover.height]).toEqual(['1120', '630']);
 		expect(cover.fetchpriority).toBe('high');
 		await expect(page.locator('head link[rel="preload"][as="image"]')).toHaveCount(1);
@@ -272,7 +280,7 @@ test.describe('markdown images (/blog/[slug])', () => {
 		await page.goto('/blog/first-post');
 		const harbor = await attrs(page.getByAltText('A harbor in the evening'));
 		expect(harbor.picture).toBe('yes');
-		expect(harbor.avif).toMatch(/-720x480\/[^ ]*harbor[^ ]*\.avif 720w/);
+		expect(harbor.avif).toMatch(avif_of('harbor', '720x480'));
 		expect(harbor.sizes).toBe('(min-width: 720px) 720px, 100vw');
 		expect([harbor.width, harbor.height]).toEqual(['720', '480']);
 		expect(harbor.loading).toBe('lazy');
@@ -292,7 +300,7 @@ test.describe('markdown images (/blog/[slug])', () => {
 		await page.goto('/blog/second-post');
 		const img = page.getByAltText('The same harbor');
 		expect(await img.getAttribute('title')).toBe('Borrowed');
-		expect((await attrs(img)).avif).toMatch(/harbor[^ ]*\.avif 720w/);
+		expect((await attrs(img)).avif).toMatch(avif_of('harbor', '720x480'));
 		await expect(page.locator('#cover')).toHaveAttribute('height', '630');
 	});
 

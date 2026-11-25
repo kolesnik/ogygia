@@ -1,6 +1,6 @@
 // The fixture app under `paths.base` (`/base`), every page prerendered and served as plain files
-// there (`IMAGE_E2E_MODE=base`): every file a page names sits under the base, and is a file the build
-// wrote, whether the crawler asked for it, a CSS background named it, or a preset was warmed.
+// there (`IMAGE_E2E_MODE=base`): every file a page names sits under the base, in the app folder, and
+// is a file the build wrote, whether an <img> named it, a CSS background did, or a preset was warmed.
 import { test, expect } from '@ogygia/tooling/e2e';
 
 const PAGES = ['/base/', '/base/blog/first-post', '/base/blog/third-post', '/base/island'];

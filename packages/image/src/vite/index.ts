@@ -10,8 +10,8 @@
  *   query; `load` turns that into the source's descriptor: its id, size, placeholder, and the
  *   original shipped as an ordinary asset. Nothing is encoded.
  * - RENDER: `<Img>` picks the files from the layout or preset and signs one URL per file (../server.ts).
- * - SETTLE: the server realm's endpoint makes each file on first request: in dev, in Kit's prerender
- *   (saved as a static file) and on a live server.
+ * - SETTLE: the server realm's endpoint makes each file on first request, in dev and on a live
+ *   server; the build makes the files of warmed presets and prerendered pages (./build-files.ts).
  *
  * With `@ogygia/content`, markdown images and frontmatter image paths become descriptors too
  * (./markdown.ts).
@@ -31,13 +31,7 @@ import {
 } from '../config.ts';
 import { OgygiaError, warn } from '../messages.ts';
 import { UNPUBLISHED_RE, type BuildHandoff } from '../store.ts';
-import {
-	save_warm,
-	settle_minted,
-	handoff_for,
-	warm_files,
-	type WarmSource
-} from './build-files.ts';
+import { handoff_for, write_built, type WarmSource } from './build-files.ts';
 import { plan_image, settle } from './plan.ts';
 import { EXTENSION_API, markdown_extension } from './markdown.ts';
 import { image_call_edits, options_of_query, QUERY } from './macro.ts';
@@ -182,22 +176,15 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			if (warm?.length) warmed.set(id, { file, desc, presets: warm });
 			return descriptor_module(file, desc);
 		},
-		buildEnd() {
-			if (handoff && server_build()) save_warm(handoff, warmed.values());
-		},
-		async generateBundle() {
-			if (!handoff || !paths || !build() || server_build()) return;
-			for (const [fileName, source] of await warm_files(handoff, render_config(opts, paths, true)))
-				this.emitFile({ type: 'asset', fileName, source });
-		},
 		writeBundle: {
 			order: 'post',
 			sequential: true,
 			async handler() {
 				if (!handoff || !paths || !config || !server_build()) return;
-				await settle_minted(
+				await write_built(
 					handoff,
-					paths,
+					render_config(opts, paths, true),
+					warmed.values(),
 					path.dirname(path.resolve(config.root, config.build.outDir))
 				);
 			}

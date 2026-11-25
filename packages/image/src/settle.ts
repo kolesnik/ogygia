@@ -79,8 +79,8 @@ const makes = flights.keyed<Ask>()<'key', 'recipe' | 'original', Promise<Made>>(
 	name: 'image files',
 	key: ['key'],
 	ignore: {
-		recipe: 'the key is the recipe path',
-		original: 'the recipe path names the original'
+		recipe: 'the key is the recipe',
+		original: 'the key names the source by content'
 	},
 	keep: (made: Fresh<Made>) => (made.on_disk ? 0 : Infinity),
 	max: MEMORY_MAX,
@@ -94,8 +94,8 @@ const makes = flights.keyed<Ask>()<'key', 'recipe' | 'original', Promise<Made>>(
 		})
 });
 
-/** Start making the file of `key` now (the prerender, as a page names it: the crawler's ask joins
- *  it), unless it is kept. A failure is the ask's to report. */
+/** Start making the file of `key` now (the prerender, as a page names it: the build's end finds it
+ *  kept), unless it is kept. A failure is the build's end to report. */
 export async function prepare(recipe: ParsedRecipe, key: string, original: string): Promise<void> {
 	if (await store?.find(key)) return;
 	await makes.get({ key, recipe, original });
@@ -115,8 +115,8 @@ async function opened(key: string): Promise<{ stream: fs.ReadStream; size: numbe
 	}
 }
 
-/** The response for one verified recipe (`key` is its path, `original` the asset URL Kit's `read()`
- *  takes). */
+/** The response for one verified recipe (`key` its file, ../recipe.ts `recipe_file`; `original` the
+ *  asset URL Kit's `read()` takes). */
 export async function settle(
 	recipe: ParsedRecipe,
 	key: string,

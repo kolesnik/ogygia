@@ -1,5 +1,6 @@
-// What `<Img>` and `layOut()` name: a warmed preset's static files when the request is exactly that
-// preset's, the minter's signed URLs for anything else.
+// What `<Img>` and `layOut()` ask the server realm for: a file the build made when the request is
+// exactly a warmed preset's, a signed URL for anything else; with no server realm (the browser), the
+// build's file under the app folder.
 import { expect, test, vi } from 'vitest';
 
 vi.mock('virtual:ogygia-image/config', () => ({
@@ -14,7 +15,7 @@ vi.mock('virtual:ogygia-image/config', () => ({
 
 const { layOut } = await import('../src/render.ts');
 const { set_minter, recipe_head } = await import('../src/recipe.ts');
-set_minter((r) => `/signed/${recipe_head(r)}`);
+set_minter((r, built) => `/${built ? 'built' : 'signed'}/${recipe_head(r)}`);
 
 const OF = {
 	id: 'p1',
@@ -27,10 +28,21 @@ const OF = {
 const files = (srcset: string | undefined) =>
 	(srcset ?? '').split(', ').map((c) => c.split(' ')[0]);
 
-test('a warmed preset names the files the build made, under the app folder at the base', () => {
+test('a warmed preset asks the server for the files the build made', () => {
 	const laid = layOut(OF, { preset: 'thumb' });
 	for (const url of [...files(laid.srcset), ...files(laid.sources[0]!.srcset), laid.src])
-		expect(url).toMatch(/^\/shop\/_app\/immutable\/og\/p1-\d+x\d+\.(avif|webp)$/);
+		expect(url).toMatch(/^\/built\/p1-\d+x\d+$/);
+});
+
+test('with no server realm, a warmed preset names the files the build made, under the app folder at the base', () => {
+	set_minter(null);
+	try {
+		const laid = layOut(OF, { preset: 'thumb' });
+		for (const url of [...files(laid.srcset), ...files(laid.sources[0]!.srcset), laid.src])
+			expect(url).toMatch(/^\/shop\/_app\/immutable\/og\/p1-\d+x\d+\.(avif|webp)$/);
+	} finally {
+		set_minter((r, built) => `/${built ? 'built' : 'signed'}/${recipe_head(r)}`);
+	}
 });
 
 test('the same preset said over, another preset, or a source not warmed with it, is signed', () => {
@@ -41,5 +53,5 @@ test('the same preset said over, another preset, or a source not warmed with it,
 	])
 		for (const url of files(laid.srcset)) expect(url).toMatch(/^\/signed\//);
 	for (const url of files(layOut(OF, { preset: 'thumb', sizes: '50vw' }).srcset))
-		expect(url).toMatch(/^\/shop\/_app\/immutable\/og\//);
+		expect(url).toMatch(/^\/built\//);
 });

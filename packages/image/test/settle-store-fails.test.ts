@@ -41,13 +41,16 @@ beforeAll(async () => {
 
 test('a file the store cannot write is still answered, said once, and kept in memory instead', async () => {
 	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-	const url = mint({
-		id: 'a1',
-		src: '/_app/immutable/assets/a.Ab12.png',
-		width: 40,
-		height: 40,
-		format: 'webp'
-	})!;
+	const url = mint(
+		{
+			id: 'a1',
+			src: '/_app/immutable/assets/a.Ab12.png',
+			width: 40,
+			height: 40,
+			format: 'webp'
+		},
+		false
+	)!;
 	const asks = [];
 	for (let i = 0; i < 3; i++) {
 		const res = (await server.request!(ctx(new Request(`http://localhost${url}`))))!;

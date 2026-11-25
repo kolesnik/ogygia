@@ -43,13 +43,16 @@ async function get(url: string): Promise<Response> {
 }
 
 const url_at = (width: number): string =>
-	mint({
-		id: 'a1',
-		src: '/_app/immutable/assets/a.Ab12.png',
-		width,
-		height: width,
-		format: 'webp'
-	})!;
+	mint(
+		{
+			id: 'a1',
+			src: '/_app/immutable/assets/a.Ab12.png',
+			width,
+			height: width,
+			format: 'webp'
+		},
+		false
+	)!;
 
 beforeAll(async () => {
 	process.env.TMPDIR = fs.mkdtempSync(path.join(os.tmpdir(), 'og-image-live-'));

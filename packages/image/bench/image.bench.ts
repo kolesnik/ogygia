@@ -22,7 +22,7 @@ import {
 import { isImage, type ImageDescriptor } from '../src/descriptor.ts';
 import { lay_out, mime_of, preset_request, same_files } from '../src/layout.ts';
 import { placeholder_style } from '../src/placeholder.ts';
-import { parse_recipe, recipe_path, source_tail, warm_url, type Recipe } from '../src/recipe.ts';
+import { built_url, parse_recipe, recipe_path, source_tail, type Recipe } from '../src/recipe.ts';
 import { image_call_edits, options_of_query, image_specifier } from '../src/vite/macro.ts';
 import { markdown_extension } from '../src/vite/markdown.ts';
 import { check_image_options, check_plugin_options } from '../src/vite/options.ts';
@@ -65,8 +65,9 @@ const PREFIXES: readonly string[] = ['', ''];
 const url = (r: Recipe): string =>
 	`/__ogygia__/i/0123456789abcdef0123456789abcdef/${recipe_path(r, source_tail(r.src, PREFIXES))}`;
 
-/** A warmed file's URL, as `<Img>` names one when the request is its preset's. */
-const warm = (r: Recipe): string => warm_url(CFG.paths, r);
+/** A file the build made, as `<Img>` names one when the request is a warmed preset's, or on a
+ *  prerendered page. */
+const built = (r: Recipe): string => built_url(CFG.paths, r);
 
 const LAYOUTS: readonly ImagePreset[] = [
 	{ layout: 'fullWidth', aspect: '16/9' },
@@ -85,7 +86,7 @@ bench(
 			if (!isImage(d)) continue;
 			const asked = LAYOUTS[i % LAYOUTS.length]!;
 			const req = preset_request(asked, i % 2 ? {} : { width: 300 });
-			const laid = lay_out(d, req, CFG, same_files(req, preset_request(asked)) ? warm : url);
+			const laid = lay_out(d, req, CFG, same_files(req, preset_request(asked)) ? built : url);
 			n += laid.src.length + (laid.srcset?.length ?? 0) + laid.sources.length;
 			n += placeholder_style(d.ph).length + mime_of(d.format).length;
 		}

@@ -1,13 +1,14 @@
 /**
- * A recipe: one file a page asks for, made from one source. Its whole description rides in the URL
- * PATH (a prerendered page's files are saved at their paths, and a static host has no query), signed
- * by the server, so the endpoint that makes it needs nothing but the URL: any server instance, the
- * prerender, a CDN in front. Isomorphic: `<Img>` builds recipes on the server and in the browser; only
- * the server can sign one.
+ * A recipe: one file a page asks for, made from one source. On a live server and in dev its whole
+ * description rides in the URL PATH, signed by the server, so the endpoint that makes it needs
+ * nothing but the URL: any server instance, a CDN in front. Isomorphic: `<Img>` builds recipes on the
+ * server and in the browser; only the server can sign one.
  *
  *   <base>/__ogygia__/i/<sig>/<id>-<w>x<h>[-q<q>][-p<position>][-o<ops>]/<original path>.<ext>
  *
- * A file the build made ahead (a warmed preset's) is a static file instead, named by its head alone:
+ * A file the BUILD makes (a warmed preset's, and every file a prerendered page names) is a static
+ * file instead, named by its head alone, which names its source by content: the same name in every
+ * build, with no key.
  *
  *   <assets or base>/<appDir>/immutable/og/<id>-<w>x<h>[-q<q>][-p<position>][-o<ops>].<ext>
  *
@@ -37,7 +38,7 @@ export const IMAGE_PREFIX = '/__ogygia__/i/';
 
 /** Where the build's own files sit, under the app's `appDir`: Kit's immutable folder, which every
  *  adapter and static host serves as files kept forever. */
-export const WARM_DIR = 'immutable/og';
+export const BUILT_DIR = 'immutable/og';
 
 const EXT: Readonly<Record<ImageFormat, string>> = {
 	avif: 'avif',
@@ -130,14 +131,20 @@ export function recipe_head(r: Omit<Recipe, 'src'>): string {
 	return `${r.id}-${r.width}x${r.height}${q}${p}${o}`;
 }
 
-/** A warmed recipe's file, below the app's `appDir`: `immutable/og/<head>.<ext>`. */
-export function warm_file(r: Omit<Recipe, 'src'>): string {
-	return `${WARM_DIR}/${recipe_head(r)}.${EXT[r.format]}`;
+/** The file a recipe makes, by its recipe alone: `<head>.<ext>`. Its source is named by content (the
+ *  id), so it is the key of every store and the name of every file the build writes. */
+export function recipe_file(r: Omit<Recipe, 'src'>): string {
+	return `${recipe_head(r)}.${EXT[r.format]}`;
 }
 
-/** A warmed recipe's URL: the static file the build made. */
-export function warm_url(paths: AppPaths, r: Omit<Recipe, 'src'>): string {
-	return `${paths.assets || paths.base}/${paths.app_dir}/${warm_file(r)}`;
+/** A file the build makes, below the app's `appDir`: `immutable/og/<head>.<ext>`. */
+export function built_file(r: Omit<Recipe, 'src'>): string {
+	return `${BUILT_DIR}/${recipe_file(r)}`;
+}
+
+/** The URL of a file the build makes: a static file under the app folder. */
+export function built_url(paths: AppPaths, r: Omit<Recipe, 'src'>): string {
+	return `${paths.assets || paths.base}/${paths.app_dir}/${built_file(r)}`;
 }
 
 /** What a recipe path asks for. The original is named by its tail (decoded). */
@@ -189,8 +196,9 @@ export function parse_recipe(path: string): ParsedRecipe | null {
 	return out;
 }
 
-/** What the server realm hands `<Img>`: a signed URL for a recipe. */
-export type Minter = (recipe: Recipe) => string;
+/** What the server realm hands `<Img>`: a recipe's URL. `built` says the build made the file (a
+ *  warmed preset's); a prerender names every file as one the build makes. */
+export type Minter = (recipe: Recipe, built: boolean) => string;
 
 const minting = slot<{ mint: Minter | null }>({
 	name: 'ogygia.image.minter',
@@ -203,7 +211,7 @@ export function set_minter(mint: Minter | null): void {
 	minting.mint = mint;
 }
 
-/** The signed URL of `recipe`, or null where nothing can sign (the browser). */
-export function mint(recipe: Recipe): string | null {
-	return minting.mint ? minting.mint(recipe) : null;
+/** The URL of `recipe` the server names, or null where no server realm runs (the browser). */
+export function mint(recipe: Recipe, built: boolean): string | null {
+	return minting.mint ? minting.mint(recipe, built) : null;
 }
