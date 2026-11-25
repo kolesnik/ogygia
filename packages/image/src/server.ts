@@ -122,7 +122,8 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 		if (slash < 1 || !app.verify(message(path), sig)) return app.deny('sig');
 		const recipe = parse_recipe(path);
 		if (recipe === null || !ORIGINALS.has(recipe.tail)) return not_found();
-		if (event.url.search !== '')
+		// @why Kit throws on reading url.search while prerendering, and its crawler never adds a query (test: packages/image/e2e/image.spec.ts › every file URL every page names answers 200 with its type, static mode)
+		if (!building && event.url.search !== '')
 			return new Response(null, {
 				status: 308,
 				headers: { location: pathname, 'cache-control': 'public, max-age=31536000, immutable' }
