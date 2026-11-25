@@ -3,7 +3,7 @@
 // build. The URL carries the build's mark, so Kit's crawler does not ask for a file that is not
 // there yet, and each recipe is noted for the build's end to make.
 import fs from 'node:fs';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeAll, describe, expect, test, vi } from 'vitest';
 import { startPlugin } from '@ogygia/core/plugin/testing';
 
 const run = vi.hoisted(() => {
@@ -37,6 +37,10 @@ const { origin_of } = await import('../src/store.ts');
 const { app, ctx } = startPlugin(server, { name: '@ogygia/image' });
 
 const HARBOR = { id: 'h1', src: '/shop/_app/immutable/assets/harbor%20dusk.Ab12.jpg' };
+
+beforeAll(async () => {
+	await server.request!(ctx(new Request('https://example.com/')));
+});
 
 describe('a prerendered page', () => {
 	test('names each file under the app folder at the base, by its recipe, behind the build mark, signing nothing', () => {

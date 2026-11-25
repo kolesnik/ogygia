@@ -3,7 +3,7 @@
 // files the build wrote, with no mark, since nothing removes one after that; a file no prerendered
 // page asked for is named by its original. Nothing is noted: no build will make it.
 import fs from 'node:fs';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeAll, describe, expect, test, vi } from 'vitest';
 import { startPlugin } from '@ogygia/core/plugin/testing';
 
 const run = vi.hoisted(() => {
@@ -37,9 +37,13 @@ fs.writeFileSync(`${run.written}/immutable/og/l1-48x48.webp`, 'a file the build 
 
 const { default: server } = await import('../src/server.ts');
 const { mint } = await import('../src/recipe.ts');
-const { app } = startPlugin(server, { name: '@ogygia/image' });
+const { app, ctx } = startPlugin(server, { name: '@ogygia/image' });
 
 const LOGO = { id: 'l1', src: '/shop/_app/immutable/assets/logo.Ab12.png' };
+
+beforeAll(async () => {
+	await server.request!(ctx(new Request('https://example.com/')));
+});
 
 describe('a page rendered after the build wrote its files (an SPA fallback)', () => {
 	test('names a file the build wrote by its plain URL, with no mark, signing nothing', () => {

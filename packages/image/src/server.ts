@@ -17,12 +17,13 @@
  *
  * `request` is the endpoint that makes the signed files, in dev and on a live server: verify
  * (./verify.ts), then settle (./settle.ts). What the realm reads and notes on disk (./on-disk.ts) is
- * loaded in dev and in the build only.
+ * loaded in dev and in the build only, from `setup`; `request`, which comes before every render,
+ * waits for it, so the module itself awaits nothing.
  *
  * @packageDocumentation
  */
 import { building, dev } from '$app/environment';
-import { defineServer, type ServerPlugin } from '@ogygia/core/plugin';
+import { defineServer, type ServerApp, type ServerPlugin } from '@ogygia/core/plugin';
 import { cache } from '@ogygia/machine';
 import config from 'virtual:ogygia-image/config';
 import { name } from 'virtual:ogygia-image/namer';
@@ -45,7 +46,8 @@ import {
 import { message, verify } from './verify.ts';
 
 type OnDisk = typeof import('./on-disk.ts');
-const DISK: OnDisk | null = dev || building ? await import('./on-disk.ts') : null;
+let DISK: OnDisk | null = null;
+let disk_ready: Promise<void> | null = null;
 
 const { base: BASE, assets: ASSETS } = config.paths;
 const PREFIXES: readonly string[] = [ASSETS, BASE];
@@ -113,38 +115,46 @@ function prerendered(disk: OnDisk, run: BuildHandoff, recipe: Recipe): string {
 	return root_relative(url) ? run.mark + url : url;
 }
 
+function start(app: ServerApp<unknown>, disk: OnDisk | null): void {
+	const run = building && disk !== null ? build_handoff() : null;
+	if (disk !== null && run?.written) {
+		const written = run.written;
+		set_minter((recipe) =>
+			disk.exists(written, built_file(recipe)) ? built_url(config.paths, recipe) : recipe.src
+		);
+		return;
+	}
+	if (disk !== null && run?.minted) {
+		origin_unnoted = run;
+		set_minter((recipe) => prerendered(disk, run, recipe));
+		return;
+	}
+	const signed = cache<string, string>({ name: 'image URLs', max: SIGNED_MAX });
+	set_minter((recipe, built) => {
+		if (built) return built_url(config.paths, recipe);
+		const link = name(recipe);
+		if (link !== null) return link;
+		const path = recipe_path(recipe, source_tail(recipe.src, PREFIXES));
+		let url = signed.get(path);
+		if (url === undefined) {
+			url = `${BASE}${IMAGE_PREFIX}${app.sign(message(path))}/${path}`;
+			signed.set(path, url);
+		}
+		return url;
+	});
+}
+
 const server: ServerPlugin<unknown> = defineServer<unknown>({
 	setup(app) {
-		const disk = DISK;
-		const run = building && disk !== null ? build_handoff() : null;
-		if (disk !== null && run?.written) {
-			const written = run.written;
-			set_minter((recipe) =>
-				disk.exists(written, built_file(recipe)) ? built_url(config.paths, recipe) : recipe.src
-			);
-			return;
-		}
-		if (disk !== null && run?.minted) {
-			origin_unnoted = run;
-			set_minter((recipe) => prerendered(disk, run, recipe));
-			return;
-		}
-		const signed = cache<string, string>({ name: 'image URLs', max: SIGNED_MAX });
-		set_minter((recipe, built) => {
-			if (built) return built_url(config.paths, recipe);
-			const link = name(recipe);
-			if (link !== null) return link;
-			const path = recipe_path(recipe, source_tail(recipe.src, PREFIXES));
-			let url = signed.get(path);
-			if (url === undefined) {
-				url = `${BASE}${IMAGE_PREFIX}${app.sign(message(path))}/${path}`;
-				signed.set(path, url);
-			}
-			return url;
+		if (!dev && !building) return start(app, null);
+		disk_ready = import('./on-disk.ts').then((disk) => {
+			DISK = disk;
+			start(app, disk);
 		});
 	},
 
 	async request({ event, app }) {
+		if (disk_ready !== null) await disk_ready;
 		const run = origin_unnoted;
 		if (run && DISK !== null) {
 			origin_unnoted = null;
