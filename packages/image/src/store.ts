@@ -99,6 +99,28 @@ export function note_built(minted: string, recipe_path: string): void {
 	fs.appendFileSync(minted, `${recipe_path}\n`);
 }
 
+const ORIGIN_FILE = 'origin.txt';
+
+/** Note the origin Kit prerenders at (`kit.prerender.origin`: the origin of every page's URL while
+ *  it prerenders) beside the build's notes. The first one noted stays: one build, one origin. */
+export function note_origin(minted: string, origin: string): void {
+	fs.mkdirSync(path.dirname(minted), { recursive: true });
+	try {
+		fs.writeFileSync(path.join(path.dirname(minted), ORIGIN_FILE), origin, { flag: 'wx' });
+		// oxlint-disable-next-line ogygia/no-silent-failures -- a file already there holds the origin this build noted first
+	} catch {}
+}
+
+/** The origin the build's prerender noted, or '' when nothing was prerendered. */
+export function origin_of(minted: string): string {
+	try {
+		return fs.readFileSync(path.join(path.dirname(minted), ORIGIN_FILE), 'utf8');
+		// oxlint-disable-next-line ogygia/no-silent-failures -- no file: no page was prerendered
+	} catch {
+		return '';
+	}
+}
+
 function version_dir(vips: string): string {
 	return `v${ENCODER_VERSION}-${vips}`;
 }

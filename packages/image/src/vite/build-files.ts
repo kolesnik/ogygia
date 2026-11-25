@@ -14,8 +14,10 @@
  *
  * Each file is written to the client output, under `<appDir>/immutable/og/`, which every adapter
  * serves as a file kept forever; then the mark is removed from every prerendered file, so its URLs
- * name those files. One that cannot be made fails the build (`image_unsettled`); a mark the page
- * changed before writing it does too (`image_mark_left`).
+ * name those files, and a URL the page made absolute (`new URL(src, page.url)`: an `og:image`, a
+ * feed) names them at Kit's prerender origin, which the server realm noted. One that cannot be made
+ * fails the build (`image_unsettled`); a mark the page changed another way (escaped, encoded), or
+ * made absolute with Kit's default origin, does too (`image_mark_left`).
  *
  * @packageDocumentation
  */
@@ -35,6 +37,7 @@ import {
 	BUILD_ENV,
 	FileStore,
 	open_build_store,
+	origin_of,
 	source_id,
 	type BuildHandoff
 } from '../store.ts';
@@ -188,21 +191,45 @@ function jobs_of(
 	return jobs;
 }
 
-function without(bytes: Buffer, cut: Buffer): Buffer {
+const SCHEMES: readonly Buffer[] = [Buffer.from('https:'), Buffer.from('http:')];
+const SCHEME_CHAR_RE = /[A-Za-z0-9+.-]/;
+const KIT_DEFAULT_ORIGIN = 'http://sveltekit-prerender';
+
+/** Where the `http:` or `https:` that starts a URL right before `i` begins, or -1. */
+function scheme_before(bytes: Buffer, i: number, from: number): number {
+	for (const scheme of SCHEMES) {
+		const start = i - scheme.length;
+		if (start < from || !bytes.subarray(start, i).equals(scheme)) continue;
+		const before = bytes[start - 1];
+		if (before === undefined || !SCHEME_CHAR_RE.test(String.fromCharCode(before))) return start;
+	}
+	return -1;
+}
+
+/** `bytes` with each `cut` removed, and each made absolute (`https:` + `cut`: `new URL(src,
+ *  page.url)`) turned into `origin`, what that URL's origin was while the page prerendered. */
+function unmarked(bytes: Buffer, cut: Buffer, origin: string, name: string): Buffer {
 	const parts: Buffer[] = [];
 	let at = 0;
 	for (let i = bytes.indexOf(cut); i !== -1; i = bytes.indexOf(cut, at)) {
-		parts.push(bytes.subarray(at, i));
+		const scheme = scheme_before(bytes, i, at);
+		if (scheme === -1) parts.push(bytes.subarray(at, i));
+		else if (origin === '' || origin === KIT_DEFAULT_ORIGIN)
+			throw new OgygiaError('image_mark_left', {
+				file: name,
+				form: "made it absolute (`new URL(src, page.url)`) while `kit.prerender.origin` is Kit's default, so the build cannot know the site's origin: set it"
+			});
+		else parts.push(bytes.subarray(at, scheme), Buffer.from(origin));
 		at = i + cut.length;
 	}
 	parts.push(bytes.subarray(at));
 	return Buffer.concat(parts);
 }
 
-/** Remove `mark` from every file under `dir` (Kit's prerendered pages and data). A mark read as a
- *  host (`https://<mark>…`: resolved against another URL) or left in another form (escaped, encoded)
- *  names no file: `image_mark_left`. */
-function unmark(dir: string, mark: string): void {
+/** Remove `mark` from every file under `dir` (Kit's prerendered pages and data); a mark made
+ *  absolute becomes `origin` (Kit's prerender origin). A mark left in another form (escaped,
+ *  encoded) names no file: `image_mark_left`. */
+function unmark(dir: string, mark: string, origin: string): void {
 	const cut = Buffer.from(mark);
 	const label = Buffer.from(mark.slice(2));
 	let names: string[];
@@ -217,13 +244,7 @@ function unmark(dir: string, mark: string): void {
 		if (!fs.statSync(file).isFile()) continue;
 		const bytes = fs.readFileSync(file);
 		if (bytes.indexOf(label) === -1) continue;
-		for (let i = bytes.indexOf(cut); i !== -1; i = bytes.indexOf(cut, i + 1))
-			if (bytes[i - 1] === 0x3a)
-				throw new OgygiaError('image_mark_left', {
-					file: name,
-					form: 'resolved it against another URL (`new URL(src, origin)`)'
-				});
-		const out = without(bytes, cut);
+		const out = unmarked(bytes, cut, origin, name);
 		if (out.indexOf(label) !== -1)
 			throw new OgygiaError('image_mark_left', { file: name, form: 'escaped or encoded it' });
 		fs.writeFileSync(file, out);
@@ -256,9 +277,10 @@ export async function write_built(
 			});
 		}
 	});
+	const origin = origin_of(handoff.minted);
 	fs.rmSync(path.dirname(handoff.minted), { recursive: true, force: true });
 	if (failures.length) throw failures[0];
-	if (handoff.mark) unmark(path.join(output, 'prerendered'), handoff.mark);
+	if (handoff.mark) unmark(path.join(output, 'prerendered'), handoff.mark, origin);
 	const done: BuildHandoff = { ...handoff, minted: '', mark: '', written: client };
 	process.env[BUILD_ENV] = JSON.stringify(done);
 }

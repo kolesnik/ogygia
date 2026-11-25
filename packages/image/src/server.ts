@@ -39,7 +39,7 @@ import {
 	type ParsedRecipe,
 	type Recipe
 } from './recipe.ts';
-import { build_handoff, note_built, published, type BuildHandoff } from './store.ts';
+import { build_handoff, note_built, note_origin, published, type BuildHandoff } from './store.ts';
 
 const { base: BASE, assets: ASSETS } = config.paths;
 const PREFIXES: readonly string[] = [ASSETS, BASE];
@@ -91,6 +91,7 @@ function original_of(recipe: ParsedRecipe): string {
 }
 
 const noted = new Set<string>();
+let origin_unnoted: BuildHandoff | null = null;
 const SIGNED_MAX = 10_000;
 
 function root_relative(url: string): boolean {
@@ -127,6 +128,7 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 			return;
 		}
 		if (run?.minted) {
+			origin_unnoted = run;
 			set_minter((recipe) => prerendered(run, recipe));
 			return;
 		}
@@ -144,6 +146,11 @@ const server: ServerPlugin<unknown> = defineServer<unknown>({
 	},
 
 	async request({ event, app }) {
+		const run = origin_unnoted;
+		if (run) {
+			origin_unnoted = null;
+			note_origin(run.minted, event.url.origin);
+		}
 		const at = BASE + IMAGE_PREFIX;
 		const { pathname } = event.url;
 		if (!pathname.startsWith(at)) return;

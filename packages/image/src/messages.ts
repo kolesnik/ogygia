@@ -71,11 +71,13 @@ export const IMAGE_ERRORS = {
 			While a page prerenders, each image URL it is given starts with the build's mark
 			(\`//<random>.ogygia.invalid\`), a host Kit's crawler does not follow, because the file is
 			not made yet. When the prerender ends, the build makes every file and removes the mark from
-			every prerendered file, so each URL names its file under \`_app/immutable/og/\`. This URL
-			was changed first, so the build cannot find it. Write the URL as \`<Img>\` or
-			\`layOut()\` gave it. To make it absolute (an \`og:image\`), join it as text,
-			\`\${origin}\${laid.src}\`: \`new URL(laid.src, origin)\` reads the mark as the host.
-			Encode it (a query string) in the browser, not in the page.
+			every prerendered file, so each URL names its file under \`_app/immutable/og/\`. A URL made
+			absolute (\`new URL(laid.src, page.url)\` for an \`og:image\` or a feed) becomes the file at
+			Kit's prerender origin, which is what \`page.url\` names while a page prerenders: set
+			\`kit.prerender.origin\` to the site's origin (\`https://example.com\`), or the build cannot
+			know it. This URL was changed another way (escaped, or encoded into a query string), so the
+			build cannot find it. Write the URL as \`<Img>\` or \`layOut()\` gave it, or as an absolute
+			URL; encode it in the browser, not in the page.
 		`
 	},
 	image_macro_arity: {
