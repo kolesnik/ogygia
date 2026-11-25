@@ -5151,6 +5151,18 @@
 			"name": "unknown preset on a variant errors listing the configured names"
 		},
 		{
+			"site": "packages/content/src/markdown/index.ts > all_exist > import:0",
+			"reason": "node:fs, a Node built-in the markdown preprocessor (a build and dev step, run in Node) always has; the test reaches it with a kept compile whose read file is gone, and the compile runs again",
+			"test": "packages/content/test/markdown-extensions.test.ts",
+			"name": "a file the extension’s output reads, gone since the document was kept, compiles it again so the extension says so"
+		},
+		{
+			"site": "packages/content/src/markdown/extensions.ts > hold_markdown_extensions > throw:0",
+			"reason": "an offer content cannot read fails the config with content_markdown_extension_invalid, naming the plugin; the test holds the code and the name",
+			"test": "packages/content/test/markdown-extensions.test.ts",
+			"name": "an offer content cannot read fails with a code, naming the plugin"
+		},
+		{
 			"site": "packages/content/src/markdown/render-md.ts > render_markdown > throw:0",
 			"reason": "a test reaches its recovery path; proved by the autopilot: the throw removed turns the test red",
 			"test": "packages/content/test/markdown-bits.test.ts",
