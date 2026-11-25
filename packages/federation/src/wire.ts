@@ -493,7 +493,7 @@ export function child_traceparent(incoming?: string | null): {
 // ── asset absolutizing ───────────────────────────────────────────────────────────────────────
 const ABSOLUTE_RE = /^[a-z][a-z0-9+.-]*:|^\/\//i;
 // (the asset attributes' names in any case (`asset_suffix`) in any case: where an asset ref can be; a tag without one is not read)
-const ASSET_ATTR_ANY_CASE = /entry|endpoint|href|src/gi;
+const ASSET_ATTR_ANY_CASE = /entry|endpoint|href|src|style/gi;
 const ASSET_PATH_RE = /(?:^|\/)(_app|og|__ogygia__)\//;
 const ASSET_EXT_RE = /\.(js|css|woff2?|avif|webp|png|jpe?g|gif|svg)(\?|$)/i;
 const SRCSET_CANDIDATE_RE = /(^|,)(\s*)([^\s,]+)/g;
@@ -503,6 +503,17 @@ function pin_asset(value: string, origin: string): string {
 	if (ABSOLUTE_RE.test(value)) return value;
 	if (!ASSET_PATH_RE.test(value) && !ASSET_EXT_RE.test(value)) return value;
 	return new URL(value, `${origin}/`).href;
+}
+
+const CSS_URL_RE = /(url\(\s*)(&quot;|&#39;|["']?)([^"'()\s&]+)(\2\s*\))/gi;
+
+/** Every `url(…)` asset of a `style` attribute (a CSS background) pinned to `origin`. */
+function pin_style(value: string, origin: string): string {
+	return value.replace(
+		CSS_URL_RE,
+		(_, open: string, quote: string, url: string, close: string) =>
+			open + quote + pin_asset(url, origin) + close
+	);
 }
 
 function pin_srcset(value: string, origin: string): string {
@@ -558,7 +569,7 @@ const PIN_BY_NAME_LENGTH: Readonly<Record<number, (value: string, origin: string
 	11: pin_srcset
 };
 
-/** Where the asset name (`entry`, `endpoint`, `href`, `src`, in any ASCII case) that ends
+/** Where the asset name (`entry`, `endpoint`, `href`, `src`, `style`, in any ASCII case) that ends
  *  `html[ns, ne)`, an attribute's name as written, starts, or -1. An attribute holds an asset ref
  *  when its name is one, or ends in one after a character no word holds (`data-src`,
  *  `xlink:href`). */
@@ -567,6 +578,8 @@ function asset_suffix(html: string, ns: number, ne: number): number {
 	switch (html.charCodeAt(ne - 1) | 32) {
 		case 99 /* c */:
 			return ends_with(html, ns, ne, 'src') ? ne - 3 : -1;
+		case 101 /* e */:
+			return ends_with(html, ns, ne, 'style') ? ne - 5 : -1;
 		case 102 /* f */:
 			return ends_with(html, ns, ne, 'href') ? ne - 4 : -1;
 		case 121 /* y */:
@@ -635,7 +648,10 @@ export function absolutize(html: string, origin: string): string {
 		seen.push(ns, ne);
 		if (vs === ve) return;
 		const value = html.slice(vs, ve);
-		const pin = PIN_BY_NAME_LENGTH[ne - suffix] ?? pin_asset;
+		const pin =
+			(html.charCodeAt(ne - 1) | 32) === 101
+				? pin_style
+				: (PIN_BY_NAME_LENGTH[ne - suffix] ?? pin_asset);
 		const pinned = pin(value, origin);
 		if (pinned === value) return;
 		out += html.slice(pos, vs) + pinned;

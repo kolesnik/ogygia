@@ -140,6 +140,21 @@ bench(
 	}
 );
 
+bench(
+	'absolutize: a fragment of CSS backgrounds, every image a style attribute names pinned',
+	({ html }) => absolutize(html, ORIGIN).length,
+	{
+		setup: () => {
+			const parts: string[] = [];
+			for (let i = 0; i < 20; i++)
+				parts.push(
+					`<section style="background-image:url(/__ogygia__/i/s${i}/h${i}-1280x720/a.jpg.webp);color:red"><p style="margin:0">x</p></section>`
+				);
+			return { html: parts.join('') };
+		}
+	}
+);
+
 /** The replay guard after a busy minute: `expired` signatures at the end of their window, then live
  *  ones. (A signature is kept until its ts plus the skew window, never longer: the guard's age
  *  timer, and its sweep, run as they would.) */
