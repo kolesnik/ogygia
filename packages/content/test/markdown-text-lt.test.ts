@@ -3,6 +3,7 @@
 // what they are.
 import { compile } from 'svelte/compiler';
 import { describe, expect, it } from 'vitest';
+import { dedent } from '@ogygia/core/plugin/utils';
 import { ogygiaPreprocess } from '../src/markdown/index.ts';
 
 async function page(md: string): Promise<string> {
@@ -36,7 +37,11 @@ describe('a bare < in markdown prose', () => {
 	});
 
 	it('inside a heading and a list item', async () => {
-		const code = await page('## Sizes < 1 MB\n\n- under < 10\n');
+		const code = await page(dedent`
+			## Sizes < 1 MB
+
+			- under < 10
+		`);
 		compiles(code);
 		expect(code).toContain('Sizes &lt; 1 MB');
 		expect(code).toContain('<li>under &lt; 10</li>');
