@@ -6921,6 +6921,46 @@
 			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
 		},
 		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_too_large > details",
+			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_too_large > text",
+			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_busy > details",
+			"reason": "a message's prose for its docs page and server warning: constant text, printed once per process"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_busy > text",
+			"reason": "a message's prose for its docs page and server warning: constant text, printed once per process"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_store_write_failed > details",
+			"reason": "a message's prose for its docs page and server warning: constant text, printed once per store"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_store_write_failed > text",
+			"reason": "a message's prose for its docs page and server warning: constant text, printed once per store"
+		},
+		{
+			"id": "packages/image/src/render-messages.ts > IMAGE_RENDER_ERRORS > image_prop_invalid > details",
+			"reason": "a message's prose for its docs page and render error: constant text, printed once when a render fails"
+		},
+		{
+			"id": "packages/image/src/render-messages.ts > IMAGE_RENDER_ERRORS > image_prop_invalid > text",
+			"reason": "a message's prose for its docs page and render error: constant text, printed once when a render fails"
+		},
+		{
+			"id": "packages/image/src/pixels.ts > too_large",
+			"reason": "constant work: a few multiplications over a source's metadata, once per source planned and per file encoded (beside sharp's work); test/plan.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/pixels.ts > pixels_read",
+			"reason": "constant work: one multiplication, once per file encoded; test/plan.test.ts runs it"
+		},
+		{
 			"id": "packages/image/src/messages.ts > IMAGE_WARNINGS > image_settle_failed > details",
 			"reason": "a message's prose for its docs page and build error: constant text, printed once when the build fails"
 		},
@@ -6985,32 +7025,56 @@
 			"reason": "reads the plugin's virtual config module, which resolves only inside an app; lay_out, the work it does per <Img>, is measured by the lay_out bench"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~cae47b > request",
+			"id": "packages/image/src/server.ts > defineServer:0~ad7e8a > request",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~cae47b > setup",
+			"id": "packages/image/src/server.ts > defineServer:0~ad7e8a > setup",
 			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > defineServer:0~cae47b > setup > set_minter:0~617625",
-			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+			"id": "packages/image/src/server.ts > defineServer:0~ad7e8a > setup > set_minter:0~ac612d",
+			"reason": "the server realm's glue over app.sign / app.verify (core's HMAC, measured in core's capability benches) and a bounded machine cache of the URLs it signed; recipe_path is measured; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > map:0~de6d9d",
-			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+			"id": "packages/image/src/server.ts > Originals > constructor",
+			"reason": "once per server start: one set of the app's image paths; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/server.ts > refused",
-			"reason": "the server realm's glue over app.sign (core's HMAC, measured in core's capability benches) and Kit's event; recipe_path and parse_recipe are measured; test/server.test.ts runs it"
+			"id": "packages/image/src/server.ts > Originals > static #of",
+			"reason": "once per server start: one set of the app's image paths; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~e72b11 > run",
+			"id": "packages/image/src/server.ts > Originals > static #of > map:0~de6d9d",
+			"reason": "once per server start: one set of the app's image paths; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/server.ts > Originals > has",
+			"reason": "constant work: one set lookup per image request (in dev, on a miss, one regex test and one stat); test/server.test.ts and the e2e dev mode run it"
+		},
+		{
+			"id": "packages/image/src/server.ts > not_found",
+			"reason": "constant work: one 404 response, on a refusal only; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > call:0~4850fa > run",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > call:0~e72b11 > run > limited:0~b17f38",
+			"id": "packages/image/src/settle.ts > call:0~4850fa > run > limited:0~81aacc",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a streamed store read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > call:0~4850fa > keep",
+			"reason": "constant work: whether a made file is on disk, once per encode; test/settle-store-fails.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > call:0~4850fa > weigh",
+			"reason": "constant work: a made file's byte length, once per encode; test/settle-store-fails.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > opened",
+			"reason": "the image endpoint's store read: one stat and one open per kept file asked for; test/server.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/settle.ts > failed",
@@ -7021,20 +7085,28 @@
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > limited > Promise:0~a24756",
+			"id": "packages/image/src/settle.ts > limited > Promise:0~306a23",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > limited > Promise:0~a24756 > push:0~6c2f06 > run",
+			"id": "packages/image/src/settle.ts > limited > Promise:0~306a23 > push:0~f8d02b > run",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > queue:0~c992e9 > start",
+			"id": "packages/image/src/settle.ts > limited > Promise:0~306a23 > push:0~f8d02b > gone",
+			"reason": "constant work: one rejection, for an ask that waited past its deadline; test/settle-live.test.ts runs the line it guards"
+		},
+		{
+			"id": "packages/image/src/settle.ts > queue:0~c8cc65 > start",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/settle.ts > queue:0~c992e9 > start > finally:0~4717e4",
+			"id": "packages/image/src/settle.ts > queue:0~c8cc65 > start > finally:0~4717e4",
 			"reason": "the image endpoint's encode path: Kit's read() and sharp, once per file, then a disk read; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/settle.ts > queue:0~c8cc65 > stale",
+			"reason": "constant work: one rejection, for an ask that waited past its deadline; test/settle-live.test.ts runs the line it guards"
 		},
 		{
 			"id": "packages/image/src/settle.ts > settle",
@@ -7241,8 +7313,8 @@
 			"reason": "browser only, dev and e2e builds: one selector query over inline view-transition names per rule check; proven in packages/core/test/browser/transition-name-unique.test.ts"
 		},
 		{
-			"id": "packages/core/src/plugin/server.ts > LivePlugins > #start > app > keyFingerprint",
-			"reason": "constant work: returns the signer's fingerprint (computed once per key), on a refusal only"
+			"id": "packages/core/src/plugin/server.ts > LivePlugins > #start > app > deny",
+			"reason": "constant work: the signer's refusal response (a 403 with two headers), on a refusal only"
 		},
 		{
 			"id": "packages/image/src/server.ts > message",
@@ -7301,8 +7373,76 @@
 			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
 		},
 		{
-			"id": "packages/image/src/store.ts > prune",
+			"id": "packages/image/src/store.ts > FileStore > load",
+			"reason": "once per store opened: one readdir and one stat per kept file, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > load > sort:0~9985c6",
+			"reason": "once per store opened: one readdir and one stat per kept file, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > constructor > cache:0~6c3f12 > weigh",
+			"reason": "constant work: a kept file's size, once per file counted; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > constructor > cache:0~6c3f12 > onEvict",
+			"reason": "one file removed per file let go past the store's size, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > constructor > cache:0~6c3f12 > onEvict > catch:0~a1b2d0",
+			"reason": "one file removed per file let go past the store's size, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > keep > catch:0~a1b2d0",
 			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > FileStore > keep > catch:0~a1b2d0#2",
+			"reason": "the file store: a hash and a stat or a write per file the endpoint makes or finds, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > touch",
+			"reason": "one utimes (or one empty write) per file kept and per store opened, off the render path; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > tidy_versions",
+			"reason": "once per store opened: one readdir and one stat per version folder beside it; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > tidy_versions > catch:0~4528f8",
+			"reason": "once per store opened: one readdir and one stat per version folder beside it; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > open_store",
+			"reason": "once per store opened: the mark, the tidy and the load started; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > open_store > catch:0~a1b2d0",
+			"reason": "once per store opened: the mark, the tidy and the load started; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > open_store > then:0~18a4bb",
+			"reason": "once per store opened: the mark, the tidy and the load started; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > open_store > then:0~ce881a",
+			"reason": "once per store opened: the mark, the tidy and the load started; test/server.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > open_build_store",
+			"reason": "once per build or dev server: one mkdir and the store opened; test/build-files.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > note_minted_url",
+			"reason": "prerender only: one mkdir and one appended line per URL a page names; test/build-files.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/store.ts > published",
+			"reason": "constant work: two regex tests and a prefix check, in dev on an unknown original only; the e2e dev mode runs it"
+		},
+		{
+			"id": "packages/image/src/vite/build-files.ts > remove_old_runs",
+			"reason": "once per build: one readdir and one stat per run folder left; test/build-files.test.ts runs it"
 		},
 		{
 			"id": "packages/image/src/vite/build-files.ts > each",
