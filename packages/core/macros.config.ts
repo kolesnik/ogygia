@@ -1,0 +1,61 @@
+/**
+ * Core's macros: the one config every build that reads core's source runs (tsdown for dist, the
+ * Vitest projects, and Heisenbench through its mirror), so each counts and tests what ships.
+ */
+import { fileURLToPath } from 'node:url';
+import { relative } from 'node:path';
+import {
+	compile,
+	compile_machine_sites,
+	type CompileResult,
+	type Mode
+} from 'ogygia-internal-macros/compile';
+import { MachineTypes, ogygia_macros, specifier } from 'ogygia-internal-macros/plugin';
+
+const here = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
+
+const ROOT = here('./');
+
+/** Where compiled output imports the macros' runtime from. */
+export const MACRO_RUNTIME: string = here('./src/runtime/macros.ts');
+
+/** Core's source: the only files the macros compile. */
+export const MACRO_ROOTS: ReadonlyArray<string> = [here('./src/')];
+
+/** Core's types, as its tsconfig reads them: which `$machine` definition each call site moves. */
+export const MACRO_TYPES: string = here('./tsconfig.json');
+
+/** Core's macros, as a build plugin (dist keeps the gates: each app's build folds them). One
+ *  reading of core's types per plugin (per build). */
+export function core_macros(): ReturnType<typeof ogygia_macros> {
+	return ogygia_macros({
+		mode: 'dev',
+		runtime: MACRO_RUNTIME,
+		root: ROOT,
+		roots: MACRO_ROOTS,
+		types: MACRO_TYPES
+	});
+}
+
+/** Core's benches: they drive core's machines, so their call sites compile as core's do. */
+export const MACRO_BENCH_ROOTS: ReadonlyArray<string> = [here('./bench/')];
+
+let types: MachineTypes | null = null;
+
+/** One core file compiled as the build compiles it (`mode` `prod` for what an app's production
+ *  build runs), for a tool that reads files itself (Heisenbench's mirror); null when it has no
+ *  macro. A bench file compiles its machines' call sites only. Every call shares one reading of
+ *  the types of core and its benches (bench/tsconfig.json holds both). */
+export function core_compile(code: string, file: string, mode: Mode): CompileResult | null {
+	const options = {
+		mode,
+		runtime: specifier(file, MACRO_RUNTIME),
+		reference: specifier(file, MACRO_RUNTIME),
+		path: file,
+		types: (types ??= new MachineTypes(here('./bench/tsconfig.json')))
+	};
+	const at = relative(ROOT, file);
+	return MACRO_BENCH_ROOTS.some((r) => file.startsWith(r))
+		? compile_machine_sites(code, at, options)
+		: compile(code, at, options);
+}

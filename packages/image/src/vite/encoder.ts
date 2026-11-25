@@ -210,7 +210,6 @@ export function encoders_of(encoder: Encoder | readonly Encoder[] | undefined): 
 	return Array.isArray(encoder) ? encoder : [encoder as Encoder];
 }
 
-/** The encoder whose maker makes files at the endpoint: the first that has one, or none. */
 function endpoint_of(encoders: readonly Encoder[]): Encoder | undefined {
 	return encoders.find((e) => e.maker !== null);
 }

@@ -25,7 +25,8 @@ export default defineConfig({
 					name: 'node',
 					include: ['test/**/*.test.ts'],
 					exclude: ['test/browser/**', '**/node_modules/**'],
-					environment: 'node'
+					environment: 'node',
+					setupFiles: ['./test/_build-cache.ts']
 				}
 			},
 			{

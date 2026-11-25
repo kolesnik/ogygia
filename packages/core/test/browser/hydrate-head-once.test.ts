@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, expect, inject, test } from 'vitest';
 import { from_b64 } from './b64.ts';
 import type { Component } from 'svelte';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { load_devalue } from '../../src/runtime/devalue-lane.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
 import { hydrate_island } from '../../src/runtime/hydrate-core.ts';
@@ -28,7 +29,7 @@ function answer(): HTMLElement {
 
 let kit_page: boolean | undefined;
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
 	kit_page = runtime_session.kit_page;
 });

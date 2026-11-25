@@ -4,13 +4,12 @@
 // it (`x-ogygia-known`) and the props sidecar is found by it. A fresh load of the next page has the
 // next page's fingerprint there, so the kept node must too.
 import { afterEach, expect, test } from 'vitest';
-import { morph_children, install as install_morph } from '../../src/runtime/morph.ts';
+import { morph_children } from '../../src/runtime/morph.ts';
 import { reconcile_body } from '../../src/runtime/reconcile.ts';
 import { record_server_body } from '../../src/runtime/ownership.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-
-install_morph();
-link_boot();
+import { init } from '../../src/runtime/lazy-link.ts';
+init(link_boot());
 
 const kept = (fp: string, page: string) =>
 	`<ogygia-region entry="./keeper.js" wake="load" data-ogygia-keep="tally-keeper" data-og-fp="${fp}"><p>${page}</p></ogygia-region>`;

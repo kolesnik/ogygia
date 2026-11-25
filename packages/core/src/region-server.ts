@@ -6,6 +6,7 @@
  */
 export {
 	region_deps,
+	wake_code,
 	region_css,
 	region_css_inline,
 	content_css,
@@ -25,4 +26,6 @@ export {
 	root_layout_csr_true
 } from 'ogygia:server';
 export { runtime_bootstrap } from './server/entry-location.ts';
+export { say_unbuilt } from './server/programs.ts';
 export { region_css_tag, head_owner_attr } from './server/region-css.ts';
+export { document_tail, island_graph_script, modulepreload_tag } from './server/document-tail.ts';

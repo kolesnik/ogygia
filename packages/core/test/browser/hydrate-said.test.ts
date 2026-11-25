@@ -10,8 +10,9 @@ import type { RegionMismatchedEvent } from '../../src/contract/runtime-hooks.ts'
 
 (globalThis as unknown as { __OGYGIA_DEVTOOLS__: boolean }).__OGYGIA_DEVTOOLS__ = true;
 const { link_boot } = await import('../../src/runtime/boot-link.ts');
+const { init } = await import('../../src/runtime/lazy-link.ts');
 const { load_devalue } = await import('../../src/runtime/devalue-lane.ts');
-const { slots } = await import('../../src/runtime/slots.ts');
+const { hear, hear_none } = await import('../_hooks.ts');
 const { snapshot, clear, configure } = await import('../../src/events/bus.ts');
 const { hydrate_island } = await import('../../src/runtime/hydrate-core.ts');
 const Counter = (await import('./fixtures/Counter.svelte')).default;
@@ -29,7 +30,7 @@ const events = (name: string) =>
 		});
 
 beforeAll(async () => {
-	link_boot();
+	init(link_boot());
 	await load_devalue();
 });
 beforeEach(() => {
@@ -38,7 +39,7 @@ beforeEach(() => {
 	heard = [];
 	clear();
 	configure({ active: true, cap: 4096 });
-	slots.hooks = { regionMismatched: (e) => void heard.push(e) };
+	hear({ regionMismatched: (e) => void heard.push(e) });
 	vi.spyOn(console, 'warn').mockImplementation((...a: unknown[]) => {
 		said.push(a.map(String).join(' '));
 	});
@@ -46,7 +47,7 @@ beforeEach(() => {
 });
 afterEach(() => {
 	vi.restoreAllMocks();
-	slots.hooks = undefined;
+	hear_none();
 });
 
 test('a healed island says why: on its attribute, a devtools event, the hook and the console', () => {

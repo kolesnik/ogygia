@@ -2,7 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { defaultClientConditions, defaultServerConditions } from 'vite';
 import type { ViteUserConfig } from 'vitest/config';
+import { core_macros } from '../../core/macros.config.ts';
+import { package_macros } from '../../../internal/macros/src/plugin.ts';
+import { macro_packages } from './macro-packages.ts';
 import { heisenbench_record } from '../../../internal/heisenbench/src/record.ts';
 
 /** Core's test stubs: `app-<name>.ts` stands in for `$app/<name>`, `realm-<realm>.ts` for the
@@ -166,12 +170,25 @@ export function sim_define(env: Readonly<Record<string, string | undefined>>): {
 	return { __OGYGIA_SIM_ENV__: JSON.stringify(knobs) };
 }
 
+/** ogygia's macros over each package whose build runs them (./macro-packages.ts), as build plugins:
+ *  a test that reads such a package's source by path reads it as that package's build compiles it. */
+export function package_sources_macros(): ReturnType<typeof package_macros>[] {
+	return macro_packages().map((dir) => package_macros(dir));
+}
+
+/**
+ * A package's Vitest config. A test that reads core's source by path reads it as core's build
+ * compiles it (`core_macros()`), and that source reads core's own `#` imports from source too (the
+ * `ogygia-source` condition); `@ogygia/core` itself resolves to its dist for everyone. The same for
+ * every package whose build runs the macros ({@link package_sources_macros}).
+ * `heisenbench_record()` adds nothing, unless the measurement-source gate records the tests' inputs.
+ */
 export function pluginTests(): ViteUserConfig {
 	return {
-		// heisenbench_record(): nothing, unless the measurement-source gate records the tests' inputs
-		plugins: [svelte(), ...heisenbench_record()],
+		plugins: [core_macros(), ...package_sources_macros(), svelte(), ...heisenbench_record()],
 		define: sim_define(process.env),
-		resolve: { alias: stub_aliases() },
+		resolve: { alias: stub_aliases(), conditions: ['ogygia-source', ...defaultClientConditions] },
+		ssr: { resolve: { conditions: ['ogygia-source', ...defaultServerConditions] } },
 		test: { include: ['test/**/*.test.ts'], environment: 'node' }
 	};
 }

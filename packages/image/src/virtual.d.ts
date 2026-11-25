@@ -1,7 +1,3 @@
-// Ambient declarations for the package's own type-check: the plugin's virtual modules and the one Kit
-// module the endpoint reads with. The app resolves them (the plugin, Kit); not shipped (tsdown skips
-// .d.ts entries).
-
 declare module 'virtual:ogygia-image/config' {
 	const config: import('./config.ts').RenderConfig;
 	export default config;

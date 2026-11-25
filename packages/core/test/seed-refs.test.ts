@@ -15,15 +15,13 @@ import type { Component } from 'svelte';
 import {
 	SEED_REF_KEY,
 	analyze,
-	deep_equal_plain,
 	json_culprit,
 	resolve_seed_ref,
-	SeedRefPlan,
-	SeedIndex,
 	seed_ref_reviver,
 	set_measure_memo_reader,
-	type MeasureMemo
+	MeasureMemo
 } from '../src/seed-refs.ts';
+import { deep_equal_plain, SeedIndex } from '../src/seed-index.ts';
 import Region from '../src/Region.svelte';
 import Tiny from './_fixtures/Tiny.svelte';
 import KitPagePass from './_fixtures/KitPagePass.svelte';
@@ -94,7 +92,7 @@ describe('plan_seed_refs', () => {
 
 	it('identity: the seed object itself → its path, largest ancestor wins, children untouched', () => {
 		const props = { block: data.catalog.blocks[0], mode: 'identity' };
-		const { reducer: r, count } = new SeedRefPlan(idx, props);
+		const { reducer: r, count } = idx.plan(props);
 		expect(count).toBe(1);
 		expect(r(props.block)).toEqual(['catalog', 'blocks', 0]);
 		expect(r(props.block.meta)).toBeUndefined(); // inside a matched ancestor: never written
@@ -104,14 +102,14 @@ describe('plan_seed_refs', () => {
 
 	it('structure: a JSON clone of a seed node → the same path', () => {
 		const props = { block: clone(data.catalog.blocks[1]) };
-		const { reducer: r, count } = new SeedRefPlan(idx, props);
+		const { reducer: r, count } = idx.plan(props);
 		expect(count).toBe(1);
 		expect(r(props.block)).toEqual(['catalog', 'blocks', 1]);
 	});
 
 	it('a near-clone (one field differs) does NOT match the parent, but its identical children do', () => {
 		const near = { ...clone(data.catalog.blocks[1]), title: 'changed' };
-		const { reducer: r } = new SeedRefPlan(idx, { block: near });
+		const { reducer: r } = idx.plan({ block: near });
 		expect(r(near)).toBeUndefined();
 		expect(r(near.meta)).toEqual(['catalog', 'blocks', 1, 'meta']);
 	});
@@ -121,7 +119,7 @@ describe('plan_seed_refs', () => {
 		const list = { page: { items } };
 		const index = SeedIndex.of(list);
 		const picks = [45, 3, 3, 59, 0, 17].map((i) => clone(items[i]));
-		const { reducer: r, count } = new SeedRefPlan(index, { picks });
+		const { reducer: r, count } = index.plan({ picks });
 		expect(count).toBe(picks.length);
 		expect(picks.map((p) => r(p))).toEqual([45, 3, 3, 59, 0, 17].map((i) => ['page', 'items', i]));
 	});
@@ -131,7 +129,7 @@ describe('plan_seed_refs', () => {
 		const list = { page: { a: clone(twin), b: clone(twin), c: big('else') } };
 		const index = SeedIndex.of(list);
 		const props = { x: clone(twin), y: clone(twin), z: clone(list.page.c) };
-		const { reducer: r } = new SeedRefPlan(index, props);
+		const { reducer: r } = index.plan(props);
 		expect(r(props.x)).toEqual(['page', 'a']);
 		expect(r(props.y)).toEqual(['page', 'a']);
 		expect(r(props.z)).toEqual(['page', 'c']);
@@ -139,14 +137,14 @@ describe('plan_seed_refs', () => {
 
 	it('a value the seed does not have, or one below the threshold, is never referenced', () => {
 		const props = { fresh: big('fresh'), small: { a: 1 } };
-		const { reducer: r, count } = new SeedRefPlan(idx, props);
+		const { reducer: r, count } = idx.plan(props);
 		expect(count).toBe(0);
 		expect(r(props.fresh)).toBeUndefined();
 		expect(r(props.small)).toBeUndefined();
 	});
 
 	it('an empty index never references anything (and never walks the props)', () => {
-		const { reducer: r, count } = new SeedRefPlan(SeedIndex.of({}), {
+		const { reducer: r, count } = SeedIndex.of({}).plan({
 			block: data.catalog.blocks[0]
 		});
 		expect(count).toBe(0);
@@ -155,7 +153,7 @@ describe('plan_seed_refs', () => {
 
 	it('devalue round trip: references replace the copies and revive BY REFERENCE to the seed nodes', () => {
 		const props = { block: data.catalog.blocks[0], rest: clone(data.catalog.blocks[1]), n: 7 };
-		const text = stringify(props, { [SEED_REF_KEY]: new SeedRefPlan(idx, props).reducer });
+		const text = stringify(props, { [SEED_REF_KEY]: idx.plan(props).reducer });
 		expect(text).toContain(SEED_REF_KEY);
 		expect(text.length).toBeLessThan(stringify(props).length / 3);
 		let reads = 0;
@@ -187,22 +185,22 @@ describe('the shared request memo', () => {
 	afterEach(() => set_measure_memo_reader(null));
 
 	it('a block island whose props are a seed node adds one entry (its wrapper), not a subtree', () => {
-		const memo: MeasureMemo = new Map();
+		const memo = new MeasureMemo();
 		set_measure_memo_reader(() => memo);
 		const data = { catalog: { blocks: Array.from({ length: 20 }, (_, i) => big(`b${i}`)) } };
 		const idx = SeedIndex.of(data);
-		const after_seed = memo.size;
+		const after_seed = memo.nodes.size;
 		expect(after_seed).toBeGreaterThan(20 * 3); // blocks, metas, link objects…
 		for (const block of data.catalog.blocks) {
 			const props = { block };
 			expect(analyze(props).json).toBe(true);
-			expect(new SeedRefPlan(idx, props).count).toBe(1);
+			expect(idx.plan(props).count).toBe(1);
 		}
-		expect(memo.size).toBe(after_seed + 20); // exactly the twenty `{ block }` wrappers
+		expect(memo.nodes.size).toBe(after_seed + 20); // exactly the twenty `{ block }` wrappers
 		// a shaped copy of the seed (new root, same children) is a handful of lookups too
 		const shaped = { catalog: data.catalog };
 		expect(analyze(shaped).bytes).toBe(analyze(data).bytes);
-		expect(memo.size).toBe(after_seed + 21);
+		expect(memo.nodes.size).toBe(after_seed + 21);
 	});
 
 	it('without a reader every root measures on its own (a hole endpoint, a test)', () => {
@@ -212,7 +210,7 @@ describe('the shared request memo', () => {
 	});
 
 	it('a cycle met through the shared memo is opaque, and the walk still terminates', () => {
-		const memo: MeasureMemo = new Map();
+		const memo = new MeasureMemo();
 		set_measure_memo_reader(() => memo);
 		const cyc: Record<string, unknown> = { body: 'x'.repeat(200) };
 		cyc.self = cyc;
@@ -243,7 +241,7 @@ describe('json_culprit (why a tree left the JSON lane)', () => {
 	it('the plan reports which top-level keys its references point into', () => {
 		const data = { catalog: { blocks: [big('one')] }, other: big('two') };
 		const idx = SeedIndex.of(data);
-		const plan = new SeedRefPlan(idx, { a: data.catalog.blocks[0], b: data.other, c: 1 });
+		const plan = idx.plan({ a: data.catalog.blocks[0], b: data.other, c: 1 });
 		expect(plan.count).toBe(2);
 		expect([...plan.keys].sort()).toEqual(['catalog', 'other']);
 	});

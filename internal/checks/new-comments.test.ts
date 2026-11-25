@@ -162,3 +162,50 @@ test('a moved file adds only the lines it changed on the way, not every line it 
 		r.done();
 	}
 });
+
+test('a comment moved into another file is not added; one written beside it is', () => {
+	const B = 'packages/demo/src/b.ts';
+	const before = dedent`
+		export const a = 1;
+		// an old narration of the helper
+		// over two lines
+		export function helper() {}
+	`;
+	const after_b = dedent`
+		export const b = 2;
+		// an old narration of the helper
+		// over two lines
+		export function helper() {}
+		// a new narration
+		export const c = 3;
+	`;
+	const r = repo({ [A]: before, [B]: 'export const b = 2;' }, { [A]: ONE, [B]: after_b });
+	try {
+		assert.deepEqual(
+			new_comment_findings(r.dir, r.base).map((f) => `${f.file}:${f.line}`),
+			[`${B}:5`]
+		);
+	} finally {
+		r.done();
+	}
+});
+
+test('a moved comment after characters of more than one byte is matched whole too', () => {
+	const B = 'packages/demo/src/b.ts';
+	const before = dedent`
+		export const a = '— → é — → é';
+		// an old narration of the helper
+		export function helper() {}
+	`;
+	const after_b = dedent`
+		export const b = '— → é — → é';
+		// an old narration of the helper
+		export const z = 1;
+	`;
+	const r = repo({ [A]: before, [B]: 'export const b = 2;' }, { [A]: ONE, [B]: after_b });
+	try {
+		assert.deepEqual(new_comment_findings(r.dir, r.base), []);
+	} finally {
+		r.done();
+	}
+});

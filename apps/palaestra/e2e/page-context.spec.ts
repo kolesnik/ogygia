@@ -11,7 +11,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { built } from './_built.ts';
 
 const facts = async (el: Locator) => ({
 	who: await el.getAttribute('data-who'),
@@ -31,7 +31,7 @@ const PAGE = {
 test('build output: each hole’s page.data answer is patched in (a hole that reads none never looks its page up)', () => {
 	// REGRESSION: a plain `null` placeholder was inlined by the bundler into every reader, so every
 	// hole of every page ran its page's loads again (the postrender deck's "shell rendered once" caught it)
-	const server = fileURLToPath(new URL('../.svelte-kit/output/server/', import.meta.url));
+	const server = built('server');
 	const files: string[] = [];
 	const walk = (dir: string) => {
 		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

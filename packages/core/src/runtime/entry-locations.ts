@@ -1,38 +1,32 @@
 import { import_file } from './import-again.ts';
 import { code_url_or_refuse, is_location_of } from './code-origins.ts';
-import { backoffAfter, cache, flights, net, scope, STALE } from '@ogygia/machine';
+import { backoffAfter, net, STALE } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import { lru } from '@ogygia/machine';
 import { rollover } from '../policies.ts';
 import { OG_LOCATIONS } from '../wire-markup.ts';
 import { browser_offline } from './network.ts';
 import { document_address } from './document-address.ts';
+import { resolved_urls } from './resolved-url.ts';
 
-const locations = cache<string, string>({ name: 'entry locations', max: 10_000 });
+const locations = lru<string, string>({ name: 'entry locations', max: 10_000 });
 
 /** A load that fell back to its identity: who hears about it (the runtime registers the devtools
  *  and beacon reporter at boot). This module imports nothing: app code (a portable snippet) uses it
  *  too, and must not pull the runtime's reporting into the app's chunks. */
-export type EntryFallbackReport = { entry: string; src: string; recovered: boolean };
+export type EntryFallbackReport = {
+	entry: string;
+	src: string;
+	recovered: boolean;
+};
 let fallback_reporter: ((report: EntryFallbackReport) => void) | null = null;
 export function on_entry_fallback(reporter: (report: EntryFallbackReport) => void): void {
 	fallback_reporter = reporter;
 }
 
-const resolved_urls = cache<string, string>({ name: 'resolved entry urls', max: 4000 });
-
 function absolute(url: string, base?: string): string {
-	const b = base ?? location.href;
-	const key = `${b}\n${url}`;
-	const hit = resolved_urls.get(key);
-	if (hit !== undefined) return hit;
-	let out: string;
-	try {
-		out = new URL(url, b).href;
-		// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: kept as written
-	} catch {
-		out = url;
-	}
-	resolved_urls.set(key, out);
-	return out;
+	return resolved_urls.resolve(url, base ?? location.href)?.href ?? url;
 }
 
 /** Remember where an entry is served from. `base`: the document the pair was read from. Only the
@@ -58,7 +52,7 @@ export function entry_location(entry: string, base?: string): string | undefined
 }
 
 const BUILD_MAP_ATTR = OG_LOCATIONS;
-const build_map = flights({
+const build_map = plainFlights({
 	name: 'build location map',
 	run: (url: string) =>
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a map that could not be read is not kept: the next load asks again, and loads keep their stable URLs meanwhile
@@ -112,14 +106,9 @@ export function pin_region_urls(el: Element, base?: string): void {
 	for (const name of REGION_URL_ATTRS) {
 		const value = el.getAttribute(name);
 		if (!value || !(value.startsWith('./') || value.startsWith('../'))) continue;
-		let url: URL;
-		try {
-			url = new URL(absolute(value, base ?? document_address()));
-			// oxlint-disable-next-line ogygia/no-silent-failures -- not a URL: the attribute stays as written
-		} catch {
-			continue;
-		}
-		if (url.origin === location.origin) el.setAttribute(name, url.pathname + url.search + url.hash);
+		const url = resolved_urls.resolve(value, base ?? document_address());
+		if (url !== null && url.origin === location.origin)
+			el.setAttribute(name, url.pathname + url.search + url.hash);
 	}
 }
 
@@ -130,7 +119,7 @@ export function island_entry_of(el: Element): string | null {
 	return entry;
 }
 
-const current_maps = flights({
+const current_maps = plainFlights({
 	name: 'current build map',
 	run: (file: string) =>
 		// oxlint-disable-next-line ogygia/no-silent-failures -- a map that could not be read is not kept: the next ask reads again
@@ -174,12 +163,15 @@ function is_gone(url: string): Promise<boolean> {
 
 async function recover_location(entry: string, failed: string): Promise<string | null> {
 	let current: string | null | undefined;
-	const waits = scope();
+	const waits = life.rootLife();
 	try {
 		for (let n = 1; n <= rollover.attempts; n++) {
 			if (n > 1) {
 				const wait = backoffAfter(rollover, n - 1);
-				await waits.task(() => new Promise<void>((resolve) => waits.timeout(resolve, wait)));
+				$await(
+					waits.task(() => new Promise<void>((resolve) => waits.later(resolve, wait))),
+					current ?? null
+				);
 			}
 			current = await current_location(entry);
 			if (current === undefined) continue;

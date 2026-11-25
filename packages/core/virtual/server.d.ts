@@ -9,6 +9,7 @@ export const create_remote_key: import('../dist/contract/virtual-modules.js').Vi
 export const profiler_maps: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/profiler-maps']['profiler_maps'];
 export const rate_limit: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/rate-limit']['rate_limit'];
 export const region_deps: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['region_deps'];
+export const wake_code: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['wake_code'];
 export const region_interactivity: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['region_interactivity'];
 export const chunk_contents: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['chunk_contents'];
 export const chunk_heavy: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/region-deps']['chunk_heavy'];
@@ -39,6 +40,7 @@ export const view_transitions: import('../dist/contract/virtual-modules.js').Vir
 export const runtime_url: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-url']['runtime_url'];
 export const build_key: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_key'];
 export const build_had_secret: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_had_secret'];
+export const HAS: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-flags']['HAS'];
 export const load_server_regions: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['load_server_regions'];
 export const region_url: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['region_url'];
 export const region_name: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['region_name'];
@@ -46,6 +48,8 @@ export const region_render: import('../dist/contract/virtual-modules.js').Virtua
 export const render_region: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['render_region'];
 export const region_reads_page_data: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest']['region_reads_page_data'];
 export const server_plugins: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-plugins']['plugins'];
+export const server_plugin_count: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-plugins']['plugin_count'];
+export const server_hook_measures: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-plugins']['measures'];
 export const session_cookie: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/session-cookie']['session_cookie'];
 export { sign, region_sign } from '../dist/server/hmac.js';
 }
@@ -99,6 +103,10 @@ export const runtime_url: import('../dist/contract/virtual-modules.js').VirtualM
 declare module 'ogygia:server/secret' {
 export const build_key: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_key'];
 export const build_had_secret: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/secret']['build_had_secret'];
+}
+declare module 'ogygia:server/runtime-flags' {
+const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/runtime-flags'];
+export = module;
 }
 declare module 'ogygia:server/server-manifest' {
 const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:server/server-manifest'];

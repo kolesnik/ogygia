@@ -20,11 +20,8 @@ import { render } from 'svelte/server';
 import type { Component } from 'svelte';
 import { by_code_unit, location_map_files } from '../src/link/location-map.ts';
 import { collectIslandDepModulepreloads, island_deps_module } from '../src/link/island-deps.ts';
-import {
-	decode_island_graph,
-	decode_island_locations,
-	encode_island_graph
-} from '../../core/src/island-graph.ts';
+import { encode_island_graph } from '../../core/src/island-graph.ts';
+import { decode_island_graph, decode_island_locations } from '../../core/src/island-graph-read.ts';
 import { DocumentTail, island_graph_script } from '../../core/src/server/document-tail.ts';
 import { entry_src, runtime_bootstrap } from '../../core/src/server/entry-location.ts';
 import { PropsWire } from '../../core/src/server/props-wire.ts';

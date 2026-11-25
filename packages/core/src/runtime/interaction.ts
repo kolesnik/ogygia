@@ -1,31 +1,29 @@
-import {
-	flights,
-	machine,
-	noop,
-	registry,
-	STALE,
-	type Machine,
-	type Scope,
-	type Stale
-} from '@ogygia/machine';
+import { noop, registry, STALE, type Stale } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
+import type { Life, Run } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
 import { LoadSlot } from './load-scheduler.ts';
 import { import_again } from './import-again.ts';
-import { slots } from './slots.ts';
-import { warm_island_module } from './region-endpoint-url.ts';
+import { linked } from './boot-link.ts';
+import { warm_island_module } from './island-warm.ts';
 import { island_entry_of } from './entry-locations.ts';
 import { OgygiaError } from '../messages/core.ts';
 import { download } from '../policies.ts';
 import { OG_WOKE } from '../wire-markup.ts';
 
-/** Feature entry: fill the `interaction` slot — wake a cold island on first use, warm on hover. */
-export function install(): void {
-	slots.interaction = (el, fire, owner) => {
-		const warm = () => {
-			const entry = island_entry_of(el);
-			if (entry) warm_island_module(entry, undefined, 'user');
-		};
-		return arm_interaction(el, warm, fire, owner);
+/**
+ * Wake a cold island when interaction lands inside it, and warm its module on hover; returns a
+ * disarm fn (`over`: the region left while it was waking: the clicks it queued are dropped, not
+ * replayed). `fire` gets what replays the visitor's input ({@link WakeFn}): the island goes live
+ * once it is in. `owner`: the region's lifetime in the page, which the replay's frame belongs to.
+ * The region element calls it (`ogygia:boot/feature-code`).
+ */
+export function arm(el: HTMLElement, fire: WakeFn, owner: Life): void | ((over?: boolean) => void) {
+	const warm = () => {
+		const entry = island_entry_of(el);
+		if (entry) warm_island_module(entry, undefined, 'user');
 	};
+	return arm_interaction(el, warm, fire, owner);
 }
 
 const WAKE_EVENTS = ['pointerdown', 'keydown', 'focusin', 'click'] as const;
@@ -108,19 +106,19 @@ const arming_steps = {
 	over: []
 } as const;
 
-const arming_definition = machine<{ armed: {}; woken: {}; over: {} }>()({
+const arming_definition = $machine<{ armed: {}; woken: {}; over: {} }>()({
 	name: 'interaction-arming',
 	initial: 'armed',
 	steps: arming_steps
 });
 
-type Arming = Machine<{ armed: {}; woken: {}; over: {} }, typeof arming_steps>;
+type Arming = Run<{ armed: {}; woken: {}; over: {} }, typeof arming_steps>;
 
 type Armed = {
 	region: Element;
 	warm: () => void;
 	fire: WakeFn;
-	owner: Scope;
+	owner: Life;
 	arming: Arming;
 	warmed: boolean;
 	queued: QueuedClick[];
@@ -136,13 +134,13 @@ const armed = registry.keyed<Element, Armed>();
 let installed = false;
 
 type Replay = typeof import('./interaction-replay.ts');
-const load_replay = flights({
+const import_replay = import_again(() => import('./interaction-replay.ts'));
+const load_replay = plainFlights({
 	name: 'interaction replay',
-	run: import_again(() => import('./interaction-replay.ts')),
+	run: () => import_replay().then(linked),
 	retry: download
 });
 function replay(): Promise<Replay | Stale> {
-	slots.interaction_link ??= { resolve_address };
 	return load_replay.get();
 }
 
@@ -232,12 +230,12 @@ function wake(a: Armed, e: Event): void {
 	const replayed = replay();
 	Promise.all([replayed, Promise.resolve(a.fire(replayed))]).then(
 		([r]) => {
-			if (a.arming.now.kind === 'over') return;
+			if (a.arming.kind === 'over') return;
 			disarm(a, false);
 			if (r !== STALE) r.after_wake(region, fields, focused, queued, a.owner);
 		},
 		(err) => {
-			if (a.arming.now.kind === 'over') return;
+			if (a.arming.kind === 'over') return;
 			disarm(a, false);
 			replay().then(
 				(r) => r !== STALE && r.replay_clicks(region, queued, a.owner),
@@ -263,14 +261,14 @@ export function arm_interaction(
 	region: Element,
 	warm: () => void,
 	fire: WakeFn,
-	owner: Scope
+	owner: Life
 ): (over?: boolean) => void {
 	const a: Armed = {
 		region,
 		warm,
 		fire,
 		owner,
-		arming: arming_definition.create(),
+		arming: fsm.createRun(arming_definition),
 		warmed: false,
 		queued: [],
 		forget: noop

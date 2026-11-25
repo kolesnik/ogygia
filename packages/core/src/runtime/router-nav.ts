@@ -1,7 +1,14 @@
-import { boot_link, morph_sync_attributes, router_link, slots } from './slots.ts';
-import { buggify, clock, net } from '@ogygia/machine';
+import { boot_link } from './lazy-link.ts';
+import { buggify, clock, flights, net, stage, world } from '@ogygia/machine';
+import { lru } from '@ogygia/machine';
 import type { PageGlobals } from '../page-globals.ts';
-import { reconcile_body, stamp_region_keys, swap_body, swap_reason } from './reconcile.ts';
+import {
+	morph_sync_attributes,
+	reconcile_body,
+	stamp_region_keys,
+	swap_body,
+	swap_reason
+} from './reconcile.ts';
 import {
 	apply_soft_invalidate_doc,
 	finish_spa_document,
@@ -12,6 +19,7 @@ import type { HistoryEntry, HistoryMove, SpaRouter } from './router.ts';
 import { spa_html_cacheable } from './spa-cacheable.ts';
 import { is_dangerous_head_node } from './head-deny.ts';
 import { pin_region_urls } from './entry-locations.ts';
+import { retire_page_head_copies } from './head-copies.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import {
 	OG_FP,
@@ -29,46 +37,74 @@ import {
 	text_of
 } from '../wire-markup.ts';
 import { KNOWN_HEADER_CAP } from '../contract/known-copies.ts';
+import { add_head_owners, adopt_owner_record, head_owners } from '../head-owners.ts';
+import { release_head_nodes } from './head-release.ts';
+import {
+	L_ADOPT_RESPONSE,
+	L_FETCH_PRIORITY_OF,
+	L_FORMS_RESTORE,
+	L_FORMS_SNAPSHOT,
+	L_FRAGMENT_TARGET,
+	L_FRAMES_STREAM,
+	L_INIT_SHADOW_REGISTRIES,
+	L_IS_WARMED_MODULE,
+	L_JUMP_TO_HASH,
+	L_KIT_BOOT,
+	L_LAKE_SETTLE_IN,
+	L_LOAD_DEVALUE,
+	L_LOAD_SLOT,
+	L_MORPH,
+	L_NEEDS_DEVALUE,
+	L_NOTE_ENTRY_LOCATION,
+	L_PARSE_PAGE_DOCUMENT,
+	L_PRIORITY,
+	L_REGIONS_IN_SHADOW,
+	L_REGISTER_ISLAND_GRAPH,
+	L_RUNS_ENTRY,
+	L_RUNTIME_SESSION,
+	L_SHEETS_IN_USE,
+	L_SOFT,
+	L_STALE,
+	L_VOUCH_PAGE_ANSWER,
+	L_WARM_ISLAND_MODULE,
+	L_HOOKS,
+	L_YIELD_TASK
+} from './boot-link-index.ts';
+import type { LazyHooks } from '../contract/runtime-hooks.ts';
+import { navigated as HOOK_NAVIGATED, navStarted as HOOK_NAV_STARTED } from 'ogygia:boot/hook-bits';
 
 (globalThis as PageGlobals).__og_head_deny?.(is_dangerous_head_node);
 
-const KitBoot = { document_has: (doc: ParentNode) => boot_link().KitBoot.document_has(doc) };
-const regions_in_shadow = () => boot_link().regions_in_shadow();
-const release_head_nodes = (unlisted: readonly Element[]) =>
-	boot_link().release_head_nodes(unlisted);
-const head_owners = (node: Element) => boot_link().head_owners(node);
-const add_head_owners = (node: Element, more: Iterable<string>) =>
-	boot_link().add_head_owners(node, more);
-const adopt_owner_record = (doc: ParentNode, head: ParentNode) =>
-	boot_link().adopt_owner_record(doc, head);
-const session = () => boot_link().runtime_session;
-const adopt_response = (next: Document) => boot_link().adopt_response(next);
-type Scope = import('@ogygia/machine').Scope;
+const KitBoot = { document_has: (doc: ParentNode) => boot_link()[L_KIT_BOOT].document_has(doc) };
+const regions_in_shadow = () => boot_link()[L_REGIONS_IN_SHADOW]();
+const sheets_in_use = () => boot_link()[L_SHEETS_IN_USE]();
+const session = () => boot_link()[L_RUNTIME_SESSION];
+const adopt_response = (next: Document) => boot_link()[L_ADOPT_RESPONSE](next);
+type Life = import('@ogygia/machine').Life;
 type Stale = import('@ogygia/machine').Stale;
 type Staging = import('@ogygia/machine').Staging;
 const devalue_for = (doc: Document) =>
-	boot_link().needs_devalue(doc) ? boot_link().load_devalue() : undefined;
+	boot_link()[L_NEEDS_DEVALUE](doc) ? boot_link()[L_LOAD_DEVALUE]() : undefined;
 const is_warmed_module = (entry: string, base?: string) =>
-	boot_link().is_warmed_module(entry, base);
+	boot_link()[L_IS_WARMED_MODULE](entry, base);
 const warm_island_module = (entry: string, base?: string) =>
-	boot_link().warm_island_module(entry, base);
+	boot_link()[L_WARM_ISLAND_MODULE](entry, base);
 const runs_entry = (attrs: import('./region-attrs.ts').RegionAttrs) =>
-	boot_link().runs_entry(attrs);
+	boot_link()[L_RUNS_ENTRY](attrs);
 const note_entry_location = (entry: string, src: string | null, base?: string) =>
-	boot_link().note_entry_location(entry, src, base);
+	boot_link()[L_NOTE_ENTRY_LOCATION](entry, src, base);
 const register_island_graph = (text: string, base: string) =>
-	boot_link().register_island_graph(text, base);
-const yield_task = () => boot_link().yield_task();
-const is_stale = (v: unknown): v is Stale => v === boot_link().STALE;
-const jump_to_hash = (hash: string) => router_link().jump_to_hash(hash);
+	boot_link()[L_REGISTER_ISLAND_GRAPH](text, base);
+const yield_task = () => boot_link()[L_YIELD_TASK]();
+const is_stale = (v: unknown): v is Stale => v === boot_link()[L_STALE];
+const jump_to_hash = (hash: string) => boot_link()[L_JUMP_TO_HASH]!(hash);
+
+export { init } from './lazy-link.ts';
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const RULES =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-const HOOK_NAVIGATED =
-	typeof __OGYGIA_HOOK_NAVIGATED__ !== 'undefined' ? __OGYGIA_HOOK_NAVIGATED__ : true;
-const HOOK_NAV_STARTED =
-	typeof __OGYGIA_HOOK_NAV_STARTED__ !== 'undefined' ? __OGYGIA_HOOK_NAV_STARTED__ : true;
+const hooks = () => boot_link()[L_HOOKS] as LazyHooks;
 const dt_now = clock.mono;
 
 const SERVER_DELTA =
@@ -389,21 +425,20 @@ type Pages = import('@ogygia/machine').Flights<PageAsk, Fetched, Pick<PageAsk, '
 let page_flights: Pages | undefined;
 let page_world: import('@ogygia/machine').World | undefined;
 const pages = (): Pages =>
-	(page_flights ??= boot_link().flights.keyed<PageAsk>()({
+	(page_flights ??= flights.keyed<PageAsk>()({
 		name: 'router pages',
 		key: ['href', 'known'],
 		ignore: { purpose: 'a navigation joins the prefetch out for its address: how, not what' },
 		run: (ask, signal, flight): Promise<Fetched> => run_page_fetch(ask, signal, flight),
-		world: (page_world = boot_link().world()),
+		world: (page_world = world()),
 		keep: (answer) => (answer.page !== null && answer.cacheable ? PREFETCH_TTL_MS : 0),
 		max: PAGE_CACHE_MAX_BYTES,
 		weigh: (answer) =>
 			Math.max((answer.page?.html.length ?? 0) * 2, PAGE_CACHE_MAX_BYTES / PAGE_CACHE_MAX_ENTRIES)
 	}));
-type Memo<K, V> = import('@ogygia/machine').Cache<K, V>;
+type Memo<K, V> = import('@ogygia/machine').Lru<K, V>;
 let warmed_pages_memo: Memo<string, true> | undefined;
-const warmed_pages = () =>
-	(warmed_pages_memo ??= boot_link().cache({ name: 'warmed pages', max: 512 }));
+const warmed_pages = () => (warmed_pages_memo ??= lru({ name: 'warmed pages', max: 512 }));
 let announcer: HTMLElement | null = null;
 
 /** Moves the world the cached pages are made in: what is kept goes, and a fetch that started before
@@ -448,11 +483,11 @@ export async function fetch_page(
 	purpose: NavPurpose = 'nav'
 ): Promise<FetchedPage | null> {
 	const ask: PageAsk = { href, known: known_header(), purpose };
-	const { PRIORITY } = boot_link();
+	const PRIORITY = boot_link()[L_PRIORITY];
 	const priority = purpose === 'prefetch' ? PRIORITY.speculative : PRIORITY.user;
 	for (;;) {
 		const answer = await pages().get(ask, { signal, priority });
-		if (answer !== boot_link().STALE) {
+		if (!is_stale(answer)) {
 			if (purpose === 'prefetch' && answer.page !== null) warm_modules(href, answer.page.html);
 			return answer.page;
 		}
@@ -474,7 +509,9 @@ async function run_page_fetch(
 	let res: Response;
 	try {
 		if (purpose === 'prefetch') {
-			const { LoadSlot, fetch_priority_of } = boot_link();
+			const link = boot_link();
+			const LoadSlot = link[L_LOAD_SLOT];
+			const fetch_priority_of = link[L_FETCH_PRIORITY_OF];
 			const slot = new LoadSlot({ kind: 'content', cls: 'speculative', label: href, flight });
 			const release = await slot.ready;
 			try {
@@ -569,9 +606,9 @@ export async function navigate(
 		type?: string;
 		replace?: boolean;
 	} = {},
-	claim: SpaRouter['nav']['now'] = r.nav.now
+	claim: number = r.nav.epoch
 ): Promise<void> {
-	if (r.nav.now !== claim) return;
+	if (r.nav.epoch !== claim) return;
 
 	const dt_t0 = DEVTOOLS ? dt_now() : 0;
 	const nav_t0 = clock.mono();
@@ -584,16 +621,16 @@ export async function navigate(
 			type
 		});
 	if (HOOK_NAV_STARTED)
-		slots.hooks?.navStarted?.({
+		hooks().navStarted!({
 			from: `${from.pathname}${from.search}`,
 			to: `${url.pathname}${url.search}`,
 			type
 		});
 
 	r.nav.go('loading', { href: url.href });
-	const mine = r.nav.now;
+	const mine = r.nav.epoch;
 	own_live_head(r.current_url);
-	const attempt = r.nav.scope;
+	const attempt = r.nav.visit();
 	const next = session().next_visit();
 	attempt.defer(() => {
 		if (session().visit !== next) next.scope.close();
@@ -628,9 +665,9 @@ export async function navigate(
 
 		if (dest.origin !== location.origin) return null;
 
-		const own = boot_link().vouch_page_answer(dest, html);
+		const own = boot_link()[L_VOUCH_PAGE_ANSWER](dest, html);
 		if (own === null) return null;
-		const doc = boot_link().parse_page_document(own);
+		const doc = boot_link()[L_PARSE_PAGE_DOCUMENT](own);
 		resolve_head_urls(doc.head, dest);
 
 		if (KitBoot.document_has(doc)) return null;
@@ -641,7 +678,9 @@ export async function navigate(
 		const this_build = next_build === null ? null : build_of(document);
 		if (this_build !== null && next_build !== this_build) return null;
 		if (doc.querySelector('meta[name="ogygia-first-load"]')) return null;
-		(globalThis as PageGlobals).__og_restore?.(doc);
+		const globals = globalThis as PageGlobals;
+		if (!globals.__og_restore && globals.__og_restore_ready) await globals.__og_restore_ready;
+		globals.__og_restore?.(doc);
 
 		const prefer_reduced_motion =
 			typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -665,50 +704,52 @@ export async function navigate(
 	const commit = (built: Built | null) => {
 		if (built === null) return;
 		const { doc, dest } = built;
-		const { soft } = boot_link();
-		if (soft.now.kind === 'refreshing') soft.go('idle');
+		const soft = boot_link()[L_SOFT];
+		if (soft.kind === 'refreshing') soft.go('idle');
 		const left = r.current_url;
 		own_live_head(left);
 		r.history.commit(dest, move, pop);
 		built.written = true;
-		const swap = swap_reason(!!slots.morph, regions_in_shadow, document.body, doc.body);
+		const link = boot_link();
+		const morph = link[L_MORPH];
+		const swap = swap_reason(morph !== null, regions_in_shadow, document.body, doc.body);
 		announcer?.remove();
 		document.dispatchEvent(new Event('og:before-swap'));
 		for (const sheet of built.sheets) session().claim_page_head(sheet.link);
 		const unlisted = merge_head(doc.head);
 		for (const sheet of built.sheets) apply_sheet(sheet);
-		if (slots.forms.enabled) slots.forms.snapshot(document.body, left.pathname);
+		link[L_FORMS_SNAPSHOT]?.(document.body, left.pathname);
 		prepare_spa_document(next);
 		apply_soft_invalidate_doc(doc);
 		if (swap === null) {
-			reconcile_body(document.body, doc.body, slots.morph!);
+			reconcile_body(document.body, doc.body, morph!);
 			built.reconciled = true;
 			adopt_title(doc);
-			session().settle_lakes_in(document.body);
+			link[L_LAKE_SETTLE_IN]?.(document.body);
 		} else {
 			if (DEVTOOLS) dt_emit({ domain: 'nav', name: 'nav.fallback', reason: swap });
 			swap_body(document.body, doc.body);
 			adopt_title(doc);
-			session().settle_lakes_in(document.body);
+			link[L_LAKE_SETTLE_IN]?.(document.body);
 		}
-		boot_link().init_shadow_registries(document.body);
+		link[L_INIT_SHADOW_REGISTRIES](document.body);
 		(globalThis as PageGlobals).__og_restore_adopt?.();
-		session().retire_page_head_copies();
-		release_head_nodes(unlisted);
+		retire_page_head_copies(session());
+		release_head_nodes(unlisted, sheets_in_use);
 		apply_late_templates(document.body);
 		finish_spa_document();
-		if (slots.forms.enabled) slots.forms.restore(url.pathname);
+		link[L_FORMS_RESTORE]?.(url.pathname);
 		document.dispatchEvent(new Event('og:after-swap'));
 	};
 
-	const staged = boot_link().stage<Built | null>(attempt, { name: 'navigation', build, commit });
+	const staged = stage<Built | null>(attempt, { name: 'navigation', build, commit });
 	let built: Built | null | Stale;
 	try {
 		built = await staged.ready;
 	} catch (error) {
 		return hand_off(error);
 	}
-	if (is_stale(built) || r.nav.now !== mine) return;
+	if (is_stale(built) || r.nav.epoch !== mine) return;
 	if (built === null) return hand_off();
 	const { dest } = built;
 
@@ -739,12 +780,12 @@ export async function navigate(
 		swap();
 	}
 	if (out.failed) return hand_off(out.failed.error, built.written);
-	if (r.nav.now !== mine) return;
+	if (r.nav.epoch !== mine) return;
 
 	r.nav.move('loading', 'settling', { href: url.href });
-	const settled = r.nav.now;
+	const settled = r.nav.epoch;
 	if (HOOK_NAVIGATED)
-		slots.hooks?.navigated?.({
+		hooks().navigated!({
 			from: `${from.pathname}${from.search}`,
 			to: `${dest.pathname}${dest.search}`,
 			type,
@@ -778,7 +819,7 @@ export async function navigate(
 
 	r.run_after(from, dest, type);
 	document.dispatchEvent(new Event('og:page-load'));
-	if (r.nav.now === settled) r.nav.go('idle');
+	if (r.nav.epoch === settled) r.nav.go('idle');
 	r.scan_preload_links();
 }
 
@@ -799,7 +840,7 @@ export const SCROLL_HOLD_MS = 10_000;
  * wakes). Instant, never smooth: CSS `scroll-behavior: smooth` must not animate a programmatic
  * restore.
  */
-export function hold_scroll(to: { x: number; y: number }, visit: Scope): void {
+export function hold_scroll(to: { x: number; y: number }, visit: Life): void {
 	let at = { x: scrollX, y: scrollY };
 	const put = () => {
 		if (scrollX === to.x && scrollY === to.y) return;
@@ -820,18 +861,22 @@ export function hold_scroll(to: { x: number; y: number }, visit: Scope): void {
 	const anchoring = html.style.overflowAnchor;
 	html.style.overflowAnchor = 'none';
 	hold.defer(() => (html.style.overflowAnchor = anchoring));
-	hold.timeout(() => hold.close(), SCROLL_HOLD_MS);
+	hold.close_after(SCROLL_HOLD_MS);
 	const above = new Set(islands_above(to.y));
 	const settled = () => {
-		if (above.size === 0) hold.timeout(() => hold.timeout(() => hold.close(), 0), 'frame');
+		if (above.size === 0) hold.later(() => hold.close_after(0), 'frame');
 	};
-	hold.on(document, 'ogygia:hydrated', (event: Event) => {
+	hold.listen(document, 'ogygia:hydrated', (event: Event) => {
 		if (above.delete(event.target as Element)) settled();
 	});
 	settled();
 	for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const)
-		hold.on(window, type, () => hold.close(), { capture: true, passive: true, once: true });
-	hold.on(
+		hold.listen(window, type, () => hold.close(), {
+			capture: true,
+			passive: true,
+			once: true
+		});
+	hold.listen(
 		window,
 		'scroll',
 		() => {
@@ -883,19 +928,19 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 	bust_page_cache();
 	const url = on_screen ?? new URL(location.href);
 
-	const { soft, stage } = boot_link();
+	const soft = boot_link()[L_SOFT];
 	soft.go('refreshing', { href: url.href });
-	const mine = soft.now;
+	const mine = soft.epoch;
 
-	const staged = stage<Document | null>(soft.scope, {
+	const staged = stage<Document | null>(soft.visit(), {
 		name: 'soft refresh',
 		build: async ({ signal }) => {
 			const fetched = await fetch_page(url.href, signal);
 			if (fetched === null || signal.aborted) return null;
 			const landed = new URL(fetched.url, url);
-			const own = boot_link().vouch_page_answer(landed, fetched.html);
+			const own = boot_link()[L_VOUCH_PAGE_ANSWER](landed, fetched.html);
 			if (own === null) return null;
-			const doc = boot_link().parse_page_document(own);
+			const doc = boot_link()[L_PARSE_PAGE_DOCUMENT](own);
 			resolve_head_urls(doc.head, landed);
 			if (KitBoot.document_has(doc) || !doc.querySelector('meta[name="ogygia-router"]'))
 				return null;
@@ -904,7 +949,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 		},
 		commit: (doc) => {
 			if (doc === null) return;
-			release_head_nodes(merge_head(doc.head));
+			release_head_nodes(merge_head(doc.head), sheets_in_use);
 			apply_soft_invalidate_doc(doc);
 		}
 	});
@@ -912,7 +957,7 @@ export async function invalidate_all(on_screen?: URL | null): Promise<void> {
 		if (is_stale(await staged.ready)) return;
 		staged.commit();
 	} finally {
-		if (soft.now === mine) soft.go('idle');
+		if (soft.epoch === mine) soft.go('idle');
 	}
 }
 
@@ -943,7 +988,7 @@ function reset_focus(hash: string, kept: string | null = null) {
 
 	const was = kept ? document.getElementById(kept) : null;
 	if (was) return focus_reset(was);
-	const target = router_link().fragment_target(hash);
+	const target = boot_link()[L_FRAGMENT_TARGET]!(hash);
 	if (target instanceof HTMLElement || target instanceof SVGElement) return focus_reset(target);
 	const autofocus = document.querySelector<HTMLElement>('[autofocus]');
 	if (autofocus) {
@@ -1022,7 +1067,7 @@ function head_slot(node: Element, live: ReadonlyMap<string, Element>): Node | nu
 
 function preload_stylesheets(
 	new_head: HTMLHeadElement,
-	attempt: Scope,
+	attempt: Life,
 	sheets: InertSheet[],
 	discard: Staging['discard']
 ): Promise<unknown> {
@@ -1052,8 +1097,8 @@ function preload_stylesheets(
 		if (sheet.priority === null) link.setAttribute('fetchpriority', 'high');
 		pending.push(
 			new Promise<void>((resolve) => {
-				attempt.on(link, 'load', () => resolve(), { once: true });
-				attempt.on(link, 'error', () => resolve(), { once: true });
+				attempt.listen(link, 'load', () => resolve(), { once: true });
+				attempt.listen(link, 'error', () => resolve(), { once: true });
 			})
 		);
 		document.head.insertBefore(link, head_slot(node, live));
@@ -1063,16 +1108,17 @@ function preload_stylesheets(
 	}
 	if (!pending.length) return Promise.resolve();
 	return new Promise<void>((resolve) => {
-		const cancel = attempt.timeout(resolve, STYLESHEET_WAIT_MS);
+		const wait = attempt.child();
+		wait.later(resolve, STYLESHEET_WAIT_MS);
 		// oxlint-disable-next-line ogygia/no-silent-failures -- every pending sheet resolves, on load or on error
 		void Promise.all(pending).then(() => {
-			cancel();
+			wait.close();
 			resolve();
 		});
 	});
 }
 
-function batch_regions(doc: Document, visit: Scope, dest: URL) {
+function batch_regions(doc: Document, visit: Life, dest: URL) {
 	const endpoints: string[] = [];
 	for (const el of Array.from(doc.querySelectorAll('ogygia-region[render="defer"][endpoint]'))) {
 		const when = el.getAttribute('when') || 'load';
@@ -1083,5 +1129,5 @@ function batch_regions(doc: Document, visit: Scope, dest: URL) {
 	if (!endpoints.length) return;
 	if (DEVTOOLS) dt_emit({ domain: 'nav', name: 'nav.batch', count: endpoints.length });
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a batch settles on every end, called off or broken off (frame-nav.ts streamFrames)
-	void slots.frames?.stream?.(endpoints, visit, dest.href);
+	void boot_link()[L_FRAMES_STREAM]?.(endpoints, visit, dest.href);
 }

@@ -38,6 +38,20 @@ test('an idle hole on a page that never goes idle still fetches within 2 s', asy
 	expect(at[0] - t0).toBeLessThan(3_000);
 });
 
+test("an idle hole fetches at the browser's first idle moment, well before the cap", async () => {
+	const { at } = count_fetches();
+	window.requestIdleCallback = ((fn: IdleRequestCallback) =>
+		setTimeout(
+			() => fn({ didTimeout: false, timeRemaining: () => 50 }),
+			20
+		)) as unknown as typeof window.requestIdleCallback;
+	const t0 = clock.mono();
+	document.body.innerHTML = hole(ep('idlenow0001'), 'idle');
+	bootDev();
+	await expect.poll(() => at.length, { timeout: 4_000, interval: 20 }).toBe(1);
+	expect(at[0] - t0).toBeLessThan(1_000);
+});
+
 test('an idle hole in a browser with no idle callback fetches after a short pause, not at once', async () => {
 	const { at } = count_fetches();
 	const own = Object.getOwnPropertyDescriptor(window, 'requestIdleCallback');

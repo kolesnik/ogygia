@@ -1,8 +1,16 @@
+import { defaultClientConditions, defaultServerConditions } from 'vite';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { REGION_GRID_FILES, region_grid_run } from './scripts/region-grid-files.ts';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { browser_runs, playwright_run, sim_define, stub_aliases } from '@ogygia/config/vitest';
+import {
+	browser_runs,
+	package_sources_macros,
+	playwright_run,
+	sim_define,
+	stub_aliases
+} from '@ogygia/config/vitest';
 import { heisenbench_record } from '../../internal/heisenbench/src/record.ts';
+import { core_macros } from './macros.config.ts';
 import type { BrowserCommand, BrowserCommandContext } from 'vitest/node';
 import type {} from '@vitest/browser-playwright';
 // (the compiler's build plugin, from its source, as core's tests read devtools' own)
@@ -25,9 +33,90 @@ type Frame = Awaited<ReturnType<BrowserCommandContext['frame']>>;
  * earlier files' frames, all named `vitest-iframe`. So a route touches only the requests of the
  * calling file's own frame (`test_frame`), and each file lifts only what it named: one file's drop
  * spent on another file's download of the same module let both tests see the wrong network.
+ *
+ * The page has ONE Playwright route, put on at the first command: a command sets or lifts a rule
+ * the route reads. It stays on once the last rule is lifted, except in WebKit.
  */
-type Routed = { matches: (url: URL) => boolean; held: Array<() => Promise<void>> };
-const routed = new Map<Frame, Map<string, Routed>>();
+type Rule = {
+	matches: (url: URL) => boolean;
+	left: number;
+	held: Array<() => Promise<void>> | null;
+};
+
+class TestNetwork {
+	readonly #rules = new Map<Frame, Map<string, Rule>>();
+	readonly #routed = new WeakMap<BrowserCommandContext['page'], (url: URL) => boolean>();
+
+	async set(ctx: BrowserCommandContext, path: string, rule: Omit<Rule, 'matches'>): Promise<void> {
+		const frame = await test_frame(ctx);
+		let mine = this.#rules.get(frame);
+		if (!mine) this.#rules.set(frame, (mine = new Map()));
+		const before = mine.get(path);
+		mine.set(path, { matches: (url) => url.pathname.endsWith(path), ...rule });
+		if (before) await send_on(before);
+		await this.#route(ctx);
+	}
+
+	async lift(ctx: BrowserCommandContext, path: string): Promise<void> {
+		const mine = this.#rules.get(await test_frame(ctx));
+		const rule = mine?.get(path);
+		if (!rule) return;
+		mine!.delete(path);
+		await send_on(rule);
+		// @why Chromium strands a request in flight when Playwright's interception goes off and on, so the route stays (test: test/browser/network-routes.test.ts › module loads in flight while a network rule goes on and comes off again all land (Chromium once stranded one, and an island waiting on its graph never woke))
+		// @why WebKit with interception still on styles nothing with a data: sheet turned on later, so there it comes off (test: test/browser/nav-sheets-inert.test.ts › a sheet of the next page that loaded first does not style the page on screen)
+		if (engine(ctx) === 'webkit' && !this.#rules_on(ctx.page)) await this.#unroute(ctx.page);
+	}
+
+	#rules_on(page: BrowserCommandContext['page']): boolean {
+		for (const [frame, mine] of this.#rules) if (mine.size && frame.page() === page) return true;
+		return false;
+	}
+
+	async #unroute(page: BrowserCommandContext['page']): Promise<void> {
+		const matcher = this.#routed.get(page);
+		if (!matcher) return;
+		this.#routed.delete(page);
+		await page.unroute(matcher);
+	}
+
+	#rule_for(frame: Frame | null, url: URL): Rule | undefined {
+		const mine = frame && this.#rules.get(frame);
+		if (mine) for (const rule of mine.values()) if (rule.matches(url)) return rule;
+	}
+
+	#any(url: URL): boolean {
+		for (const mine of this.#rules.values())
+			for (const rule of mine.values()) if (rule.matches(url)) return true;
+		return false;
+	}
+
+	async #route(ctx: BrowserCommandContext): Promise<void> {
+		if (this.#routed.has(ctx.page)) return;
+		const matcher = (url: URL) => this.#any(url);
+		this.#routed.set(ctx.page, matcher);
+		await ctx.page.route(matcher, (route) => {
+			const rule = this.#rule_for(route.request().frame(), new URL(route.request().url()));
+			if (!rule) return route.fallback();
+			if (rule.held) return void rule.held.push(() => route.continue());
+			if (rule.left > 0) {
+				rule.left--;
+				return route.abort('failed');
+			}
+			return route.continue();
+		});
+	}
+}
+
+async function send_on(rule: Rule): Promise<void> {
+	// oxlint-disable-next-line ogygia/no-silent-failures -- a held request whose page closed has no one to answer
+	for (const send of rule.held?.splice(0) ?? []) await send().catch(() => {});
+}
+
+const engine = (ctx: BrowserCommandContext): string | undefined =>
+	ctx.page.context().browser()?.browserType().name();
+
+const network = new TestNetwork();
 /** How long a command waits for Playwright to report the calling file's frame. */
 const FRAME_WAIT_MS = 5000;
 
@@ -59,39 +148,11 @@ async function test_frame(ctx: BrowserCommandContext): Promise<Frame> {
 	}
 }
 
-async function route_of(ctx: BrowserCommandContext, path: string): Promise<[Routed, Frame]> {
-	const frame = await test_frame(ctx);
-	const r: Routed = { matches: (url) => url.pathname.endsWith(path), held: [] };
-	let mine = routed.get(frame);
-	if (!mine) routed.set(frame, (mine = new Map()));
-	mine.set(path, r);
-	return [r, frame];
-}
-const drop_downloads: BrowserCommand<[path: string, times: number]> = async (ctx, path, times) => {
-	const [r, frame] = await route_of(ctx, path);
-	let left = times;
-	await ctx.page.route(r.matches, (route) =>
-		route.request().frame() !== frame
-			? route.fallback()
-			: left-- > 0
-				? route.abort('failed')
-				: route.continue()
-	);
-};
-const hold_downloads: BrowserCommand<[path: string]> = async (ctx, path) => {
-	const [r, frame] = await route_of(ctx, path);
-	await ctx.page.route(r.matches, (route) =>
-		route.request().frame() !== frame ? route.fallback() : void r.held.push(() => route.continue())
-	);
-};
-const keep_downloads: BrowserCommand<[path: string]> = async (ctx, path) => {
-	const mine = routed.get(await test_frame(ctx));
-	const r = mine?.get(path);
-	if (!r) return;
-	mine!.delete(path);
-	await ctx.page.unroute(r.matches);
-	for (const send of r.held.splice(0)) await send().catch(() => {}); // ok: a held request whose page closed has no one to answer
-};
+const drop_downloads: BrowserCommand<[path: string, times: number]> = (ctx, path, times) =>
+	network.set(ctx, path, { left: times, held: null });
+const hold_downloads: BrowserCommand<[path: string]> = (ctx, path) =>
+	network.set(ctx, path, { left: 0, held: [] });
+const keep_downloads: BrowserCommand<[path: string]> = (ctx, path) => network.lift(ctx, path);
 
 /** Which part of Region's grid runs, `<i>/<n>`; and the fuzz's runs and seed. */
 const GRID = {
@@ -110,13 +171,14 @@ const NOT_GRID = [
 /** The hydration grid's server HTML for one kind at one place (test/_region-grid-ssr.ts), rendered
  *  through the calling project's own Vite server: compiled with the Svelte options of the client
  *  that hydrates it. */
-const region_grid_ssr: BrowserCommand<[kind: string, place: unknown]> = async (
+const region_grid_ssr: BrowserCommand<[kind: string, place: unknown, word?: number]> = async (
 	ctx,
 	kind,
-	place
+	place,
+	word
 ) => {
 	const mod = await ctx.project.vite.ssrLoadModule('/test/_region-grid-ssr.ts');
-	return (mod.ssr_cell as (k: string, p: unknown) => unknown)(kind, place);
+	return (mod.ssr_cell as (k: string, p: unknown, w?: number) => unknown)(kind, place, word);
 };
 /** The hydration fuzz's server HTML for each of its inputs, the same way. */
 const region_grid_ssr_specs: BrowserCommand<[inputs: unknown[]]> = async (ctx, inputs) => {
@@ -143,14 +205,20 @@ export default defineConfig({
 	// the island fixtures (client compile) and their SSR twin in `setup.ts` (server compile).
 	// heisenbench_record(): nothing, unless the measurement-source gate records the tests' inputs
 	// (internal/heisenbench/src/record.ts)
-	plugins: [...heisenbench_record()],
+	plugins: [core_macros(), ...package_sources_macros(), ...heisenbench_record()],
 	define: sim_define(process.env),
 	// The browser tests' dependencies, bundled before the first test file loads: found during the
 	// run, Vite bundles again and changes the URLs a test file still imports.
 	optimizeDeps: { include: ['devalue', 'esm-env', 'fast-check'] },
 	// Kit's `$app/*` and ogygia's virtual modules (the realm modules and their entries), stubbed so
 	// suites load without a Kit app or the Vite plugin (test/_stubs, by file name)
-	resolve: { alias: stub_aliases() },
+	resolve: { alias: stub_aliases(), conditions: ['ogygia-source', ...defaultClientConditions] },
+	// core's own `#region-server` from its source (package.json `imports`, the `ogygia-source`
+	// condition): every other reader of the package gets dist
+	ssr: { resolve: { conditions: ['ogygia-source', ...defaultServerConditions] } },
+	environments: {
+		__vitest__: { resolve: { conditions: ['ogygia-source', ...defaultServerConditions] } }
+	},
 	test: {
 		// @why expect.poll and expect.element give up after 1 s by default, shorter than a dev-mode module load on a loaded runner running the full suite (test: test/browser/region-left-mid-wake.test.ts › a region taken out while it waits for its hydrate turn never comes alive)
 		expect: { poll: { timeout: 5_000 } },
@@ -193,8 +261,6 @@ export default defineConfig({
 				// each lazy loader's own file, as an app's build hands it over (the ogygia plugin
 				// always carries it): a dropped download is asked for again there
 				plugins: [svelte(), lazy_files()],
-				// as an app with a plugin's browser half builds: the runtime boots the plugins a test hands it
-				define: { __OGYGIA_CLIENT_PLUGINS__: 'true' },
 				test: {
 					name: 'browser',
 					include: ['test/browser/**/*.test.ts'],

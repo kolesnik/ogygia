@@ -4,6 +4,7 @@
 // so it never shows the page as it was before the mutation.
 import { beforeEach, afterEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { reset_load_scheduler } from '../../src/runtime/load-scheduler.ts';
 import { reset_document_painted } from '../../src/runtime/schedule.ts';
 
@@ -14,7 +15,7 @@ const asked: Array<{ href: string; answer: (body: string) => void }> = [];
 beforeEach(async () => {
 	reset_load_scheduler();
 	reset_document_painted();
-	link_boot();
+	init(link_boot());
 	asked.length = 0;
 	window.fetch = (input) =>
 		new Promise<Response>((resolve) => {

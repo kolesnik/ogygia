@@ -40,7 +40,9 @@ vi.mock('ogygia:server/server-plugins', () => ({
 				}
 			}
 		}
-	]
+	],
+	plugin_count: 1,
+	measures: 0
 }));
 
 const { handle } = await import('../src/hooks.ts');

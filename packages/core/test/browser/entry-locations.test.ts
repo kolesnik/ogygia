@@ -5,6 +5,7 @@
 //
 // The map is module state shared by every test in this file: each test uses its own URLs.
 import { describe, expect, test } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import {
 	entry_location,
 	import_entry,
@@ -12,11 +13,8 @@ import {
 	note_entry_location,
 	on_entry_fallback
 } from '../../src/runtime/entry-locations.ts';
-import {
-	island_module_url,
-	warm_island_module,
-	is_warmed_module
-} from '../../src/runtime/region-endpoint-url.ts';
+import { island_module_url } from '../../src/runtime/region-endpoint-url.ts';
+import { warm_island_module, is_warmed_module } from '../../src/runtime/island-warm.ts';
 import { register_island_graph } from '../../src/runtime/island-graph-preload.ts';
 import { encode_island_graph } from '../../src/island-graph.ts';
 
@@ -28,8 +26,8 @@ const LOCATED_ID = '/test/browser/fixtures/ogygia/og-region.0000000000c1.js';
 // the dev server's module: an identity that is its own file
 const IDENTITY = '/test/browser/fixtures/entry-identity.ts';
 const abs = (u: string) => new URL(u, location.href).href;
-const requested = (part: string) =>
-	performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
+const downloads = new Downloads();
+const requested = (part: string) => downloads.named(part);
 
 describe('the map', () => {
 	test('an unknown entry resolves to itself', () => {

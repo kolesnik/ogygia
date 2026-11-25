@@ -26,6 +26,7 @@
 		".heisenbench/**",
 		"packages/*/bench/__heisenbench.d.ts",
 		"packages/core/virtual/**",
+		"internal/macros/macros.d.ts",
 		"pnpm-lock.yaml",
 		"**/CHANGELOG.md",
 		"internal/notes/ATTACK-SURFACE.md",

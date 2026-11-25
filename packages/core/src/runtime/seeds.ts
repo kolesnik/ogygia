@@ -5,18 +5,25 @@ import { install_page_defer, page_defer_revivers } from './page-defer.ts';
 import { transport_decoders } from './app-transport.ts';
 import { capture_region_ids } from './region-ids.ts';
 import { kit_page_thread } from './kit-page-thread.svelte.ts';
-import { boot_link, slots } from './slots.ts';
+import { boot_link } from './lazy-link.ts';
+import { remote_seeds, remote_seeds_on } from 'ogygia:boot/remote-seeds';
+import {
+	L_ROUTER,
+	L_RUNTIME_SESSION,
+	L_SERVER_CHANNEL,
+	L_WITH_DEVALUE
+} from './boot-link-index.ts';
 import { warn } from '../messages/lazy.ts';
 import { PAGE_SEED_SELECTOR } from '../page-seed-selector.ts';
 import { OGYGIA_PAGE_UNSHIPPED } from '../wire-markup.ts';
 
-const session = () => boot_link().runtime_session;
+const session = () => boot_link()[L_RUNTIME_SESSION];
 const server_channel = (doc: Document, selector: string) =>
-	boot_link().server_channel(doc, selector);
+	boot_link()[L_SERVER_CHANNEL](doc, selector);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
-const RULES =
-	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
+const no_kit_wait = (): null => null;
 
 export { PAGE_SEED_SELECTOR };
 const REMOTE_SEED_SELECTOR = 'script[type="application/ogygia-remote"]';
@@ -26,13 +33,17 @@ export { parse_sidecar_text };
 /**
  * The PAGE feature (link/runtime-entry.ts, hydrate phase): what island code sees of its page — the
  * page seed behind `$app/state` / `$app/stores`, the seed references in island props, and, on a
- * Kit-hydrated document, the wait for Kit's own page. Installed only when island code can reach
- * Kit's world (the driver's island-closure walk, failing open on anything it cannot follow): an app
- * whose islands never read their page gets no seed from the server and ships none of this.
+ * Kit-hydrated document, the wait for Kit's own page (an app with pages Kit hydrates only), this:
+ * the wait for as long as `signal` (the waiting region's visit) lasts, `null` once Kit applied its
+ * page. Selected only when island code can reach Kit's world (the driver's island-closure walk,
+ * failing open on anything it cannot follow): an app whose islands never read their page gets no
+ * seed from the server and ships none of this. The hydrate core reads it
+ * (`ogygia:boot/hydrate-features`).
  */
-export function install(): void {
-	slots.page = { seed_page_once, seed_data_of, kit_page_thread };
-}
+export const page_kit_thread: (signal?: AbortSignal) => Promise<unknown> | null = KIT_PAGES
+	? kit_page_thread
+	: no_kit_wait;
+
 type PageSeed = Partial<Omit<PageSnapshot, 'url'> & { url: string | URL }>;
 
 let parses = 0;
@@ -49,8 +60,8 @@ function parse_page_seed(el: Element): PageSeed | null {
 			el.ownerDocument,
 			() => parse_sidecar_text(el, page_defer_revivers(transport_decoders)) as PageSeed
 		);
-		if (slots.nav && !DEVTOOLS) el.textContent = '';
-		if (RULES) watch_unshipped(raw, el.getAttribute(OGYGIA_PAGE_UNSHIPPED));
+		if (boot_link()[L_ROUTER] && !DEVTOOLS) el.textContent = '';
+		watch_unshipped(raw, el.getAttribute(OGYGIA_PAGE_UNSHIPPED));
 		return raw;
 	} catch (e) {
 		if (import.meta.env.DEV) warn('page_payload_unreadable', { what: 'seed' }, e);
@@ -58,23 +69,27 @@ function parse_page_seed(el: Element): PageSeed | null {
 	}
 }
 
-function watch_unshipped(raw: PageSeed | null, attr: string | null): void {
-	if (!raw || !attr || raw.data === null || typeof raw.data !== 'object') return;
-	let left: Set<string>;
-	try {
-		left = new Set(JSON.parse(attr) as string[]);
-		// oxlint-disable-next-line ogygia/no-silent-failures -- the attribute is ours; one that does not parse names nothing to watch
-	} catch {
-		return;
-	}
-	raw.data = new Proxy(raw.data as Record<string, unknown>, {
-		get(target, key, receiver) {
-			if (typeof key === 'string' && left.has(key) && !(key in target))
-				(globalThis as { __og_unshipped_read?: (key: string) => void }).__og_unshipped_read?.(key);
-			return Reflect.get(target, key, receiver);
+const watch_unshipped: (raw: PageSeed | null, attr: string | null) => void = $rules(
+	function watch_unshipped(raw: PageSeed | null, attr: string | null): void {
+		if (!raw || !attr || raw.data === null || typeof raw.data !== 'object') return;
+		let left: Set<string>;
+		try {
+			left = new Set(JSON.parse(attr) as string[]);
+			// oxlint-disable-next-line ogygia/no-silent-failures -- the attribute is ours; one that does not parse names nothing to watch
+		} catch {
+			return;
 		}
-	});
-}
+		raw.data = new Proxy(raw.data as Record<string, unknown>, {
+			get(target, key, receiver) {
+				if (typeof key === 'string' && left.has(key) && !(key in target))
+					(globalThis as { __og_unshipped_read?: (key: string) => void }).__og_unshipped_read?.(
+						key
+					);
+				return Reflect.get(target, key, receiver);
+			}
+		});
+	}
+);
 
 function apply_page_seed(raw: PageSeed | null): void {
 	if (!raw) return;
@@ -121,7 +136,7 @@ export function seed_data_of(doc: Document): unknown {
 
 function apply_remote_seed_text(text: string | null | undefined): void {
 	if (!text) return;
-	slots.remoteSeeds?.seed_query_responses(text);
+	if (remote_seeds_on) remote_seeds.seed_query_responses(text);
 }
 
 /** Document-level page seed (one script from ogygiaHandle) — once per document; then any page facts
@@ -137,7 +152,7 @@ export function seed_page_once(): void {
 }
 
 function absorb_page_facts(): void {
-	boot_link().with_devalue(
+	boot_link()[L_WITH_DEVALUE](
 		() => merge_page_facts(),
 		(error) => warn('page_payload_unreadable', { what: 'facts' }, error)
 	);
@@ -192,7 +207,7 @@ function merge_page_facts(): void {
  */
 export function apply_soft_invalidate_doc(doc: Document): void {
 	if (typeof document === 'undefined') return;
-	slots.remoteSeeds?.clear_remote_seeds();
+	if (remote_seeds_on) remote_seeds.clear_remote_seeds();
 	apply_remote_seed_text(server_channel(doc, REMOTE_SEED_SELECTOR)?.textContent);
 	session().mark_remote_seeded();
 	apply_page_seed(page_seed_of(doc));
@@ -211,7 +226,7 @@ export function apply_soft_invalidate_doc(doc: Document): void {
  */
 export function prepare_spa_document(next?: import('./session.ts').PageVisit): void {
 	session().reset(next);
-	slots.remoteSeeds?.clear_remote_seeds();
+	if (remote_seeds_on) remote_seeds.clear_remote_seeds();
 	reset_page();
 }
 
@@ -222,5 +237,5 @@ export function prepare_spa_document(next?: import('./session.ts').PageVisit): v
  * keep running (#817, e2e/live-query-kept.spec.ts).
  */
 export function finish_spa_document(): void {
-	slots.remoteSeeds?.release_remote_instances();
+	if (remote_seeds_on) remote_seeds.release_remote_instances();
 }

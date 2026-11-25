@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { lifeOf } from '@ogygia/machine';
 import { scope } from '@ogygia/machine';
 
 const page = scope();
@@ -62,7 +63,7 @@ describe('hydration turns, the edges', () => {
 	it('a hidden document hands out its first turn without waiting for a snapshot', async () => {
 		doc.visibilityState = 'hidden';
 		const [el] = regions(1);
-		s.register_region(el, page);
+		s.register_region(el, lifeOf(page));
 		let done = false;
 		const turn = s.hydrate_turn(el).then(() => (done = true));
 		await vi.advanceTimersByTimeAsync(1);
@@ -72,8 +73,8 @@ describe('hydration turns, the edges', () => {
 
 	it('a hidden document holds no ready region for a viewport region still loading', async () => {
 		const [low, top] = regions(2);
-		s.register_region(low, page);
-		s.register_region(top, page);
+		s.register_region(low, lifeOf(page));
+		s.register_region(top, lifeOf(page));
 		report(low, false);
 		report(top, true);
 		s.hydrate_started(top);
@@ -88,7 +89,7 @@ describe('hydration turns, the edges', () => {
 
 	it('the turn is handed out in the task that picked it: the hydrate step runs before any later task', async () => {
 		const [el] = regions(1);
-		s.register_region(el, page);
+		s.register_region(el, lifeOf(page));
 		report(el, true);
 		let done = false;
 		const turn = s.hydrate_turn(el).then(() => (done = true));
@@ -99,8 +100,8 @@ describe('hydration turns, the edges', () => {
 
 	it('a hold that a viewport turn ends leaves no timer behind', async () => {
 		const [low, top] = regions(2);
-		s.register_region(low, page);
-		s.register_region(top, page);
+		s.register_region(low, lifeOf(page));
+		s.register_region(top, lifeOf(page));
 		report(low, false);
 		report(top, true);
 		s.hydrate_started(top);
@@ -116,8 +117,8 @@ describe('hydration turns, the edges', () => {
 
 	it('a turn handed out at its region leaving is passed over by the next pick', async () => {
 		const [gone, next] = regions(2);
-		s.register_region(gone, page);
-		s.register_region(next, page);
+		s.register_region(gone, lifeOf(page));
+		s.register_region(next, lifeOf(page));
 		report(gone, false);
 		report(next, false);
 		const first = s.hydrate_turn(gone);
@@ -130,7 +131,7 @@ describe('hydration turns, the edges', () => {
 
 	it('the turns of one region come in the order they were asked for, whatever else is queued', async () => {
 		const els = regions(12);
-		for (const el of els) s.register_region(el, page);
+		for (const el of els) s.register_region(el, lifeOf(page));
 		for (const el of els) report(el, false);
 		const one = els[5];
 		const order: number[] = [];
@@ -145,7 +146,7 @@ describe('hydration turns, the edges', () => {
 
 	it('a region that leaves gets its turns latest first', async () => {
 		const [el] = regions(1);
-		s.register_region(el, page);
+		s.register_region(el, lifeOf(page));
 		report(el, false);
 		const order: string[] = [];
 		const all = Promise.all([
@@ -159,8 +160,8 @@ describe('hydration turns, the edges', () => {
 
 	it('a viewport region that took its turn holds nobody, though its hydrate never says it settled', async () => {
 		const [top, low] = regions(2);
-		s.register_region(top, page);
-		s.register_region(low, page);
+		s.register_region(top, lifeOf(page));
+		s.register_region(low, lifeOf(page));
 		report(top, true);
 		report(low, false);
 		s.hydrate_started(top);
@@ -175,8 +176,8 @@ describe('hydration turns, the edges', () => {
 	it('a region whose owner ended is no longer watched: its later reports move nothing', async () => {
 		const owner = scope();
 		const [watched, first] = regions(2);
-		s.register_region(first, page);
-		s.register_region(watched, owner);
+		s.register_region(first, lifeOf(page));
+		s.register_region(watched, lifeOf(owner));
 		report(first, false);
 		report(watched, false);
 		owner.close();
@@ -194,12 +195,12 @@ describe('hydration turns, the edges', () => {
 		const before = scope();
 		const after = scope();
 		const [el, first] = regions(2);
-		s.register_region(first, page);
-		s.register_region(el, before);
+		s.register_region(first, lifeOf(page));
+		s.register_region(el, lifeOf(before));
 		report(first, false);
 		report(el, false);
 		await settle(s.hydrate_turn(el));
-		s.register_region(el, after);
+		s.register_region(el, lifeOf(after));
 		before.close();
 		report(el, true);
 		const order: number[] = [];

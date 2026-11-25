@@ -1,4 +1,4 @@
-import { entry_location, region_deps } from '#region-server';
+import { entry_location, region_deps, wake_code } from '#region-server';
 import { kit_asset } from '../kit-paths.ts';
 
 /** Where a region module's chunk is served, or `''` when the build knows no chunk for it. */
@@ -30,4 +30,10 @@ export function graph_hrefs(
 		for (const dep of region_deps(m)) add(kit_asset(dep));
 	}
 	return hrefs;
+}
+
+/** The files the runtime's first island wake imports (the hydrate core and its chunks), as this
+ *  page links them. */
+export function wake_hrefs(): string[] {
+	return wake_code().map((href) => kit_asset(href));
 }

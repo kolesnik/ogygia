@@ -19,7 +19,7 @@
  * for this visitor, now.
  */
 import type { RequestEvent } from '@sveltejs/kit';
-import * as devalue from 'devalue';
+import { devalue_text } from './devalue-text.ts';
 import { flights, STALE, type Scope } from '@ogygia/machine';
 import { request_local } from '../plugin/request-scope.ts';
 import { open_reads } from '../plugin/reads.ts';
@@ -303,7 +303,7 @@ export function render_page_facts_script(
 	for (const name in transport ?? {}) encoders[name] = transport![name].encode;
 	try {
 		// (devalue output is `<`-safe by itself: no second pass for the script element)
-		return `<script type="${PAGE_FACTS_SCRIPT_TYPE}">${devalue.stringify(shape_page_data(facts.data, keys), encoders)}</script>`;
+		return `<script type="${PAGE_FACTS_SCRIPT_TYPE}">${devalue_text(shape_page_data(facts.data, keys), encoders)}</script>`;
 		// oxlint-disable-next-line ogygia/no-silent-failures -- as said above, a value that does not serialize ships no facts
 	} catch {
 		return '';

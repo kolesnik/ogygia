@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('ogygia:server/sign', () => import('../src/server/hmac.ts'));
 vi.mock('ogygia:server/rate-limit', () => ({ rate_limit: { max: 0, windowMs: 60_000 } }));
-vi.mock('ogygia:server/server-plugins', () => ({ plugins: [] }));
+vi.mock('ogygia:server/server-plugins', () => ({ plugins: [], plugin_count: 0, measures: 0 }));
 vi.mock('ogygia:server/route-config', () => ({ route_config: {} }));
 vi.mock('ogygia:server/devtools-boot-url', () => ({ devtools_boot_url: '' }));
 const ID = 'abcdef012345';

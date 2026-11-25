@@ -148,6 +148,12 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node internal/checks/new-comments.ts --base HEAD^1
 
+      # a line the PR adds in core's source never does by hand what a built macro does
+      # (internal/checks/new-drift.ts)
+      - name: No new hand-written macro work
+        if: github.event_name == 'pull_request'
+        run: node internal/checks/new-drift.ts --base HEAD^1
+
       # a raw NUL byte hides a source file from grep and rg (internal/checks/nul-bytes.ts, #1239)
       - name: No NUL byte in source
         run: node internal/checks/nul-bytes.ts
@@ -411,13 +417,13 @@ jobs:
       - name: Install and build core and the compiler (this PR)
         run: |
           pnpm install --frozen-lockfile
-          pnpm turbo run build --filter=@ogygia/core... --filter=@ogygia/compiler...
+          pnpm turbo run build --filter=@ogygia/core... --filter=@ogygia/compiler... --filter=@ogygia/rewrite...
 
       - name: Install and build core and the compiler (the base)
         working-directory: .size-base
         run: |
           pnpm install --frozen-lockfile
-          filters=(--filter=@ogygia/core...)
+          filters=(--filter=@ogygia/core... --filter=@ogygia/rewrite...)
           # (a base from before @ogygia/compiler has the runtime entry inside core)
           if [ -d packages/compiler ]; then filters+=(--filter=@ogygia/compiler...); fi
           pnpm turbo run build "${filters[@]}"

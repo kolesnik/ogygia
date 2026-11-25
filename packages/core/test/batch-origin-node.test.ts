@@ -3,6 +3,7 @@
 // another origin, and an answer that was redirected away writes nothing into the frame store. The
 // browser twin: test/browser/batch-same-origin.test.ts.
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { lifeOf } from '@ogygia/machine';
 import { scope } from '@ogygia/machine';
 
 const { streamFrames } = await import('../src/runtime/frame-nav.ts');
@@ -26,7 +27,7 @@ describe('single-flight batch: the endpoint origin', () => {
 		const legit = `/__ogygia__?id=abcdef012345&props=W3t9XQ&exp=9999999999&sig=${'a'.repeat(64)}`;
 		const foreign = `https://evil.example/collect?id=abcdef012345&props=W3t9XQ&exp=9999999999&sig=${'b'.repeat(64)}`;
 		const visit = scope();
-		await streamFrames([foreign, legit], 'nav', visit);
+		await streamFrames([foreign, legit], 'nav', lifeOf(visit));
 		visit.close();
 		for (const url of posted)
 			expect(new URL(url, 'https://app.test').origin).toBe('https://app.test');
@@ -53,7 +54,7 @@ describe('single-flight batch: the endpoint origin', () => {
 		const landed: string[] = [];
 		const off = subscribe(frameAddress(a), (f) => landed.push(f.html));
 		const visit = scope();
-		await streamFrames([a, b], 'nav', visit);
+		await streamFrames([a, b], 'nav', lifeOf(visit));
 		visit.close();
 		off();
 		expect(landed).toEqual([]);

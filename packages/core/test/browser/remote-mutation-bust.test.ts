@@ -4,13 +4,14 @@
 // passes on: whatever it cannot read, the app still gets its answer.
 import { expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 
 const asked: string[] = [];
 window.fetch = async (input) => {
 	asked.push(String(input));
 	return new Response('ok', { status: 200 });
 };
-link_boot();
+init(link_boot());
 await import('../../src/runtime/router-nav.ts');
 
 test('a request whose method cannot be read still gets its answer', async () => {

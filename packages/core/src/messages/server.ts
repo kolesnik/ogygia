@@ -40,6 +40,45 @@ export const SERVER_ERRORS = {
 			value on the server from it.
 		`
 	},
+	region_program_unbuilt: {
+		text: (a: { entry: string; program: 'hole' | 'lake' | 'live' }): string => prose`
+			region ${a.entry} needs the ${a.program} program, which this build left out: the server
+			rendered its waiting UI in its place.
+		`,
+		details: (): string => prose`
+			The build reads the app's regions and ships only the programs they need, on the server
+			and in the browser alike: a deferred region's render and fetch (the hole program), a
+			lake's (the lake program), a held region's updates (the live program). The server was
+			asked to render a region that needs one, and the build saw none that did, so the page's
+			runtime could not revive it. The page still renders: the region shows its waiting UI (a
+			deferred region's fallback, a held region's placeholder or children; a lake shows
+			nothing) as plain HTML, and nothing loads or updates it. A region the build never read (a
+			package that does not declare its regions) does this; else it is an ogygia bug: please
+			report it with the page that shows it.
+		`
+	},
+	browser_only_on_server: {
+		text: (a: { what: string }): string =>
+			`the server was asked to ${a.what}, which only a browser does.`,
+		details: (): string => prose`
+			A region snippet does some of its work in the browser alone: it loads its island's entry,
+			and takes the server's html range marks out before it hydrates. The server renders the
+			snippet's HTML and does neither. Something ran that browser work during a server render;
+			it is an ogygia bug: please report it with the page that shows it.
+		`
+	},
+	region_endpoint_unbuilt: {
+		text: (): string => prose`
+			the islands endpoint was asked for a region, but this build has no region that streams
+			HTML: it answers 404.
+		`,
+		details: (): string => prose`
+			The build reads the app's regions and leaves the islands endpoint out of the server when
+			none of them fetches HTML from it (no deferred region, no lake, no held region). A page
+			from an earlier build that had one, still open or cached, asks for it; so does a request
+			made by hand. Reload the page to get this build's.
+		`
+	},
 	handle_secret_too_short: {
 		text: (a: { min: number }): string =>
 			`handle({ secret }) is too short for production (need ≥${a.min} UTF-8 bytes).`,
@@ -377,6 +416,16 @@ export const SERVER_WARNINGS = {
 			that reads none skips the page look-up. This one read a key anyway, so it rendered with
 			\`undefined\` there. A read the analysis missed: please report it with the island's code.
 			Removing \`dataShake()\` makes every server island look the page up.
+		`
+	},
+	rule_asset_not_prefixed: {
+		text: (a: { detail: string }): string =>
+			`rule broken, an asset URL is the request's prefix and its path: ${a.detail}`,
+		details: (): string => prose`
+			Dev and e2e builds only (a rule ogygia checks on itself). Within one request, ogygia asks
+			Kit's \`asset()\` for the prefix it puts before a path once, then writes each of its URLs
+			as that prefix and the path. This Kit answered a path some other way, so a URL ogygia
+			wrote differs from Kit's own: please report it with your Kit version and \`paths\` config.
 		`
 	},
 	rule_kept_unkeyed_read: {

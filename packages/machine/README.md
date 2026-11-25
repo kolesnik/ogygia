@@ -595,3 +595,38 @@ expect(table(wake)).toMatchSnapshot();
 | `dead_fields(d, opts?)`  | The fields whose value never changes the outcome (plan or refusal), for every combination of the others.                                                                                                              |
 | `opts.max`               | The most combinations a listing walks (default 100,000). Past it, a listing throws at once ([machine_decisions_too_many](https://ogygiajs.dev/e/machine_decisions_too_many)).                                         |
 | `opts.sample`            | `{ seed, size }`: walk `size` distinct combinations picked by `seed` instead of all of them. The same seed picks the same rows.                                                                                       |
+
+## The runtime under the makers
+
+`machine()`, `scope()`, `flights()`, `queue()`, `cache()` and `say()` are thin over a leaner runtime. ogygia's own packages call it directly, because its records carry their moves as methods and make no handle or closure per call. An app rarely needs it: the makers above behave the same.
+
+```ts
+import { createRun, lifeOf, rootLife, runDefinition, scope } from '@ogygia/machine';
+
+const door = runDefinition<{ shut: {}; open: {} }>()({
+	name: 'door',
+	initial: 'shut',
+	steps: { shut: ['open'], open: ['shut'] }
+});
+const m = createRun(door); // a `Run`: m.kind, m.now, m.go('open'), m.visit() (the visit's life)
+const page = rootLife('page'); // a `Life`: the record a `Scope` is a view of
+lifeOf(scope()); // a public scope is its own life
+```
+
+|                                                                                                                                              |                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runDefinition<S>()(config)`                                                                                                                 | A definition, as `machine<S>()` takes it (the same `Config`, the same refusals), as plain data (`RunDef`).                                       |
+| `runDef(config)`                                                                                                                             | The same, untyped: what ogygia's `$machine` keeps in dev and rules builds.                                                                       |
+| `compiledRunDef(name, names, init, ...)`                                                                                                     | A definition the build already read and checked: what `$machine` writes in production (no step names, so `graph()` and `paths()` are off there). |
+| `createRun(def, data?)`                                                                                                                      | A running machine (`Run`, typed by `RunOf<typeof def>`), in its initial state.                                                                   |
+| `graph(def)` / `paths(def)`                                                                                                                  | A definition's graph and covering paths, as `Definition.graph()` / `.paths()` (dev and rules builds).                                            |
+| `Life`, `rootLife(label?)`                                                                                                                   | The record a `Scope` is a view of, and a new root one.                                                                                           |
+| `lifeOf(scope)`                                                                                                                              | The life of a scope (the same object).                                                                                                           |
+| `heldBy(life)`                                                                                                                               | How many listeners, timers, cleanups and open children it still holds (0 once closed): what a leak test reads.                                   |
+| `ENDED_LIFE`                                                                                                                                 | A life closed for good: what late work is given.                                                                                                 |
+| `DISPOSE`                                                                                                                                    | `Symbol.dispose`, or the registered symbol where the runtime has none.                                                                           |
+| `plainFlights`                                                                                                                               | `flights()` without `world`, `weigh`, `touches` or a key of two fields: a page that needs none carries none of their code.                       |
+| `plainQueue` / `passQueue`                                                                                                                   | `queue()` split by kind: a bounded first-come-first-served line, and a line that ranks, gates, windows or budgets.                               |
+| `lru({ max, name?, owner? })`                                                                                                                | `cache()` with only `max`: each value weighs 1 and stays until it is the least recently used.                                                    |
+| `checkFlights`, `checkPlainFlights`, `checkQueue`, `checkPlainQueue`, `checkCache`, `checkSay`                                               | The makers' option checks alone: they throw [machine_bad_option](https://ogygiajs.dev/e/machine_bad_option) for an option the maker refuses.     |
+| `trustedFlights`, `trustedPlainFlights`, `trustedQueue`, `trustedPassQueue`, `trustedPlainQueue`, `trustedCache`, `trustedLru`, `trustedSay` | Each maker without its checks, for options a build already checked. ogygia's build rewrites its own literal calls to these.                      |

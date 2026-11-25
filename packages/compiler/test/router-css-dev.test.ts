@@ -19,6 +19,7 @@ import { createServer, type Plugin, type RunnableDevEnvironment, type ViteDevSer
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { router_css_module } from '../src/link/router-css.ts';
 import { dedent } from '@ogygia/core/contract';
+import { core_macros } from '../../core/macros.config.ts';
 
 const own = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 const V = 'ogygia:server/router-css';
@@ -99,7 +100,7 @@ async function start(
 		root,
 		configFile: false,
 		logLevel: 'silent',
-		plugins: [registry, svelte({ configFile: false })],
+		plugins: [core_macros(), registry, svelte({ configFile: false })],
 		resolve: {
 			alias: [
 				{

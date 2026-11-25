@@ -3,6 +3,7 @@
 // location — the identity is only a key — and, when the location is gone (a page that outlived its
 // build), wake from the identity fetched fresh. The SSR HTML is the Counter island from setup.ts.
 import { expect, inject, test } from 'vitest';
+import { Downloads, timeline_full } from '@ogygia/tooling/vitest/downloads';
 import { from_b64 } from './b64.ts';
 import { page } from 'vitest/browser';
 import { bootDev } from '../../src/runtime/full.ts';
@@ -11,8 +12,8 @@ import { bootDev } from '../../src/runtime/full.ts';
 const COUNTER = '/test/browser/fixtures/immutable/og-region.000000000aa5.Cur.js';
 const HYDRATED = 'ogygia-region[data-hydrated]';
 const counter_html = () => from_b64(inject('counter_ssr_b64'));
-const requested = (part: string) =>
-	performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
+const downloads = new Downloads();
+const requested = (part: string) => downloads.named(part);
 
 /** The Counter island's SSR with its identity and location set as given. */
 function mount(entry: string, src: string | null) {
@@ -25,6 +26,7 @@ function mount(entry: string, src: string | null) {
 }
 
 test('the identity is only a key: a stale stable name that 404s, the island wakes from its location', async () => {
+	timeline_full();
 	mount('/test/browser/fixtures/ogygia/og-region.000000000aa5.js', COUNTER);
 	bootDev();
 	await expect
@@ -34,6 +36,7 @@ test('the identity is only a key: a stale stable name that 404s, the island wake
 	await expect.element(page.getByTestId('count')).toHaveTextContent('3');
 	await page.getByRole('button', { name: 'add' }).click();
 	await expect.element(page.getByTestId('count')).toHaveTextContent('4');
-	// the stable name was never asked for
+	// the location was asked for, and the stable name never
+	expect(requested(COUNTER), 'the location was asked for').not.toHaveLength(0);
 	expect(requested('og-region.000000000aa5.js')).toHaveLength(0);
 });

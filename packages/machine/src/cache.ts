@@ -33,7 +33,7 @@
 import { DEV } from 'esm-env';
 import { clock } from './ports.ts';
 import { bad_option, machine_error, report } from './messages.ts';
-import { DISPOSE, MAX_TIMEOUT_MS, scope, type Scope } from './scope.ts';
+import { DISPOSE, Life, MAX_TIMEOUT_MS, type Scope } from './scope.ts';
 import type { World } from './world.ts';
 
 /** Why a value left a cache. */
@@ -52,7 +52,7 @@ export interface CacheOptions<K, V> {
 	/** Hears each value that leaves, after it left (see the module's comment). */
 	onEvict?: (key: K, value: V, why: EvictWhy) => void;
 	/** The scope it lives in: when it ends, the cache ends, and every value is noticed 'end'. */
-	owner?: Scope;
+	owner?: Scope | Life;
 	/** The world its values are made in: a value made before the one a key holds never replaces it. */
 	world?: World<never> | World<unknown>;
 	/** A value in use now: it counts against `max`, but is never let go for size (the next least
@@ -104,7 +104,43 @@ const SWEEP_MS = 1000;
 /** A keyed store, bounded and owned (see the module's comment). */
 export function cache<K, V>(o: CacheOptions<K, V>): Cache<K, V> {
 	if (typeof o !== 'object' || o === null) throw bad_option('max', o, 'a number more than 0');
-	return new Store(o);
+	// a bound is a finite number more than 0: Infinity is no bound. In dev it throws; in production
+	// the cache is refused (it keeps nothing) and the code is printed
+	const refused = refused_max(o);
+	if (refused !== null) {
+		if (DEV) throw machine_error('machine_bad_option', refused);
+		report('machine_bad_option', refused);
+	}
+	check_keep(o);
+	return new Store(o, refused !== null);
+}
+
+/** @internal Why `max` is no bound (null: it is one), as {@link cache} refuses it. */
+export function refused_max<K, V>(
+	o: CacheOptions<K, V>
+): { option: string; value: string; rule: string } | null {
+	const max = o.max;
+	if (typeof max === 'number' && max > 0 && Number.isFinite(max)) return null;
+	return { option: 'max', value: String(max), rule: 'a finite number more than 0' };
+}
+
+function check_keep<K, V>(o: CacheOptions<K, V>): void {
+	const keep = o.keep ?? Infinity;
+	if (typeof keep !== 'function' && !(typeof keep === 'number' && keep >= 0))
+		throw bad_option('keep', keep, 'a time in ms of 0 or more, or a function that makes one');
+}
+
+/** {@link cache}'s checks of its options alone, as dev runs them: `machine_bad_option` for one it
+ *  refuses. */
+export function check_cache<K, V>(o: CacheOptions<K, V>): void {
+	const refused = refused_max(o);
+	if (refused !== null) throw machine_error('machine_bad_option', refused);
+	check_keep(o);
+}
+
+/** {@link cache} for options its caller's build checked ({@link check_cache}, run on a literal). */
+export function trusted_cache<K, V>(o: CacheOptions<K, V>): Cache<K, V> {
+	return new Store(o, false);
 }
 
 /** A cache as flights holds it: also the newest key and what it holds, so a use of the newest
@@ -116,13 +152,17 @@ export interface CacheStore<K, V> extends Cache<K, V> {
 
 /** A cache, with its newest readable (see {@link CacheStore}). */
 export function cache_store<K, V>(o: CacheOptions<K, V>): CacheStore<K, V> {
-	return new Store(o);
+	return new Store(o, false);
 }
 
 /**
  * The cache itself. A class: its methods are made once, so a cache costs a few fields to make
  * (flights and collections each make one), and a read is a method call on a known shape.
  */
+function fire(store: Store<unknown, unknown>): void {
+	store._fire();
+}
+
 class Store<K, V> implements CacheStore<K, V> {
 	_max: number;
 	_keep: number | ((value: V, key: K) => number);
@@ -139,40 +179,27 @@ class Store<K, V> implements CacheStore<K, V> {
 	_newest_h: Held<V> | undefined = undefined;
 	_weight = 0;
 	/** The age timer's stop (`null`: none set), and when it fires (`Infinity`: none set). */
-	_stop_timer: (() => void) | null = null;
+	_stop_timer: Life | null = null;
 	_timer_at = Infinity;
 	/** When the timer last swept (`-Infinity`: never). */
 	_swept_at = -Infinity;
+	_ages = false;
 	/** Notices due, and whether they are being told (a notice's own set or delete queues behind). */
 	_due: Array<[K, V, EvictWhy]> = [];
 	_telling = false;
-	_life: Scope;
+	_life: Life;
 
-	constructor(o: CacheOptions<K, V>) {
-		// a bound is a finite number more than 0: Infinity is no bound. In dev it throws; in production
-		// the cache is refused (it keeps nothing) and the code is printed
-		let max = o.max;
-		let refused = false;
-		if (!(typeof max === 'number' && max > 0 && Number.isFinite(max))) {
-			const args = { option: 'max', value: String(max), rule: 'a finite number more than 0' };
-			if (DEV) throw machine_error('machine_bad_option', args);
-			report('machine_bad_option', args);
-			max = 1;
-			refused = true;
-		}
-		const keep = o.keep ?? Infinity;
-		if (typeof keep !== 'function' && !(typeof keep === 'number' && keep >= 0))
-			throw bad_option('keep', keep, 'a time in ms of 0 or more, or a function that makes one');
-		this._max = max;
-		this._keep = keep;
+	constructor(o: CacheOptions<K, V>, refused: boolean) {
+		this._max = refused ? 1 : o.max;
+		this._keep = o.keep ?? Infinity;
 		this._name = o.name ?? 'cache';
 		this._weigh = o.weigh;
 		this._on_evict = o.onEvict;
 		this._pinned = o.pinned;
 		this._world = o.world as World<unknown> | undefined;
-		const life = (this._life = o.owner === undefined ? scope() : o.owner.child());
-		life.defer(() => this._let_all_go('end'));
-		if (refused) life.close();
+		const l = (this._life = o.owner === undefined ? new Life() : (o.owner as Life).child());
+		l.defer(() => this._let_all_go('end'));
+		if (refused) l.close();
 	}
 
 	get size(): number {
@@ -185,6 +212,7 @@ class Store<K, V> implements CacheStore<K, V> {
 
 	/** Lets every value past its age go (but `except`'s, which a set is replacing). */
 	_sweep(now: number, except?: K): void {
+		if (!this._ages) return;
 		const held = this._held;
 		const noticed = this._on_evict !== undefined;
 		// (each entry read by index, not taken apart: the walk is over every value)
@@ -234,19 +262,22 @@ class Store<K, V> implements CacheStore<K, V> {
 
 	/** The age timer, set to fire at `at`. */
 	_set_timer(at: number, now: number): void {
-		this._stop_timer?.();
-		this._stop_timer = null;
-		const life = this._life;
-		if (life.closed) return;
+		this._stop();
+		const l = this._life;
+		if (l.closed) return;
 		this._timer_at = at;
-		this._stop_timer = life.timeout(
-			() => this._fire(),
-			Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS)
-		);
+		const t = (this._stop_timer = l.child());
+		t.later(fire, Math.min(Math.max(at - now, 0), MAX_TIMEOUT_MS), this as Store<unknown, unknown>);
+	}
+
+	_stop(): void {
+		const t = this._stop_timer;
+		this._stop_timer = null;
+		if (t !== null) t.close();
 	}
 
 	_fire(): void {
-		this._stop_timer = null;
+		this._stop();
 		this._timer_at = Infinity;
 		const fired = clock.mono();
 		this._swept_at = fired;
@@ -268,8 +299,7 @@ class Store<K, V> implements CacheStore<K, V> {
 		held.clear();
 		this._newest = NO_KEY;
 		this._weight = 0;
-		this._stop_timer?.();
-		this._stop_timer = null;
+		this._stop();
 		this._timer_at = Infinity;
 		this._tell();
 	}
@@ -365,7 +395,11 @@ class Store<K, V> implements CacheStore<K, V> {
 			this._tell();
 			return false;
 		}
-		const until = ms === Infinity ? Infinity : now + ms;
+		let until = Infinity;
+		if (ms !== Infinity) {
+			until = now + ms;
+			this._ages = true;
+		}
 		if (old !== undefined) {
 			this._weight -= old.weight;
 			// (a replace, whatever the old value's age: the key goes on holding a value. The value it

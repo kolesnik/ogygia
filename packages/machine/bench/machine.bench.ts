@@ -20,9 +20,24 @@ import {
 	type Scope,
 	type Stage
 } from '../src/index.ts';
+import {
+	compiledRunDef,
+	createRun,
+	type RunDef,
+	heldBy,
+	lifeOf,
+	passQueue,
+	plainFlights,
+	plainQueue,
+	rootLife,
+	trustedFlights,
+	trustedPassQueue,
+	trustedPlainFlights,
+	trustedPlainQueue
+} from '../src/index.ts';
 import { KEYS_KEPT } from '../src/world.ts';
 import { MACHINE_ERRORS, machine_error, report } from '../src/messages.ts';
-import { backoffAfter } from '../src/policy.ts';
+import { backoffAfter, under_policy } from '../src/policy.ts';
 
 /** A lazy chunk's one more try, at once (core's `download` policy). */
 const ONE_MORE_TRY = policy({ attempts: 2, backoff: 0, jitter: 0, deadline: Infinity });
@@ -768,18 +783,6 @@ bench(
 );
 
 bench(
-	'machine: a definition of n states as data (graph and the paths that take every step)',
-	({ steps }) => {
-		const def = machine<Record<string, {}>>()({ name: 'chain', initial: 's0', steps } as never);
-		return def.graph().states.length + def.paths().length;
-	},
-	{
-		setup: () => ({ steps: chain_steps(40) }),
-		scale: (_ctx, k) => ({ steps: chain_steps(40 * k) })
-	}
-);
-
-bench(
 	'outbox: sends put, joined by id, tried again once, some in order, a few given up',
 	async ({ n }) => {
 		const quick = policy({ attempts: 2, backoff: 0, jitter: 0, deadline: 1000 });
@@ -933,4 +936,168 @@ bench(
 		return settled.filter((v) => v === STALE).length;
 	},
 	{ setup: () => ({ n: 200 }), scale: (_ctx, k) => ({ n: 200 * k }) }
+);
+
+/** A chain of `n` states as a build compiles it (`compiled`'s masks): each state steps to the next
+ *  and back to the first. */
+function chain_masks(n: number): { n: number; masks: number[] } {
+	const words = (n + 31) >>> 5;
+	const masks = Array.from({ length: n * words }, () => 0);
+	for (let k = 0; k < n; k++) {
+		const to = k + 1 < n ? [k + 1, 0] : [0];
+		for (const t of to) masks[k * words + (t >>> 5)] |= 1 << (t & 31);
+	}
+	return { n, masks };
+}
+
+bench(
+	'machine: a compiled definition of n states (a production build), its machines made and walked',
+	({ n, masks }) => {
+		const def = compiledRunDef('chain', n, 0, masks, [[1, 60_000, 0]]);
+		let moved = 0;
+		for (let i = 0; i < 20; i++) {
+			const m = (createRun as (def: RunDef) => { go(to: number): boolean; stop(): void })(def);
+			for (let k = 1; k < n; k++) if (m.go(k)) moved++;
+			m.stop();
+		}
+		return moved;
+	},
+	{
+		setup: () => chain_masks(40),
+		scale: (_ctx, k) => chain_masks(40 * k)
+	}
+);
+
+bench(
+	'flights: every maker (checked and trusted, plain and keyed), a get each, callers that all leave',
+	async ({ n }) => {
+		const run = async (input: unknown, signal: AbortSignal) => {
+			await Promise.resolve();
+			return signal.aborted ? null : input;
+		};
+		const out: Promise<unknown>[] = [];
+		for (let i = 0; i < n; i++) {
+			const ref = { id: i };
+			const made = [
+				plainFlights({ run }),
+				trustedPlainFlights({ run }),
+				plainFlights.keyed<{ href: string }>()({ key: ['href'], run }),
+				trustedPlainFlights.keyed<{ href: string }>()({ key: [], run }),
+				flights.keyed<{ ref: object; tag: string }>()({ key: ['ref', 'tag'], run }),
+				trustedFlights.keyed<{ ref: object; tag: string }>()({ key: ['ref', 'tag'], run })
+			] as Array<{
+				get(input: unknown, o?: { signal?: AbortSignal }): Promise<unknown>;
+				[Symbol.dispose](): void;
+			}>;
+			const input = { href: `/p/${i % 9}`, ref, tag: 't' };
+			for (const f of made) {
+				out.push(f.get(input));
+				// every caller of this flight holds a signal, and all of them leave: the work stops
+				const ctl = new AbortController();
+				const other = new AbortController();
+				const left = f.get({ ...input, tag: 'u', href: `/q/${i}` }, { signal: ctl.signal });
+				out.push(left, f.get({ ...input, tag: 'u', href: `/q/${i}` }, { signal: other.signal }));
+				ctl.abort();
+				other.abort();
+			}
+			if (i % 2 === 0) for (const f of made) f[Symbol.dispose]();
+		}
+		const settled = await Promise.all(out);
+		return settled.filter((v) => v === STALE).length;
+	},
+	{ setup: () => ({ n: 60 }), scale: (_ctx, k) => ({ n: 60 * k }) }
+);
+
+bench(
+	"queue: the runtime's pass queues (checked and trusted), ranked jobs through two places",
+	async ({ n }) => {
+		let started = 0;
+		const owner = rootLife();
+		const make = (checked: boolean) =>
+			(checked ? passQueue : trustedPassQueue)<number>({
+				max: 2,
+				owner,
+				priority: (job) => job % 3,
+				start: (_job, place) => {
+					started++;
+					void Promise.resolve().then(() => place.release());
+				}
+			});
+		const queues = [make(true), make(false)];
+		for (let i = 0; i < n; i++) queues[i % 2]!.push(i);
+		while (queues.some((q) => q.waiting > 0)) await Promise.resolve();
+		owner.close();
+		return started;
+	},
+	{ setup: () => ({ n: 300 }), scale: (_ctx, k) => ({ n: 300 * k }) }
+);
+
+bench(
+	'scope: once listeners heard and dropped, lives capped by close_after, what each still holds',
+	async ({ n }) => {
+		const target = new EventTarget();
+		const top = rootLife();
+		let heard = 0;
+		let holding = 0;
+		for (let i = 0; i < n; i++) {
+			const l = top.child();
+			l.listen(target, 'ping', () => heard++, { once: true });
+			if (i % 2 === 0) l.listen(target, 'ping', () => heard++);
+			l.close_after(i % 3 === 0 ? 0 : 60_000);
+			holding += heldBy(lifeOf(l));
+		}
+		target.dispatchEvent(new Event('ping'));
+		target.dispatchEvent(new Event('ping'));
+		await new Promise((r) => setTimeout(r, 1));
+		holding += heldBy(top);
+		top.close();
+		return heard + holding;
+	},
+	{ setup: () => ({ n: 200 }), scale: (_ctx, k) => ({ n: 200 * k }) }
+);
+
+bench(
+	'policy: work under a policy, retried, some callers leaving mid-try',
+	async ({ n }) => {
+		const out: Promise<unknown>[] = [];
+		for (let i = 0; i < n; i++) {
+			let tries = 0;
+			const ctl = new AbortController();
+			out.push(
+				under_policy(
+					ONE_MORE_TRY,
+					async () => {
+						if (tries++ === 0) throw new Error('blip');
+						await Promise.resolve();
+						return i;
+					},
+					i % 3 === 0 ? ctl.signal : undefined
+				)
+			);
+			if (i % 6 === 0) ctl.abort();
+		}
+		const settled = await Promise.all(out);
+		return settled.filter((v) => v === STALE).length;
+	},
+	{ setup: () => ({ n: 200 }), scale: (_ctx, k) => ({ n: 200 * k }) }
+);
+
+bench(
+	"queue: the server's plain lines (checked and trusted), renders through two places",
+	async ({ n }) => {
+		let started = 0;
+		const make = (checked: boolean) =>
+			(checked ? plainQueue : trustedPlainQueue)<number>({
+				max: 2,
+				start: (_job, place) => {
+					started++;
+					void Promise.resolve().then(() => place.release());
+				}
+			});
+		const queues = [make(true), make(false)];
+		for (let i = 0; i < n; i++) queues[i % 2]!.push(i);
+		while (queues.some((q) => q.waiting > 0)) await Promise.resolve();
+		return started;
+	},
+	{ setup: () => ({ n: 300 }), scale: (_ctx, k) => ({ n: 300 * k }) }
 );

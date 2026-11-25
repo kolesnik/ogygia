@@ -8,7 +8,7 @@
 // navigation is the router's `hand_off`, heard here instead of leaving the test page.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 
@@ -26,8 +26,7 @@ function serve(marker: 'plain' | 'on') {
 }
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.body.innerHTML = '<p>first</p>';
 	prepare_spa_document();
 	window.reportError = () => {};

@@ -1,8 +1,8 @@
 /**
  * EVERY FAILURE SITE ACCOUNTED FOR. Each place in the packages' source that can fail in real life
- * is a site: a catch, a `.catch(` or two-handler `.then`, a fetch, a `!res.ok`, a STALE check, an
- * `import()`, a storage call, a JSON parse, a timer (`setTimeout`, a scope's or AbortSignal's
- * `timeout`), an observer, a retry policy, an abort (`AbortController`, `.aborted`, `'AbortError'`),
+ * is a site: a catch, a `.catch(` or two-handler `.then`, a fetch, a `!res.ok`, a STALE check (written,
+ * or the one each `$await` compiles to), an `import()`, a storage call, a JSON parse, a timer (`setTimeout`, a scope's or AbortSignal's
+ * `timeout`, a life's `later` or `close_after`), an observer, a retry policy, an abort (`AbortController`, `.aborted`, `'AbortError'`),
  * an error event (`'error'`/`'abort'` listeners, `onerror`), a stream (`getReader`, `enqueue`, a
  * controller's `error`/`close`), a message (`postMessage`, `sendBeacon`, a channel), a `throw` (a
  * failure some caller must handle), a machine `.move('from', 'to')` (refused when the state moved on), an
@@ -38,6 +38,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { parseSync } from 'rolldown/utils';
+import { ends_its_function } from 'ogygia-internal-macros/tail';
 import { read_ledger_file } from './ledger-json.ts';
 
 export type Node = Record<string, unknown> & { type: string; start: number; end: number };
@@ -145,8 +146,18 @@ function is_body(n: Node): boolean {
 	return n.type === 'MemberExpression' && !n.computed && (n.property as Node).name === 'body';
 }
 
+/** A machine's state written out: a string literal, or as a compiled call site writes it by hand
+ *  (`(RULES ? 'built' : 1) as 'built'`, internal/macros machine-sites.ts). */
+function names_state(n: Node): boolean {
+	let at = n;
+	while (at.type === 'TSAsExpression' || at.type === 'ParenthesizedExpression')
+		at = at.expression as Node;
+	if (at.type === 'ConditionalExpression') at = at.consequent as Node;
+	return at.type === 'Literal' && typeof at.value === 'string';
+}
+
 /** The kind of failure site `node` is, or null. `parent` is the node around it. */
-function kind_of(node: Node, parent: Node | null): SiteKind | null {
+function kind_of(node: Node, parent: Node | null, above: readonly Node[]): SiteKind | null {
 	switch (node.type) {
 		case 'CatchClause':
 			return 'catch';
@@ -212,12 +223,27 @@ function kind_of(node: Node, parent: Node | null): SiteKind | null {
 			const member = callee.type === 'MemberExpression';
 			if (name === 'catch' && member) return '.catch';
 			if (name === 'then' && args.length >= 2) return 'reject';
+			if (name === '$await' && !member)
+				return args.length === 1 &&
+					parent?.type === 'ExpressionStatement' &&
+					ends_its_function(parent, above)
+					? null
+					: 'stale';
 			if (name === 'fetch') return 'fetch';
 			if (name === 'parse' && object === 'JSON') return 'parse';
 			if (name === 'policy' && object === null) return 'policy';
 			if (name === 'setTimeout' || name === 'timeout') return 'timer';
+			if (name === 'close_after' && member) return 'timer';
 			if (
-				(name === 'addEventListener' || (name === 'on' && member)) &&
+				name === 'later' &&
+				member &&
+				args[0] !== undefined &&
+				args[0].type !== 'TemplateLiteral' &&
+				!(args[0].type === 'Literal' && typeof args[0].value === 'string')
+			)
+				return 'timer';
+			if (
+				(name === 'addEventListener' || ((name === 'on' || name === 'listen') && member)) &&
 				args.slice(0, 2).some((a) => a.type === 'Literal' && ERROR_EVENTS.has(String(a.value)))
 			)
 				return 'error-event';
@@ -225,14 +251,7 @@ function kind_of(node: Node, parent: Node | null): SiteKind | null {
 			if ((name === 'error' || name === 'close') && object !== null && /controller/i.test(object))
 				return 'stream';
 			if (name === 'postMessage' || name === 'sendBeacon') return 'message';
-			if (
-				name === 'move' &&
-				member &&
-				args.length >= 2 &&
-				args[0].type === 'Literal' &&
-				typeof args[0].value === 'string'
-			)
-				return 'refused';
+			if (name === 'move' && member && args.length >= 2 && names_state(args[0])) return 'refused';
 			if (name === 'timingSafeEqual') return 'crypto';
 			if (name === 'verify' && object !== null && /crypto|subtle|hmac/i.test(object))
 				return 'crypto';
@@ -277,6 +296,7 @@ export function site_nodes(file: string, source: string): SiteNode[] {
 	};
 	const out: SiteNode[] = [];
 	const counts = new Map<string, number>();
+	const above: Node[] = [];
 	const walk = (node: Node, parent: Node | null, path: readonly string[]): void => {
 		let here = path;
 		if (FUNCTIONS.has(node.type)) {
@@ -286,7 +306,7 @@ export function site_nodes(file: string, source: string): SiteNode[] {
 			const name = fn_name(node, parent);
 			if (name !== null) here = [...path, name];
 		}
-		const kind = kind_of(node, parent);
+		const kind = kind_of(node, parent, above);
 		if (kind !== null) {
 			const where = here.length ? here.join(' > ') : '(module)';
 			const at = `${file} > ${where} > ${kind}`;
@@ -294,6 +314,7 @@ export function site_nodes(file: string, source: string): SiteNode[] {
 			counts.set(at, n + 1);
 			out.push({ id: `${at}:${n}`, file, line: line_of(node.start), kind, node, parent });
 		}
+		above.push(node);
 		for (const key in node) {
 			if (key === 'type' || key === 'start' || key === 'end') continue;
 			const v = node[key];
@@ -302,6 +323,7 @@ export function site_nodes(file: string, source: string): SiteNode[] {
 					if (c && typeof c === 'object' && 'type' in c) walk(c as Node, node, here);
 			} else if (v && typeof v === 'object' && 'type' in v) walk(v as Node, node, here);
 		}
+		above.pop();
 	};
 	walk(program as unknown as Node, null, []);
 	return out;

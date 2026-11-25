@@ -2,6 +2,12 @@
 // rules, what each fetch asks the server, which pages it keeps, and what a prefetch warms.
 import { afterAll, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
+import {
+	L_NOTE_ENTRY_LOCATION,
+	L_REGISTER_ISLAND_GRAPH,
+	L_WARM_ISLAND_MODULE
+} from '../../src/runtime/boot-link-index.ts';
 import { KNOWN_HEADER_CAP } from '../../src/contract/known-copies.ts';
 import { is_dangerous_head_node } from '../../src/runtime/head-deny.ts';
 import type { PageGlobals } from '../../src/page-globals.ts';
@@ -24,7 +30,7 @@ window.fetch = async (input, init) => {
 const denies: unknown[] = [];
 page_globals.__og_head_deny = (deny) => denies.push(deny);
 page_globals.__OGYGIA_SERVER_DELTA__ = true;
-link_boot();
+init(link_boot());
 const nav = await import('../../src/runtime/router-nav.ts');
 /** The app's `fetch`, as the navigation chunk left it once loaded. */
 const app_fetch = window.fetch;
@@ -141,11 +147,11 @@ test('a prefetched page warms its island graph and the regions the browser runs,
 	const graphs: string[] = [];
 	const warmed: string[] = [];
 	const located: string[] = [];
-	const { slots } = await import('../../src/runtime/slots.ts');
-	const real = { ...slots.boot! };
-	slots.boot!.register_island_graph = (text) => void graphs.push(text);
-	slots.boot!.warm_island_module = (entry) => void warmed.push(entry);
-	slots.boot!.note_entry_location = (entry, src) => void located.push(`${entry} ${src}`);
+	const link = link_boot();
+	const real = [...link] as typeof link;
+	link[L_REGISTER_ISLAND_GRAPH] = (text) => void graphs.push(text);
+	link[L_WARM_ISLAND_MODULE] = (entry) => void warmed.push(entry);
+	link[L_NOTE_ENTRY_LOCATION] = (entry, src) => void located.push(`${entry} ${src}`);
 	const plain = answer;
 	answer = () =>
 		new Response(
@@ -157,7 +163,7 @@ test('a prefetched page warms its island graph and the regions the browser runs,
 		await nav.fetch_page(href('/warm-page'), undefined, 'prefetch');
 	} finally {
 		answer = plain;
-		Object.assign(slots.boot!, real);
+		Object.assign(link, real);
 	}
 	expect(graphs).toEqual(['{"g":1}']);
 	expect(warmed).toEqual(['/runs.js']);

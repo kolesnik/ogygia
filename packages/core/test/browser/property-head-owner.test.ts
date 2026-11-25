@@ -1,11 +1,12 @@
 // After a navigation's swap, the head nodes the next page does not list (`unlisted`) go, but for
 // those a region still on the page uses (a region sheet, #275) or owns (`data-og-owner` naming its
-// fingerprint, #806): runtime/region-sheets.ts `release_head_nodes`. Over any mix of regions (on the
+// fingerprint, #806): runtime/head-release.ts `release_head_nodes`. Over any mix of regions (on the
 // page or gone), owners (none, empty, matching, unknown) and sheet use: a node stays exactly when a
 // region on the page uses or owns it, and a node not in `unlisted` is never touched.
 import { afterEach, expect, it } from 'vitest';
 import { fc } from '@ogygia/config/sim';
-import { release_head_nodes, use_sheets } from '../../src/runtime/region-sheets.ts';
+import { sheets_in_use, use_sheets } from '../../src/runtime/region-sheets.ts';
+import { release_head_nodes } from '../../src/runtime/head-release.ts';
 import { connected_regions } from '../../src/runtime/connected.ts';
 import { scope } from '@ogygia/machine';
 
@@ -67,7 +68,10 @@ it('a head node the next page does not list stays exactly while a region on the 
 						if (r.fp) owners.add(r.fp);
 					}
 				}
-				release_head_nodes(nodes.filter((_, i) => specs[i]!.unlisted));
+				release_head_nodes(
+					nodes.filter((_, i) => specs[i]!.unlisted),
+					sheets_in_use
+				);
 				nodes.forEach((n, i) => {
 					const s = specs[i]!;
 					// (`data-og-owner` is a space-separated list of owners, #854)

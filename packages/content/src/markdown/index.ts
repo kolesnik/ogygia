@@ -237,7 +237,6 @@ function transform_islands(content: string, filename: string): string | null {
 	return bridge.transform ? bridge.transform(content, filename) : null;
 }
 
-/** Do the files a kept compile's extensions read (`MarkdownFinish.files`) all still exist? */
 async function all_exist(files: readonly string[] | undefined): Promise<boolean> {
 	if (!files?.length) return true;
 	const { existsSync } = await import('node:fs');

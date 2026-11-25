@@ -4,6 +4,7 @@
 // Counter island from setup.ts; its identity is a build's name (no file), its location a file that
 // 404s, and the fixture map points the identity at the working module.
 import { expect, inject, test } from 'vitest';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import { from_b64 } from './b64.ts';
 import { page, server } from 'vitest/browser';
 import { bootDev } from '../../src/runtime/full.ts';
@@ -11,8 +12,8 @@ import { bootDev } from '../../src/runtime/full.ts';
 const IDENTITY = '/test/browser/fixtures/ogygia/og-region.000000000aa5.js';
 const HYDRATED = 'ogygia-region[data-hydrated]';
 const counter_html = () => from_b64(inject('counter_ssr_b64'));
-const requested = (part: string) =>
-	performance.getEntriesByType('resource').filter((r) => r.name.includes(part));
+const downloads = new Downloads();
+const requested = (part: string) => downloads.named(part);
 
 test('the location 404s: the island wakes on the current build’s file', async () => {
 	document.body.innerHTML = counter_html();

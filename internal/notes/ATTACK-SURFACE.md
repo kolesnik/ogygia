@@ -6,7 +6,7 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 
 ## Request inputs: headers, query, cookies and bodies read from a request
 
-122 entries.
+123 entries.
 
 | file | in | what | n |
 | --- | --- | --- | --- |
@@ -15,16 +15,10 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/cli/src/mcp.ts` | `tool_profile` | `headers.get('content-type')` | 1 |
 | `packages/core/src/contract/switch.ts` | `switch_in_url` | `searchParams(DEVTOOLS_PARAM)` | 1 |
 | `packages/core/src/contract/switch.ts` | `testing_lean` | `searchParams(TESTING_PARAM)` | 1 |
-| `packages/core/src/hooks.ts` | `#region_answer` | `cookies.get(DEVTOOLS_COOKIE)` | 1 |
-| `packages/core/src/hooks.ts` | `#region_answer` | `headers.get('sec-fetch-site')` | 1 |
-| `packages/core/src/hooks.ts` | `#region_answer` | `searchParams('renew')` | 1 |
-| `packages/core/src/hooks.ts` | `#region_session` | `cookies.get(session_cookie)` | 1 |
 | `packages/core/src/hooks.ts` | `#render_hole` | `cookies.get(TESTING_COOKIE)` | 1 |
 | `packages/core/src/hooks.ts` | `#render_hole` | `headers.get('content-type')` | 3 |
 | `packages/core/src/hooks.ts` | `#render_hole` | `searchParams(TESTING_PARAM)` | 1 |
 | `packages/core/src/hooks.ts` | `devtools_switch` | `cookies.get(DEVTOOLS_COOKIE)` | 1 |
-| `packages/core/src/hooks.ts` | `render_batch` | `headers.get('sec-fetch-mode')` | 1 |
-| `packages/core/src/hooks.ts` | `render_batch` | `headers.get('sec-fetch-site')` | 1 |
 | `packages/core/src/hooks.ts` | `router_fetched` | `headers.get('x-ogygia-spa')` | 1 |
 | `packages/core/src/plugin/request-scope.ts` | `body_unread` | `headers.get('etag')` | 1 |
 | `packages/core/src/plugin/request-scope.ts` | `body_unread` | `headers.get('if-none-match')` | 1 |
@@ -40,7 +34,13 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/core/src/runtime/router-nav.ts` | `(module)` | `headers.get('content-disposition')` | 1 |
 | `packages/core/src/runtime/router-nav.ts` | `(module)` | `headers.get('content-type')` | 1 |
 | `packages/core/src/server/capped-body.ts` | `(module)` | `headers.get('content-length')` | 1 |
+| `packages/core/src/server/document-seeds.ts` | `(module)` | `headers.get('sec-fetch-mode')` | 1 |
 | `packages/core/src/server/early-holes-csp.ts` | `(module)` | `headers.get(name)` | 1 |
+| `packages/core/src/server/islands-endpoint.ts` | `#region_answer` | `cookies.get(DEVTOOLS_COOKIE)` | 1 |
+| `packages/core/src/server/islands-endpoint.ts` | `#region_answer` | `headers.get('sec-fetch-site')` | 1 |
+| `packages/core/src/server/islands-endpoint.ts` | `#region_answer` | `searchParams('renew')` | 1 |
+| `packages/core/src/server/islands-endpoint.ts` | `#region_session` | `cookies.get(session_cookie)` | 1 |
+| `packages/core/src/server/islands-endpoint.ts` | `render_batch` | `headers.get('sec-fetch-site')` | 1 |
 | `packages/core/src/server/page-facts.ts` | `(module)` | `headers.get(PAGE_FACTS_ROUTE_HEADER)` | 1 |
 | `packages/core/src/server/region-endpoint.ts` | `region_session` | `cookies.get(session_cookie)` | 1 |
 | `packages/core/src/server/region-endpoint.ts` | `reuse_known_region` | `headers.get('x-ogygia-known')` | 1 |
@@ -116,6 +116,7 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/federation/src/wire.ts` | `(module)` | `headers.get(TS_HEADER)` | 1 |
 | `packages/federation/src/wire.ts` | `(module)` | `headers.get(USER_HEADER)` | 1 |
 | `packages/flags/src/index.ts` | `override` | `searchParams('og-exp')` | 1 |
+| `packages/image/src/makers/binding.ts` | `open` | `headers.get('content-length')` | 1 |
 | `packages/insights/src/page-assets.ts` | `weigh_one` | `headers.get('content-encoding')` | 1 |
 | `packages/insights/src/page-assets.ts` | `weigh_one` | `headers.get('content-length')` | 1 |
 | `packages/insights/src/page-assets.ts` | `weigh_one` | `headers.get('vary')` | 1 |
@@ -135,7 +136,7 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 
 ## Decoders: text turned into values (JSON, devalue, base64, URI escapes)
 
-102 entries.
+118 entries.
 
 | file | in | what | n |
 | --- | --- | --- | --- |
@@ -155,19 +156,20 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/compiler/src/vite/index.ts` | `ogygia` | `JSON.parse` | 1 |
 | `packages/compiler/src/vite/package-files.ts` | `read_manifest` | `JSON.parse` | 1 |
 | `packages/core/src/contract/core-files.ts` | `(module)` | `JSON.parse` | 1 |
+| `packages/core/src/early-code.ts` | `start_early_code` | `JSON.parse` | 1 |
 | `packages/core/src/early-holes.ts` | `start_early_holes` | `JSON.parse` | 1 |
 | `packages/core/src/events/sinks.ts` | `ingest_server_events` | `JSON.parse` | 1 |
 | `packages/core/src/head-owners.ts` | `adopt_owner_record` | `JSON.parse` | 1 |
 | `packages/core/src/hooks.ts` | `decode_pathname` | `decodeURIComponent` | 1 |
-| `packages/core/src/hooks.ts` | `render_batch` | `JSON.parse` | 1 |
-| `packages/core/src/island-graph.ts` | `decode_island_graph` | `JSON.parse` | 1 |
-| `packages/core/src/island-graph.ts` | `decode_island_locations` | `JSON.parse` | 1 |
+| `packages/core/src/island-graph-read.ts` | `decode_island_graph` | `JSON.parse` | 1 |
+| `packages/core/src/island-graph-read.ts` | `decode_island_locations` | `JSON.parse` | 1 |
 | `packages/core/src/runtime/hole-facts.ts` | `parse_record` | `JSON.parse` | 1 |
 | `packages/core/src/runtime/kit-page-thread.svelte.ts` | `kit_boot` | `JSON.parse` | 1 |
 | `packages/core/src/runtime/page-defer.ts` | `(module)` | `devalue parse` | 1 |
 | `packages/core/src/runtime/seeds.ts` | `watch_unshipped` | `JSON.parse` | 1 |
 | `packages/core/src/runtime/wire-format.ts` | `(module)` | `devalue parse` | 1 |
 | `packages/core/src/runtime/wire-format.ts` | `(module)` | `JSON.parse` | 1 |
+| `packages/core/src/server/islands-endpoint.ts` | `render_batch` | `JSON.parse` | 1 |
 | `packages/core/src/server/page-facts.ts` | `(module)` | `decodeURIComponent` | 1 |
 | `packages/core/src/server/page-facts.ts` | `(module)` | `devalue unflatten` | 1 |
 | `packages/core/src/server/page-facts.ts` | `(module)` | `JSON.parse` | 3 |
@@ -222,6 +224,21 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/federation/src/wire.ts` | `private_key` | `Buffer.from base64` | 1 |
 | `packages/federation/src/wire.ts` | `public_key` | `Buffer.from base64` | 1 |
 | `packages/federation/src/wire.ts` | `signature_bytes` | `Buffer.from base64` | 1 |
+| `packages/image/src/handoff.ts` | `build_handoff` | `JSON.parse` | 1 |
+| `packages/image/src/recipe.ts` | `b64url_decode` | `atob` | 1 |
+| `packages/image/src/recipe.ts` | `parse_recipe` | `JSON.parse` | 1 |
+| `packages/image/src/vite/encoder.ts` | `listed` | `JSON.parse` | 1 |
+| `packages/image/src/vite/index.ts` | `image` | `JSON.parse` | 1 |
+| `packages/image/src/vite/index.ts` | `image` | `JSON.parse` | 1 |
+| `packages/image/src/vite/index.ts` | `image` | `JSON.parse` | 1 |
+| `packages/image/src/vite/index.ts` | `kit_paths` | `JSON.parse` | 1 |
+| `packages/image/src/vite/index.ts` | `kit_paths` | `JSON.parse` | 1 |
+| `packages/image/src/vite/index.ts` | `kit_paths` | `JSON.parse` | 1 |
+| `packages/image/src/vite/macro.ts` | `options_of_query` | `Buffer.from base64url` | 1 |
+| `packages/image/src/vite/macro.ts` | `options_of_query` | `JSON.parse` | 1 |
+| `packages/image/src/vite/markdown.ts` | `markdown_extension` | `Buffer.from base64url` | 1 |
+| `packages/image/src/vite/markdown.ts` | `markdown_extension` | `JSON.parse` | 2 |
+| `packages/image/src/vite/vercel-config.ts` | `(module)` | `JSON.parse` | 1 |
 | `packages/insights/src/fp-drift.ts` | `(module)` | `JSON.parse` | 2 |
 | `packages/insights/src/fp-drift.ts` | `revive` | `devalue unflatten` | 1 |
 | `packages/insights/src/page-insights.ts` | `defer_keys` | `JSON.parse` | 1 |
@@ -310,7 +327,7 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 
 ## Routes: paths ogygia answers on its own
 
-12 entries.
+13 entries.
 
 | file | in | what | n |
 | --- | --- | --- | --- |
@@ -325,4 +342,5 @@ its pull request says why it is safe (or which INVARIANTS.md section covers it).
 | `packages/federation/src/wire.ts` | `FRAGMENT_BASE` | `/og/fragment/` | 1 |
 | `packages/federation/src/wire.ts` | `FRAGMENT_ROUTES_PATH` | `/og/fragment/page` | 1 |
 | `packages/federation/src/wire.ts` | `THAW_PATH` | `/og/thaw` | 1 |
+| `packages/image/src/recipe.ts` | `IMAGE_PREFIX` | `/__ogygia__/i/` | 1 |
 | `packages/testing/src/vite.ts` | `NAMES_PATH` | `/__ogygia_devtools_meta` | 1 |

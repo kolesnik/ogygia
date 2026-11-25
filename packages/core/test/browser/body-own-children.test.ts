@@ -9,16 +9,16 @@
 // beside a detached node.
 import { afterEach, expect, test } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
-import { morph_children, install as install_morph } from '../../src/runtime/morph.ts';
+import { morph_children } from '../../src/runtime/morph.ts';
 import { reconcile_body, swap_body } from '../../src/runtime/reconcile.ts';
 import { record_server_body } from '../../src/runtime/ownership.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import BodyPortal from './fixtures/BodyPortal.svelte';
 
 // the reconcile reaches morph's attribute sync and the body record through the registry, as the
 // boot links them
-install_morph();
-link_boot();
+init(link_boot());
 
 let app: ReturnType<typeof mount> | null = null;
 afterEach(async () => {

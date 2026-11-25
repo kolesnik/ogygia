@@ -21,6 +21,7 @@
 import {
 	cms_page,
 	edit_while_asleep,
+	graph_page,
 	grid_page,
 	ISLAND_ENTRIES,
 	in_view,
@@ -30,11 +31,15 @@ import {
 	strip_whitespace,
 	type PageRegion
 } from './hydration-page.ts';
-import { frag, type DomNode } from '../test/_stubs/dom.ts';
+import { frag, type DomElement, type DomNode } from '../test/_stubs/dom.ts';
+import { preload_island_graph, reset_island_graph } from '../src/runtime/island-graph-preload.ts';
+import { resolved_urls } from '../src/runtime/resolved-url.ts';
 import { bench } from '@bench/heisenbench/bench';
 import { RuntimeSession } from '../src/runtime/session.ts';
+import { mark_head, record_island_head } from '../src/runtime/head-copies.ts';
 import island_module from '../test/_stubs/island-module.ts';
 import { link_boot } from '../src/runtime/boot-link.ts';
+import { init } from '../src/runtime/lazy-link.ts';
 import { __heisenbench as core_private, boot } from '../src/runtime/core.ts';
 import { import_entry, note_entry_location } from '../src/runtime/entry-locations.ts';
 import {
@@ -44,19 +49,27 @@ import {
 	sequence_differs,
 	type IslandModule
 } from '../src/runtime/hydrate-core.ts';
+import { __heisenbench as interaction_private } from '../src/runtime/interaction.ts';
+import { HAS, set_feature_word } from '../test/_stubs/boot.runtime-flags.ts';
 import {
-	__heisenbench as interaction_private,
-	install as install_interaction
-} from '../src/runtime/interaction.ts';
+	F_FORMS,
+	F_FRAMES,
+	F_LAKES,
+	F_MORPH,
+	F_MPA_NAV,
+	F_ROUTER,
+	F_WIRE_CLASSES
+} from '../src/contract/features.ts';
 import { once_on_screen } from '../src/runtime/viewport.ts';
-import { flights, scope } from '@ogygia/machine';
+import { flights } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
 import { LoadSlot, reset_load_scheduler } from '../src/runtime/load-scheduler.ts';
 import { class_at, PRIORITY } from '../src/runtime/load-class.ts';
 import {
 	is_warmed_module,
 	reset_island_warms,
 	warm_island_module
-} from '../src/runtime/region-endpoint-url.ts';
+} from '../src/runtime/island-warm.ts';
 import {
 	background_start,
 	hydrate_settled,
@@ -65,9 +78,13 @@ import {
 	register_region
 } from '../src/runtime/schedule.ts';
 
+// The build of these pages (islands, waking on load or on a visitor): no lakes, no morph, no router,
+// no form continuity, no transportable classes. Its boot's link and its element hold none of them.
+set_feature_word(HAS & ~F_LAKES & ~F_MORPH & ~F_ROUTER & ~F_MPA_NAV & ~F_FORMS & ~F_WIRE_CLASSES);
+
 const MOD = { default: island_module } as unknown as IslandModule;
 /** The page the scheduler's regions are on: their viewport snapshots are its. */
-const PAGE = scope();
+const PAGE = life.rootLife();
 
 // ── the region element, booted ─────────────────────────────────────────────────────────────────
 
@@ -95,7 +112,11 @@ function boot_page({ page }: Booted): Promise<number> {
 		// (a wake that never comes fails the case instead of ending it early)
 		setTimeout(() => reject(new Error(`${hydrated} of ${expected} islands hydrated`)), 60_000);
 	});
-	boot([install_interaction]);
+	// (a boot that installs no feature of its own: the page's islands and their interaction alone)
+	const word = HAS;
+	set_feature_word(word & ~F_FRAMES);
+	boot();
+	set_feature_word(word);
 	for (const r of regions) if (r.touched) edit_while_asleep(r.el);
 	const tap = regions[0].el.querySelector('button')!;
 	tap.dispatchEvent(new Event('pointerdown', { bubbles: true }));
@@ -145,7 +166,7 @@ bench('region element: a page boots and wakes as it grows', boot_page, {
 
 /** Every island of the page, each hydrated against the server copy it connected with. */
 function hydrate_all(regions: PageRegion[]): number {
-	link_boot();
+	init(link_boot());
 	let n = 0;
 	for (const r of regions)
 		if (hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, r.touched)) n++;
@@ -155,7 +176,7 @@ function hydrate_all(regions: PageRegion[]): number {
 bench(
 	'hydrate_island: the header island (a large props config, edited while it slept)',
 	({ regions }) => {
-		link_boot();
+		init(link_boot());
 		const r = regions[0];
 		return hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, true) !== null;
 	},
@@ -194,10 +215,13 @@ function mismatched_grid(cards: number): { r: PageRegion } {
 bench(
 	'hydrate_island: a grid island Svelte re-renders, as its root cards grow',
 	({ r }) => {
-		link_boot();
+		init(link_boot());
 		return hydrate_island(r.el as HTMLElement, r.entry, MOD, r.ssr_html, false) !== null;
 	},
-	{ setup: () => mismatched_grid(12), scale: (_ctx, k) => mismatched_grid(12 * k) }
+	{
+		setup: () => mismatched_grid(12),
+		scale: (_ctx, k) => mismatched_grid(12 * k)
+	}
 );
 
 // ── the drift check and repair, the head markers ───────────────────────────────────────────────
@@ -215,7 +239,7 @@ function ab_edited(rows: number): { region: Element; want: Element } {
 bench(
 	'drift check and repair: an edited block island as its rows grow',
 	({ region, want }) => {
-		link_boot();
+		init(link_boot());
 		if (!sequence_differs(region, want)) return false;
 		hydrate_core.repair_markup(region as HTMLElement, want);
 		return sequence_differs(region, want);
@@ -262,8 +286,8 @@ function island_head_step(): void {
 // observer's callback first here (a task boundary inside the step), and come back in head order.
 bench(
 	'head mark: an island’s head block, from the observer’s records',
-	async ({ session }) => {
-		const mark = session.mark_head();
+	async () => {
+		const mark = mark_head();
 		island_head_step();
 		await Promise.resolve();
 		const added = mark.added();
@@ -277,9 +301,9 @@ bench(
 bench(
 	'head record: an island’s head block takes the place of the page’s copy (#1107)',
 	({ session }) => {
-		const mark = session.mark_head();
+		const mark = mark_head();
 		island_head_step();
-		session.record_island_head(mark);
+		record_island_head(session, mark);
 		return document.head.childNodes.length;
 	},
 	{
@@ -300,8 +324,8 @@ const saved_observer = (globalThis as { MutationObserver?: unknown }).MutationOb
 // Growth: linear in the head (without MutationObserver the head is copied, then scanned).
 bench(
 	'head mark: an island’s head block, without MutationObserver',
-	({ session }) => {
-		const mark = session.mark_head();
+	() => {
+		const mark = mark_head();
 		island_head_step();
 		const added = mark.added();
 		mark.stop();
@@ -348,6 +372,29 @@ function wake_page(regions: PageRegion[]): Promise<number> {
 	});
 	return expected === 0 ? Promise.resolve(0) : all;
 }
+
+/** Each island's wake preloads its file's chunks (core.ts `load_island`): a fresh page, nothing
+ *  parsed or linked yet. */
+function preload_page(entries: string[]): number {
+	for (const entry of entries) preload_island_graph(entry);
+	return (document.head as unknown as DomElement).children.length;
+}
+const graph_setup = (entries: number, regions: number) => () => {
+	reset_island_graph();
+	resolved_urls.forget();
+	return { entries: graph_page(entries, regions) };
+};
+
+bench(
+	'island graph: 55 islands of 15 files preload their chunks (shared ones linked once)',
+	({ entries }) => preload_page(entries),
+	{ setup: graph_setup(15, 55) }
+);
+
+bench('island graph: preloads as the page grows', ({ entries }) => preload_page(entries), {
+	setup: graph_setup(5, 20),
+	scale: (_ctx, k) => graph_setup(5 * k, 20 * k)()
+});
 
 bench('scheduler: a 250-block page takes its hydrate turns', ({ regions }) => wake_page(regions), {
 	setup: () => ({ regions: cms_page(250) })
@@ -425,7 +472,7 @@ bench(
 );
 
 /**
- * The module warmer (region-endpoint-url.ts, one warm per module on the flights' priority): a page
+ * The module warmer (island-warm.ts, one warm per module on the flights' priority): a page
  * prefetch warms every island of the next page as a guess, and the visitor then reaches for every
  * fourth one (a `user` warm joins and raises it). The modules are loaded ahead of the window, as the
  * booted page's are. Ends when the warms had their turns.

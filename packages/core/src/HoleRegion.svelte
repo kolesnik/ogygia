@@ -6,7 +6,7 @@ renders its shell with its fallback.
 -->
 <script lang="ts">
 	import { mount, unmount, untrack, type Snippet } from 'svelte';
-	import { lake_identity } from './server/props-wire.ts';
+	import { lake_identity } from './server/region-identity.ts';
 	import { escape_attr } from './escape.ts';
 	import { adopt_region } from './region-parts/adopt.ts';
 	import type { HoleFacts } from './region-parts/hole-facts.svelte.ts';

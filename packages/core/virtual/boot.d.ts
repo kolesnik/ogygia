@@ -5,15 +5,30 @@
 
 declare module 'ogygia:boot' {
 export const region_names: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/devtools-meta']['region_names'];
-export const install_hydrate_features: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/hydrate-features']['install'];
-export const FRAMES: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/runtime-flags']['FRAMES'];
+export const HAS: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/runtime-flags']['HAS'];
 export const load_wire_codec: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/runtime-flags']['load_wire_codec'];
 }
 declare module 'ogygia:boot/devtools-meta' {
 export const region_names: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/devtools-meta']['region_names'];
 }
+declare module 'ogygia:boot/feature-code' {
+const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/feature-code'];
+export = module;
+}
+declare module 'ogygia:boot/hook-bits' {
+const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/hook-bits'];
+export = module;
+}
+declare module 'ogygia:boot/hooks' {
+const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/hooks'];
+export = module;
+}
 declare module 'ogygia:boot/hydrate-features' {
 const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/hydrate-features'];
+export = module;
+}
+declare module 'ogygia:boot/remote-seeds' {
+const module: import('../dist/contract/virtual-modules.js').VirtualModules['ogygia:boot/remote-seeds'];
 export = module;
 }
 declare module 'ogygia:boot/runtime' {

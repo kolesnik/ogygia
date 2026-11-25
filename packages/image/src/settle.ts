@@ -149,10 +149,10 @@ function failed(key: string, reason: string): Response {
 	});
 }
 
-const said = new Set<string>();
+let said_cannot_make = false;
 function cannot_make(e: CannotMake): Response {
-	if (!said.has(e.code)) warn(e.code, e.args);
-	said.add(e.code);
+	if (!said_cannot_make) warn(e.code, e.args);
+	said_cannot_make = true;
 	return new Response('this server cannot make images', {
 		status: 500,
 		headers: { 'cache-control': 'no-store' }

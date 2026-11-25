@@ -1,6 +1,6 @@
 import { buggify, net } from '@ogygia/machine';
 import { KEEP_FALLBACK_HTML } from '../keep-fallback-marker.ts';
-import { warn } from '../messages/lazy.ts';
+import { warn } from '../messages/core.ts';
 import {
 	capability_expired,
 	deny_of,

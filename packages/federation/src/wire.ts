@@ -507,7 +507,6 @@ function pin_asset(value: string, origin: string): string {
 
 const CSS_URL_RE = /(url\(\s*)(&quot;|&#39;|["']?)([^"'()\s&]+)(\2\s*\))/gi;
 
-/** Every `url(…)` asset of a `style` attribute (a CSS background) pinned to `origin`. */
 function pin_style(value: string, origin: string): string {
 	return value.replace(
 		CSS_URL_RE,
@@ -569,16 +568,12 @@ const PIN_BY_NAME_LENGTH: Readonly<Record<number, (value: string, origin: string
 	11: pin_srcset
 };
 
-/** Where the asset name (`entry`, `endpoint`, `href`, `src`, `style`, in any ASCII case) that ends
- *  `html[ns, ne)`, an attribute's name as written, starts, or -1. An attribute holds an asset ref
- *  when its name is one, or ends in one after a character no word holds (`data-src`,
- *  `xlink:href`). */
 function asset_suffix(html: string, ns: number, ne: number): number {
 	// (told apart by their last letter: most names are out there)
 	switch (html.charCodeAt(ne - 1) | 32) {
 		case 99 /* c */:
 			return ends_with(html, ns, ne, 'src') ? ne - 3 : -1;
-		case 101 /* e */:
+		case 101:
 			return ends_with(html, ns, ne, 'style') ? ne - 5 : -1;
 		case 102 /* f */:
 			return ends_with(html, ns, ne, 'href') ? ne - 4 : -1;

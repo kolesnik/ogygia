@@ -2,8 +2,13 @@
  * Small scans shared by the server's per-request HTML work. Tags are read through the browser-faithful
  * reader (wire-markup.ts `tags()`); the character tests below serve hand-written scans elsewhere.
  */
-import { is_kit_boot_script } from '../runtime/kit-boot.ts';
-import { Needle, next_tag, OGYGIA_REGION_CSS, text_of } from '../wire-markup.ts';
+import {
+	is_kit_boot_script,
+	Needle,
+	next_tag,
+	OGYGIA_REGION_CSS,
+	text_of
+} from '../wire-markup.ts';
 
 /** The regex `\s`: ASCII whitespace and the Unicode spaces (NaN, past the end, is not). */
 export function is_space(c: number): boolean {
@@ -27,7 +32,7 @@ const KIT_BOOT_WINDOW = 65_536;
 
 /**
  * Whether a page's HTML carries Kit's boot (a csr=true page): the DOM probe's question
- * (runtime/kit-boot.ts `is_kit_boot_script`) over a string (pass the index of `</body>` as `end`).
+ * (../wire-markup.ts `is_kit_boot_script`) over a string (pass the index of `</body>` as `end`).
  * A 2.6 MB document is never scanned whole: see {@link kit_boot_script}.
  */
 export function html_has_kit_bootstrap(html: string, end: number = html.length): boolean {
@@ -102,4 +107,17 @@ export function region_css_tags(head: string): string {
 		style = next_tag(head, 'style', end);
 	}
 	return out;
+}
+
+// oxlint-disable-next-line ogygia/one-markup-walk -- a byte-saving prefilter, never the rule: a false match only leaves the early start out, and the browser stands it down for a mark this misses (early-code.ts)
+const MARKS_CRITICAL_RE = /fetchpriority\s*=\s*["']?high/i;
+
+/**
+ * Whether a page's HTML before `end` marks a resource critical (`fetchpriority="high"`, any case,
+ * any quotes): the page gets no early start of its load wake's code (../early-code.ts). Text that
+ * only reads like the attribute counts too; it leaves the early start out, which costs nothing.
+ */
+export function marks_critical(html: string, end: number = html.length): boolean {
+	const found = MARKS_CRITICAL_RE.exec(html);
+	return found !== null && found.index < end;
 }

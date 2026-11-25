@@ -27,6 +27,9 @@ export interface PageGlobals {
 	/** The rewrite restorer: restores a document, fragment or element; the count it restored. `lite`:
 	 *  skip the walk into declarative shadow roots already in the page. */
 	__og_restore?: (root: ParentNode, lite?: number) => number;
+	/** Set while the page loads a restorer of its own (its document carried none): settles once
+	 *  `__og_restore` is in, or failed to load. An answer read before then waits for it. */
+	__og_restore_ready?: Promise<void>;
 	/** The reshape restorer's second half: adopts sheets into roots now in the document. */
 	__og_restore_adopt?: () => void;
 	/** What the restorer recorded (the devtools and the beacon read it too). */

@@ -8,7 +8,8 @@ import { tool_fetch } from '../src/tool-fetches.ts';
 import { register_router_css, router_css_of } from '../src/router-css.ts';
 import { devtools_switched_on, testing_lean, write_switch } from '../src/contract/switch.ts';
 import { real_posix } from '../src/contract/core-files.ts';
-import { note_early_hole, take_early_holes } from '../src/context.ts';
+import { note_early_hole } from '../src/early-hole-note.ts';
+import { take_early_holes } from '../src/early-holes-head.ts';
 import { collect_provided_context } from '../src/context-bridge.ts';
 import { current_request, set_current_request } from '../src/plugin/facts.ts';
 

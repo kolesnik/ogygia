@@ -65,20 +65,36 @@
  *   from: a move of other keys leaves it be, and a flight with nothing kept yet goes on, judged by
  *   its answer when it lands.
  *
- * Each key's entry is a machine (`flying`, `kept`, `gone`), and the work of a flight is its
- * `flying` visit's `scope.task`: leaving the visit (a drop, the last caller gone, a fresh flight in
- * its place) is what aborts the work and turns its answer into STALE. `observe()` hears every
- * flight's moves, under the flights' `name`.
+ * Each key's entry is a plain record in one of three states (`flying`, `kept`, `gone`), and the
+ * work of a flight is a `scope.task` of its own: ending the flight (a drop, the last caller gone, a
+ * fresh flight in its place) closes that scope, which aborts the work and turns its answer into
+ * STALE. `observe()` hears every entry's moves, under the flights' `name`. The kept answers are
+ * bounded by weight in the entries themselves: no machine and no cache under them, so a flights
+ * costs little to make and a kept read is a look-up.
  */
-import { cache_store, type CacheStore, type EvictWhy } from './cache.ts';
 import { buggify, clock } from './ports.ts';
-import { machine, type Machine } from './machine.ts';
-import { bad_option, report_thrown } from './messages.ts';
+import { heard } from './run.ts';
+import {
+	attempt,
+	Flight,
+	FLYING,
+	join,
+	priority_of,
+	check_keep,
+	check_retry,
+	retry_of,
+	STALE_NOW,
+	type FlightEntry,
+	type GetArgs,
+	type GetOptions,
+	type InFlight
+} from './flight.ts';
+import { bad_option, machine_error } from './messages.ts';
 import { noop } from './noop.ts';
-import { under_policy, type Policy } from './policy.ts';
-import { DISPOSE } from './scope.ts';
+import type { Policy } from './policy.ts';
+import { DISPOSE, Life } from './scope.ts';
 import { STALE, type Fresh, type Stale } from './stale.ts';
-import { watch_world, type World } from './world.ts';
+import type { World } from './world.ts';
 
 /** Dev and rules builds (buggify points); folded out of any other (../rules-env.d.ts). */
 const RULES =
@@ -136,37 +152,7 @@ export interface KeyedFlightsOptions<
 	ignore?: { readonly [field in G]: string };
 }
 
-export interface GetOptions {
-	/** This caller leaves when it aborts: it gets `STALE` at once, and the work is aborted once
-	 *  every caller of its flight has left. */
-	signal?: AbortSignal;
-	/** Start a new flight even when an answer is kept (a revalidation): the kept answer stays until
-	 *  the new one lands. A flight already out for the key is ended (its callers get `STALE`). */
-	fresh?: boolean;
-	/** How soon this caller needs it: higher is sooner. Default 0. A flight out at a lower one is
-	 *  raised to it (its run hears it); one at a higher one stays as it is. */
-	priority?: number;
-}
-
-/** The flight a run serves: how soon its callers need it. */
-export interface InFlight {
-	/** The highest priority of the callers that joined it so far. It never goes down. */
-	readonly priority: number;
-	/** `raised` is called with the new priority each time a caller raises it, while this try is out
-	 *  (under a `retry` policy, the next try starts with no listeners). */
-	onRaise(raised: (priority: number) => void): void;
-}
-
-/** What a key holds now: a flight with nothing kept yet, or a kept answer (`flying`: a fresh flight
- *  for it is out). `at` is when the answer landed, on the wall clock (`clock.wall()`). */
-export type FlightEntry<V> =
-	| { readonly kind: 'flying' }
-	| { readonly kind: 'kept'; readonly answer: V; readonly at: number; readonly flying: boolean };
-
-/** `get`'s arguments: no input for a flights of one key (`flights({ run: () => … })`). */
-export type GetArgs<I> = [I] extends [void]
-	? [input?: undefined, options?: GetOptions]
-	: [input: I, options?: GetOptions];
+export type { FlightEntry, GetArgs, GetOptions, InFlight };
 
 export interface Flights<I, V, K = I> {
 	/** The answer for `input`: joined, kept, or from a new flight. `STALE` when it was dropped (or
@@ -181,7 +167,10 @@ export interface Flights<I, V, K = I> {
 	[Symbol.dispose](): void;
 }
 
+/** The most total weight a flights keeps when its options do not say (1000 answers). */
+const DEFAULT_MAX = 1000;
 type Kept = {
+	readonly kind: 'kept';
 	answer: unknown;
 	/** When it landed, on the wall clock (a timestamp a caller may show or compare outside). */
 	at: number;
@@ -191,149 +180,35 @@ type Kept = {
 	/** The settled promise every later `get` of it is handed (so `get() === get()`). */
 	promise: Promise<unknown>;
 };
-/** One flight: its shared answer, who still waits on it, and how soon they need it (it is the
- *  `InFlight` its run is handed). */
-class Flight implements InFlight {
-	shared: Promise<unknown>;
-	/** Callers with a signal still waiting. */
-	holders = 0;
-	/** A caller with no signal joined: it holds the flight until it lands. */
-	pinned = false;
-	/** The world when it started (`world.stamp()`): its answer is judged against it. */
-	stamp: number;
-	priority: number;
-	/** What the run hears a raise with (`null`: nothing yet, the common case). */
-	_raised: ((priority: number) => void)[] | null = null;
-	/** The flights' name, for a listener's failure. */
-	_name: string;
 
-	constructor(shared: Promise<unknown>, stamp: number, priority: number, name: string) {
-		this.shared = shared;
-		this.stamp = stamp;
-		this.priority = priority;
-		this._name = name;
-	}
+const FLYING_NOW = { kind: 'flying' } as const;
+const GONE_NOW = { kind: 'gone' } as const;
 
-	onRaise(raised: (priority: number) => void): void {
-		if (typeof raised !== 'function') throw bad_option('onRaise', typeof raised, 'a function');
-		(this._raised ??= []).push(raised);
-	}
-
-	/** A caller at `priority` joined: a higher one raises it, and every listener hears it. */
-	_raise(priority: number): void {
-		if (priority <= this.priority) return;
-		this.priority = priority;
-		const heard = this._raised;
-		if (heard === null) return;
-		for (const raised of heard) {
-			try {
-				raised(priority);
-			} catch (error) {
-				// (the joining caller is not the one to fail: the listener is the run's)
-				report_thrown('machine_flight_raise_failed', { name: this._name }, error);
-			}
-		}
-	}
-}
-type EntryStates = {
-	flying: { flight: Flight; prior: Kept | null };
-	kept: Kept;
-	gone: {};
-};
-const entry_steps = {
+const ENTRY_STEPS: { readonly [K in 'flying' | 'kept' | 'gone']: readonly string[] } = {
 	flying: ['flying', 'kept', 'gone'],
 	kept: ['flying', 'gone'],
 	gone: []
-} as const;
-type Entry = Machine<EntryStates, typeof entry_steps>;
+};
 
-const STALE_NOW: Promise<Stale> = Promise.resolve(STALE);
-/** The most total weight a flights keeps when its options do not say (1000 answers). */
-const DEFAULT_MAX = 1000;
-const FLYING: FlightEntry<never> = Object.freeze({ kind: 'flying' });
+class Entry {
+	now: { readonly kind: 'flying' | 'kept' | 'gone' } = FLYING_NOW;
+	flight: Flight | null;
+	work: Life | null;
+	held: Kept | null;
+	used = 0;
 
-/** One flight's work: one run, or the runs its policy gives (`STALE` once the flight is left). */
-function attempt<I, V>(
-	run: (input: I, signal: AbortSignal, flight: InFlight) => V,
-	input: I,
-	signal: AbortSignal,
-	flight: Flight,
-	retry: Policy | null
-): V | Promise<Awaited<V> | Stale> {
-	if (retry === null) return run(input, signal, flight);
-	return under_policy(
-		retry,
-		(s) => {
-			// (a new try: the listeners of the one before were its, and it is over)
-			flight._raised = null;
-			return run(input, s, flight);
-		},
-		signal
-	);
-}
-
-/** Ids for the objects (and symbols) a key holds: a key field compares by identity. Held weakly:
- *  an object or a symbol made per request is freed once nothing else holds it. */
-const weak_ids = new WeakMap<WeakKey, number>();
-/** A runtime that cannot hold a symbol weakly (no symbols as WeakMap keys) holds them here. */
-let symbol_ids: Map<symbol, number> | null = null;
-let next_id = 0;
-
-function id_of(v: object | symbol): number {
-	let id = weak_ids.get(v as WeakKey) ?? symbol_ids?.get(v as symbol);
-	if (id !== undefined) return id;
-	id = next_id++;
-	try {
-		weak_ids.set(v as WeakKey, id);
-	} catch {
-		(symbol_ids ??= new Map()).set(v as symbol, id);
+	constructor(flight: Flight, work: Life, held: Kept | null) {
+		this.flight = flight;
+		this.work = work;
+		this.held = held;
 	}
-	return id;
-}
-
-/** One field of a key, spelled so that two different values never spell one string: a string is
- *  its length, then itself; any other value its kind, then itself, then `;`. */
-function key_part(v: unknown): string {
-	switch (typeof v) {
-		case 'string':
-			return `s${v.length}:${v}`;
-		case 'number':
-			return `n${v};`; // (0 and -0 are one key, as in a Map)
-		case 'bigint':
-			return `g${v};`;
-		case 'boolean':
-			return v ? 't;' : 'f;';
-		case 'undefined':
-			return 'u;';
-		case 'symbol': {
-			// a registered symbol is one per name for good (`Symbol.for`): spelled by its name
-			const name = Symbol.keyFor(v);
-			if (name !== undefined) return `Y${name.length}:${name}`;
-			return `y${id_of(v)};`;
-		}
-		default:
-			return v === null ? 'z;' : `o${id_of(v as object)};`;
-	}
-}
-
-/** The key of a keyed flights' input: its key fields, in their order, spelled one way. One field is
- *  its own key: a Map tells values apart exactly as their spelling does, with no string to make. */
-export function key_of(fields: readonly PropertyKey[], input: unknown): unknown {
-	const of = input as Record<PropertyKey, unknown>;
-	if (fields.length === 1) return of[fields[0]!];
-	let key = '';
-	for (const f of fields) key += key_part(of[f]);
-	return key;
-}
-
-function kept_of(s: Readonly<Kept>): Kept {
-	return { answer: s.answer, at: s.at, until: s.until, weight: s.weight, promise: s.promise };
 }
 
 const expired = (k: Readonly<Kept>, now: number): boolean => k.until !== Infinity && now >= k.until;
 
-class Flown<I, V, K> implements Flights<I, V, K> {
-	_def: { create(data: EntryStates['flying']): Entry };
+/** @internal The flights every maker makes: keys of one field at most, no world, no weigh (what
+ *  `flights()` adds is ./flights-full.ts). */
+export class Flown<I, V, K> implements Flights<I, V, K> {
 	_run: (input: I, signal: AbortSignal, flight: InFlight) => unknown;
 	_name: string;
 	/** A keyed flights' key fields (`null`: the input itself is the key). */
@@ -342,24 +217,19 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 	_keys: Map<unknown, K> | null;
 	_keep: number | ((answer: V, input: I) => number);
 	_max: number;
-	_weigh: ((answer: V, input: I) => number) | undefined;
 	_retry: Policy | null;
-	_world: World<unknown> | undefined;
-	_touches: ((answer: V) => Iterable<unknown>) | undefined;
+	/** The world its answers are made in, and their weigh (`flights()`'s: ./flights-full.ts). */
+	_world: World<unknown> | undefined = undefined;
+	_weigh: ((answer: V, input: I) => number) | undefined = undefined;
 	/** Stops hearing the world (on dispose). */
 	_unwatch: () => void = noop;
-	/** By key: the input itself, or (keyed) the spelled key. Every entry, flying or kept. */
-	_entries = new Map<unknown, Entry>();
-	/** The entries that keep an answer (kept, or flying beside the answer kept before): their
-	 *  bound (`max`, `weigh`), ages (`keep`) and use order. An answer it lets go for age or size
-	 *  leaves its entry. */
-	_kept: CacheStore<unknown, Entry>;
+	/** By key: the input itself, or (keyed) the spelled key. Every entry, flying or kept, in the
+	 *  order its first flight started. */
+	_entries: Map<unknown, Entry> = new Map();
+	/** The total weight of the answers its entries keep. */
+	_weight = 0;
+	_uses = 0;
 	_disposed = false;
-
-	/** The total weight of what it keeps. */
-	get _weight(): number {
-		return this._kept.weight;
-	}
 
 	constructor(
 		o: FlightsCommon<I, unknown, unknown> & {
@@ -367,203 +237,129 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 			ignore?: Record<PropertyKey, string>;
 		}
 	) {
-		if (typeof o?.run !== 'function') throw bad_option('run', typeof o?.run, 'a function');
-		this._fields = null;
-		this._keys = null;
-		if (o.key !== undefined) {
-			const fields = o.key;
-			if (!Array.isArray(fields) || new Set(fields).size !== fields.length)
-				throw bad_option('key', String(fields), 'a list of the input fields that make the key');
-			for (const [field, why] of Object.entries(o.ignore ?? {})) {
-				if (fields.includes(field))
-					throw bad_option('ignore', field, 'a field the key leaves out, not one of its fields');
-				if (typeof why !== 'string' || why.trim() === '')
-					throw bad_option('ignore', field, 'the reason the key leaves it out');
-			}
-			this._fields = Object.freeze([...fields]);
-			this._keys = new Map();
-		} else if (o.ignore !== undefined) throw bad_option('ignore', 'without key', 'beside a key');
-		const retry = o.retry ?? null;
-		if (retry !== null && !(typeof retry === 'object' && Number.isInteger(retry.attempts)))
-			throw bad_option('retry', typeof retry, 'a policy from policy()');
-		const keep = o.keep ?? Infinity;
-		if (typeof keep !== 'function' && !(typeof keep === 'number' && keep >= 0))
-			throw bad_option('keep', keep, 'a time in ms of 0 or more, or a function that makes one');
-		// (the default counts answers: a weigh in another unit, bytes say, would keep nothing past it)
-		if (o.weigh !== undefined && o.max === undefined)
-			throw bad_option('max', 'missing', 'given with weigh, in its unit');
-		const max = o.max ?? DEFAULT_MAX;
-		if (!(typeof max === 'number' && max > 0 && Number.isFinite(max)))
-			throw bad_option('max', max, 'a finite number more than 0');
-		this._def = machine<EntryStates>()({
-			name: o.name ?? 'flights',
-			initial: 'flying',
-			steps: entry_steps
-		});
+		this._fields = o.key === undefined ? null : Object.freeze([...o.key]);
+		this._keys = o.key === undefined ? null : new Map();
 		this._run = o.run;
 		this._name = o.name ?? 'flights';
-		this._keep = keep as number | ((answer: V, input: I) => number);
-		this._max = max;
-		this._weigh = o.weigh as ((answer: V, input: I) => number) | undefined;
-		// (one try with no deadline needs no policy: the run is the flight's work as it is)
-		this._retry =
-			retry === null || (retry.attempts <= 1 && retry.deadline === Infinity) ? null : retry;
-		this._kept = cache_store<unknown, Entry>({
-			name: o.name ?? 'flights',
-			max,
-			weigh: (m) => held_of(m)?.weight ?? 0,
-			keep: (m) => {
-				const k = held_of(m);
-				return k === null || k.until === Infinity ? Infinity : k.until - clock.mono();
-			},
-			onEvict: (key, m, why) => this._let_go(key, m, why),
-			// (an answer kept beside a refresh still out stays until the refresh lands)
-			pinned: (m) => m.now.kind === 'flying'
-		});
-		this._world = o.world;
-		this._touches = o.touches as ((answer: V) => Iterable<unknown>) | undefined;
-		if (o.world !== undefined) {
-			// (heard for itself, held weakly: a flights nobody holds is collected, its world forgets it)
-			const unwatch = watch_world(o.world, this, heard_move);
-			if (unwatch === null) throw bad_option('world', typeof o.world, 'a world from world()');
-			this._unwatch = unwatch;
-		}
+		this._keep = (o.keep ?? Infinity) as number | ((answer: V, input: I) => number);
+		this._max = o.max ?? DEFAULT_MAX;
+		this._retry = retry_of(o.retry);
 	}
 
-	/** The world moved: what the move touches goes. With no `touches` (or the whole world moved),
-	 *  that is everything; else the kept answers made from a moved key (a flight out beside one
-	 *  goes with it; one with nothing kept yet is judged by its answer when it lands). */
-	_moved(keys: ReadonlySet<unknown> | null): void {
-		const touches = this._touches;
-		if (keys === null || touches === undefined) return this.drop(() => true);
-		this.drop((_, entry) => {
-			if (entry.kind !== 'kept') return false;
-			let read: Iterable<unknown>;
-			try {
-				read = touches(entry.answer);
-			} catch {
-				return true; // (what it read cannot be told: made again, never kept past the move)
-			}
-			for (const k of read) if (keys.has(k)) return true;
-			return false;
-		});
+	/** A keyed flights' entry key for an input (or a key as callers name it) when its key is not
+	 *  one field (one field is its own key: a Map tells values apart as exactly as a spelling
+	 *  would): no field is one key. */
+	_spell(_fields: readonly PropertyKey[], _input: unknown): unknown {
+		return '';
 	}
 
-	/** Whether an answer that landed is still of the world its flight started in. */
-	_current(flight: Flight, answer: V): boolean {
-		const w = this._world;
-		if (w === undefined) return true;
-		const touches = this._touches;
-		return touches === undefined ? w.fresh(flight.stamp) : w.fresh(flight.stamp, touches(answer));
+	/** An answer that landed is still of the world its flight started in (none: always). */
+	_current(_flight: Flight, _answer: V): boolean {
+		return true;
 	}
 
 	get(input?: I, options?: GetOptions): Promise<V | Stale> {
 		if (this._disposed) return STALE_NOW;
-		const signal = options?.signal;
-		if (signal?.aborted) return STALE_NOW;
-		let priority = options?.priority;
-		if (priority === undefined) priority = 0;
-		else if (typeof priority !== 'number' || priority !== priority)
-			throw bad_option('priority', priority, 'a number (higher is sooner)');
+		let signal: AbortSignal | undefined;
+		let priority = 0;
+		let fresh = false;
+		if (options !== undefined) {
+			signal = options.signal;
+			if (signal?.aborted) return STALE_NOW;
+			priority = priority_of(options);
+			fresh = options.fresh === true;
+		}
 		const fields = this._fields;
-		const key = fields === null ? input : key_of(fields, input);
-		let m = this._entries.get(key);
-		let prior: Kept | null = null;
-		if (m !== undefined) {
-			const s = m.now;
-			if (s.kind === 'kept') {
-				// (a use: the kept answer is the most recently used; one past its age leaves its entry.
-				// The cache's newest, in its age, is a use that moves nothing: read in place.)
-				const kept = this._kept;
-				const h = kept._newest === key ? kept._newest_h : undefined;
-				const in_place =
-					h !== undefined && h.value === m && (h.until === Infinity || h.until > clock.mono());
-				if (!in_place && kept.get(key) !== m) m = undefined;
-				else if (RULES && buggify.fires('flights.evicted-early')) {
+		let key: unknown = input;
+		if (fields !== null)
+			key =
+				fields.length === 1
+					? (input as Record<PropertyKey, unknown>)[fields[0]!]
+					: this._spell(fields, input);
+		let e = this._entries.get(key);
+		if (e !== undefined) {
+			const flight = e.flight;
+			if (flight !== null) {
+				if (!fresh) {
+					flight._raise(priority);
+					return this._join(key, e, flight, signal);
+				}
+			} else {
+				const held = e.held!;
+				if (held.until !== Infinity && clock.mono() >= held.until) {
+					this._remove(key, e);
+					e = undefined;
+				} else if (RULES && buggify.fires('flights.evicted-early')) {
 					// (buggify: its keep ran out just now, as a short keep's or a full cache's would: the
 					// entry goes, and this caller runs the work again)
-					this._remove(key, m);
-					m = undefined;
-				} else if (options?.fresh !== true) return s.promise as Promise<V>;
-				else prior = kept_of(s);
-			} else if (s.kind === 'flying') {
-				if (options?.fresh !== true) {
-					s.flight._raise(priority);
-					return this._join(key, m, s.flight, signal);
+					this._remove(key, e);
+					e = undefined;
+				} else if (!fresh) {
+					e.used = ++this._uses;
+					return held.promise as Promise<V>;
 				}
-				prior = s.prior;
 			}
 		}
-		return this._join(key, ...this._fly(key, m, input as I, prior, priority), signal);
+		return this._fly(key, e, input as I, priority, signal);
 	}
 
 	/** The entry key of a key as callers name it (keyed: its fields, spelled). */
 	_entry_key(key: K): unknown {
-		return this._fields === null ? key : key_of(this._fields, key);
+		const fields = this._fields;
+		if (fields === null) return key;
+		return fields.length === 1
+			? (key as Record<PropertyKey, unknown>)[fields[0]!]
+			: this._spell(fields, key);
 	}
 
 	peek(key: K): FlightEntry<V> | undefined {
-		const m = this._entries.get(this._entry_key(key));
-		return m === undefined ? undefined : this._view(m, clock.mono());
+		const e = this._entries.get(this._entry_key(key));
+		return e === undefined ? undefined : this._view(e, clock.mono());
 	}
 
 	drop(which: K | ((key: K, entry: FlightEntry<V>) => boolean)): void {
 		if (typeof which !== 'function') {
 			const key = this._entry_key(which);
-			const m = this._entries.get(key);
-			if (m !== undefined) this._remove(key, m);
+			const e = this._entries.get(key);
+			if (e !== undefined) this._remove(key, e);
 			return;
 		}
 		const test = which as (key: K, entry: FlightEntry<V>) => boolean;
 		const keys = this._keys;
 		const now = clock.mono();
 		// (a Map lets an entry be deleted while it is walked)
-		for (const [key, m] of this._entries) {
-			const view = this._view(m, now);
+		for (const [key, e] of this._entries) {
+			const view = this._view(e, now);
 			if (view === undefined || test(keys === null ? (key as K) : keys.get(key)!, view))
-				this._remove(key, m);
+				this._remove(key, e);
 		}
 	}
 
-	[DISPOSE](): void {
-		this._disposed = true;
-		this._unwatch();
-		this.drop(() => true);
-		this._kept[DISPOSE]();
-	}
-
-	/** The cache let an answer go: for its age or past `max`, the entry that kept it goes too. (A
-	 *  flight out beside an answer kept before goes on: it lands, or fails back to nothing kept.)
-	 *  Its own `delete`s are the entry's leaving already, and its end is the flights'. */
-	_let_go(key: unknown, m: Entry, why: EvictWhy): void {
-		if (why !== 'age' && why !== 'size') return;
-		if (m.now.kind === 'kept') this._remove(key, m);
-	}
+	/** Drops every key, and every later `get` gives `STALE` (set on the prototype below: an
+	 *  exported class cannot declare a method under a computed name). */
+	declare [Symbol.dispose]: () => void;
 
 	/** What an entry shows (`undefined`: its answer expired). */
-	_view(m: Entry, now: number): FlightEntry<V> | undefined {
-		const s = m.now;
-		if (s.kind === 'kept')
-			return expired(s, now)
+	_view(e: Entry, now: number): FlightEntry<V> | undefined {
+		const held = e.held;
+		if (e.flight === null)
+			return held === null || expired(held, now)
 				? undefined
-				: { kind: 'kept', answer: s.answer as V, at: s.at, flying: false };
-		if (s.kind === 'flying') {
-			const p = s.prior;
-			return p === null || expired(p, now)
-				? FLYING
-				: { kind: 'kept', answer: p.answer as V, at: p.at, flying: true };
-		}
-		return undefined;
+				: { kind: 'kept', answer: held.answer as V, at: held.at, flying: false };
+		return held === null || expired(held, now)
+			? FLYING
+			: { kind: 'kept', answer: held.answer as V, at: held.at, flying: true };
 	}
 
-	/** Starts a flight for `key` (the entry's `flying` visit) at `priority`, keeping `prior` beside it. */
+	/** Starts a flight for `key` at `priority`, on its entry when it has one (a fresh flight: the
+	 *  one out is ended, the answer kept stays beside the new one). */
 	_fly(
 		key: unknown,
-		m: Entry | undefined,
+		e: Entry | undefined,
 		input: I,
-		prior: Kept | null,
-		priority: number
-	): [Entry, Flight] {
+		priority: number,
+		signal: AbortSignal | undefined
+	): Promise<V | Stale> {
 		const stamp = this._world === undefined ? 0 : this._world.stamp();
 		// the shared answer is there before the run starts: a run that gets its own key (before it
 		// returns) joins this flight (#354)
@@ -574,12 +370,17 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 			reject = rej;
 		});
 		const flight = new Flight(shared, stamp, priority, this._name);
+		const work = new Life();
 		let entry: Entry;
-		if (m !== undefined && this._entries.get(key) === m) {
-			entry = m;
-			entry.go('flying', { flight, prior });
+		if (e !== undefined) {
+			entry = e;
+			const before = e.work;
+			e.flight = flight;
+			e.work = work;
+			this._move(e, FLYING_NOW);
+			if (before !== null) before.close();
 		} else {
-			entry = this._def.create({ flight, prior });
+			entry = new Entry(flight, work, null);
 			this._entries.set(key, entry);
 			const fields = this._fields;
 			if (fields !== null) {
@@ -589,42 +390,41 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 				this._keys!.set(key, named as K);
 			}
 		}
-		const visit = entry.now;
 		const run = this._run;
 		const retry = this._retry;
 		const landed = (answer: unknown): unknown => {
-			if (entry.now !== visit) return STALE;
+			if (entry.flight !== flight) return STALE;
 			// (its run answered STALE: kept by nobody, like a failure; the key goes back to what it
 			// held, so the next get runs again, #377. Its task already made a stale part a stale
 			// whole, #378.)
 			if (answer === STALE) {
-				this._back(key, entry, prior);
+				this._back(key, entry);
 				return STALE;
 			}
 			let current: boolean;
 			try {
 				current = this._current(flight, answer as V);
 			} catch (error) {
-				this._back(key, entry, prior);
+				this._back(key, entry);
 				throw error;
 			}
 			// its world moved while it was out: made from facts that are gone, so no caller has it
 			if (!current) {
-				this._back(key, entry, prior);
+				this._back(key, entry);
 				return STALE;
 			}
-			this._land(key, entry, input, answer as V, prior, shared);
+			this._land(key, entry, input, answer as V, shared);
 			return answer;
 		};
 		const failed = (error: unknown): unknown => {
-			if (entry.now !== visit) return STALE;
-			this._back(key, entry, prior);
+			if (entry.flight !== flight) return STALE;
+			this._back(key, entry);
 			throw error;
 		};
 		// (the callers handle its failure; this one is the flights' own, so it is never unhandled)
 		shared.then(undefined, noop);
-		entry.scope
-			.task((signal) => attempt(run, input, signal, flight, retry))
+		work
+			.task((s) => attempt(run, input, s, flight, retry))
 			.then(
 				(answer) => {
 					try {
@@ -641,108 +441,119 @@ class Flown<I, V, K> implements Flights<I, V, K> {
 					}
 				}
 			);
-		return [entry, flight];
+		return this._join(key, entry, flight, signal);
 	}
 
 	/** A flight's answer landed: kept, or (not kept) the entry goes back to what it kept before. */
-	_land(
-		key: unknown,
-		m: Entry,
-		input: I,
-		answer: V,
-		prior: Kept | null,
-		promise: Promise<unknown>
-	): void {
+	_land(key: unknown, e: Entry, input: I, answer: V, promise: Promise<unknown>): void {
 		let ms: number;
 		let weight: number;
 		try {
 			ms = typeof this._keep === 'function' ? this._keep(answer, input) : this._keep;
 			weight = this._weigh === undefined ? 1 : this._weigh(answer, input);
 		} catch (error) {
-			this._back(key, m, prior);
+			this._back(key, e);
 			throw error;
 		}
 		// (a weight below 0, or not a number, would lower the total and let `max` cap nothing)
-		if (!(ms > 0) || !(weight >= 0 && weight <= this._max)) return this._back(key, m, prior);
+		if (!(ms > 0) || !(weight >= 0 && weight <= this._max)) return this._back(key, e);
 		// (buggify: an answer not kept, as one too heavy for `max` is: the next caller runs again)
-		if (RULES && buggify.fires('flights.not-kept')) return this._back(key, m, prior);
+		if (RULES && buggify.fires('flights.not-kept')) return this._back(key, e);
 		const at = clock.wall();
 		const until = ms === Infinity ? Infinity : clock.mono() + ms; // (a duration: the monotonic clock)
-		m.go('kept', { answer, at, until, weight, promise });
+		this._weight += weight - (e.held?.weight ?? 0);
+		e.held = { kind: 'kept', answer, at, until, weight, promise };
+		this._settle(e);
 		// the newest use: the least recently used are first in line to go past `max`
-		if (!this._kept.set(key, m)) this._remove(key, m);
+		e.used = ++this._uses;
+		this._trim();
 	}
 
-	/** Back to the answer kept before this flight, or gone when there was none (or the cache let
-	 *  it go while the flight was out). */
-	_back(key: unknown, m: Entry, prior: Kept | null): void {
-		if (prior !== null) {
-			m.go('kept', prior);
-			if (this._kept.peek(key) === m || this._kept.set(key, m)) return;
+	/** The entry's flight is over and what it holds is kept (its flight's work ends). */
+	_settle(e: Entry): void {
+		const work = e.work;
+		e.flight = null;
+		e.work = null;
+		this._move(e, e.held!);
+		if (work !== null) work.close();
+	}
+
+	/** The one place an entry moves: told to the observers, and in a rules build refused (thrown)
+	 *  when `ENTRY_STEPS` has no such step. The new state first, then what the old one owned ends. */
+	_move(e: Entry, to: Entry['now']): void {
+		const from = e.now;
+		if (RULES && !ENTRY_STEPS[from.kind].includes(to.kind))
+			throw machine_error('machine_illegal_move', {
+				name: this._name,
+				from: from.kind,
+				to: to.kind
+			});
+		e.now = to;
+		heard(this._name, from, to, e);
+	}
+
+	/** Past `max`: the expired answers go first, then the least recently used (never one kept
+	 *  beside a flight out: it stays until the flight lands). */
+	_trim(): void {
+		if (this._weight <= this._max) return;
+		const now = clock.mono();
+		for (const [key, e] of this._entries)
+			if (e.flight === null && e.held !== null && expired(e.held, now)) this._remove(key, e);
+		while (this._weight > this._max) {
+			let oldest: Entry | null = null;
+			let at: unknown;
+			for (const [key, e] of this._entries)
+				if (e.flight === null && (oldest === null || e.used < oldest.used)) {
+					oldest = e;
+					at = key;
+				}
+			if (oldest === null) return;
+			this._remove(at, oldest);
 		}
-		this._remove(key, m);
+	}
+
+	/** Back to the answer kept before this flight, or gone when there was none. */
+	_back(key: unknown, e: Entry): void {
+		if (e.held !== null) this._settle(e);
+		else this._remove(key, e);
 	}
 
 	/** A caller joins `flight`: with no signal, the shared answer; with one, its own stake in it. */
 	_join(
 		key: unknown,
-		m: Entry,
+		e: Entry,
 		flight: Flight,
 		signal: AbortSignal | undefined
 	): Promise<V | Stale> {
-		const shared = flight.shared as Promise<V | Stale>;
-		if (signal === undefined) {
-			flight.pinned = true;
-			return shared;
-		}
-		flight.holders++;
-		return new Promise((resolve, reject) => {
-			const leave = () => {
-				resolve(STALE);
-				// the last caller left: nobody wants the answer, so the work stops
-				if (--flight.holders > 0 || flight.pinned) return;
-				const s = m.now;
-				if (s.kind === 'flying' && s.flight === flight) this._back(key, m, s.prior);
-			};
-			signal.addEventListener('abort', leave, { once: true });
-			shared.then(
-				(answer) => {
-					signal.removeEventListener('abort', leave);
-					resolve(answer);
-				},
-				(error: unknown) => {
-					signal.removeEventListener('abort', leave);
-					reject(error);
-				}
-			);
+		if (signal === undefined) return join(flight, undefined, noop);
+		return join(flight, signal, () => {
+			if (e.flight === flight) this._back(key, e);
 		});
 	}
 
 	/** Takes `key`'s entry out: its kept answer goes, its flight (if out) ends. */
-	_remove(key: unknown, m: Entry): void {
-		if (this._entries.get(key) === m) {
+	_remove(key: unknown, e: Entry): void {
+		if (this._entries.get(key) === e) {
 			this._entries.delete(key);
 			this._keys?.delete(key);
-			this._kept.delete(key);
+			if (e.held !== null) this._weight -= e.held.weight;
 		}
-		if (m.now.kind !== 'gone') m.go('gone');
+		if (e.now === GONE_NOW) return;
+		const work = e.work;
+		e.flight = null;
+		e.work = null;
+		this._move(e, GONE_NOW);
+		if (work !== null) work.close();
 	}
 }
 
-/** What an entry keeps: its answer, or the one kept beside its flight (`null`: none). */
-function held_of(m: Entry): Kept | null {
-	const s = m.now;
-	if (s.kind === 'kept') return s;
-	return s.kind === 'flying' ? s.prior : null;
-}
-
-/** A flights hears its world move (a function of its own: it holds no flights). */
-function heard_move(
-	f: { _moved(keys: ReadonlySet<unknown> | null): void },
-	keys: ReadonlySet<unknown> | null
+(Flown.prototype as { [DISPOSE]?: () => void })[DISPOSE] = function (
+	this: Flown<unknown, unknown, unknown>
 ): void {
-	f._moved(keys);
-}
+	this._disposed = true;
+	this._unwatch();
+	this.drop(() => true);
+};
 
 /** Makes a keyed flights over input `I` (`flights.keyed<I>()({ key, ignore?, run, … })`). */
 export type KeyedFlights<I> = <
@@ -754,26 +565,113 @@ export type KeyedFlights<I> = <
 	options: KeyedFlightsOptions<I, F, G, V, W>
 ) => Flights<I, Fresh<Awaited<V>>, Pick<I, F>>;
 
-function make_flights<I = void, V = unknown, W = never>(
-	options: FlightsOptions<I, V, W>
-): Flights<I, Fresh<Awaited<V>>, I> {
-	return new Flown(options as FlightsOptions<unknown, unknown, unknown>) as never;
+/** A flights maker as `flights` is one: a call makes a flights, `.keyed<I>()` a keyed one. */
+export type Makers<O, KO> = {
+	<I = void, V = unknown, W = never>(
+		options: O & FlightsOptions<I, V, W>
+	): Flights<I, Fresh<Awaited<V>>, I>;
+	keyed<I extends object>(): KO extends 'one' ? PlainKeyedFlights<I> : KeyedFlights<I>;
+};
+
+/** @internal The maker of a flights class: `flights` and `trusted_flights` (./flights-full.ts),
+ *  `trusted_plain_flights`. `check`: the checks the public maker runs (null: trusted, its
+ *  options checked at build). */
+export function makers<O, KO>(
+	made: new (options: FlightsOptions<unknown, unknown, unknown>) => unknown,
+	check: ((options: AnyFlightsOptions, keyed: boolean) => void) | null
+): Makers<O, KO> {
+	type Options = FlightsOptions<unknown, unknown, unknown>;
+	if (check === null) {
+		const make = (options: object): unknown => new made(options as Options);
+		return Object.assign(make, { keyed: () => make }) as never;
+	}
+	const keyed = (options: object): unknown => {
+		check(options as AnyFlightsOptions, true);
+		return new made(options as Options);
+	};
+	return Object.assign(
+		(options: object) => {
+			check(options as AnyFlightsOptions, false);
+			return new made(options as Options);
+		},
+		{ keyed: () => keyed }
+	) as never;
 }
 
-/** Keyed shared async work (see the module's comment). `flights.keyed<I>()` is its keyed form: a
- *  maker of a flights over object input `I` keyed by some of its fields,
- *  `flights.keyed<Ask>()({ key: ['href'], run })`. */
-export const flights: {
-	<I = void, V = unknown, W = never>(
-		options: FlightsOptions<I, V, W>
-	): Flights<I, Fresh<Awaited<V>>, I>;
-	keyed<I extends object>(): KeyedFlights<I>;
-} = /* @__PURE__ */ Object.assign(make_flights, {
-	keyed: <I extends object>(): KeyedFlights<I> => keyed as KeyedFlights<I>
-});
+type Plain = { world?: never; weigh?: never; touches?: never };
 
-function keyed(options: KeyedFlightsOptions<object, never, never, unknown>): unknown {
-	if (typeof options !== 'object' || options === null || options.key === undefined)
+/** Makes a keyed plain flights over input `I`: its key one field at most. */
+export type PlainKeyedFlights<I> = <
+	const F extends keyof I,
+	G extends Exclude<keyof I, F> = never,
+	V = unknown
+>(
+	options: KeyedFlightsOptions<I, F, G, V> & Plain & { key: readonly [] | readonly [F] }
+) => Flights<I, Fresh<Awaited<V>>, Pick<I, F>>;
+
+/**
+ * `plainFlights`: `flights()` when no world, weigh, `touches` or key of two fields or more is
+ * given (a type error, and refused by its checks): the same flights, so a page whose flights need
+ * none of those carries none of their code. ogygia's build checks a call's options and makes it
+ * `trustedPlainFlights` (internal/macros options pass).
+ */
+export const plain_flights: Makers<Plain, 'one'> = /* @__PURE__ */ makers<Plain, 'one'>(
+	Flown,
+	check_plain_flights
+);
+
+/** `trustedPlainFlights`: `plainFlights` for options its caller's build checked
+ *  (`checkPlainFlights`, run on a literal). */
+export const trusted_plain_flights: Makers<Plain, 'one'> = /* @__PURE__ */ makers<Plain, 'one'>(
+	Flown,
+	null
+);
+
+/** {@link plain_flights}'s checks: {@link check_flights}'s, and none of what only `flights()`
+ *  takes. */
+export function check_plain_flights(o: AnyFlightsOptions, keyed = false): void {
+	check_flights(o, keyed);
+	if (
+		o.world !== undefined ||
+		o.weigh !== undefined ||
+		o.touches !== undefined ||
+		(o.key !== undefined && o.key.length > 1)
+	)
+		throw bad_option(
+			'world, weigh, touches or a key of two fields',
+			'given to plainFlights()',
+			'given to flights() only'
+		);
+}
+
+export type AnyFlightsOptions = FlightsCommon<never, unknown, unknown> & {
+	key?: readonly PropertyKey[];
+	ignore?: Record<PropertyKey, string>;
+};
+
+/** {@link flights}'s checks of its options alone (`keyed`: as `flights.keyed<I>()` takes them):
+ *  `machine_bad_option` for one it refuses. */
+export function check_flights(o: AnyFlightsOptions, keyed = false): void {
+	if (keyed && (typeof o !== 'object' || o === null || o.key === undefined))
 		throw bad_option('key', 'none', 'the input fields that make the key');
-	return new Flown(options);
+	if (typeof o?.run !== 'function') throw bad_option('run', typeof o?.run, 'a function');
+	if (o.key !== undefined) {
+		const fields = o.key;
+		if (!Array.isArray(fields) || new Set(fields).size !== fields.length)
+			throw bad_option('key', String(fields), 'a list of the input fields that make the key');
+		for (const [field, why] of Object.entries(o.ignore ?? {})) {
+			if (fields.includes(field))
+				throw bad_option('ignore', field, 'a field the key leaves out, not one of its fields');
+			if (typeof why !== 'string' || why.trim() === '')
+				throw bad_option('ignore', field, 'the reason the key leaves it out');
+		}
+	} else if (o.ignore !== undefined) throw bad_option('ignore', 'without key', 'beside a key');
+	check_retry(o.retry);
+	check_keep(o.keep);
+	// (the default counts answers: a weigh in another unit, bytes say, would keep nothing past it)
+	if (o.weigh !== undefined && o.max === undefined)
+		throw bad_option('max', 'missing', 'given with weigh, in its unit');
+	const max = o.max ?? DEFAULT_MAX;
+	if (!(typeof max === 'number' && max > 0 && Number.isFinite(max)))
+		throw bad_option('max', max, 'a finite number more than 0');
 }

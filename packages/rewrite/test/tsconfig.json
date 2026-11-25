@@ -4,5 +4,5 @@
 		"declaration": false,
 		"isolatedDeclarations": false
 	},
-	"include": [".", "../src"]
+	"include": [".", "../src", "../../../internal/macros/macros.d.ts"]
 }

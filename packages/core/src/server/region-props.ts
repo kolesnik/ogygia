@@ -2,7 +2,7 @@
  * Encode region capability props (devalue → b64url) with the same size bound the handle enforces.
  * No virtual imports — safe to unit-test and share between mint paths.
  */
-import { stringify } from 'devalue';
+import { devalue_text } from './devalue-text.ts';
 import { B64Url } from './payload.ts';
 import { MAX_REGION_PROPS_LEN } from './endpoint.ts';
 import { REF_WIRE_KEY, placed, ref_reducer } from '../ref.ts';
@@ -35,7 +35,7 @@ export function encode_region_props(props: Record<string, unknown>): string | nu
 		// (the endpoint decodes fresh, never by id: the ids' place is enough, and the address stays the
 		// same from one render to the next — ref.ts `placed`)
 		payload = B64Url.encode(
-			placed(stringify(props, { [REF_WIRE_KEY]: ref_reducer(PROP_FAMILIES) }))
+			placed(devalue_text(props, { [REF_WIRE_KEY]: ref_reducer(PROP_FAMILIES) }))
 		);
 		// oxlint-disable-next-line ogygia/no-silent-failures -- make_region_endpoint says live_props_not_serializable
 	} catch {

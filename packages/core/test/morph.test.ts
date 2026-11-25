@@ -1,15 +1,22 @@
 // Morph unit tests. Runs in vitest's `node` env against a tiny DOM shim (`./_stubs/dom.ts`) — the
 // repo ships no jsdom/happy-dom on purpose. The shim import MUST come first: it installs
 // `globalThis.Node` / `globalThis.document`, which `morph.ts` reads at module load.
-import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { document, el, frag, DomElement, NS_SVG, type DomNode } from './_stubs/dom.ts';
 import {
 	morph_children as dom_morph_children,
-	install,
+	sync_attributes,
 	type MorphOptions
 } from '../src/runtime/morph.ts';
 import { swap_body } from '../src/runtime/reconcile.ts';
-import { slots } from '../src/runtime/slots.ts';
+import { init } from '../src/runtime/lazy-link.ts';
+import type { BootLink } from '../src/runtime/boot-link.ts';
+import {
+	L_RECORD_SERVER_BODY,
+	L_SERVER_BODY_ATTRIBUTES,
+	L_SERVER_BODY_CHILD,
+	L_SYNC_ATTRIBUTES
+} from '../src/runtime/boot-link-index.ts';
 import {
 	record_server_body,
 	server_body_attributes,
@@ -24,13 +31,6 @@ function morph_children(parent: DomElement, new_nodes: DomNode[], options?: Morp
 
 beforeEach(() => {
 	document._active = null;
-});
-
-describe('install()', () => {
-	test('fills the morph slot with the exported reconciler', () => {
-		install();
-		expect(slots.morph).toBe(dom_morph_children);
-	});
 });
 
 describe('text + comment nodes', () => {
@@ -588,16 +588,15 @@ describe('preserved / hydrated island subtrees', () => {
 });
 
 describe('swap_body (outerSync fallback)', () => {
-	// the body record reaches the swap through the boot registry, as the runtime's boot links it
+	// the body record and the attribute sync reach the swap through the boot's link, as the boot
+	// hands it to the navigation chunk
 	beforeEach(() => {
-		slots.boot = {
-			record_server_body,
-			server_body_attributes,
-			server_body_child
-		} as unknown as typeof slots.boot;
-	});
-	afterEach(() => {
-		slots.boot = null;
+		const link: unknown[] = [];
+		link[L_RECORD_SERVER_BODY] = record_server_body;
+		link[L_SERVER_BODY_ATTRIBUTES] = server_body_attributes;
+		link[L_SERVER_BODY_CHILD] = server_body_child;
+		link[L_SYNC_ATTRIBUTES] = sync_attributes;
+		init(link as unknown as BootLink);
 	});
 
 	test('keeps the live body node, syncs its attributes, replaces its children', () => {

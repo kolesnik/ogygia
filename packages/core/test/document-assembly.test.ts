@@ -7,7 +7,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { scope } from '@ogygia/machine';
-import { assemble, locate } from '../src/server/document-assembly.ts';
+import { assemble, locate, rope } from '../src/server/document-assembly.ts';
+import { fc } from '@ogygia/config/sim';
 import { patch } from './_patch.ts';
 import { html_has_kit_bootstrap } from '../src/server/html-scan.ts';
 
@@ -54,6 +55,21 @@ describe('locate', () => {
 		const html = doc('<script>var s = "</body>";</script><p>after</p>');
 		const s = locate(html);
 		expect(html.slice(s.body_end)).toBe('</body></html>');
+	});
+});
+
+describe('rope', () => {
+	it("is the parts' join, byte for byte, over generated parts", () => {
+		fc.assert(
+			fc.property(
+				fc.array(fc.string({ unit: 'binary', maxLength: 200 }), { maxLength: 12 }),
+				(parts) => {
+					expect(rope(parts)).toBe(parts.join(''));
+				}
+			),
+			{ numRuns: 2_000 }
+		);
+		expect(rope([])).toBe('');
 	});
 });
 

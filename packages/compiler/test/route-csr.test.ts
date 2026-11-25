@@ -19,7 +19,9 @@ import {
 	errorCsrTrueRouteIds,
 	rootLayoutCsrTrue,
 	hasAnyCsrTrueRoute,
+	kit_may_hydrate,
 	read_csr,
+	read_csr_unread,
 	route_reader
 } from '../src/kit.ts';
 import { node_fs } from '../src/fs.ts';
@@ -408,6 +410,106 @@ describe('errorCsrTrueRouteIds / rootLayoutCsrTrue — the layout branch decides
 		expect(R.touch(at(routes, '+layout.ts'), 'create')).toBe(true);
 		expect(errorCsrTrueRouteIds(R, routes)).toEqual([]);
 		expect(rootLayoutCsrTrue(R, routes)).toBe(false);
+	});
+});
+
+// ── kit_may_hydrate — the build PROVES no document is Kit's, or keeps the mixed-mode runtime ────
+
+describe('read_csr_unread — a csr only Kit can read', () => {
+	const one = (src: string) => {
+		const routes = tree({ '+page.ts': src });
+		return read_csr_unread(R, at(routes, '+page.ts'));
+	};
+	it('a literal, a typed literal, or no csr at all is read', () => {
+		expect(one('export const csr = false;\n')).toBe(false);
+		expect(one('export const csr = true as const;\n')).toBe(false);
+		expect(one('export const csr: boolean = false;\n')).toBe(false);
+		expect(one('export const prerender = true;\n')).toBe(false);
+		expect(one('const csr = dev; export const ssr = true;\n')).toBe(false);
+	});
+	it('an expression, a re-export, an `export *` or a broken file is unread', () => {
+		expect(one("import { dev } from '$app/environment'; export const csr = dev;\n")).toBe(true);
+		expect(one('export const csr = !import.meta.env.SSR;\n')).toBe(true);
+		expect(one("export { csr } from './options';\n")).toBe(true);
+		expect(one('const on = Math.random() > 0.5; export { on as csr };\n')).toBe(true);
+		expect(one("export * from './options';\n")).toBe(true);
+		expect(one('export let csr;\n')).toBe(true);
+		expect(one('export const csr = (;\n')).toBe(true);
+	});
+	it('a local declared as a literal and exported by name is read', () => {
+		expect(one('const off = false; export { off as csr };\n')).toBe(false);
+	});
+});
+
+describe('kit_may_hydrate — include, exclude, unprovable', () => {
+	it('EXCLUDE: csr = false on the root layout, every page under it: no document is Kit-hydrated', () => {
+		const routes = tree({
+			'+layout.ts': 'export const csr = false;\n',
+			'+layout.svelte': '<slot />',
+			'+error.svelte': '<h1>err</h1>',
+			'+page.svelte': '<h1>home</h1>',
+			'blog/[slug]/+page.ts': 'export const csr = false; export const prerender = true;\n',
+			'blog/[slug]/+page.svelte': '<h1>post</h1>'
+		});
+		expect(kit_may_hydrate(R, routes)).toBe(false);
+	});
+
+	it('INCLUDE: one csr = true page', () => {
+		const routes = tree({
+			'+layout.ts': 'export const csr = false;\n',
+			'+page.svelte': '<h1>home</h1>',
+			'admin/+page.ts': 'export const csr = true;\n',
+			'admin/+page.svelte': '<h1>admin</h1>'
+		});
+		expect(kit_may_hydrate(R, routes)).toBe(true);
+	});
+
+	it('INCLUDE: csr = false pages under an undeclared root: their error renders are Kit-hydrated', () => {
+		const routes = tree({
+			'+page.ts': 'export const csr = false;\n',
+			'+page.svelte': '<h1>home</h1>'
+		});
+		expect(csrTrueRouteIds(R, routes)).toEqual([]);
+		expect(kit_may_hydrate(R, routes)).toBe(true);
+	});
+
+	it('INCLUDE: a csr = true layout, even with every page under it turned off', () => {
+		const routes = tree({
+			'+layout.ts': 'export const csr = false;\n',
+			'shop/+layout.ts': 'export const csr = true;\n',
+			'shop/+page.ts': 'export const csr = false;\n',
+			'shop/+page.svelte': '<h1>shop</h1>'
+		});
+		expect(kit_may_hydrate(R, routes)).toBe(true);
+	});
+
+	it('UNPROVABLE: a csr Kit reads at run time keeps the mixed-mode runtime, anywhere in the tree', () => {
+		for (const [file, src] of [
+			['+layout.ts', "import { dev } from '$app/environment'; export const csr = dev;\n"],
+			['deep/+page.ts', 'export const csr = !import.meta.env.SSR;\n'],
+			['deep/+page.server.ts', "export { csr } from '$lib/options';\n"],
+			['deep/+layout.ts', "export * from '$lib/options';\n"]
+		]) {
+			const routes = tree({
+				'+layout.ts': 'export const csr = false;\n',
+				'+page.svelte': '<h1>home</h1>',
+				'deep/+page.svelte': '<h1>deep</h1>',
+				[file]: src
+			});
+			expect(kit_may_hydrate(R, routes), file).toBe(true);
+		}
+	});
+
+	it('a file event that turns a page csr = true is picked up', () => {
+		const routes = tree({
+			'+layout.ts': 'export const csr = false;\n',
+			'+page.svelte': '<h1>home</h1>',
+			'spa/+page.svelte': '<h1>spa</h1>'
+		});
+		expect(kit_may_hydrate(R, routes)).toBe(false);
+		writeFileSync(at(routes, 'spa/+page.ts'), 'export const csr = true;\n');
+		expect(R.touch(at(routes, 'spa/+page.ts'), 'create')).toBe(true);
+		expect(kit_may_hydrate(R, routes)).toBe(true);
 	});
 });
 

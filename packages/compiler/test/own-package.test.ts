@@ -21,10 +21,10 @@ describe('own package identity', () => {
 	it('knows its files: the ogygia package, @ogygia/core, a checkout of either, either separator', () => {
 		for (const f of [
 			'/app/node_modules/ogygia/dist/index.js',
-			'/app/node_modules/@ogygia/core/dist/runtime/slots.js',
+			'/app/node_modules/@ogygia/core/dist/runtime/boot-link.js',
 			'/repo/packages/ogygia/src/index.ts',
-			'/repo/packages/core/src/runtime/slots.ts',
-			'C:\\repo\\packages\\core\\dist\\runtime\\slots.js'
+			'/repo/packages/core/src/runtime/boot-link.ts',
+			'C:\\repo\\packages\\core\\dist\\runtime\\boot-link.js'
 		])
 			expect(OWN_FILE_RE.test(f), f).toBe(true);
 		for (const f of [
@@ -45,7 +45,7 @@ describe('own package identity', () => {
 
 	it("counts an installed @ogygia/core as ogygia's runtime in a chunk summary", () => {
 		const out = summarize_chunk_contents([
-			'/app/node_modules/.pnpm/@ogygia+core@1/node_modules/@ogygia/core/dist/runtime/slots.js',
+			'/app/node_modules/.pnpm/@ogygia+core@1/node_modules/@ogygia/core/dist/runtime/boot-link.js',
 			'/repo/packages/core/src/ref.ts'
 		]);
 		expect(out).toEqual(['ogygia runtime']);

@@ -1,5 +1,4 @@
-import { slots } from './slots.ts';
-import { warn } from '../messages/lazy.ts';
+import { warn } from '../messages/core.ts';
 import { closed_root_lost } from './closed-roots.ts';
 import type { PageGlobals, PendingShadow } from '../page-globals.ts';
 import {
@@ -20,13 +19,6 @@ const ELEMENT = 1;
 const TEXT = 3;
 const COMMENT = 8;
 const FOLLOWING = 4;
-
-/** Feature entry: fill the `morph` slot (live static-region ticks morph in place), and the
- *  `sync_attributes` slot the navigation's body reconcile syncs attributes with. */
-export function install(): void {
-	slots.morph = morph_children;
-	slots.sync_attributes = sync_attributes;
-}
 
 /**
  * Reconcile `parent`'s children toward `new_nodes` (a freshly parsed, detached region) IN PLACE:

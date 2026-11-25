@@ -2,6 +2,7 @@ import { kit_hydrates_page } from './kit-boot.ts';
 import { OgygiaError } from '../messages/core.ts';
 
 type ClientHooksModule = { init?: (input?: unknown) => unknown };
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 
 /**
  * Run the app's `hooks.client.ts` `init()` on a csr=false page. Kit runs that file only when its
@@ -11,7 +12,7 @@ type ClientHooksModule = { init?: (input?: unknown) => unknown };
 export function run_app_client_hooks(loader: () => Promise<ClientHooksModule>): void {
 	if (typeof document === 'undefined') return;
 	// @why Kit boots on a csr=true document and runs hooks.client itself (test: test/browser/client-hooks.test.ts › csr=true document: skipped — Kit runs hooks.client itself, so it must not double-fire)
-	if (kit_hydrates_page()) return;
+	if (KIT_PAGES && kit_hydrates_page()) return;
 	Promise.resolve()
 		.then(loader)
 		.then((m) => m.init?.())

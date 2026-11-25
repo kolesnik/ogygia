@@ -45,8 +45,6 @@ export function settle(plugin: ImagePluginOptions, own: ImageOptions): Settings 
 
 const plans = new BuildCache<Plan>('image');
 
-/** Bump when planning answers differently for the same file (a check added): every kept plan is
- *  made again. */
 const PLAN_VERSION = 3;
 
 const VECTOR_RE = /\.svg$/i;

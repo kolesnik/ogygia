@@ -40,8 +40,6 @@ const PARALLEL = Math.max(1, Math.min(8, os.availableParallelism()));
 
 const DAY_MS = 24 * 3600 * 1000;
 
-/** Remove the run folders under `runs` a day old: a build that failed before its end leaves its
- *  own. A younger one may be a build running beside this one. */
 function remove_old_runs(runs: string): void {
 	const now = clock.wall();
 	let names: string[];
@@ -144,13 +142,10 @@ async function made(
 
 interface Job {
 	recipe: Omit<Recipe, 'src'>;
-	/** The source file, as a failure names it. */
 	source: string;
 	original: () => Uint8Array;
 }
 
-/** Every file the build makes, by its file below the app folder: each warmed preset's, and each
- *  recipe the prerender noted, its original read from `output` (Kit's build output). */
 function jobs_of(
 	handoff: BuildHandoff,
 	cfg: RenderConfig,
@@ -203,7 +198,6 @@ const SCHEMES: readonly Buffer[] = [Buffer.from('https:'), Buffer.from('http:')]
 const SCHEME_CHAR_RE = /[A-Za-z0-9+.-]/;
 const KIT_DEFAULT_ORIGIN = 'http://sveltekit-prerender';
 
-/** Where the `http:` or `https:` that starts a URL right before `i` begins, or -1. */
 function scheme_before(bytes: Buffer, i: number, from: number): number {
 	for (const scheme of SCHEMES) {
 		const start = i - scheme.length;
@@ -214,8 +208,6 @@ function scheme_before(bytes: Buffer, i: number, from: number): number {
 	return -1;
 }
 
-/** `bytes` with each `cut` removed, and each made absolute (`https:` + `cut`: `new URL(src,
- *  page.url)`) turned into `origin`, what that URL's origin was while the page prerendered. */
 function unmarked(bytes: Buffer, cut: Buffer, origin: string, name: string): Buffer {
 	const parts: Buffer[] = [];
 	let at = 0;
@@ -234,9 +226,6 @@ function unmarked(bytes: Buffer, cut: Buffer, origin: string, name: string): Buf
 	return Buffer.concat(parts);
 }
 
-/** Remove `mark` from every file under `dir` (Kit's prerendered pages and data); a mark made
- *  absolute becomes `origin` (Kit's prerender origin). A mark left in another form (escaped,
- *  encoded) names no file: `image_mark_left`. */
 function unmark(dir: string, mark: string, origin: string): void {
 	const cut = Buffer.from(mark);
 	const label = Buffer.from(mark.slice(2));
