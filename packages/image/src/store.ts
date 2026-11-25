@@ -45,6 +45,13 @@ export function build_handoff(): BuildHandoff | null {
 	return { store: v.store, minted: v.minted };
 }
 
+/** Note `url` in the build's `minted` file, its folder made again if the build's end removed it
+ *  (a `vite build --watch` rebuild prerenders again). */
+export function note_minted_url(minted: string, url: string): void {
+	fs.mkdirSync(path.dirname(minted), { recursive: true });
+	fs.appendFileSync(minted, `${url}\n`);
+}
+
 function version_dir(vips: string): string {
 	return `v${ENCODER_VERSION}-${vips}`;
 }

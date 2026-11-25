@@ -12,7 +12,6 @@
  *
  * @packageDocumentation
  */
-import fs from 'node:fs';
 import { building } from '$app/environment';
 import { defineServer, type ServerPlugin } from '@ogygia/core/plugin';
 import { cache } from '@ogygia/machine';
@@ -28,7 +27,7 @@ import {
 	source_tail,
 	type ParsedRecipe
 } from './recipe.ts';
-import { build_handoff } from './store.ts';
+import { build_handoff, note_minted_url } from './store.ts';
 
 const { base: BASE, assets: ASSETS } = config.paths;
 const PREFIXES: readonly string[] = [ASSETS, BASE];
@@ -65,7 +64,7 @@ const SIGNED_MAX = 10_000;
 function note_minted(url: string, path: string, minted: string): void {
 	if (noted.has(url)) return;
 	noted.add(url);
-	fs.appendFileSync(minted, `${url}\n`);
+	note_minted_url(minted, url);
 	const recipe = parse_recipe(path);
 	if (recipe === null || !ORIGINALS.has(recipe.tail)) return;
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a head start only: the crawler's ask, or the build's end, makes the file again and fails out loud

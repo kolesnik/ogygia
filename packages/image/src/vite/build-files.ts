@@ -21,7 +21,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { BuildCache } from '@ogygia/compiler';
-import { random } from '@ogygia/machine';
+import { clock, random } from '@ogygia/machine';
 import type { AppPaths, RenderConfig } from '../config.ts';
 import type { ImageDescriptor } from '../descriptor.ts';
 import { lay_out, preset_request } from '../layout.ts';
@@ -38,6 +38,28 @@ import {
 
 const PARALLEL = Math.max(1, Math.min(8, os.availableParallelism()));
 
+const DAY_MS = 24 * 3600 * 1000;
+
+/** Remove the run folders under `runs` a day old: a build that failed before its end leaves its
+ *  own. A younger one may be a build running beside this one. */
+function remove_old_runs(runs: string): void {
+	const now = clock.wall();
+	let names: string[];
+	try {
+		names = fs.readdirSync(runs);
+		// oxlint-disable-next-line ogygia/no-silent-failures -- no runs folder yet: nothing was left
+	} catch {
+		return;
+	}
+	for (const name of names) {
+		const run = path.join(runs, name);
+		try {
+			if (now - fs.statSync(run).mtimeMs > DAY_MS) fs.rmSync(run, { recursive: true, force: true });
+			// oxlint-disable-next-line ogygia/no-silent-failures -- a run that could not be removed is tried again by the next build
+		} catch {}
+	}
+}
+
 /**
  * The handoff of this process's build or dev server, in the environment of the process and every
  * worker it starts: the store's folder and, for a build, the notes file of its prerender. A build
@@ -51,6 +73,7 @@ export function handoff_for(build: boolean): BuildHandoff {
 	const cache = new BuildCache('image').dir() ?? fs.mkdtempSync(path.join(os.tmpdir(), 'og-img-'));
 	let minted = '';
 	if (build) {
+		remove_old_runs(path.join(cache, 'runs'));
 		const run = path.join(cache, 'runs', random.uuid());
 		fs.mkdirSync(run, { recursive: true });
 		minted = path.join(run, 'minted.txt');
@@ -77,6 +100,7 @@ function warm_list(handoff: BuildHandoff): string {
 
 /** The server build's end: every warmed source, for the client build. */
 export function save_warm(handoff: BuildHandoff, sources: Iterable<WarmSource>): void {
+	fs.mkdirSync(path.dirname(handoff.minted), { recursive: true });
 	fs.writeFileSync(warm_list(handoff), JSON.stringify([...sources]));
 }
 
