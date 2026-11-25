@@ -55,7 +55,8 @@ const FORMAT_OF_EXT: ReadonlyMap<string, ImageFormat> = new Map([
 	['png', 'png'],
 	['jpg', 'jpeg']
 ]);
-const POSITIONS: ReadonlySet<string> = new Set([
+/** Every place a crop can keep: what a recipe's `-p` names, a preset's and an `<Img>`'s `position`. */
+export const POSITIONS: ReadonlySet<string> = new Set([
 	'centre',
 	'center',
 	'top',
@@ -65,6 +66,8 @@ const POSITIONS: ReadonlySet<string> = new Set([
 	'attention',
 	'entropy'
 ]);
+/** The widest and tallest file a recipe names, in pixels: five digits a side. */
+export const SIDE_MAX = 99_999;
 const HEAD_RE =
 	/^([A-Za-z0-9_-]{1,64})-(\d{1,5})x(\d{1,5})(?:-q(\d{1,3}))?(?:-p([a-z]+))?(?:-o([A-Za-z0-9_-]+))?$/;
 const TAIL_RE = /^(?!.*(?:^|\/)\.{1,2}(?:\/|$))[^\\\0]+$/;

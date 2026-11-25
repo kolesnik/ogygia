@@ -17,7 +17,7 @@ import {
 	type OutputFormat,
 	type RenderConfig
 } from './config.ts';
-import type { Recipe } from './recipe.ts';
+import { POSITIONS, SIDE_MAX, type Recipe } from './recipe.ts';
 import { RenderError } from './render-messages.ts';
 
 export type { ImageLayout } from './config.ts';
@@ -171,12 +171,20 @@ export function lay_out(
 		!(Number.isInteger(req.quality) && req.quality >= 1 && req.quality <= 100)
 	)
 		invalid('quality', req.quality, 'a whole number from 1 to 100');
+	if (req.position !== undefined && !POSITIONS.has(req.position))
+		invalid('position', req.position, `one of ${[...POSITIONS].join(', ')}`);
 	const own = image.width / image.height;
 	const boxed = asked_width !== undefined && asked_height !== undefined;
 	const shape = boxed ? asked_width / asked_height : aspect;
 	const ratio = shape ?? own;
 	const svg = image.format === 'svg';
 	const crop = !svg && Math.abs(ratio - own) / own > SAME_SHAPE;
+	if (crop && image.height * ratio < 1)
+		invalid(
+			boxed ? 'height' : 'aspect',
+			boxed ? asked_height : req.aspect,
+			`a box the source can fill: at most ${image.height} times as tall as it is wide`
+		);
 	const widest = crop ? Math.min(image.width, at_least_one(image.height * ratio)) : image.width;
 
 	let width: number;
@@ -207,6 +215,11 @@ export function lay_out(
 	const widths = file_widths(layout, width, widest, cfg.breakpoints);
 	const sizes = req.sizes ?? derived_sizes(layout, width);
 
+	const widest_file = widths[widths.length - 1]!;
+	if (widest_file > SIDE_MAX)
+		invalid('width', req.width ?? width, `at most ${SIDE_MAX}: no image file is wider`);
+	if (Math.round(widest_file / ratio) > SIDE_MAX)
+		invalid('height', req.height ?? height, `at most ${SIDE_MAX}: no image file is taller`);
 	const recipe = (w: number, format: ImageFormat): Recipe => ({
 		id: image.id,
 		src: image.src,

@@ -8,6 +8,7 @@
 import type { ImageOps } from '../descriptor.ts';
 import { parse_aspect, type ImagePreset, type OutputFormat } from '../config.ts';
 import { OgygiaError } from '../messages.ts';
+import { POSITIONS } from '../recipe.ts';
 
 export type { ImageOps } from '../descriptor.ts';
 export type { ImageLayout, ImagePosition, ImagePreset, OutputFormat } from '../config.ts';
@@ -52,16 +53,6 @@ export { DEFAULT_BREAKPOINTS, DEFAULT_FORMATS } from '../config.ts';
 
 const OUTPUT_FORMATS: ReadonlySet<string> = new Set(['avif', 'webp', 'png', 'jpeg']);
 const LAYOUTS: ReadonlySet<string> = new Set(['constrained', 'fullWidth', 'fixed']);
-const POSITIONS: ReadonlySet<string> = new Set([
-	'center',
-	'centre',
-	'top',
-	'bottom',
-	'left',
-	'right',
-	'attention',
-	'entropy'
-]);
 const OP_KEYS: ReadonlySet<string> = new Set([
 	'rotate',
 	'flip',

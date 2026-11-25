@@ -24,8 +24,10 @@ export const IMAGE_RENDER_ERRORS = {
 			Every file an \`<Img>\` (or \`layOut()\`) asks for is named by its size and quality, and the
 			image endpoint makes only whole sizes above 0 and a whole quality from 1 to 100. A fraction
 			of a pixel is rounded (\`width={1000 / 3}\` shows 333 pixels wide), but a size of 0 or less,
-			one that is not a number, an aspect that does not read as a ratio, or a quality out of range
-			would name files no server makes, so the render stops.
+			one that is not a number, an aspect that does not read as a ratio, a box taller than the
+			source can fill (more times as tall as wide than the source has pixels of height), a file
+			past 99999 pixels a side, a \`position\` that is not one of the crop positions, or a
+			quality out of range would name files no server makes, so the render stops.
 		`
 	},
 	image_no_server: {
