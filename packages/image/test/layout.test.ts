@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { lay_out } from '../src/layout.ts';
-import type { RenderConfig } from '../src/config.ts';
+import { DEFAULT_BREAKPOINTS, type RenderConfig } from '../src/config.ts';
 import type { ImageDescriptor } from '../src/descriptor.ts';
 import { parse_recipe, recipe_path, type Recipe } from '../src/recipe.ts';
 
@@ -22,20 +22,49 @@ const url = (r: Recipe): string =>
 
 describe('lay_out', () => {
 	test('constrained with a width offers its 1× and 2× and the breakpoints under 2×', () => {
-		const laid = lay_out(image(), { width: 600 }, CFG, url);
-		expect(laid.width).toBe(600);
-		expect(laid.height).toBe(400);
-		expect(laid.sizes).toBe('(min-width: 600px) 600px, 100vw');
+		const laid = lay_out(image(), { width: 450 }, CFG, url);
+		expect(laid.width).toBe(450);
+		expect(laid.height).toBe(300);
+		expect(laid.sizes).toBe('(min-width: 450px) 450px, 100vw');
 		expect(laid.sources).toEqual([
 			{
 				type: 'image/avif',
-				srcset: '/600x400.avif 600w, /640x427.avif 640w, /960x640.avif 960w, /1200x800.avif 1200w'
+				srcset: '/450x300.avif 450w, /640x427.avif 640w, /900x600.avif 900w'
 			}
 		]);
-		expect(laid.srcset).toBe(
-			'/600x400.webp 600w, /640x427.webp 640w, /960x640.webp 960w, /1200x800.webp 1200w'
-		);
-		expect(laid.src).toBe('/600x400.webp');
+		expect(laid.srcset).toBe('/450x300.webp 450w, /640x427.webp 640w, /900x600.webp 900w');
+		expect(laid.src).toBe('/450x300.webp');
+	});
+
+	test('a breakpoint within a tenth of a width the layout names makes no file of its own', () => {
+		const ladder = (desc: Partial<ImageDescriptor>, req: object): string[] =>
+			lay_out(image(desc), req, { ...CFG, breakpoints: DEFAULT_BREAKPOINTS }, url)
+				.srcset!.split(', ')
+				.map((c) => c.split(' ')[1]!);
+		expect(ladder({}, { width: 900 })).toEqual([
+			'320w',
+			'480w',
+			'640w',
+			'900w',
+			'1280w',
+			'1600w',
+			'1800w'
+		]);
+		expect(ladder({ width: 1205, height: 499 }, { width: 900 })).toEqual([
+			'320w',
+			'480w',
+			'640w',
+			'900w',
+			'1205w'
+		]);
+		expect(ladder({ width: 1300, height: 800 }, { layout: 'fullWidth' })).toEqual([
+			'320w',
+			'480w',
+			'640w',
+			'960w',
+			'1300w'
+		]);
+		expect(ladder({}, { width: 600 })).toEqual(['320w', '480w', '600w', '960w', '1200w']);
 	});
 
 	test('constrained never asks for a raster wider than its pixels', () => {
