@@ -27,6 +27,7 @@ import { remarkCodeIds } from './remark-code-ids.ts';
 import { transform_containers } from './containers.ts';
 import { transform_tabs } from './tabs.ts';
 import { rehypeHeadingAnchors } from './rehype-heading-anchors.ts';
+import { rehypeTextLt } from './rehype-text-lt.ts';
 import { parse_yaml } from './frontmatter.ts';
 import { module_script, try_region_emit } from './region-emit.ts';
 import { DEFAULT_OVERRIDE_TAGS, rehypeOverrides, SLOT_TAG } from './rehype-overrides.ts';
@@ -432,6 +433,7 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 			// an input edit re-keys every doc that could have expanded it (read late, like the variants)
 			[...remark_staged.cache_keys, ...rehype_now.cache_keys].map((k) => k()).join(','),
 			`h${rehype_now.pre.length}.${rehype_now.post.length}`,
+			'text-lt',
 			cfg.lightName,
 			cfg.darkName,
 			String(cfg.defaultColor),
@@ -486,7 +488,8 @@ export function ogygiaPreprocess(options?: MarkdownOptions): PreprocessorGroup {
 		...(override_tags.length ? [[rehypeOverrides, override_tags]] : []),
 		...staged.post,
 		// LAST so the anchor `<a>` it adds isn't swept into the ogygia slot by `rehypeOverrides`.
-		...(headingAnchors ? [rehypeHeadingAnchors] : [])
+		...(headingAnchors ? [rehypeHeadingAnchors] : []),
+		rehypeTextLt
 	];
 	if (layout !== undefined) mdsvex_opts.layout = layout;
 
