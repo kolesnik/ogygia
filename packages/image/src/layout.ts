@@ -18,6 +18,7 @@ import {
 	type RenderConfig
 } from './config.ts';
 import type { Recipe } from './recipe.ts';
+import { RenderError } from './render-messages.ts';
 
 export type { ImageLayout } from './config.ts';
 
@@ -136,7 +137,23 @@ function derived_sizes(layout: ImageLayout, width: number): string | undefined {
 	return `(min-width: ${width}px) ${width}px, 100vw`;
 }
 
-/** Lay out `image` the way `req` asks, with the plugin's settings `cfg`; `url` names each file. */
+function invalid(prop: string, value: unknown, want: string): never {
+	throw new RenderError('image_prop_invalid', { prop, value: String(value), want });
+}
+
+function whole_pixels(prop: string, n: number | undefined): number | undefined {
+	if (n === undefined) return undefined;
+	if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0)
+		invalid(prop, n, 'a number of pixels above 0');
+	return Math.max(1, Math.round(n));
+}
+
+function at_least_one(n: number): number {
+	return Math.max(1, Math.round(n));
+}
+
+/** Lay out `image` the way `req` asks, with the plugin's settings `cfg`; `url` names each file. A
+ *  fraction of a pixel is rounded; a size, aspect or quality no file can have is `image_prop_invalid`. */
 export function lay_out(
 	image: ImageDescriptor,
 	req: LayoutRequest,
@@ -144,21 +161,31 @@ export function lay_out(
 	url: (recipe: Recipe) => string
 ): Laid {
 	const layout = req.layout ?? 'constrained';
+	const asked_width = whole_pixels('width', req.width);
+	const asked_height = whole_pixels('height', req.height);
+	const aspect = parse_aspect(req.aspect);
+	if (req.aspect !== undefined && aspect === null)
+		invalid('aspect', req.aspect, "a ratio above 0, like 16 / 9 or '16/9'");
+	if (
+		req.quality !== undefined &&
+		!(Number.isInteger(req.quality) && req.quality >= 1 && req.quality <= 100)
+	)
+		invalid('quality', req.quality, 'a whole number from 1 to 100');
 	const own = image.width / image.height;
-	const boxed = req.width !== undefined && req.height !== undefined;
-	const shape = boxed ? req.width! / req.height! : parse_aspect(req.aspect);
+	const boxed = asked_width !== undefined && asked_height !== undefined;
+	const shape = boxed ? asked_width / asked_height : aspect;
 	const ratio = shape ?? own;
 	const svg = image.format === 'svg';
 	const crop = !svg && Math.abs(ratio - own) / own > SAME_SHAPE;
-	const widest = crop ? Math.min(image.width, Math.round(image.height * ratio)) : image.width;
+	const widest = crop ? Math.min(image.width, at_least_one(image.height * ratio)) : image.width;
 
 	let width: number;
 	if (layout === 'fullWidth') width = widest;
-	else if (req.width !== undefined) width = req.width;
-	else if (req.height !== undefined) width = Math.round(req.height * ratio);
+	else if (asked_width !== undefined) width = asked_width;
+	else if (asked_height !== undefined) width = at_least_one(asked_height * ratio);
 	else width = widest;
 	if (layout === 'constrained' && !svg && !boxed) width = Math.min(width, widest);
-	const height = boxed ? req.height! : Math.round(width / ratio);
+	const height = boxed ? asked_height : at_least_one(width / ratio);
 	const cover = shape !== null;
 
 	if (svg)

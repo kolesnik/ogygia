@@ -17,6 +17,17 @@ export const IMAGE_RENDER_ERRORS = {
 			config does not declare would render the image some other way, so the render stops.
 		`
 	},
+	image_prop_invalid: {
+		text: (a: { prop: string; value: string; want: string }): string =>
+			`<Img ${a.prop}={${a.value}}>: ${a.prop} must be ${a.want}.`,
+		details: (): string => prose`
+			Every file an \`<Img>\` (or \`layOut()\`) asks for is named by its size and quality, and the
+			image endpoint makes only whole sizes above 0 and a whole quality from 1 to 100. A fraction
+			of a pixel is rounded (\`width={1000 / 3}\` shows 333 pixels wide), but a size of 0 or less,
+			one that is not a number, an aspect that does not read as a ratio, or a quality out of range
+			would name files no server makes, so the render stops.
+		`
+	},
 	image_no_server: {
 		text: (): string => prose`
 			<Img> rendered on the server, but the image plugin's server half is not running, so no file
