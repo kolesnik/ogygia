@@ -4,7 +4,9 @@
  * (../namers/resolve.ts); the table itself never ships.
  *
  * Cloudflare's rows are its Image Transformations options (`/cdn-cgi/image/<options>/…`), which its
- * Images binding takes as `transform()` fields: the same set for both.
+ * Images binding takes as `transform()` fields: the same set for both. Vercel's rows are its Image
+ * Optimization API (`/_vercel/image?url=…&w=…&q=…`): a width and a quality, the format picked from
+ * the browser's `Accept`.
  *
  * @packageDocumentation
  */
@@ -12,7 +14,7 @@ import { decisions, type Decisions } from '@ogygia/machine';
 import { NEEDS, type Need } from './needs.ts';
 
 /** An encoder the table knows. */
-export const ENCODER_NAMES = ['sharp', 'cloudflare'] as const;
+export const ENCODER_NAMES = ['sharp', 'cloudflare', 'vercel'] as const;
 
 /** One row's answer: can it, and as what (the option it maps to, or why not). */
 export interface Capability {
@@ -22,6 +24,7 @@ export interface Capability {
 
 const SHARP_AS: Readonly<Record<Need, string>> = {
 	box: "resize fit 'cover'",
+	crop: "resize fit 'cover'",
 	'position center': "position 'centre'",
 	'position top': "position 'top'",
 	'position bottom': "position 'bottom'",
@@ -47,11 +50,15 @@ const SHARP_AS: Readonly<Record<Need, string>> = {
 	'format avif': 'avif()',
 	'format webp': 'webp()',
 	'format png': 'png()',
-	'format jpeg': 'jpeg({ mozjpeg })'
+	'format jpeg': 'jpeg({ mozjpeg })',
+	'source gif': 'reads GIF',
+	'source tiff': 'reads TIFF',
+	animated: '{ animated: true } keeps every frame'
 };
 
 const CLOUDFLARE: Readonly<Record<Need, Capability>> = {
 	box: { can: true, as: 'fit=cover' },
+	crop: { can: true, as: 'fit=cover' },
 	'position center': { can: true, as: 'no gravity (the center is the default)' },
 	'position top': { can: true, as: 'gravity=top' },
 	'position bottom': { can: true, as: 'gravity=bottom' },
@@ -80,7 +87,58 @@ const CLOUDFLARE: Readonly<Record<Need, Capability>> = {
 	'format avif': { can: true, as: 'format=avif (WebP or JPEG past 1200 px a side)' },
 	'format webp': { can: true, as: 'format=webp' },
 	'format png': { can: true, as: 'format=png' },
-	'format jpeg': { can: true, as: 'format=jpeg' }
+	'format jpeg': { can: true, as: 'format=jpeg' },
+	'source gif': { can: true, as: 'reads GIF, animations included' },
+	'source tiff': { can: true, as: 'reads TIFF (its first page)' },
+	animated: { can: true, as: 'anim=true (the default) keeps every frame' }
+};
+
+const VERCEL_RESIZE_ONLY = 'only resizes (w=, q=): no option for it';
+const VERCEL_PASSED = 'served as it is: only JPEG, PNG, WebP and AVIF sources are optimized';
+
+const VERCEL: Readonly<Record<Need, Capability>> = {
+	box: { can: true, as: 'w=<a width of images.sizes>; the height follows the source' },
+	crop: { can: false, as: "no crop: w= keeps the source's shape" },
+	'position center': { can: true, as: 'nothing is cut, so nothing to place' },
+	'position top': { can: false, as: 'no crop' },
+	'position bottom': { can: false, as: 'no crop' },
+	'position left': { can: false, as: 'no crop' },
+	'position right': { can: false, as: 'no crop' },
+	'position attention': { can: false, as: 'no crop' },
+	'position entropy': { can: false, as: 'no crop' },
+	'rotate quarter': { can: false, as: VERCEL_RESIZE_ONLY },
+	'rotate other': { can: false, as: VERCEL_RESIZE_ONLY },
+	flip: { can: false, as: VERCEL_RESIZE_ONLY },
+	flop: { can: false, as: VERCEL_RESIZE_ONLY },
+	grayscale: { can: false, as: VERCEL_RESIZE_ONLY },
+	blur: { can: false, as: VERCEL_RESIZE_ONLY },
+	sharpen: { can: false, as: VERCEL_RESIZE_ONLY },
+	normalize: { can: false, as: VERCEL_RESIZE_ONLY },
+	negate: { can: false, as: VERCEL_RESIZE_ONLY },
+	gamma: { can: false, as: VERCEL_RESIZE_ONLY },
+	tint: { can: false, as: VERCEL_RESIZE_ONLY },
+	'modulate brightness': { can: false, as: VERCEL_RESIZE_ONLY },
+	'modulate saturation': { can: false, as: VERCEL_RESIZE_ONLY },
+	'modulate hue': { can: false, as: VERCEL_RESIZE_ONLY },
+	'modulate lightness': { can: false, as: VERCEL_RESIZE_ONLY },
+	'format avif': { can: true, as: 'picked from the Accept header (images.formats lists it)' },
+	'format webp': { can: true, as: 'picked from the Accept header (images.formats lists it)' },
+	'format png': {
+		can: false,
+		as: "names no format: a browser that takes neither AVIF nor WebP gets the source's own"
+	},
+	'format jpeg': {
+		can: false,
+		as: "names no format: a browser that takes neither AVIF nor WebP gets the source's own"
+	},
+	'source gif': { can: false, as: VERCEL_PASSED },
+	'source tiff': { can: false, as: VERCEL_PASSED },
+	animated: { can: false, as: 'an animated source is served as it is, not resized' }
+};
+
+const TABLES: Readonly<Record<'cloudflare' | 'vercel', Readonly<Record<Need, Capability>>>> = {
+	cloudflare: CLOUDFLARE,
+	vercel: VERCEL
 };
 
 /** What an encoder can make, need by need. */
@@ -91,7 +149,7 @@ export const CAPABILITIES: Decisions<
 	name: 'image encoder capabilities',
 	inputs: { encoder: ENCODER_NAMES, need: NEEDS },
 	decide: (i): Capability =>
-		i.encoder === 'sharp' ? { can: true, as: SHARP_AS[i.need] } : CLOUDFLARE[i.need]
+		i.encoder === 'sharp' ? { can: true, as: SHARP_AS[i.need] } : TABLES[i.encoder][i.need]
 });
 
 /** The needs `encoder` cannot meet. */

@@ -50,8 +50,9 @@ export interface ImagePluginOptions {
 	 *  plain `<img>`. Default `{}` (each image as wide as itself). */
 	markdown?: { width?: number; animated?: string } | false;
 	/** Who makes the image files, and what URL names each: an encoder from `@ogygia/image/vite`, or
-	 *  a list of them, each at most once. Default `sharp()`: the app's own endpoint makes every live
-	 *  file. A prerendered page's files are made by the build, with sharp, whatever this says. */
+	 *  a list of them, each at most once: the first that can make a file makes it
+	 *  (`[vercel(), sharp()]`). Default `sharp()`: the app's own endpoint makes every live file. A
+	 *  prerendered page's files are made by the build, with sharp, whatever this says. */
 	encoder?: Encoder | Encoder[];
 }
 
@@ -82,7 +83,7 @@ const PLUGIN_KEYS: ReadonlySet<string> = new Set([
 	'markdown',
 	'encoder'
 ]);
-const ENCODER_NAMES: ReadonlySet<string> = new Set(['sharp', 'cloudflare']);
+const ENCODER_NAMES: ReadonlySet<string> = new Set(['sharp', 'cloudflare', 'vercel']);
 const PRESET_KEYS: ReadonlySet<string> = new Set([
 	'layout',
 	'width',

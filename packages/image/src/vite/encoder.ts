@@ -23,14 +23,16 @@ import { dedent } from '@ogygia/core/contract';
 import { decisions, type Decisions } from '@ogygia/machine';
 import { cannot } from '../encoders/capabilities.ts';
 import { NEEDS, type Need } from '../encoders/needs.ts';
+import { DEFAULT_BREAKPOINTS } from '../config.ts';
 import { OgygiaError, warn } from '../messages.ts';
-import type { NamerPlan } from '../namers/resolve.ts';
+import type { LinkPlan, NamerPlan } from '../namers/resolve.ts';
+import { SIDE_MAX } from '../recipe.ts';
 
 /** Who makes an app's image files, and what URL names each: plain data from a factory
- *  (`sharp()`, `cloudflare()`), for `image({ encoder })`. */
+ *  (`sharp()`, `cloudflare()`, `vercel()`), for `image({ encoder })`. */
 export interface Encoder {
 	/** Which encoder it is. */
-	readonly name: 'sharp' | 'cloudflare';
+	readonly name: 'sharp' | 'cloudflare' | 'vercel';
 	/** What its own links can make without the app's endpoint, or null: every live file goes
 	 *  through the endpoint. */
 	readonly links: readonly Need[] | null;
@@ -42,6 +44,8 @@ export interface Encoder {
 	readonly negotiates: boolean;
 	/** The widths it makes: any, or only these. */
 	readonly widths: 'any' | readonly number[];
+	/** The qualities it makes: any, or only these. */
+	readonly qualities: 'any' | readonly number[];
 }
 
 /** sharp (the default): the app's own endpoint makes every live file, in dev and on a Node server,
@@ -53,7 +57,8 @@ export function sharp(): Encoder {
 		maker: 'sharp',
 		binding: null,
 		negotiates: false,
-		widths: 'any'
+		widths: 'any',
+		qualities: 'any'
 	};
 }
 
@@ -102,7 +107,84 @@ export function cloudflare(options: CloudflareOptions = {}): Encoder {
 		maker: 'binding',
 		binding,
 		negotiates: false,
-		widths: 'any'
+		widths: 'any',
+		qualities: 'any'
+	};
+}
+
+/** What `vercel()` takes. */
+export interface VercelOptions {
+	/** The widths Vercel may make (its `images.sizes`): every width a page asks for is snapped up to
+	 *  one of these. Default: 16, 32, 48, 64, 96, 128, 256 and 384 (fixed and small images), then
+	 *  the plugin's default breakpoints. */
+	sizes?: number[];
+	/** The qualities Vercel may make (its `images.qualities`), 1–100. Default: any (the adapter
+	 *  config lists none). A file asking for another quality is not Vercel's to make. */
+	qualities?: number[];
+}
+
+/** The adapter-vercel `images` config `vercel()` hands over, as `adapter({ images })` takes it. */
+export interface VercelImages {
+	readonly sizes: number[];
+	readonly qualities?: number[];
+	readonly formats: ('image/avif' | 'image/webp')[];
+	readonly domains: string[];
+}
+
+const VERCEL_KEYS: ReadonlySet<string> = new Set(['sizes', 'qualities']);
+const SMALL_SIZES: readonly number[] = [16, 32, 48, 64, 96, 128, 256, 384];
+
+function whole_list(where: string, key: string, list: unknown, max: number): number[] | undefined {
+	if (list === undefined) return undefined;
+	const ok =
+		Array.isArray(list) &&
+		list.length > 0 &&
+		list.every((n) => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= max);
+	if (!ok)
+		throw new OgygiaError('image_option_invalid', {
+			where,
+			key,
+			rule: `a non-empty list of whole numbers from 1 to ${max}`
+		});
+	return [...new Set(list as number[])].sort((a, b) => a - b);
+}
+
+/** Vercel, for an app on adapter-vercel: a page rendered on request names each file as an Image
+ *  Optimization link, `/_vercel/image?url=…&w=…&q=…`, made by Vercel's CDN, which only resizes
+ *  (no crop, position or operation) and picks AVIF or WebP from the browser. Hand its `images` to
+ *  the adapter (`adapter({ images: encoder.images })`); the build checks the adapter's output has
+ *  them. List `sharp()` after it (`[vercel(), sharp()]`) for the files Vercel cannot make, or they
+ *  fail to render. A prerendered page's files are made by the build, with sharp, as with any
+ *  encoder. */
+export function vercel(options: VercelOptions = {}): Encoder & { readonly images: VercelImages } {
+	const where = 'vercel()';
+	if (options === null || typeof options !== 'object' || Array.isArray(options))
+		throw new OgygiaError('image_option_invalid', { where, key: 'options', rule: 'an object' });
+	for (const key of Object.keys(options))
+		if (!VERCEL_KEYS.has(key))
+			throw new OgygiaError('image_option_unknown', {
+				where,
+				key,
+				known: [...VERCEL_KEYS].join(', ')
+			});
+	const sizes =
+		whole_list(where, 'sizes', options.sizes, SIDE_MAX) ??
+		[...new Set([...SMALL_SIZES, ...DEFAULT_BREAKPOINTS])].sort((a, b) => a - b);
+	const qualities = whole_list(where, 'qualities', options.qualities, 100);
+	return {
+		name: 'vercel',
+		links: NEEDS.filter((n) => !cannot('vercel').includes(n)),
+		maker: null,
+		binding: null,
+		negotiates: true,
+		widths: sizes,
+		qualities: qualities ?? 'any',
+		images: {
+			sizes,
+			...(qualities ? { qualities } : {}),
+			formats: ['image/avif', 'image/webp'],
+			domains: []
+		}
 	};
 }
 
@@ -151,17 +233,30 @@ export function maker_module(encoders: readonly Encoder[], dev: boolean): string
 	`;
 }
 
+function link_plan(x: Encoder): LinkPlan {
+	const cannot = NEEDS.filter((n) => !x.links!.includes(n));
+	if (x.name !== 'vercel') return { kind: 'cloudflare', cannot };
+	return {
+		kind: 'vercel',
+		cannot,
+		sizes: x.widths === 'any' ? [] : x.widths,
+		qualities: x.qualities === 'any' ? null : x.qualities
+	};
+}
+
+/** The widths every file must be one of (the first linking encoder's that lists them, Vercel's
+ *  `sizes`), or null: any width. */
+export function widths_of(encoders: readonly Encoder[]): readonly number[] | null {
+	const e = encoders.find((x) => x.links !== null && x.widths !== 'any');
+	return e === undefined || e.widths === 'any' ? null : e.widths;
+}
+
 /** How `encoders` name a recipe at render ({@link namer_module}). */
 export function namer_plan(encoders: readonly Encoder[], dev: boolean): NamerPlan {
 	const e = endpoint_of(encoders);
 	return {
 		encoders: encoders.map((x) => `${x.name}()`).join(', '),
-		links: encoders
-			.filter((x) => x.links !== null)
-			.map((x) => ({
-				kind: x.name as 'cloudflare',
-				cannot: NEEDS.filter((n) => !x.links!.includes(n))
-			})),
+		links: encoders.filter((x) => x.links !== null).map(link_plan),
 		endpoint: e === undefined ? null : cannot(e.name),
 		dev
 	};

@@ -31,6 +31,11 @@ export interface Recipe {
 	/** Where a crop keeps, when the box's shape is not the source's. */
 	position?: string;
 	ops?: ImageOps;
+	/** The box cuts the source (its shape is not the source's). Never in a URL: the namer reads it
+	 *  to pick an encoder that can crop. */
+	crop?: true;
+	/** What the source is, for the namer: its own format, and whether it moves. Never in a URL. */
+	source?: { format: ImageFormat; animated?: true };
 }
 
 /** The URL path every recipe sits under, after the app's base. */

@@ -1,6 +1,7 @@
 /**
- * What a recipe NEEDS of whoever makes its file: the box it is cut to, where the crop keeps, each
- * pixel operation, the format. An encoder's capabilities (./capabilities.ts) say which it can make;
+ * What a recipe NEEDS of whoever makes its file: the box it is made to, whether that cuts the source
+ * and where the crop keeps, each pixel operation, the format, and a source not every encoder reads
+ * (a GIF, a TIFF, one that moves). An encoder's capabilities (./capabilities.ts) say which it can make;
  * the namer (../namers/resolve.ts) reads a recipe's needs at render, in the server and the browser.
  *
  * @packageDocumentation
@@ -10,6 +11,7 @@ import type { Recipe } from '../recipe.ts';
 /** Every need a recipe can carry. */
 export const NEEDS = [
 	'box',
+	'crop',
 	'position center',
 	'position top',
 	'position bottom',
@@ -35,7 +37,10 @@ export const NEEDS = [
 	'format avif',
 	'format webp',
 	'format png',
-	'format jpeg'
+	'format jpeg',
+	'source gif',
+	'source tiff',
+	'animated'
 ] as const;
 
 /** One thing a recipe asks of its encoder. */
@@ -66,6 +71,10 @@ export function quarter(degrees: number): 0 | 90 | 180 | 270 | null {
 /** What `recipe` needs, in {@link NEEDS} order. */
 export function needs_of(recipe: Omit<Recipe, 'src'>): Need[] {
 	const has = new Set<string>(['box', `format ${recipe.format}`]);
+	if (recipe.crop) has.add('crop');
+	const from = recipe.source?.format;
+	if (from === 'gif' || from === 'tiff') has.add(`source ${from}`);
+	if (recipe.source?.animated) has.add('animated');
 	const p = recipe.position;
 	has.add(p === undefined || p === 'centre' ? 'position center' : `position ${p}`);
 	const ops = recipe.ops ?? {};

@@ -115,6 +115,12 @@ function file_widths(
 	return [...out].sort((a, b) => a - b);
 }
 
+function snapped(widths: readonly number[], allowed: readonly number[], widest: number): number[] {
+	const last = allowed[allowed.length - 1]!;
+	const out = new Set(widths.map((w) => Math.min(widest, allowed.find((s) => s >= w) ?? last)));
+	return [...out].sort((a, b) => a - b);
+}
+
 /** The request a preset makes, `own` props over it (the layout `constrained` when neither says). */
 export function preset_request(p: ImagePreset, own: LayoutRequest = {}): LayoutRequest {
 	return {
@@ -226,7 +232,8 @@ export function lay_out(
 		crop && req.position !== undefined && req.position !== 'center' && req.position !== 'centre'
 			? req.position
 			: undefined;
-	const widths = file_widths(layout, width, widest, cfg.breakpoints);
+	const ladder = file_widths(layout, width, widest, cfg.breakpoints);
+	const widths = cfg.widths?.length ? snapped(ladder, cfg.widths, widest) : ladder;
 	const sizes = req.sizes ?? derived_sizes(layout, width);
 
 	const widest_file = widths[widths.length - 1]!;
@@ -242,7 +249,9 @@ export function lay_out(
 		format,
 		...(quality !== undefined ? { quality } : {}),
 		...(position !== undefined ? { position } : {}),
-		...(image.ops ? { ops: image.ops } : {})
+		...(image.ops ? { ops: image.ops } : {}),
+		...(crop ? { crop: true } : {}),
+		source: { format: image.format, ...(image.animated ? { animated: true } : {}) }
 	});
 	const at_least = (format: ImageFormat, w: number): string =>
 		url(recipe(widths.find((x) => x >= w) ?? widths[widths.length - 1]!, format));

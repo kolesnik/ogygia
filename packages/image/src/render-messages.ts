@@ -40,8 +40,11 @@ export const IMAGE_RENDER_ERRORS = {
 			A file a page asks for on request is made by the app's encoder (\`image({ encoder })\`),
 			and not every encoder can make every crop and operation: Cloudflare has no \`entropy\`
 			crop, no turn other than a quarter, and no \`normalize\`, \`negate\`, \`tint\`, \`gamma\`, or
-			\`modulate\` hue or lightness. A prerendered page is not affected: the build makes its
-			files with sharp. Pick a position or operation the encoder can make, prerender the page,
+			\`modulate\` hue or lightness; Vercel only resizes (no crop, position or operation, no
+			named PNG or JPEG, no GIF, TIFF or animated source, only its \`sizes\` and
+			\`qualities\`). A prerendered page is not affected: the build makes its files with sharp.
+			List an encoder that can after it (\`encoder: [vercel(), sharp()]\`: the first that can
+			make a file makes it), pick a crop or operation the encoder can make, prerender the page,
 			or warm the preset (\`import.meta.og.image(src, { warm: 'cover' })\`) so the build makes
 			those files. The docs list what each encoder can make.
 		`

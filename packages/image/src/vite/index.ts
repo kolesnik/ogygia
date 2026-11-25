@@ -27,6 +27,7 @@ import {
 	DEFAULT_BREAKPOINTS,
 	DEFAULT_FORMATS,
 	type AppPaths,
+	type OutputFormat,
 	type RenderConfig
 } from '../config.ts';
 import { OgygiaError } from '../messages.ts';
@@ -38,8 +39,10 @@ import {
 	encoders_of,
 	maker_module,
 	maker_of,
-	namer_module
+	namer_module,
+	widths_of
 } from './encoder.ts';
+import { vercel_config_check } from './vercel-config.ts';
 import { plan_image, settle } from './plan.ts';
 import { EXTENSION_API, markdown_extension } from './markdown.ts';
 import { image_call_edits, options_of_query, QUERY } from './macro.ts';
@@ -54,7 +57,15 @@ export type {
 	ImagePreset,
 	OutputFormat
 } from './options.ts';
-export { cloudflare, sharp, type CloudflareOptions, type Encoder } from './encoder.ts';
+export {
+	cloudflare,
+	sharp,
+	vercel,
+	type CloudflareOptions,
+	type Encoder,
+	type VercelImages,
+	type VercelOptions
+} from './encoder.ts';
 
 const QUERY_RE = new RegExp(`[?&]${QUERY}(?:=|&|$)`);
 const CONFIG_ID = 'virtual:ogygia-image/config';
@@ -70,15 +81,30 @@ const SOURCE_GLOBS: readonly string[] = [
 ];
 
 /** The render settings `<Img>` reads, from the plugin's options. */
-function render_config(opts: ImagePluginOptions, paths: AppPaths, warmed: boolean): RenderConfig {
+function render_config(
+	opts: ImagePluginOptions,
+	paths: AppPaths,
+	warmed: boolean,
+	widths: readonly number[] | null
+): RenderConfig {
 	return {
 		formats: opts.formats ?? DEFAULT_FORMATS,
 		breakpoints: opts.breakpoints ?? DEFAULT_BREAKPOINTS,
 		...(opts.quality !== undefined ? { quality: opts.quality } : {}),
 		presets: opts.presets ?? {},
 		paths,
-		warmed
+		warmed,
+		...(widths ? { widths } : {})
 	};
+}
+
+/** Every format the plugin and its presets ask for. */
+function formats_asked(opts: ImagePluginOptions): OutputFormat[] {
+	const all = [
+		...(opts.formats ?? DEFAULT_FORMATS),
+		...Object.values(opts.presets ?? {}).flatMap((p) => p.formats ?? [])
+	];
+	return [...new Set(all)];
 }
 
 /** Kit's paths, from the values its Vite plugin defines (JSON strings), or null without Kit. */
@@ -110,6 +136,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 	const opts = check_plugin_options(options);
 	const presets = Object.keys(opts.presets ?? {});
 	const encoders = encoders_of(opts.encoder);
+	const widths = widths_of(encoders);
 	let config: ResolvedConfig | undefined;
 	let paths: AppPaths | null = null;
 	let handoff: BuildHandoff | null = null;
@@ -156,7 +183,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 			if (id === `\0${NAMER_ID}`) return namer_module(encoders, !build());
 			if (id === `\0${CONFIG_ID}`) {
 				if (!paths) throw new OgygiaError('image_no_kit');
-				return `export default ${JSON.stringify(render_config(opts, paths, build()))};\n`;
+				return `export default ${JSON.stringify(render_config(opts, paths, build(), widths))};\n`;
 			}
 			if (id === `\0${SOURCES_ID}`)
 				return `export default import.meta.glob(${JSON.stringify(SOURCE_GLOBS)}, { query: '?no-inline', import: 'default', eager: true });\n`;
@@ -198,7 +225,7 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 				if (!handoff || !paths || !config || !server_build()) return;
 				await write_built(
 					handoff,
-					render_config(opts, paths, true),
+					render_config(opts, paths, true, widths),
 					warmed.values(),
 					path.dirname(path.resolve(config.root, config.build.outDir))
 				);
@@ -206,5 +233,10 @@ export function image(options?: ImagePluginOptions): VitePlugin[] {
 		}
 	};
 
-	return [ogygia, loader];
+	if (!encoders.some((e) => e.name === 'vercel')) return [ogygia, loader];
+	const checked = vercel_config_check(encoders, () => ({
+		formats: formats_asked(opts),
+		assets: paths?.assets ?? ''
+	}));
+	return [ogygia, loader, checked];
 }

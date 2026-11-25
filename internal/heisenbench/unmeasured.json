@@ -7305,12 +7305,84 @@
 			"reason": "build time: one string per encoder the app lists"
 		},
 		{
-			"id": "packages/image/src/vite/encoder.ts > namer_plan > map:0~fc3890",
-			"reason": "build time: one filter of the fixed needs list per linking encoder"
+			"id": "packages/image/src/vite/encoder.ts > link_plan",
+			"reason": "build time: one filter of the fixed needs list per linking encoder; test/vercel.test.ts and test/cloudflare.test.ts run it"
 		},
 		{
-			"id": "packages/image/src/vite/encoder.ts > namer_plan > map:0~fc3890 > filter:0~192a5f",
-			"reason": "build time: one lookup per need of a fixed 27-row list"
+			"id": "packages/image/src/vite/encoder.ts > link_plan > filter:0~192a5f",
+			"reason": "build time: one lookup per need of a fixed 31-row list"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > vercel",
+			"reason": "config time, once per vite.config load: checks two options and filters the 31 needs; test/vercel.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > vercel > filter:0~c77c05",
+			"reason": "config time: one lookup per need of a fixed 31-row list"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > vercel > sort:0~0af0c1",
+			"reason": "config time: sorts the default sizes, 15 numbers"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > whole_list",
+			"reason": "config time: checks and sorts the sizes or qualities an app passes vercel(), once per vite.config load; test/vercel.test.ts runs every refusal"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > whole_list > every:0~3ee636",
+			"reason": "config time: one integer check per size or quality the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > whole_list > sort:0~0af0c1",
+			"reason": "config time: one comparison per pair of sizes the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > widths_of",
+			"reason": "config time, once per image() call: a find over the encoders the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/encoder.ts > widths_of > find:0~6eb69d",
+			"reason": "config time: one comparison per encoder the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/index.ts > formats_asked",
+			"reason": "build time, once per server build that lists vercel(): the formats of the plugin and its presets"
+		},
+		{
+			"id": "packages/image/src/vite/index.ts > formats_asked > flatMap:0~dccf1f",
+			"reason": "build time: one array per preset the app names"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_check",
+			"reason": "config time, once per image() call that lists vercel(): builds one Vite plugin"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_check > buildStart",
+			"reason": "build time, once per Vite build: reads the clock"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_check > closeBundle > handler",
+			"reason": "build time, once per server build: reads one JSON file adapter-vercel wrote; e2e/vercel.spec.ts runs it after the adapter"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_check > closeBundle > handler > fail",
+			"reason": "build time, once at most: throws the coded error"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_check > configResolved",
+			"reason": "build time, once per Vite build: keeps the resolved config"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_check > find:0~e44059",
+			"reason": "config time: one comparison per encoder the app lists"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_missing",
+			"reason": "build time, once per server build: compares a few short lists of sizes, qualities and formats; test/vercel.test.ts runs every gap"
+		},
+		{
+			"id": "packages/image/src/vite/vercel-config.ts > vercel_config_missing > some:0~628cdd",
+			"reason": "build time: one regex per remote pattern the adapter lists"
 		},
 		{
 			"id": "packages/image/src/encoders/capabilities.ts > cannot",
@@ -7319,10 +7391,6 @@
 		{
 			"id": "packages/image/src/encoders/capabilities.ts > cannot > filter:0~6be14e",
 			"reason": "build time: one table lookup per need of a fixed 27-row list"
-		},
-		{
-			"id": "packages/image/src/encoders/capabilities.ts > decisions:0~c89642 > decide",
-			"reason": "a decision table's plan: one record lookup; the test walks and snapshots every row"
 		},
 		{
 			"id": "packages/image/src/encoders/needs.ts > needs_of",
@@ -7357,8 +7425,56 @@
 			"reason": "once per process: closes over the plan the plugin wrote"
 		},
 		{
-			"id": "packages/image/src/namers/resolve.ts > namer > <anonymous>~57b895",
-			"reason": "render, per file of a live page with a non-sharp encoder: needs_of plus a scan of at most 27 needs per listed encoder; test/cloudflare.test.ts runs every branch"
+			"id": "packages/image/src/namers/resolve.ts > link_unmet",
+			"reason": "render, per file of a live page with a linking encoder: a scan of at most 31 needs, and for vercel() a find over its sizes and qualities; test/vercel.test.ts runs every branch"
+		},
+		{
+			"id": "packages/image/src/namers/resolve.ts > link_of",
+			"reason": "constant work: one link built from one recipe"
+		},
+		{
+			"id": "packages/image/src/encoders/vercel.ts > quality_of",
+			"reason": "constant work: one comparison and a lookup"
+		},
+		{
+			"id": "packages/image/src/encoders/vercel.ts > vercel_link",
+			"reason": "render, per file of a live page with vercel(): a find over its sizes and one escaped URL; snapshotted in test/vercel.test.ts"
+		},
+		{
+			"id": "packages/image/src/encoders/vercel.ts > vercel_link > find:0~b999a8",
+			"reason": "constant work: one comparison per size vercel() lists"
+		},
+		{
+			"id": "packages/image/src/encoders/vercel.ts > vercel_unmet",
+			"reason": "render, per file of a live page with vercel(): a scan of its sizes and qualities; test/vercel.test.ts runs every refusal"
+		},
+		{
+			"id": "packages/image/src/encoders/vercel.ts > vercel_unmet > some:0~b999a8",
+			"reason": "constant work: one comparison per size vercel() lists"
+		},
+		{
+			"id": "packages/image/src/layout.ts > snapped",
+			"reason": "render, per image laid out with an encoder that lists widths (vercel()): the ladder (at most a dozen widths) snapped over the sizes; test/vercel.test.ts runs it"
+		},
+		{
+			"id": "packages/image/src/layout.ts > snapped > map:0~e2fca9",
+			"reason": "constant work per ladder width: one find over the sizes"
+		},
+		{
+			"id": "packages/image/src/layout.ts > snapped > map:0~e2fca9 > find:0~6fc5fa",
+			"reason": "constant work: one comparison per size"
+		},
+		{
+			"id": "packages/image/src/layout.ts > snapped > sort:0~0af0c1",
+			"reason": "constant work: one comparison per pair of at most a dozen widths"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_vercel_config > text",
+			"reason": "error path: words one coded message once a build"
+		},
+		{
+			"id": "packages/image/src/messages.ts > IMAGE_ERRORS > image_vercel_config > details",
+			"reason": "error path: the docs page's words"
 		},
 		{
 			"id": "packages/image/src/namers/resolve.ts > unmet",

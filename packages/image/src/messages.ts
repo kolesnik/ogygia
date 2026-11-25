@@ -236,6 +236,25 @@ export const IMAGE_ERRORS = {
 			The encoder (sharp) could not decode the file: it may be damaged, empty, or in a format it
 			does not read (AVIF, WebP, PNG, JPEG, GIF, TIFF and SVG are read).
 		`
+	},
+	image_vercel_config: {
+		text: (a: { missing: string; have: string; line: string }): string => prose`
+			vercel() names files Vercel's image optimizer would refuse: the adapter's output config
+			lacks ${a.missing} (it has ${a.have}). Hand the encoder's images to the adapter:
+			${a.line}.
+		`,
+		details: (): string => prose`
+			With \`vercel()\`, a page rendered on request names each file as a
+			\`/_vercel/image?url=…&w=…&q=…\` link, and Vercel answers it only when the deployment's
+			\`images\` config (\`.vercel/output/config.json\`, written by adapter-vercel) allows that
+			width (\`sizes\`), that quality (\`qualities\`, when it lists any), the format the browser
+			gets (\`formats\`), and, for a full-URL \`paths.assets\`, its host (\`domains\` or
+			\`remotePatterns\`). Pass the encoder's own: keep it in one file
+			(\`export const encoder = vercel({ sizes })\`), import it in svelte.config.js and in
+			vite.config, and write \`adapter({ images: encoder.images })\`, adding the assets host to
+			\`domains\` if there is one. \`vercel()\` needs adapter-vercel: \`/_vercel/image\` exists
+			only on Vercel.
+		`
 	}
 };
 

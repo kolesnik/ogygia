@@ -74,6 +74,9 @@ export interface RenderConfig {
 	/** The build made the files of every warmed preset (`import.meta.og.image(src, { warm })`) as
 	 *  static files: `<Img>` names those directly. False in dev, where the endpoint makes them. */
 	warmed: boolean;
+	/** The only widths the encoder that names live files makes (Vercel's `images.sizes`): every
+	 *  file's width is snapped up to one of them, or to the source's whole width. Absent: any. */
+	widths?: readonly number[];
 }
 
 export const DEFAULT_BREAKPOINTS: readonly number[] = [320, 480, 640, 960, 1280, 1600, 2048];
