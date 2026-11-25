@@ -1,6 +1,5 @@
 import { OgygiaError } from '../messages/core.ts';
-import { HOOK_RELOAD_NEEDED } from './client-plugins.ts';
-import { slots } from './slots.ts';
+import { reloadNeeded } from 'ogygia:boot/hooks';
 
 function file_without_retry_mark(url: string): string {
 	const u = new URL(url, document.baseURI);
@@ -20,6 +19,5 @@ export function regions_of_file(url: string): Element[] {
  *  the chunk, its error and the regions whose own file it is. */
 export function say_reload_needed(url: string, error: unknown): void {
 	console.error(new OgygiaError('chunk_reload_needed', { url }), error);
-	if (HOOK_RELOAD_NEEDED)
-		slots.hooks?.reloadNeeded?.({ url, error, regions: regions_of_file(url) });
+	if (reloadNeeded) reloadNeeded({ url, error, regions: regions_of_file(url) });
 }

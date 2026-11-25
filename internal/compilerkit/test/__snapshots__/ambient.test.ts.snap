@@ -1,0 +1,29 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ambient types > the exports become globals; the module doc stays out 1`] = `
+"// Generated: do not edit.
+
+export {}
+
+/** A point, as the macros read one. */
+type XY = {
+    readonly x: number;
+    readonly y: number;
+};
+/** A size, exported for its docs: a helper, not a global. */
+type Size = {
+    readonly width: number;
+};
+
+declare global {
+  /** Twice a number. */
+  function $twice(value: number): number;
+
+  /** Points as plain arithmetic. */
+  namespace $geo {
+      /** A point's length. */
+      function length(p: XY): number;
+  }
+}
+"
+`;

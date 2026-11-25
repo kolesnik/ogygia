@@ -10,6 +10,7 @@
 // hydrates from the new tail, and back again.
 // Usage: pnpm exec playwright test props-tail
 import { test, check, island_graph } from '@ogygia/tooling/e2e';
+import { hear_downloads } from '@ogygia/tooling/e2e/downloads.ts';
 import {
 	ISLAND_GRAPH_SCRIPT_G_RE,
 	ISLAND_HINT_G_RE,
@@ -101,6 +102,7 @@ test.describe('PROPS TAIL: island props ride at the end of the body, keyed by fi
 	}) => {
 		const errors: string[] = [];
 		page.on('pageerror', (e) => errors.push(e.message));
+		await hear_downloads(page);
 		await page.goto('/props-tail', { waitUntil: 'networkidle' });
 		await page.waitForSelector('ogygia-region[data-hydrated]', { timeout: 8000 }).catch(() => {});
 		check(
@@ -130,11 +132,7 @@ test.describe('PROPS TAIL: island props ride at the end of the body, keyed by fi
 				h: string[];
 				e: Record<string, number[]>;
 			};
-			const res = new Map(
-				performance
-					.getEntriesByType('resource')
-					.map((r) => [r.name, r as PerformanceResourceTiming] as const)
-			);
+			const res = new Map(window.__og_downloads!().map((r) => [r.name, r] as const));
 			const out: string[] = [];
 			for (const [entry, ids] of Object.entries(wire.e)) {
 				const e = res.get(new URL(entry, location.href).href);

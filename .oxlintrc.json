@@ -48,6 +48,7 @@
 		"ogygia/stale-whole": "error",
 		"ogygia/no-string-concat": "error",
 		"ogygia/prefer-dedent": "error",
+		"ogygia/no-macro-in-svelte": "error",
 		"ogygia/html-sink": "error",
 		"ogygia/one-markup-walk": "error",
 		"ogygia/one-hash": "error",
@@ -57,6 +58,7 @@
 		"ogygia/ports": "error",
 		"ogygia/tests-read-source": "error",
 		"ogygia/fake-timers-whole": "error",
+		"ogygia/downloads-heard": "error",
 		"ogygia/prefer-class-for-state": "warn"
 	},
 	"overrides": [
@@ -129,7 +131,11 @@
 			"rules": { "no-restricted-imports": "off" }
 		},
 		{
-			"files": ["packages/core/test/wire-markup.test.ts"],
+			"files": [
+				"packages/core/test/wire-markup.test.ts",
+				"packages/core/test/instruments-node-load.test.ts",
+				"packages/compiler/test/runtime-hooks.test.ts"
+			],
 			"rules": { "ogygia/tests-read-source": "off" }
 		}
 	],
@@ -137,6 +143,7 @@
 		"**/dist/**",
 		"**/build/**",
 		"**/.svelte-kit/**",
+		"**/.svelte-kit-e2e/**",
 		"**/.vercel/**",
 		"svelte/**",
 		"kit/**",

@@ -10,7 +10,7 @@
 import { expect, test } from 'vitest';
 import { pristine_ssr_of } from '../../src/runtime/core.ts';
 import { region_fragment } from './_html.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 
 test('a nested self-hydrating island captures its pristine markup (whitespace intact)', () => {
 	const { frag } = region_fragment(
@@ -47,18 +47,18 @@ test('the captured markup is the server bytes, unaffected by a later live mutati
 });
 
 test('an app’s answerParsed pass runs before the copy: a nested island repairs against the answer as the app restored it', () => {
-	slots.hooks = {
+	hear({
 		answerParsed: ({ fragment }) => {
 			for (const el of fragment.querySelectorAll('[data-reshaped]')) el.textContent = 'restored';
 		}
-	};
+	});
 	try {
 		const { frag } = region_fragment(
 			'<ogygia-region entry="/x.js" wake="load"><span data-reshaped>moved</span></ogygia-region>'
 		);
 		expect(pristine_ssr_of(frag.querySelector('ogygia-region')!)).toContain('restored');
 	} finally {
-		slots.hooks = undefined;
+		hear_none();
 	}
 });
 
@@ -67,4 +67,30 @@ test('a DEFERRED nested region is NOT stamped (it fetches its own answer)', () =
 		'<ogygia-region entry="/y.js" render="defer" when="load" endpoint="/__ogygia__?x"></ogygia-region>'
 	);
 	expect(pristine_ssr_of(frag.querySelector('ogygia-region')!)).toBeUndefined();
+});
+
+test('an answerParsed pass that answers with a promise holds the answer: the copy is taken once it settles', async () => {
+	let release!: () => void;
+	hear({
+		answerParsed: ({ fragment }) =>
+			new Promise<void>((r) => (release = r)).then(() => {
+				for (const el of fragment.querySelectorAll('[data-reshaped]')) el.textContent = 'restored';
+			})
+	});
+	try {
+		const { frag, ready } = region_fragment(
+			'<ogygia-region entry="/x.js" wake="load"><span data-reshaped>moved</span></ogygia-region>'
+		);
+		const region = frag.querySelector('ogygia-region')!;
+		let settled = false;
+		void ready.then(() => (settled = true));
+		await Promise.resolve();
+		expect(settled).toBe(false);
+		expect(pristine_ssr_of(region)).toBeUndefined();
+		release();
+		await ready;
+		expect(pristine_ssr_of(region)).toContain('restored');
+	} finally {
+		hear_none();
+	}
 });

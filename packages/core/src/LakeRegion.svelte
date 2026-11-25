@@ -6,7 +6,7 @@ the element the server wrote; elsewhere it renders its children in place.
 <script lang="ts">
 	import { untrack, type Snippet } from 'svelte';
 	import { make_region_endpoint } from '#region-server';
-	import { lake_identity } from './server/props-wire.ts';
+	import { lake_identity } from './server/region-identity.ts';
 	import { escape_attr } from './escape.ts';
 	import { warn } from './messages/island.ts';
 	import { adopt_region } from './region-parts/adopt.ts';

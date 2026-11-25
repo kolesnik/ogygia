@@ -4,5 +4,10 @@
 		"declaration": false,
 		"isolatedDeclarations": false
 	},
-	"include": [".", "../src", "../../devtools/src/ambient.d.ts"]
+	"include": [
+		".",
+		"../src",
+		"../../devtools/src/ambient.d.ts",
+		"../../../internal/macros/macros.d.ts"
+	]
 }

@@ -3,7 +3,7 @@
 import { expect, test } from 'vitest';
 import { hole_graph_script, hole_head } from '../src/server/hole-graph.ts';
 import { island_graph_script } from '../src/server/document-tail.ts';
-import { decode_island_graph, decode_island_locations } from '../src/island-graph.ts';
+import { decode_island_graph, decode_island_locations } from '../src/island-graph-read.ts';
 
 const base = new URL('https://a.test/__ogygia__?id=x');
 

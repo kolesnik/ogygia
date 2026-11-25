@@ -116,9 +116,20 @@ function files(dir: string): string[] {
 }
 
 /**
- * Every machine the packages define, by name, read from their source: `machine<S>()({ ... })` with
- * a literal name, and each `flights({ name })` (its entries' steps, from flights' own definition).
+ * Every machine the packages define, by name, read from their source: `machine<S>()({ ... })`,
+ * core's `$machine<S>()({ ... })` and the runtime's `runDefinition<S>()({ ... })` (`definition` inside the machine package) with a literal name,
+ * and each `flights({ name })` (its entries' steps, from flights' own `ENTRY_STEPS`).
  */
+/** The calls a machine definition is made by. */
+const DEFINERS: ReadonlySet<string> = new Set([
+	'machine',
+	'$machine',
+	'definition',
+	'runDefinition'
+]);
+/** What makes a flights: the public maker, and the runtime's plain one (no world or weigh). */
+const FLIGHTS_MAKERS: ReadonlySet<string> = new Set(['flights', 'plainFlights']);
+
 export function universe(root: string): Map<string, MachineDef> {
 	const out = new Map<string, MachineDef>();
 	const flights_named: Array<{
@@ -134,7 +145,14 @@ export function universe(root: string): Map<string, MachineDef> {
 	for (const pkg of PACKAGES)
 		for (const file of files(join(root, 'packages', pkg, 'src'))) {
 			const source = readFileSync(file, 'utf8');
-			if (!source.includes('machine<') && !source.includes('flights')) continue;
+			if (
+				!source.includes('machine<') &&
+				!source.includes('definition<') &&
+				!source.includes('Definition<') &&
+				!source.includes('flights') &&
+				!source.includes('Flights')
+			)
+				continue;
 			const ast = parseAst(source, { lang: 'ts' }) as unknown as Node;
 			const consts = new Map<string, unknown>();
 			for (const s of ast.body as Node[])
@@ -142,6 +160,9 @@ export function universe(root: string): Map<string, MachineDef> {
 					for (const d of s.declarations as Node[])
 						if (is(d.id, 'Identifier')) consts.set(d.id.name as string, d.init);
 			const rel = file.slice(root.length + 1);
+			// (flights' own entry steps: a table of data, `ENTRY_STEPS`, every flights' targets)
+			if (pkg === 'machine' && rel.endsWith('flights.ts') && consts.has('ENTRY_STEPS'))
+				flights_steps = steps_of(consts.get('ENTRY_STEPS'), consts);
 			// (a forced run, `get(input, { fresh })`, anywhere in the file: the only way an entry goes
 			// flying -> flying or kept -> flying; one asked only under `!seen.flying`, a peek showing no
 			// flight out, runs a kept answer again and never replaces a flight)
@@ -173,30 +194,30 @@ export function universe(root: string): Map<string, MachineDef> {
 				const callee = n.callee as Node;
 				const config = bare((n.arguments as unknown[])[0]);
 				if (!is(config, 'ObjectExpression')) return;
-				// machine<S>()({ ... })
+				// machine<S>()({ ... }), $machine<S>()({ ... }), rt.definition<S>()({ ... })
+				const definer = is(callee, 'CallExpression') ? (callee.callee as Node) : null;
 				if (
-					is(callee, 'CallExpression') &&
-					is(callee.callee, 'Identifier') &&
-					callee.callee.name === 'machine'
+					(is(definer, 'Identifier') && DEFINERS.has(definer.name as string)) ||
+					(is(definer, 'MemberExpression') &&
+						is(definer.property, 'Identifier') &&
+						DEFINERS.has(definer.property.name as string))
 				) {
 					const steps = steps_of(prop(config, 'steps'), consts);
 					const initial = literal(prop(config, 'initial'));
 					if (steps === null || initial === null) return;
 					const name = literal(prop(config, 'name'));
-					// (flights' own entry machine: named by each flights)
-					if (name === null) {
-						if (pkg === 'machine' && rel.endsWith('flights.ts')) flights_steps = steps;
-						return;
-					}
+					if (name === null) return;
 					out.set(name, { name, pkg, file: rel, initial, steps });
 					return;
 				}
-				// flights({ name }), flights.keyed<I>()({ name }), link().flights.keyed<I>()({ name })
+				// flights({ name }), flights.keyed<I>()({ name }), link().flights.keyed<I>()({ name }),
+				// plainFlights({ name }), plainFlights.keyed<I>()({ name })
 				const names_flights = (n: unknown): boolean =>
-					(is(n, 'Identifier') && n.name === 'flights') ||
+					(is(n, 'Identifier') && FLIGHTS_MAKERS.has(n.name as string)) ||
 					(is(n, 'MemberExpression') &&
+						!n.computed &&
 						is(n.property, 'Identifier') &&
-						n.property.name === 'flights');
+						FLIGHTS_MAKERS.has(n.property.name as string));
 				const is_flights =
 					names_flights(callee) ||
 					(is(callee, 'CallExpression') &&

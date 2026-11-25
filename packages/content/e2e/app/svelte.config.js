@@ -12,6 +12,7 @@ const config = {
 	},
 	kit: {
 		adapter: adapter(),
+		outDir: process.env.OGYGIA_E2E_OUT_DIR,
 		experimental: { remoteFunctions: true },
 		// Kit's own inline-vs-link number, which ogygia's region CSS obeys too: a region sheet under it
 		// ships as `<style data-ogygia-region-css>` instead of a blocking `<link>`

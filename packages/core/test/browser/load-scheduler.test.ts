@@ -6,7 +6,7 @@
 // REGRESSION (a field report, 2026-10-07): on country home pages the hero image (the LCP, marked
 // fetchpriority="high") shared its bandwidth with 206 island requests once the wake gate opened —
 // 1.19 s → 2.27 s, LCP about 1 s worse.
-import { expect, test, beforeEach, afterEach, onTestFinished } from 'vitest';
+import { expect, test, beforeEach, afterEach } from 'vitest';
 import {
 	BACKGROUND_WINDOW,
 	CRITICAL_CAP_MS,
@@ -24,12 +24,7 @@ import { PRIORITY } from '../../src/runtime/load-class.ts';
 import { flights, scope } from '@ogygia/machine';
 import { patch } from '../_patch.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
-
-/** The page's resource timeline, full from now to the test's end: what a large page meets early. */
-function timeline_full(): void {
-	performance.setResourceTimingBufferSize(performance.getEntriesByType('resource').length);
-	onTestFinished(() => performance.setResourceTimingBufferSize(250));
-}
+import { timeline_full } from '@ogygia/tooling/vitest/downloads';
 
 const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 
@@ -220,6 +215,7 @@ test('a critical preload that already arrived (its timing entry is in) is not wa
 	const href = new URL('/test/browser/fixtures/entry-current.ts?t=critical-arrived', location.href)
 		.href;
 	await fetch(href);
+	// oxlint-disable-next-line ogygia/downloads-heard -- the runtime reads this timeline (load-scheduler.ts pending_critical): the case is that it holds the entry
 	await expect.poll(() => performance.getEntriesByName(href).length).toBeGreaterThan(0);
 	const link = document.createElement('link');
 	link.rel = 'preload';

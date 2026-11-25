@@ -4,7 +4,7 @@
  * both legs, so it is a pure function of the entry and the props.
  */
 import { describe, expect, it } from 'vitest';
-import { hole_identity, lake_identity } from '../src/server/props-wire.ts';
+import { hole_identity, lake_identity } from '../src/server/region-identity.ts';
 
 const ENTRY = 'lake-entry-1';
 

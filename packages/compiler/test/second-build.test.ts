@@ -89,4 +89,20 @@ describe('a second build in one process', () => {
 		expect(regions(second)).toBe(1);
 		expect(second).toEqual(await run(ogygia()));
 	}, 60_000);
+
+	it('keeps Kit pages in a runtime whose second build has a csr turned on', async () => {
+		app(false);
+		write('src/routes/b/+page.svelte', page('V'));
+		write('src/routes/b/+page.ts', 'export const csr = false;\n');
+		const plugins = ogygia();
+		const first = await run(plugins);
+		const refuses = (out: Array<[string, string]>) =>
+			out.some(([, text]) => text.includes('new OgygiaError("kit_page_unbuilt")'));
+		expect(refuses(first)).toBe(true);
+		write('src/routes/b/+page.ts', 'export const csr = true;\n');
+		const second = await run(plugins);
+		expect(regions(second)).toBe(1);
+		expect(refuses(second)).toBe(false);
+		expect(second).toEqual(await run(ogygia()));
+	}, 60_000);
 });

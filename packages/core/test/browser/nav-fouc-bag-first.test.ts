@@ -6,7 +6,7 @@
 // inside the swap, so the navigation went to the browser as a full load.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 
@@ -27,8 +27,7 @@ function serve() {
 }
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.body.innerHTML = '<p>first</p>';
 	prepare_spa_document();
 	window.reportError = () => {};

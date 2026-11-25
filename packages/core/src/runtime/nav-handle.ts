@@ -1,9 +1,11 @@
-import { flights, STALE } from '@ogygia/machine';
+import { STALE } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
 import { import_again } from './import-again.ts';
 import { code_url_or_refuse, import_code } from './code-origins.ts';
 import { speculate_url } from './speculate-hint.ts';
 import { OgygiaError, warn } from '../messages/core.ts';
 import { download } from '../policies.ts';
+import { linked } from './boot-link.ts';
 import type { AfterNavigateCallback, BeforeNavigateCallback } from './router.ts';
 
 /**
@@ -17,14 +19,17 @@ import type { AfterNavigateCallback, BeforeNavigateCallback } from './router.ts'
  */
 export const NAV_HANDLE_KEY: unique symbol = Symbol.for('ogygia.nav');
 
-const load_refresh = flights({
+const load_refresh = plainFlights({
 	name: 'soft refresh',
 	run: import_again(
-		() => import('./router-nav.ts').then(({ invalidate_all }) => ({ invalidate_all })),
+		() =>
+			import('./router-nav.ts').then(({ init, invalidate_all }) =>
+				linked({ init, invalidate_all })
+			),
 		(url) =>
 			Promise.resolve()
 				.then(() => import_code<typeof import('./router-nav.ts')>(code_url_or_refuse(url)))
-				.then(({ invalidate_all }) => ({ invalidate_all }))
+				.then(({ init, invalidate_all }) => linked({ init, invalidate_all }))
 	),
 	retry: download
 });
@@ -45,9 +50,9 @@ export type NavHandle = {
 	bust_page_cache(): void;
 };
 
-/** Feature entry (`mpa-nav`, boot phase): the MPA handle, first. The router's install, later in
- *  the feature order, replaces it, and a later call never replaces the router's. The build adds the
- *  feature only when island code can reach the handle (the `page` mark). */
+/** Feature entry (`mpa-nav`, boot phase): the MPA handle, unless another runtime on the page
+ *  published one. The build adds the feature only when island code can reach the handle (the
+ *  `page` mark) and the router is not in (its install publishes the router's handle). */
 export function install(): void {
 	if (typeof document !== 'undefined' && !(NAV_HANDLE_KEY in globalThis)) publish_nav(mpa_nav());
 }

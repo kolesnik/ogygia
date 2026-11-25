@@ -170,8 +170,9 @@ export interface RegionHydrateEvent {
 	readonly el: Element;
 }
 
-/** A region answer (a hole, a lake remount, a router swap) was parsed: `fragment` is inert, and
- *  nothing has read it yet. */
+/** A region answer (a hole, a lake remount, a live region's tick) was parsed: `fragment` is inert,
+ *  and nothing has read it yet. A subscriber may answer with a promise: nothing reads the fragment
+ *  (the region's own copy of its markup, its placement) until it settles. */
 export interface AnswerParsedEvent {
 	readonly fragment: DocumentFragment;
 }
@@ -188,7 +189,7 @@ export interface RuntimeHooks {
 	regionMount(e: RegionMountEvent): void;
 	regionUnmount(e: RegionUnmountEvent): void;
 	regionHydrate(e: RegionHydrateEvent): (() => void) | void;
-	answerParsed(e: AnswerParsedEvent): void;
+	answerParsed(e: AnswerParsedEvent): void | Promise<void>;
 	answerPlaced(e: AnswerPlacedEvent): void;
 	regionHydrated(e: RegionHydratedEvent): void;
 	regionFailed(e: RegionFailedEvent): void;
@@ -208,25 +209,54 @@ export interface RuntimeHooks {
 
 export type RuntimeHookName = keyof RuntimeHooks;
 
-/** Each hook's build constant: on only when a plugin's browser half subscribes to it. */
-export const RUNTIME_HOOK_CONSTANTS: { readonly [K in RuntimeHookName]: string } = {
-	regionMount: '__OGYGIA_HOOK_REGION_MOUNT__',
-	regionUnmount: '__OGYGIA_HOOK_REGION_UNMOUNT__',
-	regionHydrate: '__OGYGIA_HOOK_REGION_HYDRATE__',
-	answerParsed: '__OGYGIA_HOOK_ANSWER_PARSED__',
-	answerPlaced: '__OGYGIA_HOOK_ANSWER_PLACED__',
-	regionHydrated: '__OGYGIA_HOOK_REGION_HYDRATED__',
-	regionFailed: '__OGYGIA_HOOK_REGION_FAILED__',
-	regionWoke: '__OGYGIA_HOOK_REGION_WOKE__',
-	regionMismatched: '__OGYGIA_HOOK_REGION_MISMATCHED__',
-	holeAnswered: '__OGYGIA_HOOK_HOLE_ANSWERED__',
-	holeFailed: '__OGYGIA_HOOK_HOLE_FAILED__',
-	holeBatchMissed: '__OGYGIA_HOOK_HOLE_BATCH_MISSED__',
-	entryFallback: '__OGYGIA_HOOK_ENTRY_FALLBACK__',
-	reloadNeeded: '__OGYGIA_HOOK_RELOAD_NEEDED__',
-	navStarted: '__OGYGIA_HOOK_NAV_STARTED__',
-	navigated: '__OGYGIA_HOOK_NAVIGATED__',
-	criticalSettled: '__OGYGIA_HOOK_CRITICAL_SETTLED__',
-	loadStarted: '__OGYGIA_HOOK_LOAD_STARTED__',
-	warning: '__OGYGIA_HOOK_WARNING__'
-};
+/** Every hook, by name. The compiler generates `ogygia:boot/hooks` from the ones the app's client
+ *  realms subscribe to: each is a function there, every other one `0`, so its call folds out. */
+export const RUNTIME_HOOK_NAMES: readonly RuntimeHookName[] = [
+	'regionMount',
+	'regionUnmount',
+	'regionHydrate',
+	'answerParsed',
+	'answerPlaced',
+	'regionHydrated',
+	'regionFailed',
+	'regionWoke',
+	'regionMismatched',
+	'holeAnswered',
+	'holeFailed',
+	'holeBatchMissed',
+	'entryFallback',
+	'reloadNeeded',
+	'navStarted',
+	'navigated',
+	'criticalSettled',
+	'loadStarted',
+	'warning'
+];
+
+/** The hooks a lazy chunk tells (the hydrate core, the live program, the router's navigation). A
+ *  lazy chunk may not import the boot's own modules (each one it shared would be a file of its own
+ *  under Kit's chunking), so it reaches these through the boot link, with a `0`/`1` bit each from
+ *  `ogygia:boot/hook-bits` that folds the call where no realm subscribes. */
+export const LAZY_HOOK_NAMES: readonly LazyHookName[] = [
+	'regionMount',
+	'regionHydrate',
+	'regionHydrated',
+	'regionMismatched',
+	'answerPlaced',
+	'regionUnmount',
+	'navStarted',
+	'navigated'
+];
+
+export type LazyHookName =
+	| 'regionMount'
+	| 'regionHydrate'
+	| 'regionHydrated'
+	| 'regionMismatched'
+	| 'answerPlaced'
+	| 'regionUnmount'
+	| 'navStarted'
+	| 'navigated';
+
+/** The lazy hooks the app's realms subscribe to, as the boot link hands them to a lazy chunk. */
+export type LazyHooks = { readonly [K in LazyHookName]?: RuntimeHooks[K] };

@@ -27,19 +27,24 @@
 	],
 	"imports": {
 		"#profiler-maps": {
-			"browser": "./src/profiler/maps-browser.ts",
-			"default": "./src/profiler/maps-server.ts"
+			"ogygia-source": {
+				"browser": "./src/profiler/maps-browser.ts",
+				"default": "./src/profiler/maps-server.ts"
+			},
+			"types": "./dist/profiler/maps-server.d.ts",
+			"browser": "./dist/profiler/maps-browser.js",
+			"default": "./dist/profiler/maps-server.js"
 		}
 	},
 	"exports": {
 		".": {
 			"types": "./dist/devtools/index.d.ts",
-			"svelte": "./src/devtools/index.ts",
-			"default": "./src/devtools/index.ts"
+			"svelte": "./dist/devtools/index.js",
+			"default": "./dist/devtools/index.js"
 		},
 		"./vite": {
 			"types": "./dist/vite.d.ts",
-			"default": "./src/vite.ts"
+			"default": "./dist/vite.js"
 		},
 		"./report": {
 			"types": "./dist/report.d.ts",
@@ -47,31 +52,31 @@
 		},
 		"./profiler": {
 			"types": "./dist/profiler/span.d.ts",
-			"default": "./src/profiler/span.ts"
+			"default": "./dist/profiler/span.js"
 		},
 		"./profiler/client": {
 			"types": "./dist/profiler/client.d.ts",
-			"default": "./src/profiler/client.ts"
+			"default": "./dist/profiler/client.js"
 		},
 		"./profiler/storage": {
 			"types": "./dist/profiler/storage/index.d.ts",
-			"default": "./src/profiler/storage/index.ts"
+			"default": "./dist/profiler/storage/index.js"
 		},
 		"./profiler/storage/sqlite": {
 			"types": "./dist/profiler/storage/sqlite.d.ts",
-			"default": "./src/profiler/storage/sqlite.ts"
+			"default": "./dist/profiler/storage/sqlite.js"
 		},
 		"./profiler/storage/redis": {
 			"types": "./dist/profiler/storage/redis.d.ts",
-			"default": "./src/profiler/storage/redis.ts"
+			"default": "./dist/profiler/storage/redis.js"
 		},
 		"./profiler/storage/postgres": {
 			"types": "./dist/profiler/storage/postgres.d.ts",
-			"default": "./src/profiler/storage/postgres.ts"
+			"default": "./dist/profiler/storage/postgres.js"
 		},
 		"./internal/messages": {
 			"types": "./dist/messages/index.d.ts",
-			"default": "./src/messages/index.ts"
+			"default": "./dist/messages/index.js"
 		}
 	},
 	"publishConfig": {
@@ -152,6 +157,7 @@
 		"@sveltejs/vite-plugin-svelte": "catalog:",
 		"@types/node": "catalog:",
 		"@typescript/native": "catalog:tsgo",
+		"ogygia-internal-macros": "workspace:*",
 		"svelte": "catalog:",
 		"svelte-check": "catalog:",
 		"tsdown": "catalog:",

@@ -1,5 +1,5 @@
-import { stringify } from 'devalue';
-import { noop, STALE, type Scope } from '@ogygia/machine';
+import { devalue_text } from './devalue-text.ts';
+import { noop, type Scope } from '@ogygia/machine';
 import { PAGE_DEFER_GLOBAL, PAGE_DEFER_KEY, PAGE_SETTLED_KEY } from '../page-defer.ts';
 import { escape_script_text } from '../escape.ts';
 import { warn } from '../messages/server.ts';
@@ -230,9 +230,9 @@ export function resolve_script(
 	let ok = settled.ok;
 	let encoded: string;
 	try {
-		encoded = stringify(ok ? settled.value : normalize_error(settled.value), reducers);
+		encoded = devalue_text(ok ? settled.value : normalize_error(settled.value), reducers);
 	} catch {
-		encoded = stringify({ message: 'ogygia: streamed value is not serializable' });
+		encoded = devalue_text({ message: 'ogygia: streamed value is not serializable' }, {});
 		ok = false;
 	}
 	const json = escape_script_text(JSON.stringify(encoded));
@@ -349,8 +349,7 @@ export function stream_page_deferred(
 					(value) => ({ ok: true as const, value }),
 					(error: unknown) => ({ ok: false as const, error })
 				);
-				const out = await owner.task(() => settled);
-				if (out === STALE) return; // the request ended: the stream closed with it
+				const out = $await(owner.task(() => settled));
 				if (!out.ok) return push(id, false, out.error);
 				let staged: ReturnType<typeof stage_deferred>;
 				try {

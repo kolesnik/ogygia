@@ -32,6 +32,8 @@ export interface Routes {
 	readonly at: Query<string, 'file' | 'dir' | null>;
 	/** Each option file's `csr`. */
 	readonly csr_of_file: Query<string, boolean | undefined>;
+	/** Each option file: does it export `csr` in a form the build cannot read (not a literal)? */
+	readonly csr_unread_of_file: Query<string, boolean>;
 	/** Each module's claimed `config` keys. */
 	readonly config_of_file: Query<Keyed, Record<string, unknown>>;
 	/** routesDir → Kit's route tree of it (its shape: which nodes, which layouts each page uses). */
@@ -75,6 +77,9 @@ export function route_reader(files: Fs): Routes {
 		at,
 		csr_of_file: derived('route csr', own, (cx, file: string) =>
 			csr_of_text(cx.get(text, file), file)
+		),
+		csr_unread_of_file: derived('route csr unread', own, (cx, file: string) =>
+			csr_unread_of_text(cx.get(text, file), file)
 		),
 		config_of_file: derived('route config', keyed, (cx, [file, keys]: Keyed) =>
 			route_config_of_text(cx.get(text, file), file, keys)
@@ -244,6 +249,44 @@ function csr_of_text(src: string | null, file: string): boolean | undefined {
 	if (!program) return undefined;
 	const value = literal_value(page_option(program, 'csr'));
 	return typeof value === 'boolean' ? value : undefined;
+}
+
+/**
+ * Does `export const csr` here take a value only Kit's run can know (an expression, a re-export,
+ * `export *`)? {@link read_csr} reads such a file as declaring nothing; a caller that must PROVE
+ * a document's csr (`kit_may_hydrate`) treats it as possibly true. A file that does not parse is
+ * unread too.
+ */
+export function read_csr_unread(r: Routes, file: string): boolean {
+	return r.db.get(r.csr_unread_of_file, file);
+}
+
+function csr_unread_of_text(src: string | null, file: string): boolean {
+	// oxlint-disable-next-line ogygia/no-silent-failures -- no such option file on this level
+	if (src === null) return false;
+	const star = src.includes('export *');
+	if (!star && !src.includes('csr')) return false;
+	const { program } = parse_module(src, file);
+	if (!program) return true;
+	if (!may_export(program, 'csr')) return false;
+	return typeof literal_value(page_option(program, 'csr')) !== 'boolean';
+}
+
+function may_export(program: AstNode, name: string): boolean {
+	for (const statement of program.body ?? []) {
+		if (statement.type === 'ExportAllDeclaration') {
+			const as = statement.exported;
+			if (!as || as.name === name || as.value === name) return true;
+			continue;
+		}
+		if (statement.type !== 'ExportNamedDeclaration') continue;
+		const declaration = statement.declaration;
+		if (declaration?.id?.name === name) return true;
+		for (const d of declaration?.declarations ?? []) if (d.id?.name === name) return true;
+		for (const s of statement.specifiers ?? [])
+			if (s.exported?.name === name || s.exported?.value === name) return true;
+	}
+	return false;
 }
 
 function unwrap_expression(node: AstNode | null | undefined): AstNode | null {
@@ -527,6 +570,21 @@ export function errorCsrTrueRouteIds(r: Routes, routesDir: string): string[] {
 export function rootLayoutCsrTrue(r: Routes, routesDir: string): boolean {
 	const tree = route_tree(r, routesDir);
 	return node_csr(r, tree, tree.routes[0].layout!) !== false;
+}
+
+/**
+ * Can Kit hydrate a document this app serves? False only when the build PROVES it cannot: every
+ * node of the route tree (each layout, page and error page, Kit's fallback root layout included)
+ * resolves to `csr = false`, so no page, error render or routeless response is Kit-hydrated, and no
+ * option file declares `csr` in a form only Kit's run can read ({@link read_csr_unread}). The
+ * runtime's mixed-mode paths ship exactly when this is true (the `kit-pages` feature).
+ */
+export function kit_may_hydrate(r: Routes, routesDir: string): boolean {
+	const tree = route_tree(r, routesDir);
+	for (const route of tree.routes)
+		for (const f of [...LAYOUT_SERVER, ...LAYOUT_UNIVERSAL, ...PAGE_SERVER, ...PAGE_UNIVERSAL])
+			if (read_csr_unread(r, path.join(route.dir, f))) return true;
+	return tree.nodes.some((node) => node_csr(r, tree, node) !== false);
 }
 
 function layout_page_worlds(r: Routes, tree: RouteTree, layout: RouteNode) {

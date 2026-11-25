@@ -8,7 +8,8 @@ import { setContext, type Component } from 'svelte';
 import RegionUnder from './_fixtures/RegionUnder.svelte';
 import { set_server_devtools_recorder } from '../src/events/server-registry.ts';
 import { set_page_recorder } from '../src/page-seed-registry.ts';
-import { setInLake, setInLiveSnippet, take_early_holes } from '../src/context.ts';
+import { setInLake, setInLiveSnippet } from '../src/context.ts';
+import { take_early_holes } from '../src/early-holes-head.ts';
 import { setNested } from '../src/nested.ts';
 import { set_building } from './_stubs/app-env.ts';
 import { page } from './_stubs/app-state.ts';
@@ -21,7 +22,7 @@ import {
 } from '../src/server/kit-context.ts';
 import { hole_slot_sequence, HOLE_SLOT_SEQUENCE } from '../src/region-snippet.ts';
 import { DocumentTail, set_tail_reader } from '../src/server/document-tail.ts';
-import { SeedIndex } from '../src/seed-refs.ts';
+import { SeedIndex } from '../src/seed-index.ts';
 import * as deps from './_stubs/server.region-deps.ts';
 import { set_region_endpoints } from './_stubs/server.region-endpoint.ts';
 import {

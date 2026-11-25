@@ -1,14 +1,7 @@
-import {
-	buggify,
-	cache,
-	clock,
-	machine,
-	net,
-	STALE,
-	tasks,
-	type MachineGraph,
-	type Scope
-} from '@ogygia/machine';
+import { buggify, clock, net, STALE, tasks, type MachineGraph } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import { lru } from '@ogygia/machine';
 import { frameAddress } from '../frame.ts';
 import { stream } from '../policies.ts';
 import { is_idle, reserve, release, stamp, write } from './frame-store.ts';
@@ -16,20 +9,14 @@ import { is_allowed_region_endpoint, vouch_region_answer } from './html-sink.ts'
 import { runtime_session } from './session.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import { OG_LEN, OGYGIA_SLOT } from '../wire-markup.ts';
-import { slots } from './slots.ts';
+import { holeAnswered, holeBatchMissed } from 'ogygia:boot/hooks';
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const RULES =
 	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
-const HOOK_HOLE_ANSWERED =
-	typeof __OGYGIA_HOOK_HOLE_ANSWERED__ !== 'undefined' ? __OGYGIA_HOOK_HOLE_ANSWERED__ : true;
-const HOOK_HOLE_BATCH_MISSED =
-	typeof __OGYGIA_HOOK_HOLE_BATCH_MISSED__ !== 'undefined'
-		? __OGYGIA_HOOK_HOLE_BATCH_MISSED__
-		: true;
 let batch_seq = 0;
 
-const batched = cache<string, { left: number; at: number; size: number }>({
+const batched = lru<string, { left: number; at: number; size: number }>({
 	name: 'batched hole timings',
 	max: 64
 });
@@ -86,7 +73,7 @@ export function read_parcel(buf: string, from: number): Parcel | null {
 
 const STALL_MS = stream.deadline;
 
-const batch_stream = machine<{ sending: {}; reading: {}; stalled: {} }>()({
+const batch_stream = $machine<{ sending: {}; reading: {}; stalled: {} }>()({
 	name: 'batch-stream',
 	initial: 'sending',
 	steps: {
@@ -103,7 +90,7 @@ const batch_stream = machine<{ sending: {}; reading: {}; stalled: {} }>()({
 /** The batch stream's machine as data (test/machine-steps.test.ts holds each step to where it is
  *  taken). */
 export function batch_stream_graph(): MachineGraph {
-	return batch_stream.graph();
+	return fsm.graph(batch_stream);
 }
 
 function sigOf(endpoint: string): string | null {
@@ -129,7 +116,7 @@ function sigOf(endpoint: string): string | null {
 export async function streamFrames(
 	endpoints: string[],
 	kind: 'page' | 'nav' = 'nav',
-	visit: Scope = runtime_session.visit.scope,
+	visit: Life = runtime_session.visit.scope,
 	page?: string
 ): Promise<void> {
 	if (!endpoints.length) return;
@@ -139,7 +126,7 @@ export async function streamFrames(
 	if (!is_allowed_region_endpoint(path)) return;
 
 	const bySig = new Map<string, { a: string; v: number }>();
-	const endpoint_of = DEVTOOLS || HOOK_HOLE_ANSWERED ? new Map<string, string>() : null;
+	const endpoint_of = DEVTOOLS || holeAnswered ? new Map<string, string>() : null;
 	const reserved: string[] = [];
 	for (const e of endpoints) {
 		const s = sigOf(e);
@@ -160,40 +147,41 @@ export async function streamFrames(
 			kind,
 			endpoints: endpoints.slice()
 		});
-	const left = HOOK_HOLE_ANSWERED ? clock.mono() : 0;
+	const left = holeAnswered ? clock.mono() : 0;
 	let delivered = 0;
 	let status = 0;
 	let refused: 'redirected' | 'document' | undefined;
 	let final_url: string | undefined;
-	const stream = batch_stream.create();
+	const stream = fsm.createRun(batch_stream);
 	const batch_scope = visit.child();
 	batch_scope.defer(() => stream.stop());
 	// oxlint-disable-next-line ogygia/no-silent-failures -- a machine's wait never rejects
 	void stream.wait('stalled').then((s) => s !== STALE && batch_scope.close());
 
 	try {
-		let res: Response | typeof STALE;
+		let res: Response;
 		try {
 			if (RULES && buggify.fires('batch.fetch-fails')) throw new TypeError('Failed to fetch');
-			res = await stream.scope.task(() =>
-				net.fetch(path, {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify(endpoints),
-					...(page !== undefined ? { referrer: page } : {}),
-					signal: batch_scope.signal
-				})
+			res = $await(
+				stream.visit().task(() =>
+					net.fetch(path, {
+						method: 'POST',
+						credentials: 'same-origin',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify(endpoints),
+						...(page !== undefined ? { referrer: page } : {}),
+						signal: batch_scope.signal
+					})
+				)
 			);
 			// oxlint-disable-next-line ogygia/no-silent-failures -- a network error: the finally releases the reservations, and the holes fetch on their own
 		} catch {
 			return;
 		}
-		if (res === STALE) return;
 		if (RULES && buggify.fires('batch.refused')) res = new Response('busy', { status: 503 });
 		stream.go('reading');
 		status = res.status;
-		if ((DEVTOOLS || HOOK_HOLE_BATCH_MISSED) && res.redirected) {
+		if ((DEVTOOLS || holeBatchMissed) && res.redirected) {
 			refused = 'redirected';
 			final_url = res.url;
 		}
@@ -210,15 +198,15 @@ export async function streamFrames(
 		let buffer = '';
 		let parcels = false;
 		for (;;) {
-			let read: ReadableStreamReadResult<Uint8Array> | typeof STALE;
+			let read: ReadableStreamReadResult<Uint8Array>;
 			try {
 				if (RULES && buggify.fires('batch.body-breaks')) throw new TypeError('network error');
-				read = await stream.scope.task(() => reader.read());
+				read = $await(stream.visit().task(() => reader.read()));
 				// oxlint-disable-next-line ogygia/no-silent-failures -- the body broke off, as a request can fail: the holes it still owes fetch on their own
 			} catch {
 				return;
 			}
-			if (read === STALE || (RULES && buggify.fires('batch.body-stalls'))) return;
+			if (RULES && buggify.fires('batch.body-stalls')) return;
 			const { done, value } = read;
 			if (batch_scope.closed) return;
 			if (done) break;
@@ -232,7 +220,7 @@ export async function streamFrames(
 				const part = bySig.get(p.slot);
 				if (part && RULES && buggify.fires('batch.part-lost')) continue;
 				if (part) {
-					if (HOOK_HOLE_ANSWERED) {
+					if (holeAnswered) {
 						const ep = endpoint_of!.get(p.slot)!;
 						batched.set(ep, { left, at: clock.mono(), size: reserved.length });
 					}
@@ -251,7 +239,7 @@ export async function streamFrames(
 			}
 			if (consumed) buffer = buffer.slice(consumed);
 		}
-		if ((DEVTOOLS || HOOK_HOLE_BATCH_MISSED) && !parcels && !refused) {
+		if ((DEVTOOLS || holeBatchMissed) && !parcels && !refused) {
 			refused = 'document';
 			final_url = res.url;
 		}
@@ -259,8 +247,8 @@ export async function streamFrames(
 		stream.stop();
 		batch_scope.close();
 		for (const a of reserved) release(a);
-		if (HOOK_HOLE_BATCH_MISSED && delivered < reserved.length && !visit.closed)
-			slots.hooks?.holeBatchMissed?.({
+		if (holeBatchMissed && delivered < reserved.length && !visit.closed)
+			holeBatchMissed({
 				sent: reserved.length,
 				delivered,
 				status,
@@ -331,7 +319,7 @@ function gather(list: string[]): void {
 export function send_batches(
 	list: readonly string[],
 	kind: 'page' | 'nav',
-	visit: Scope = runtime_session.visit.scope,
+	visit: Life = runtime_session.visit.scope,
 	page?: string
 ): Promise<unknown> {
 	const by_path = new Map<string, string[]>();

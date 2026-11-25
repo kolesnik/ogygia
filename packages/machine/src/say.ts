@@ -38,6 +38,12 @@ export interface SayOptions {
  * when it comes back.
  */
 export function say(options: SayOptions = {}): Say {
+	check_say(options);
+	return trusted_say(options);
+}
+
+/** {@link say}'s checks of its options alone: `machine_bad_option` for one it refuses. */
+export function check_say(options: SayOptions = {}): void {
 	const max = options.max ?? DEFAULT_MAX;
 	if (!Number.isInteger(max) || max < 1)
 		throw machine_error('machine_bad_option', {
@@ -45,6 +51,11 @@ export function say(options: SayOptions = {}): Say {
 			value: String(max),
 			rule: 'a whole number of keys, 1 or more'
 		});
+}
+
+/** {@link say} for options its caller's build checked ({@link check_say}, run on a literal). */
+export function trusted_say(options: SayOptions = {}): Say {
+	const max = options.max ?? DEFAULT_MAX;
 	const said = new Map<string, true>();
 	return {
 		once(key, speak) {

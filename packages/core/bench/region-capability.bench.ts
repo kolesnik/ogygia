@@ -1,7 +1,9 @@
 // Region capabilities (server/hmac.ts): a page's worth of v3 mints, and the endpoint's checks of them.
 import { bench } from '@bench/heisenbench/bench';
-import { region_sign, region_verify, type RegionClaim } from '../src/server/hmac.ts';
+import { region_sign, type RegionClaim } from '../src/server/hmac.ts';
+import { region_verify } from '../src/server/capability-check.ts';
 import { region_request } from '../src/server/region-request.ts';
+import * as fsm from '@ogygia/machine';
 
 const SECRET = 'bench-secret-0123456789abcdef';
 const AUD = '/__ogygia__';
@@ -49,7 +51,7 @@ bench(
 	({ n }) => {
 		let sent = 0;
 		for (let i = 0; i < n; i++) {
-			const r = region_request.create();
+			const r = fsm.createRun(region_request);
 			r.go('prechecked');
 			r.go('probed');
 			r.go('verified');

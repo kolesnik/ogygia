@@ -6,39 +6,90 @@ import type { PushableProps } from './pushable-props.svelte.ts';
 import { foreign_region_prop_revivers } from './foreign-props.ts';
 import { SEED_REF_KEY, seed_ref_reviver } from '../seed-ref-reviver.ts';
 import { parse_sidecar_text } from './wire-format.ts';
-import { is_deferred, ours_on_kit_document, region_ssr_truncated } from './region-attrs.ts';
-import { boot_link, slots, type HeldLake } from './slots.ts';
+import { boot_link } from './lazy-link.ts';
+import type { HeldLake } from './lakes.ts';
 import { report_thrown } from '../report-thrown.ts';
-import type { HeadMark } from './session.ts';
-import { install_hydrate_features } from 'ogygia:boot';
+import { mark_head, record_island_head, type HeadMark } from './head-copies.ts';
+import {
+	context,
+	context_on,
+	live,
+	live_on,
+	page,
+	page_on,
+	wire,
+	wire_on
+} from 'ogygia:boot/hydrate-features';
+import { remote_seeds, remote_seeds_on } from 'ogygia:boot/remote-seeds';
+import { REF_WIRE_KEY } from '../ref-key.ts';
+import {
+	regionHydrate as HOOK_REGION_HYDRATE,
+	regionHydrated as HOOK_REGION_HYDRATED,
+	regionMismatched as HOOK_REGION_MISMATCHED
+} from 'ogygia:boot/hook-bits';
+import type { LazyHooks } from '../contract/runtime-hooks.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import { warn } from '../messages/lazy.ts';
 import { OG_FP, OG_HEALED, OG_RECOVERED, OGYGIA_KEEP } from '../wire-markup.ts';
-import { say } from '@ogygia/machine';
+import { clock, say, type Fresh, type Stale } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { ANCHOR, BLOCK_CLOSE, BLOCK_OPEN, FIRST_BRANCH_OPEN } from './svelte-markers.ts';
 import { unmark_html_ranges } from './html-ranges.ts';
+import {
+	L_ABSOLUTE_URL_SCHEME,
+	L_INIT_SHADOW_REGISTRIES,
+	L_IS_DEFERRED,
+	L_IS_SELF_OWNED,
+	L_KIT_HYDRATES_PAGE,
+	L_LAKE_HOLD,
+	L_LAKE_RELEASE,
+	L_MORPH,
+	L_OURS_ON_KIT_DOCUMENT,
+	L_PARSE_REGION_HTML,
+	L_PROPS_SIDECAR_OF,
+	L_HOOKS,
+	L_REGION_SSR_TRUNCATED,
+	L_RUNTIME_SESSION,
+	L_SET_INNER_HTML,
+	L_VOUCH_PAGE_HTML,
+	L_WALK_ENTERS,
+	L_WIRE_CODEC
+} from './boot-link-index.ts';
 
-export const seed_page_once = (): void => slots.page?.seed_page_once();
-export const seed_remote_once = (): void => slots.remoteSeeds?.seed_once();
+export { init } from './lazy-link.ts';
+
+type SourceLive = typeof import('./live.ts');
+type WireCodec = { resolve(ref: never, remember: boolean): unknown };
+
+export const seed_page_once = (): void => {
+	if (page_on) page.seed_page_once();
+};
+export const seed_remote_once = (): void => {
+	if (remote_seeds_on) remote_seeds.seed_once();
+};
 export const kit_page_thread = (signal: AbortSignal): Promise<unknown> | null =>
-	slots.page?.kit_page_thread(signal) ?? null;
+	page_on ? page.page_kit_thread(signal) : null;
+/** A held region's tick (the live feature's program, ./live-program.ts), `null` without it. */
+export const apply_live: SourceLive['apply_live'] | null = live_on
+	? (live as unknown as SourceLive).apply_live
+	: null;
 
-install_hydrate_features();
+if (wire_on) wire.install();
 
-const kit_hydrates_page = () => boot_link().kit_hydrates_page();
-const props_sidecar_of = (region: Element) => boot_link().props_sidecar_of(region);
+const kit_hydrates_page = () => boot_link()[L_KIT_HYDRATES_PAGE]();
+const props_sidecar_of = (region: Element) => boot_link()[L_PROPS_SIDECAR_OF](region);
 const parse_own_html = (html: string) =>
-	boot_link().parse_region_html(boot_link().vouch_page_html(html));
+	boot_link()[L_PARSE_REGION_HTML](boot_link()[L_VOUCH_PAGE_HTML](html));
 const set_own_inner_html = (el: Element, html: string) =>
-	boot_link().set_inner_html(el, boot_link().vouch_page_html(html));
-const walk_enters = (el: Element) => boot_link().walk_enters(el);
-const is_self_owned = (el: Element) => boot_link().is_self_owned(el);
+	boot_link()[L_SET_INNER_HTML](el, boot_link()[L_VOUCH_PAGE_HTML](html));
+const walk_enters = (el: Element) => boot_link()[L_WALK_ENTERS](el);
+const is_self_owned = (el: Element) => boot_link()[L_IS_SELF_OWNED](el);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
-const HOOK_REGION_MISMATCHED =
-	typeof __OGYGIA_HOOK_REGION_MISMATCHED__ !== 'undefined'
-		? __OGYGIA_HOOK_REGION_MISMATCHED__
-		: true;
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
+const hooks = () => boot_link()[L_HOOKS] as LazyHooks;
+const after_region_hydrate = (el: Element): (() => void) | null =>
+	HOOK_REGION_HYDRATE ? (hooks().regionHydrate!({ el }) ?? null) : null;
 
 const REPAIR_MORPH = { target: 'walk' } as const;
 
@@ -163,7 +214,7 @@ export function neutralize_head_hydration_markers(): void {
 function repair_markup(region: HTMLElement, want: Element): void {
 	if (align_to(region, want)) return;
 	const nodes = Array.from(want.childNodes);
-	const morph = slots.morph;
+	const morph = boot_link()[L_MORPH];
 	if (morph) morph(region, nodes, REPAIR_MORPH);
 	else region.replaceChildren(...nodes);
 }
@@ -287,12 +338,12 @@ export function repair_if_drifted(
 	want.appendChild(content);
 	if (!sequence_differs(region, want)) return { repaired: false, reason: null, conflict: null };
 	const reason =
-		import.meta.env.DEV || DEVTOOLS || (HOOK_REGION_MISMATCHED && slots.hooks?.regionMismatched)
+		import.meta.env.DEV || DEVTOOLS || HOOK_REGION_MISMATCHED
 			? describe_divergence(region, want)
 			: null;
 	conflict = null;
 	repair_markup(region, want);
-	boot_link().init_shadow_registries(region);
+	boot_link()[L_INIT_SHADOW_REGISTRIES](region);
 	const met = conflict;
 	conflict = null;
 	return { repaired: true, reason, conflict: met };
@@ -310,7 +361,7 @@ function align_to(live: Element, want: Element | DocumentFragment): boolean {
 		if (!walk_enters(child)) continue;
 		if (!align_to(child, want_elements[i])) {
 			if (is_self_owned(child)) note_conflict(child);
-			const morph = slots.morph;
+			const morph = boot_link()[L_MORPH];
 			if (morph) morph(child, Array.from(want_elements[i].childNodes), REPAIR_MORPH);
 			else set_own_inner_html(child, (want_elements[i] as Element).innerHTML);
 		}
@@ -350,17 +401,21 @@ function quietly<T>(fn: () => T): T {
 
 /** Is this entry another build's (fragment federation): absolute, different origin. */
 export function is_foreign_entry(entry: string): boolean {
-	return boot_link().ABSOLUTE_URL_SCHEME.test(entry) && new URL(entry).origin !== location.origin;
+	return (
+		boot_link()[L_ABSOLUTE_URL_SCHEME].test(entry) && new URL(entry).origin !== location.origin
+	);
 }
 
-let cached_wire: (typeof slots)['wire'] | undefined;
+let cached_wire: WireCodec['resolve'] | null | undefined;
 let cached_revivers: Record<string, (d: never) => unknown> | undefined;
 function region_prop_revivers(): Record<string, (d: never) => unknown> | undefined {
-	const wire = slots.wire;
-	if (wire === cached_wire) return cached_revivers;
-	cached_wire = wire;
-	cached_revivers = wire
-		? { [wire.REF_WIRE_KEY]: (d: never) => wire.resolve(d, true) }
+	const resolve: WireCodec['resolve'] | null = wire_on
+		? wire.resolve
+		: (boot_link()[L_WIRE_CODEC]()?.resolve ?? null);
+	if (resolve === cached_wire) return cached_revivers;
+	cached_wire = resolve;
+	cached_revivers = resolve
+		? { [REF_WIRE_KEY]: (d: never) => resolve(d, true) }
 		: {
 				OgygiaRef: () => {
 					throw new Error(
@@ -394,9 +449,8 @@ export function read_region_props(
 	if (!sidecar) return {};
 	const base = foreign ? foreign_region_prop_revivers() : region_prop_revivers();
 	const doc = sidecar.ownerDocument;
-	const page = slots.page;
 	const revivers =
-		foreign || !page
+		foreign || !page_on
 			? base
 			: { ...base, [SEED_REF_KEY]: seed_ref_reviver(() => page.seed_data_of(doc)) };
 	return parse_sidecar_text(sidecar, revivers) as Record<string, unknown>;
@@ -563,7 +617,7 @@ export function hydrate_island(
 
 	const props = capture_region_ids(region, () => read_region_props(region, foreign));
 
-	if (kit_hydrates_page() && !ours_on_kit_document(region)) {
+	if (KIT_PAGES && kit_hydrates_page() && !boot_link()[L_OURS_ON_KIT_DOCUMENT](region)) {
 		region.setAttribute('data-kit-hydrated', '');
 		if (import.meta.env.DEV) {
 			warn('island_on_kit_page', { entry });
@@ -571,24 +625,28 @@ export function hydrate_island(
 		return null;
 	}
 
-	if (!kit_hydrates_page() && !head_markers_neutralized) {
+	if (!(KIT_PAGES && kit_hydrates_page()) && !head_markers_neutralized) {
 		head_markers_neutralized = true;
 		neutralize_head_hydration_markers();
 	}
 
-	if (import.meta.env.DEV && !is_deferred(region) && region_ssr_truncated(region)) {
+	if (
+		import.meta.env.DEV &&
+		!boot_link()[L_IS_DEFERRED](region) &&
+		boot_link()[L_REGION_SSR_TRUNCATED]?.(region)
+	) {
 		warn('island_block_in_inline', { entry });
 	}
 
 	let head_mark: HeadMark | null = null;
-	let held: HeldLake[] | null = slots.lakes.hold(region);
+	let held: HeldLake[] | null = boot_link()[L_LAKE_HOLD]?.(region) ?? null;
 	const drift =
 		ssr_html !== null && touched && region.isConnected
 			? repair_if_drifted(region, ssr_html)
 			: { repaired: false, reason: null, conflict: null };
 	const repaired = drift.repaired;
 	try {
-		head_mark = kit_hydrates_page() ? null : boot_link().runtime_session.mark_head();
+		head_mark = KIT_PAGES && kit_hydrates_page() ? null : mark_head();
 		if (!region.isConnected) return null;
 		unmark_html_ranges(region);
 		const ssr_children = Array.from(region.children);
@@ -596,23 +654,25 @@ export function hydrate_island(
 		const foreign_delegate = foreign && typeof mod.__og_hydrate === 'function';
 
 		const wrapped = foreign ? props : prop_guard.wrap(props, entry);
-		const keep = region.hasAttribute(OGYGIA_KEEP) && !!slots.Pushable;
+		const keep = region.hasAttribute(OGYGIA_KEEP) && live_on;
 		if (keep && import.meta.env.DEV && !document.querySelector('meta[name="ogygia-router"]')) {
 			warn('keep_without_router', { entry, key: region.getAttribute(OGYGIA_KEEP) || '' });
 		}
 
 		const attempt = (recover: boolean): IslandHandle => {
-			if (!is_deferred(region) && !foreign_delegate) ensure_envelope(region);
+			if (!boot_link()[L_IS_DEFERRED](region) && !foreign_delegate) ensure_envelope(region);
 			set_current_region(region);
 			try {
-				const provided_ctx = capture_region_ids(region, () => slots.context?.(region));
+				const provided_ctx = capture_region_ids(region, () =>
+					context_on ? context.collect_provided_context(region) : undefined
+				);
 				if (foreign_delegate) {
 					const strict = recover ? undefined : { recover: false };
 					const options = provided_ctx ? { ...strict, context: provided_ctx } : strict;
 					return foreign_hydrate_call(region, entry, mod, wrapped, keep, options);
 				}
 				const recovery = recover ? {} : { recover: false as const };
-				const pushed = keep ? new slots.Pushable!(wrapped) : null;
+				const pushed = keep ? new (live as unknown as SourceLive).PushableProps(wrapped) : null;
 				const app = hydrate(Component, {
 					target: region,
 					props: pushed ? pushed.props : wrapped,
@@ -629,7 +689,7 @@ export function hydrate_island(
 		let out: IslandHandle;
 		let healed = false;
 		let strict_error: unknown = null;
-		const after_hydrate = boot_link().region_hydrate(region);
+		const after_hydrate = after_region_hydrate(region);
 		try {
 			out = quietly(() => attempt(false));
 			healed = repaired;
@@ -649,7 +709,7 @@ export function hydrate_island(
 					reason: drift.reason || undefined
 				});
 			if (HOOK_REGION_MISMATCHED)
-				slots.hooks?.regionMismatched?.({
+				hooks().regionMismatched!({
 					el: region,
 					kind: 'healed',
 					...(drift.reason ? { reason: drift.reason } : {})
@@ -666,11 +726,11 @@ export function hydrate_island(
 					reason: drift.conflict
 				});
 			if (HOOK_REGION_MISMATCHED)
-				slots.hooks?.regionMismatched?.({ el: region, kind: 'conflict', reason: drift.conflict });
+				hooks().regionMismatched!({ el: region, kind: 'conflict', reason: drift.conflict });
 			if (import.meta.env.DEV) warn('ownership_conflict', { element: drift.conflict }, entry);
 		}
 
-		slots.lakes.release(region, held);
+		if (held) boot_link()[L_LAKE_RELEASE]?.(region, held);
 		held = null;
 
 		if (!region.isConnected) {
@@ -689,7 +749,7 @@ export function hydrate_island(
 					reason: drift.reason || undefined
 				});
 			if (HOOK_REGION_MISMATCHED)
-				slots.hooks?.regionMismatched?.({
+				hooks().regionMismatched!({
 					el: region,
 					kind: 'recovered',
 					...(drift.reason ? { reason: drift.reason } : {})
@@ -700,11 +760,11 @@ export function hydrate_island(
 			warn('hydration_discarded', { entry, drift: drift.reason, strict });
 		}
 
-		if (head_mark) boot_link().runtime_session.record_island_head(head_mark);
+		if (head_mark) record_island_head(boot_link()[L_RUNTIME_SESSION], head_mark);
 		return out;
 	} finally {
 		head_mark?.stop();
-		if (held) slots.lakes.release(region, held);
+		if (held) boot_link()[L_LAKE_RELEASE]?.(region, held);
 	}
 }
 
@@ -721,14 +781,16 @@ export function hydrate_live(
 ): IslandHandle | null {
 	seed_remote_once();
 	seed_page_once();
-	if (!slots.Pushable) {
+	if (!live_on) {
 		if (import.meta.env.DEV) {
 			warn('live_feature_missing');
 		}
 		return null;
 	}
-	const provided_ctx = capture_region_ids(region, () => slots.context?.(region));
-	const after_hydrate = boot_link().region_hydrate(region);
+	const provided_ctx = capture_region_ids(region, () =>
+		context_on ? context.collect_provided_context(region) : undefined
+	);
+	const after_hydrate = after_region_hydrate(region);
 	set_current_region(region);
 	let out: IslandHandle;
 	try {
@@ -736,7 +798,9 @@ export function hydrate_live(
 			const options = provided_ctx ? { context: provided_ctx } : undefined;
 			out = foreign_hydrate_call(region, entry, mod, props, true, options);
 		} else {
-			const pushed = new slots.Pushable(prop_guard.wrap(props, entry));
+			const pushed = new (live as unknown as SourceLive).PushableProps(
+				prop_guard.wrap(props, entry)
+			);
 			const app = hydrate(mod.default, {
 				target: region,
 				props: pushed.props,
@@ -749,4 +813,134 @@ export function hydrate_live(
 	}
 	after_hydrate?.();
 	return out;
+}
+
+/** Waits on `el`'s wake visit (the region element's `#hydrate` turn): `STALE` once the visit is
+ *  over or the element left the page. */
+export type WakeTurn = { wait<T>(work: PromiseLike<T> | T): Promise<Fresh<T> | Stale> };
+
+/** When a wake reached each of its points, for the region element's hooks (`regionHydrated`,
+ *  `regionFailed`). */
+export type WakeTimes = { t0: number; loaded: number; turn: number | undefined };
+
+const SNIPPET_BOOTS = Symbol.for('ogygia.snippet-boots');
+const SNIPPET_BOOT_CAP_MS = 10_000;
+const nothing = (): void => {};
+
+/** The Kit page's thread an island on a Kit-hydrated document waits for, or null. */
+export function kit_page_wait(el: Element, visit: Life): Promise<unknown> | null {
+	if (!KIT_PAGES || !kit_hydrates_page() || !boot_link()[L_OURS_ON_KIT_DOCUMENT](el)) return null;
+	return kit_page_thread(visit.signal);
+}
+
+async function snippets_settled(region: Element, visit: Life): Promise<void> {
+	const host = region as Element & { [SNIPPET_BOOTS]?: Promise<unknown>[] };
+	const wait = visit.child();
+	const cap = new Promise<void>((r) => wait.defer(r));
+	wait.close_after(SNIPPET_BOOT_CAP_MS);
+	try {
+		for (
+			let batch = host[SNIPPET_BOOTS];
+			batch?.length && !wait.closed;
+			batch = host[SNIPPET_BOOTS]
+		) {
+			host[SNIPPET_BOOTS] = [];
+			await Promise.race([Promise.allSettled(batch), cap]);
+			await Promise.resolve(); // (their effects, and the snippets they render, register)
+		}
+	} finally {
+		wait.close();
+		delete host[SNIPPET_BOOTS];
+	}
+}
+
+/** What an island's wake ({@link wake_island}) reaches in the boot: the region element's visitor
+ *  replay, island and server copy, and the boot helpers of the wake. The element hands it in. */
+export type WakeLink = {
+	visitor: (el: Element) => Promise<unknown> | null;
+	app: (el: Element) => IslandHandle | null;
+	ssr_html: (el: Element) => string | null;
+	/** The island is in (or the hydrate step gave none): the element holds it, and lets its server
+	 *  copy and its sleep watch go. */
+	hydrated: (el: Element, app: IslandHandle | null) => void;
+	use_code_sheets: typeof import('./region-sheets.ts').use_code_sheets;
+	hydrate_turn: typeof import('./schedule.ts').hydrate_turn;
+	region_changed: typeof import('./drift-watch.ts').region_changed;
+	/** Dev: a Svelte hydration warning raised from here on is this island's. */
+	hydrating: (el: Element) => void;
+	/** Rules: the island mounted. */
+	mounted: (el: Element) => void;
+};
+
+/**
+ * An island's wake, once its module and this core are in (the region element's `#hydrate` loads
+ * them, and handles what fails): its stylesheets, the Kit page, the seeds, the visitor's replay and
+ * its scheduler turn, then the hydrate step and what follows it. It reaches the element's state
+ * through `link`, which the element hands in. A wait gone `STALE` ends it quietly.
+ */
+export async function wake_island(
+	el: HTMLElement,
+	entry: string,
+	mod: IslandModule,
+	visit: Life,
+	turn: WakeTurn,
+	times: WakeTimes,
+	link: WakeLink
+): Promise<void> {
+	link.use_code_sheets(el, mod);
+	$await(turn.wait(kit_page_wait(el, visit)));
+	// The page's seeds parse now, BEFORE the turn: data arriving is not the hydrate step. The
+	// first island parses the seed once (700 KB on a large CMS page), and inside its turn that
+	// parse plus the hydrate made one long task. (The step calls these again: a no-op by then.)
+	seed_remote_once();
+	seed_page_once();
+	// A visitor woke it (or reached it while it loaded): what replays their input is in before
+	// the island is live, so the input lands AT wake. Live first, the replay came in later over
+	// a slow network, beside the visitor's next click (#260). A visitor who came while it waited
+	// for its turn: their replay too, and a turn after it.
+	let visitor: Promise<unknown> | null;
+	do {
+		visitor = link.visitor(el);
+		// (a replay that failed says so itself)
+		if (visitor) $await(turn.wait(visitor.catch(nothing)));
+		$await(turn.wait(link.hydrate_turn(el)));
+		if (link.app(el)) return;
+	} while (link.visitor(el) !== visitor);
+	times.turn = clock.mono();
+	const ssr_html = link.ssr_html(el);
+	// Was the island touched while it slept (runtime/drift-watch.ts)? Read HERE, before the
+	// hydrate step edits it (lakes lifted): an untouched island skips the parse-and-compare.
+	const touched = ssr_html === null || link.region_changed(el);
+	// (dev: a Svelte hydration warning raised in this step is this island's)
+	link.hydrating(el);
+	const app = hydrate_island(el, entry, mod, ssr_html, touched);
+	link.hydrated(el, app);
+	if (!app) return;
+	link.mounted(el);
+	const t_done = clock.mono();
+	// (Svelte's `hydrate()` runs `$effect` and onMount in a microtask it queued during the call; one
+	// awaited now runs after it — mounted means they ran)
+	await Promise.resolve();
+	const t_mounted = clock.mono();
+	$await(turn.wait(snippets_settled(el, visit)));
+	if (!link.app(el)) return;
+	el.setAttribute('data-hydrated', '');
+	if (HOOK_REGION_HYDRATED)
+		hooks().regionHydrated!({
+			el,
+			t0: times.t0,
+			tLoaded: times.loaded,
+			tTurn: times.turn,
+			tDone: t_done,
+			ssrHtml: ssr_html
+		});
+	if (DEVTOOLS)
+		dt_emit({
+			domain: 'runtime',
+			name: 'region.hydrate.done',
+			entry: el.getAttribute('entry') || undefined,
+			fp: el.getAttribute(OG_FP) || undefined,
+			ms: t_mounted - times.t0
+		});
+	el.dispatchEvent(new CustomEvent('ogygia:hydrated', { bubbles: true }));
 }

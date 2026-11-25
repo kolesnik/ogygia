@@ -62,6 +62,7 @@
 		"@vitest/browser-playwright": "catalog:",
 		"fast-check": "catalog:",
 		"playwright": "catalog:",
+		"rolldown": "catalog:",
 		"tsdown": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"

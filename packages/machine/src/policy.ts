@@ -12,7 +12,7 @@
  */
 import { clock, random as randomness, timers } from './ports.ts';
 import { machine_error } from './messages.ts';
-import { MAX_TIMEOUT_MS, scope, type Scope } from './scope.ts';
+import { Life, MAX_TIMEOUT_MS } from './scope.ts';
 import { STALE, type Stale } from './stale.ts';
 
 export interface Policy {
@@ -102,9 +102,8 @@ export function out_of_time(deadline: number, error: unknown): DOMException {
  * tries is still work out, as a try in flight is (whose socket holds the process). Without it a
  * process with nothing else to do exits in the wait, and the send is neither done nor given up.
  */
-function alive(tries: Scope, fn: () => void, ms: number): void {
-	const timer = timers.keep(fn, ms);
-	tries.defer(() => timers.cancel(timer));
+function alive(tries: Life, fn: () => void, ms: number): void {
+	tries.on_close(timers.cancel, timers.keep(fn, ms));
 }
 
 /**
@@ -120,9 +119,9 @@ export async function under_policy<T>(
 	signal?: AbortSignal
 ): Promise<Awaited<T> | Stale> {
 	if (signal?.aborted) return STALE;
-	const tries = scope();
+	const tries = new Life();
 	let left = false;
-	if (signal !== undefined) tries.on(signal, 'abort', () => ((left = true), tries.close()));
+	if (signal !== undefined) tries.listen(signal, 'abort', () => ((left = true), tries.close()));
 	const started = p.deadline === Infinity ? 0 : clock.mono();
 	if (p.deadline !== Infinity) alive(tries, () => tries.close(), p.deadline);
 	let error: unknown = undefined;

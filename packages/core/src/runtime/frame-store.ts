@@ -1,17 +1,17 @@
 import {
 	cache,
-	flights,
-	machine,
-	scope,
 	STALE,
 	world,
 	type Cache,
 	type Flights,
 	type InFlight,
-	type Scope,
 	type Stale,
 	type World
 } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { older_by, stands_at, type DropWhy, type Frame } from '../frame.ts';
 import type { VerifiedHtml } from './html-sink.ts';
 import { watch, notify, watcher_count } from '../ref-watch.ts';
@@ -48,13 +48,13 @@ type AnswerStates = {
 };
 
 const answer_definition = () =>
-	machine<AnswerStates>()({
+	$machine<AnswerStates>()({
 		name: 'stored-answer',
 		initial: 'empty',
 		steps: { empty: ['shown'], shown: ['shown', 'kept'], kept: ['shown', 'kept'] }
 	});
 
-type StoredAnswer = ReturnType<ReturnType<typeof answer_definition>['create']>;
+type StoredAnswer = fsm.RunOf<ReturnType<typeof answer_definition>>;
 
 type PartStates = {
 	promised: {};
@@ -63,13 +63,13 @@ type PartStates = {
 };
 
 const part_definition = () =>
-	machine<PartStates>()({
+	$machine<PartStates>()({
 		name: 'frame-part',
 		initial: 'promised',
 		steps: { promised: ['landed', 'missed'], landed: [], missed: [] }
 	});
 
-type Part = ReturnType<ReturnType<typeof part_definition>['create']>;
+type Part = fsm.RunOf<ReturnType<typeof part_definition>>;
 
 type Entry = {
 	answer: StoredAnswer;
@@ -88,62 +88,59 @@ const LINGER = { keep: EVICT_TTL };
 type FrameFlights = Flights<FrameAsk, VerifiedHtml, Pick<FrameAsk, 'a'>>;
 
 type Store = {
-	life: Scope;
+	life: Life;
 	world: World;
 	entries: Cache<string, Entry>;
 	flights: FrameFlights;
+	answers: ReturnType<typeof answer_definition>;
+	parts: ReturnType<typeof part_definition>;
 };
 
 const STORE_KEY = '__ogygia_frame_store__';
-const ANSWER_KEY = '__ogygia_frame_answer__';
-const PART_KEY = '__ogygia_frame_part__';
 const store_host = (typeof globalThis !== 'undefined' ? globalThis : {}) as {
 	[STORE_KEY]?: Store;
-	[ANSWER_KEY]?: ReturnType<typeof answer_definition>;
-	[PART_KEY]?: ReturnType<typeof part_definition>;
 };
-const answers = (store_host[ANSWER_KEY] ??= answer_definition());
-const parts = (store_host[PART_KEY] ??= part_definition());
 
 function store(): Store {
 	return (store_host[STORE_KEY] ??= make_store());
 }
 
 function make_store(): Store {
-	const life = scope();
+	const own = life.rootLife();
 	const entries = cache<string, Entry>({
 		name: 'frames',
 		max: MAX_ADDRESSES,
 		keep: (_e, a) => (live(a) ? Infinity : EVICT_TTL),
 		pinned: (_e, a) => live(a),
-		owner: life,
+		owner: own,
 		onEvict: (a, e, why) => {
 			if (why === 'age' && live(a) && entries.set(a, e, HELD)) return;
-			e.part?.stop();
+			if (e.part !== null) e.part.stop();
 			e.answer.stop();
 		}
 	});
-	const s: Store = {
-		life,
+	const frames = plainFlights.keyed<FrameAsk>()({
+		name: 'frames',
+		key: ['a'],
+		ignore: { work: 'one flight per address: a fetch or a batch part out there is joined' },
+		keep: 0,
+		run: ({ a, work }, signal, flight): Promise<VerifiedHtml | Stale> =>
+			typeof work === 'function' ? fetch_frame(a, work, signal, flight) : work
+	});
+	own.defer(() => frames[life.DISPOSE]());
+	return {
+		life: own,
 		world: world(),
 		entries,
-		flights: life.adopt(
-			flights.keyed<FrameAsk>()({
-				name: 'frames',
-				key: ['a'],
-				ignore: { work: 'one flight per address: a fetch or a batch part out there is joined' },
-				keep: 0,
-				run: ({ a, work }, signal, flight): Promise<VerifiedHtml | Stale> =>
-					typeof work === 'function' ? fetch_frame(a, work, signal, flight) : work
-			})
-		)
+		flights: frames,
+		answers: answer_definition(),
+		parts: part_definition()
 	};
-	return s;
 }
 
 function shown_of(e: Entry): Shown | null {
-	const now = e.answer.now;
-	return now.kind === 'empty' ? null : now;
+	const answer = e.answer;
+	return answer.kind === 'empty' ? null : (answer.data as Shown);
 }
 
 /** A new stamp of the store's world, newer than every one before it: a fetch or a batch's part
@@ -185,13 +182,13 @@ const flying = (a: string): boolean => store_host[STORE_KEY]?.flights.peek({ a }
 
 const live = (a: string): boolean => watcher_count(frame_id(a)) > 0 || flying(a);
 
-function entry(a: string): Entry {
-	const entries = store().entries;
-	let e = entries.peek(a);
-	if (!e) {
-		e = { answer: answers.create(), part: null, renewed: null, refused: null };
-		entries.set(a, e);
-	}
+function entry(a: string, s: Store = store()): Entry {
+	let e = s.entries.peek(a);
+	if (!e)
+		s.entries.set(
+			a,
+			(e = { answer: fsm.createRun(s.answers), part: null, renewed: null, refused: null })
+		);
 	return e;
 }
 
@@ -249,7 +246,7 @@ export function write(f: StoredFrame): boolean {
 	}
 	e.answer.go('shown', { ...stands_at(s, f), html: f.html });
 	e.refused = null;
-	e.part?.move('promised', 'landed', { html: f.html });
+	if (e.part !== null) e.part.move('promised', 'landed', { html: f.html });
 	notify(frame_id(f.a), f);
 	schedule_evict(f.a, e);
 	return true;
@@ -266,10 +263,11 @@ export function write(f: StoredFrame): boolean {
 export function reserve(a: string): void {
 	const e = entry(a);
 	if (shown_of(e) !== null || flying(a)) return;
-	const part = (e.part = parts.create());
-	const landed = part.wait('landed').then((s) => (s === STALE ? STALE : s.html));
+	const s = store();
+	const part = (e.part = fsm.createRun(s.parts));
+	const landed = part.wait('landed').then((p) => (p === STALE ? STALE : p.html));
 	const settled = () => schedule_evict(a, e);
-	store().flights.get({ a, work: landed }).then(settled, settled);
+	s.flights.get({ a, work: landed }).then(settled, settled);
 }
 
 /**
@@ -291,7 +289,8 @@ export function start(a: string, fetcher: FrameFetcher, signal: AbortSignal): vo
  * batch just did not carry it). No-op once a frame has landed.
  */
 export function release(a: string): void {
-	store().entries.peek(a)?.part?.move('promised', 'missed');
+	const part = store().entries.peek(a)?.part;
+	if (part != null) part.move('promised', 'missed');
 }
 
 /**
@@ -368,5 +367,5 @@ export async function ensure(
 export function _reset(): void {
 	const old = store_host[STORE_KEY];
 	store_host[STORE_KEY] = undefined;
-	old?.life.close();
+	if (old !== undefined) old.life.close();
 }

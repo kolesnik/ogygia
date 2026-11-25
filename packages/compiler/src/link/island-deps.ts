@@ -82,6 +82,11 @@ const TRAILING_SLASH_RE = /\/+$/;
  * @param entries Which emitted file is which entry. Every map is keyed by an entry's IDENTITY (the
  *   stable public URL SSR bakes), never by its hashed name. `islands`: hashed file name →
  *   identity; `runtime`: the runtime's identity. Absent → a facade-named file is its own identity.
+ * @param hydrate_core The hydrate core's module id (`<runtime dir>/hydrate-core.js`, real path).
+ *   The chunk that bundles it and that chunk's static imports are `wake`: what the runtime's first
+ *   island wake imports, which a page whose islands wake at load can start early. Matched exactly.
+ *   The runtime's own static imports are left out (the runtime's bootstrap preloads them). Absent →
+ *   `wake` is empty.
  * @internal Exported for unit tests.
  */
 export function collectIslandDepModulepreloads(
@@ -103,9 +108,12 @@ export function collectIslandDepModulepreloads(
 	page_keys_of: ((module_id: string) => PageKeys | null) | null = null,
 	read_source: ((id: string) => string | null) | null = null,
 	runtime_file: string | null = null,
-	entries: { islands: ReadonlyMap<string, string>; runtime: string | null } | null = null
+	entries: { islands: ReadonlyMap<string, string>; runtime: string | null } | null = null,
+	hydrate_core: string | null = null
 ): {
 	js: Record<string, string[]>;
+	/** the hydrate core's chunk, then its static imports (public hrefs): the first wake's code */
+	wake: string[];
 	css: Record<string, string[]>;
 	page: Record<string, boolean>;
 	page_keys: Record<string, string[] | null>;
@@ -309,6 +317,22 @@ export function collectIslandDepModulepreloads(
 			];
 		}
 	}
+	const wake: string[] = [];
+	if (hydrate_core) {
+		const core_id = norm(hydrate_core);
+		const boot = new Set(
+			runtime_file
+				? js[entries?.runtime ?? `/${norm(runtime_file).replace(LEADING_SLASH, '')}`]
+				: []
+		);
+		for (const [key, chunk] of Object.entries(bundle)) {
+			if (chunk.type !== 'chunk' || !chunk.moduleIds?.some((id) => norm(id) === core_id)) continue;
+			const file = norm(chunk.fileName || key).replace(LEADING_SLASH, '');
+			for (const href of [`/${file}`, ...new Set(walk(file, new Set([file]), []))])
+				if (!boot.has(href)) wake.push(href);
+			break;
+		}
+	}
 	const contents: Record<string, string[]> = {};
 	const heavy: Record<string, ChunkHeavy> = {};
 	const summarize = (s: string) => {
@@ -346,7 +370,19 @@ export function collectIslandDepModulepreloads(
 				};
 			})
 	);
-	return { js, css, page, page_keys, remotes, interactivity, hazards, contents, heavy, dupes };
+	return {
+		js,
+		wake,
+		css,
+		page,
+		page_keys,
+		remotes,
+		interactivity,
+		hazards,
+		contents,
+		heavy,
+		dupes
+	};
 }
 
 /** One module the build shipped as two (or more) copies: the same file of a package reached by two
@@ -655,6 +691,7 @@ export function island_deps_module(
 	if (!ssr)
 		return dedent`
 			export function region_deps(_entry) { return []; }
+			export function wake_code() { return []; }
 			export function region_css(_entry) { return []; }
 			export function region_css_inline(_href) { return null; }
 			export function content_css(_id) { return []; }
@@ -676,6 +713,7 @@ export function island_deps_module(
 	if (is_dev)
 		return dedent`
 			export function region_deps(_entry) { return []; }
+			export function wake_code() { return []; }
 			export function region_css(entry) { return entry ? [entry] : []; }
 			export function region_css_inline(_href) { return null; }
 			export function content_css(_id) { return []; }
@@ -805,6 +843,13 @@ export function island_deps_module(
 
 		export function region_deps(entry) {
 			return entry ? pick('js', entry) : [];
+		}
+
+		// THE FIRST WAKE'S CODE: the hydrate core's chunk and its static imports, which the runtime
+		// imports when its first island wakes. [] = none known (a handoff from before it).
+		export function wake_code() {
+			const v = load().wake;
+			return Array.isArray(v) ? v : [];
 		}
 
 		export function region_css(entry) {

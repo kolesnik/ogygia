@@ -5,7 +5,7 @@
 // page's peer islands are refused until a full reload.
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { code_url } from '../../src/runtime/code-origins.ts';
@@ -24,8 +24,7 @@ const page = (who: string, head_runtime: string) =>
 	`<!doctype html><html><head><meta name="ogygia-router" content="plain"><title>page ${who}</title>${head_runtime}</head><body><p>${who}</p></body></html>`;
 
 beforeEach(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 	document.head.insertAdjacentHTML('afterbegin', runtime('a0a0a0a0a0a0a0a0a0a0a0a0'));
 	const marker = document.createElement('meta');
 	marker.name = 'ogygia-router';

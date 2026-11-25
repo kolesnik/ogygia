@@ -48,6 +48,20 @@ export const REWRITE_ERRORS = {
 			comment along wherever it moves a node.
 		`
 	},
+	restorer_unloaded: {
+		text: (): string => prose`
+			the page's restorer did not load: region answers a rewrite reshaped stay as the server
+			rendered them.
+		`,
+		details: (): string => prose`
+			A page whose document carries no restorer (nothing on it was restored) loads the rewrite
+			plugin's copy as a chunk of its own, for the region answers it fetches later: a hole, a lake,
+			a router swap. That chunk failed to download, so an answer the rewrite reshaped goes in as it
+			came, and its web components may hydrate over the wrong markup. The error follows.
+
+			It is a network failure the page cannot repair: a reload loads the chunk again.
+		`
+	},
 	restore_markup_broken: {
 		text: (a: { diff: string }): string => `the rewrite broke hydration markup: ${a.diff}`,
 		details: (): string => prose`

@@ -18,10 +18,9 @@ import { ogygia } from '../src/vite/index.ts';
 // Core's package root: the SAME dir the plugin gets as CORE_ROOT. This test file is
 // `packages/compiler/test/…`, so `../../core` is core's root.
 const PKG_ROOT = path.resolve(fileURLToPath(new URL('../../core', import.meta.url)));
-// Match the plugin's own src-vs-dist choice: source checkout → src, published install → dist.
-const HAS_SRC = fs.existsSync(path.join(PKG_ROOT, 'src/internal.ts'));
-const INTERNAL = path.join(PKG_ROOT, HAS_SRC ? 'src/internal.ts' : 'dist/internal.js');
-const SERVER = path.join(PKG_ROOT, HAS_SRC ? 'src/internal-server.ts' : 'dist/internal-server.js');
+// The built files, in a source checkout as in a published install.
+const INTERNAL = path.join(PKG_ROOT, 'dist/internal.js');
+const SERVER = path.join(PKG_ROOT, 'dist/internal-server.js');
 
 // A host that lives in a sub-package with NO ogygia in scope (outside the consumer root entirely).
 const SUBPKG_HOST = '/somewhere/node_modules/builder-oem/src/components/Toolbar.svelte';

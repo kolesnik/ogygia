@@ -14,11 +14,11 @@
  * - Iteration is in add order, and an entry removed while it is walked is not walked after.
  */
 import { noop } from './noop.ts';
-import type { Scope } from './scope.ts';
+import type { Life, Scope } from './scope.ts';
 
 export interface Registry<T> {
 	/** Holds `entry` while `owner` is open; returns its removal. */
-	add(entry: T, owner: Scope): () => void;
+	add(entry: T, owner: Scope | Life): () => void;
 	/** How many entries it holds now. */
 	readonly size: number;
 	/** The entries, in add order. */
@@ -32,15 +32,16 @@ export interface Registry<T> {
 // (closures, not classes: their state is locals the minifier shortens)
 function make_registry<T>(): Registry<T> {
 	/** By each add's own scope (one per add: the same value added twice is two entries). */
-	const entries = new Map<Scope, T>();
+	const entries = new Map<Life, T>();
 	let list: readonly T[] | null = null;
 	return {
 		get size(): number {
 			return entries.size;
 		},
-		add(entry: T, owner: Scope): () => void {
-			if (owner.closed) return noop;
-			const life = owner.child();
+		add(entry: T, owner: Scope | Life): () => void {
+			const o = owner as Life;
+			if (o.closed) return noop;
+			const life = o.child();
 			entries.set(life, entry);
 			list = null;
 			life.defer(() => {
@@ -67,7 +68,7 @@ function make_registry<T>(): Registry<T> {
  */
 export interface KeyedRegistry<K, V> {
 	/** Holds `value` under `key` while `owner` is open; returns its removal. */
-	set(key: K, value: V, owner: Scope): () => void;
+	set(key: K, value: V, owner: Scope | Life): () => void;
 	get(key: K): V | undefined;
 	has(key: K): boolean;
 	readonly size: number;
@@ -80,18 +81,19 @@ export interface KeyedRegistry<K, V> {
 function make_keyed<K, V>(): KeyedRegistry<K, V> {
 	// (the values in a map of their own: entries() and values() are its own iterators, no copy)
 	const values = new Map<K, V>();
-	const lives = new Map<K, Scope>();
+	const lives = new Map<K, Life>();
 	return {
 		get size(): number {
 			return values.size;
 		},
-		set(key: K, value: V, owner: Scope): () => void {
-			if (owner.closed) return noop;
+		set(key: K, value: V, owner: Scope | Life): () => void {
+			const o = owner as Life;
+			if (o.closed) return noop;
 			const old = lives.get(key);
 			// (the values' order is the order last set; the lives' order is nobody's)
 			values.delete(key);
-			old?.close();
-			const life = owner.child();
+			if (old !== undefined) old.close();
+			const life = o.child();
 			lives.set(key, life);
 			values.set(key, value);
 			// (only its own: a later set under the key holds another)

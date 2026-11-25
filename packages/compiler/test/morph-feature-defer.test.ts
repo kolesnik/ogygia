@@ -2,8 +2,8 @@
 // may have become interactive before it landed — a foreign web component upgraded it, or the fallback
 // hydrated — and core.ts `#apply` MORPHS that live node rather than replacing it (a plain swap
 // re-creates a menu that is open right now; the nav-menu / region-picker discard). Before this,
-// `morph` was selected only for live / morph / router, so a defer-only app shipped no `slots.morph`
-// and every hole took the `replaceChildren` floor.
+// `morph` was selected only for live / morph / router, so a defer-only app shipped no morph and
+// every hole took the `replaceChildren` floor.
 import { describe, expect, it } from 'vitest';
 import { resolveFeatures, type RuntimeMarks } from '../src/link/runtime-entry.ts';
 

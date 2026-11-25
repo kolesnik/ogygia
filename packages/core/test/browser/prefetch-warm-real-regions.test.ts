@@ -4,8 +4,9 @@
 // script's or textarea's text, an attribute value) must never make the router import a URL.
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { reset_load_scheduler } from '../../src/runtime/load-scheduler.ts';
-import { is_warmed_module } from '../../src/runtime/region-endpoint-url.ts';
+import { is_warmed_module } from '../../src/runtime/island-warm.ts';
 import { reset_document_painted } from '../../src/runtime/schedule.ts';
 
 const real_fetch = window.fetch;
@@ -18,7 +19,7 @@ const PAGE = `<!doctype html><title>next</title><!-- <ogygia-region entry="${for
 beforeEach(() => {
 	reset_load_scheduler();
 	reset_document_painted();
-	link_boot();
+	init(link_boot());
 	window.fetch = async () =>
 		new Response(PAGE, {
 			status: 200,

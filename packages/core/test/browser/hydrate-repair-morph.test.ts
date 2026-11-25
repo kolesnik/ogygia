@@ -3,12 +3,11 @@
 // a web component's own children included.
 import { beforeAll, beforeEach, expect, test } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { repair_if_drifted } from '../../src/runtime/hydrate-core.ts';
 
 beforeAll(() => {
-	link_boot();
-	install_morph();
+	init(link_boot());
 });
 beforeEach(() => {
 	document.body.innerHTML = '';

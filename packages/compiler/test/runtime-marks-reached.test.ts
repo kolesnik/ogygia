@@ -27,6 +27,10 @@ const SERVER = { name: 'ssr', server: true };
 const OG_RUNTIME_RE = /^\/_app\/ogygia\/og-runtime\.0123456789ab-[0-9a-f]{8}\.js$/;
 const UNNAMED_LIVE_RE = /runtime_features_unnamed[\s\S]*live|live[\s\S]*runtime_features_unnamed/;
 const NO_SERVER_RUNTIME_RE = /server_runtime_unnamed/;
+const SERVER_FEATURES_LATE_RE = /server_features_late[\s\S]*live/;
+const SHELL_FILE_RE = /Shell\.svelte/;
+const SERVER_PAGE_LATE_RE = /server_features_late[\s\S]*page/;
+const READER_FILE_RE = /Reader\.svelte/;
 const CLIENT = { name: 'client', server: false };
 
 /** An app whose page places a shell from an installed package that declares no `ogygia.files`.
@@ -268,4 +272,65 @@ test('a handoff from a server leg that named no runtime stops the client build i
 	const { shell } = app();
 	const handoff = parse_server_handoff(server_handoff_json([shell], 'k', []));
 	expect(() => client_compiler(handoff)).toThrow(NO_SERVER_RUNTIME_RE);
+});
+
+test('a package component the server build compiled after its feature word was fixed, needing a feature the word left out, stops the build, naming the feature and the module', async () => {
+	const { shell } = app();
+	const compiler = new_compiler();
+	compiler.start_leg(SERVER.name, SERVER.server);
+	compiler.prescan();
+	await compiler.emit('\0ogygia:server/runtime-flags', { ssr: true, universalHooks: null });
+	expect(compiler.server_word()).not.toBeNull();
+	const leg = compiler.leg(SERVER);
+	await compiler.transform_module(SHELL_SOURCE, shell, { leg, emitFile: () => 'ref' });
+	const stop = (() => {
+		try {
+			compiler.server_runtime();
+		} catch (e) {
+			return String(e);
+		}
+		return '';
+	})();
+	expect(stop).toMatch(SERVER_FEATURES_LATE_RE);
+	expect(stop).toMatch(SHELL_FILE_RE);
+});
+
+test("a late package component whose region's code reads the page stops the build naming that region's component, not only the feature", async () => {
+	app();
+	const pkg = `${root}/node_modules/shell-pkg`;
+	const shell = `${pkg}/PageShell.svelte`;
+	const source = `${dedent`
+		<script>
+			import Reader from './Reader.svelte' with { wake: 'load' };
+		</script>
+		<Reader />
+	`}\n`;
+	write(shell, source);
+	write(
+		`${pkg}/Reader.svelte`,
+		`${dedent`
+			<script>
+				import { page } from '$app/state';
+			</script>
+			<p>{page.url.pathname}</p>
+		`}\n`
+	);
+	const compiler = new_compiler();
+	compiler.start_leg(SERVER.name, SERVER.server);
+	compiler.prescan();
+	await compiler.emit('\0ogygia:server/runtime-flags', { ssr: true, universalHooks: null });
+	await compiler.transform_module(source, shell, {
+		leg: compiler.leg(SERVER),
+		emitFile: () => 'ref'
+	});
+	const stop = (() => {
+		try {
+			compiler.server_runtime();
+		} catch (e) {
+			return String(e);
+		}
+		return '';
+	})();
+	expect(stop).toMatch(SERVER_PAGE_LATE_RE);
+	expect(stop).toMatch(READER_FILE_RE);
 });

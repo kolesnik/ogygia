@@ -22,7 +22,7 @@
  * Server-only (it renders): call it from a handle / endpoint / server module.
  */
 import { render } from 'svelte/server';
-import { stringify } from 'devalue';
+import { devalue_text } from './server/devalue-text.ts';
 import type { Component } from 'svelte';
 import Region from './Region.svelte';
 import { PageSeed } from './server/page-seed.ts';
@@ -30,7 +30,8 @@ import { page_seed_reducers } from './server/page-stream.ts';
 import { analyze } from './seed-refs.ts';
 import { WIRE_FORMAT_JSON } from './server/props-wire.ts';
 import { OG_FORMAT, OGYGIA_DEV_HMR, OGYGIA_PAGE } from './wire-markup.ts';
-import { runtime_url, router_enabled, view_transitions } from 'ogygia:server';
+import { HAS, runtime_url, router_enabled, view_transitions } from 'ogygia:server';
+import { F_PAGE } from './contract/features.ts';
 import { dev_hmr_url } from './dev-hmr-url.ts';
 import { runtime_bootstrap } from './server/entry-location.ts';
 import { current_facts } from './plugin/facts.ts';
@@ -45,8 +46,7 @@ const RULES =
 
 import { escape_text } from './escape.ts';
 import { mark_attr, response_mark } from './server/response-mark.ts';
-import { take_early_holes } from './context.ts';
-import { early_holes_head } from './early-holes-head.ts';
+import { early_holes_head, take_early_holes } from './early-holes-head.ts';
 import { add_early_holes_csp, with_early_holes_meta_csp } from './server/early-holes-csp.ts';
 import { next_tag } from './wire-markup.ts';
 import {
@@ -55,7 +55,7 @@ import {
 	page_declares_dev_hmr_script,
 	runtime_first
 } from './server/head-presence.ts';
-import { code_origins } from './plugin/hooks.ts';
+import { page_code_origins } from './server/page-code-origins.ts';
 import type { RegionValue } from './region.ts';
 
 export interface DocumentOptions {
@@ -179,8 +179,8 @@ export async function document(
 	// RESPONSE-MARK: the request's mark, so a handle writing into this response agrees (outside a
 	// request, the document's own)
 	const mark_key: object = live_event()?.request ?? {};
-	const ask = options.pageState ? read_seed_ask() : undefined;
-	if (options.pageState && (!ask || ask.wanted)) {
+	const ask = HAS & F_PAGE && options.pageState ? read_seed_ask() : undefined;
+	if (HAS & F_PAGE && options.pageState && (!ask || ask.wanted)) {
 		const s = options.pageState;
 		const data = ask ? shape_page_data(s.data, ask.keys) : s.data;
 		// Same lanes as the handle's seed: native JSON when the slice is JSON-exact, devalue otherwise.
@@ -194,7 +194,7 @@ export async function document(
 				form: s.form,
 				error: s.error
 			},
-			(v: unknown) => stringify(v, page_seed_reducers),
+			(v: unknown) => devalue_text(v, page_seed_reducers),
 			// (form/error absent → serialized as null, which is JSON)
 			analyze(data).json && analyze(s.form ?? null).json && analyze(s.error ?? null).json
 		);
@@ -210,9 +210,9 @@ export async function document(
 	// head content) — the same order the handle gives a Kit page (head-presence.ts `runtime_first`).
 	const head_html = early.length
 		? with_early_holes_meta_csp(
-				runtime_first(head.join(''), null, code_origins(), response_mark(mark_key))
+				runtime_first(head.join(''), null, page_code_origins(), response_mark(mark_key))
 			)
-		: runtime_first(head.join(''), null, code_origins(), response_mark(mark_key));
+		: runtime_first(head.join(''), null, page_code_origins(), response_mark(mark_key));
 	const html = `<!doctype html>\n<html lang="${escape_text(options.lang ?? 'en')}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${head_html}</head><body>${r.body}${page_context_script()}</body></html>`;
 
 	const headers = new Headers({ 'content-type': 'text/html; charset=utf-8' });

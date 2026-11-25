@@ -12,5 +12,5 @@
 		"erasableSyntaxOnly": true,
 		"allowImportingTsExtensions": true
 	},
-	"include": ["src"]
+	"include": ["src", "../../internal/macros/macros.d.ts"]
 }

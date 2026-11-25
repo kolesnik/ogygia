@@ -11,6 +11,7 @@ import { commands } from 'vitest/browser';
 import { it_with_network_routes } from './_browsers.ts';
 import { end_time_hold, hold_time, in_head, release_time } from './_in-head.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 
 declare module 'vitest/browser' {
@@ -25,7 +26,7 @@ const home = location.href;
 const SHEET = '/nav-called-off-next.css';
 
 beforeEach(() => {
-	link_boot();
+	init(link_boot());
 	window.fetch = async () =>
 		new Response(
 			`<!doctype html><html><head><meta name="ogygia-router" content="plain"><link rel="stylesheet" href="${SHEET}"><title>next</title></head><body><p>next</p></body></html>`,

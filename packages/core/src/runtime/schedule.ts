@@ -1,19 +1,10 @@
 import { watch_viewport } from './viewport.ts';
 import { watch_turns } from './rules.ts';
-import {
-	clock,
-	flights,
-	machine,
-	queue,
-	tasks,
-	timers,
-	type MachineGraph,
-	type Scope,
-	type Stale
-} from '@ogygia/machine';
-
-const RULES =
-	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
+import { clock, tasks, timers, type MachineGraph, type Stale } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
+import { passQueue } from '@ogygia/machine';
 
 export type Turn = {
 	el: Element;
@@ -61,9 +52,9 @@ export function turns_counted(p: PendingTurns = P): string | null {
 		? null
 		: `the scheduler counts ${p.count} pending turn(s) and holds ${held}`;
 }
-if (RULES) watch_turns(turns_counted);
+watch_turns(turns_counted);
 
-const drain_definition = machine<{ idle: {}; queued: {}; waiting: { at: number } }>()({
+const drain_definition = $machine<{ idle: {}; queued: {}; waiting: { at: number } }>()({
 	name: 'hydrate-drain',
 	initial: 'idle',
 	steps: {
@@ -72,11 +63,11 @@ const drain_definition = machine<{ idle: {}; queued: {}; waiting: { at: number }
 		waiting: ['queued']
 	}
 });
-const drainer = drain_definition.create();
+const drainer = fsm.createRun(drain_definition);
 
 /** The drain's machine as data (test/machine-steps.test.ts holds each step to where it is taken). */
 export function drain_graph(): MachineGraph {
-	return drain_definition.graph();
+	return fsm.graph(drain_definition);
 }
 const order_of = new WeakMap<Element, number>();
 let next_order = 0;
@@ -98,20 +89,23 @@ function stop_loading(el: Element): boolean {
 	return L.all.delete(el);
 }
 
-const before = (a: Turn, b: Turn): boolean =>
-	a.order < b.order || (a.order === b.order && a.seq < b.seq);
+const before: (a: Turn, b: Turn) => boolean = $hot(function before(a: Turn, b: Turn): boolean {
+	return a.order < b.order || (a.order === b.order && a.seq < b.seq);
+});
 
-function heap_push(h: Turn[], t: Turn): void {
-	let i = h.push(t) - 1;
+const heap_push: (h: Turn[], t: Turn) => void = $hot(function heap_push(h: Turn[], t: Turn): void {
+	let i = $hot.allow('grow', h.push(t)) - 1;
 	while (i > 0) {
 		const p = (i - 1) >> 1;
 		if (!before(h[i], h[p])) break;
-		[h[i], h[p]] = [h[p], h[i]];
+		const up = h[i];
+		h[i] = h[p];
+		h[p] = up;
 		i = p;
 	}
-}
+});
 
-function heap_pop(h: Turn[]): void {
+const heap_pop: (h: Turn[]) => void = $hot(function heap_pop(h: Turn[]): void {
 	const last = h.pop()!;
 	if (!h.length) return;
 	h[0] = last;
@@ -122,15 +116,20 @@ function heap_pop(h: Turn[]): void {
 		if (l < h.length && before(h[l], h[m])) m = l;
 		if (r < h.length && before(h[r], h[m])) m = r;
 		if (m === i) return;
-		[h[i], h[m]] = [h[m], h[i]];
+		const down = h[i];
+		h[i] = h[m];
+		h[m] = down;
 		i = m;
 	}
-}
+});
 
-function heap_top(h: Turn[], vis: boolean): Turn | undefined {
+const heap_top: (h: Turn[], vis: boolean) => Turn | undefined = $hot(function heap_top(
+	h: Turn[],
+	vis: boolean
+): Turn | undefined {
 	while (h.length && (h[0].done || h[0].vis !== vis)) heap_pop(h);
 	return h[0];
-}
+});
 
 function refile(el: Element): void {
 	const vis = in_viewport.get(el) === true;
@@ -183,7 +182,7 @@ export function background_start(fn: () => void): void {
 const BACKGROUND_BUDGET_MS = 30;
 
 class BackgroundStarts {
-	readonly starts = queue<() => void>({
+	readonly starts = passQueue<() => void>({
 		name: 'background starts',
 		budget: { ms: BACKGROUND_BUDGET_MS, yield: post_background, defer: true },
 		start: (fn) => fn()
@@ -208,7 +207,7 @@ function post_background(fn: () => void): void {
 	timers.after(fn, 0);
 }
 
-const document_painted = flights({ name: 'document painted', run: () => until_painted() });
+const document_painted = plainFlights({ name: 'document painted', run: () => until_painted() });
 
 /**
  * Resolves once the document is parsed AND painted: after `DOMContentLoaded`, then one rendered
@@ -272,7 +271,7 @@ export function reset_document_painted(): void {
  * snapshot is `owner`'s (the region's lifetime in the page): it stops at the region's turn, or when
  * the owner ends.
  */
-export function register_region(el: Element, owner: Scope): void {
+export function register_region(el: Element, owner: Life): void {
 	if (!order_of.has(el)) order_of.set(el, next_order++);
 	if (snapshot_of.has(el) || owner.closed) return;
 	const stop = watch_viewport(el, '0px', (intersecting) => {
@@ -282,9 +281,11 @@ export function register_region(el: Element, owner: Scope): void {
 		if (P.count) schedule_drain();
 	});
 	snapshot_of.set(el, stop);
-	owner.defer(() => {
-		if (snapshot_of.get(el) === stop) stop_snapshot(el);
-	});
+	owner.on_close(unsnap, el, stop);
+}
+
+function unsnap(el: Element, stop: () => void): void {
+	if (snapshot_of.get(el) === stop) stop_snapshot(el);
 }
 
 /**
@@ -354,7 +355,7 @@ export function hydrate_turn(el: Element): Promise<void> {
 const now = clock.mono;
 
 function schedule_drain(): void {
-	if (drainer.now.kind === 'queued') return;
+	if (drainer.kind === 'queued') return;
 	drainer.go('queued');
 	// oxlint-disable-next-line typescript/no-floating-promises -- a task hop never rejects, and the drain it starts is the drainer machine's own (queued until it runs)
 	yield_task().then(drain);
@@ -363,7 +364,7 @@ function schedule_drain(): void {
 function drain_after(ms: number): void {
 	const at = now() + Math.max(1, ms);
 	drainer.go('waiting', { at });
-	drainer.scope.timeout(schedule_drain, Math.max(1, ms));
+	drainer.visit().later(schedule_drain, Math.max(1, ms));
 }
 
 function first_unsnapped(t: number): Turn | undefined {
@@ -400,5 +401,5 @@ function drain(): void {
 
 /** Test seam: is a hydration turn queued or being drained right now? */
 export function schedule_idle(): boolean {
-	return P.count === 0 && drainer.now.kind !== 'queued';
+	return P.count === 0 && drainer.kind !== 'queued';
 }

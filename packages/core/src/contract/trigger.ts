@@ -55,47 +55,73 @@ export function parse_trigger(value: string, allow: readonly TriggerKeyword[]): 
 	return null;
 }
 
-/** How a schedule is armed: on idle, on screen, on a media query (a load runs at once). */
-export interface ScheduleArms {
-	idle(fire: () => void): void;
-	visible(fire: () => void): void;
-	media(query: string, fire: () => void): void;
+/**
+ * How a schedule is armed: on idle, on screen, on a media query (a load runs at once). A build
+ * leaves out the arms no region of its app is scheduled on (the `idle`, `visible` and `media`
+ * features): such an arm is null, and a trigger that needs it runs on load and `on_trigger` returns
+ * `TRIGGER_MISSING`. The media arm carries its own parse (it arms a value and returns true only
+ * when the value is a media query), so a build without it ships no media parser; without it a
+ * media query cannot be told from a typo, so every value no keyword holds is missing then.
+ */
+export interface ScheduleArms<F extends () => unknown = () => void> {
+	idle: ((fire: F) => void) | null;
+	visible: ((fire: F) => void) | null;
+	media: ((value: string, fire: F) => boolean) | null;
 }
 
+/** `on_trigger` armed the value's trigger. */
+export const TRIGGER_ARMED = 0;
+/** `on_trigger` held no trigger in the value (a typo, or `interaction` where only a schedule is
+ *  taken): it ran on load. */
+export const TRIGGER_UNKNOWN = 1;
+/** The value's trigger needs an arm the build left out (without the media arm: any value no
+ *  keyword holds): `on_trigger` ran it on load. */
+export const TRIGGER_MISSING = 2;
+/** What `on_trigger` did with a value: armed it, or ran it on load and why. */
+export type TriggerSaid = typeof TRIGGER_ARMED | typeof TRIGGER_UNKNOWN | typeof TRIGGER_MISSING;
+
 /** How a wake is armed: a schedule's arms, a gesture's, and how a load starts (at once without one). */
-export interface TriggerArms<F extends () => unknown = () => void> {
-	idle(fire: F): void;
-	visible(fire: F): void;
-	media(query: string, fire: F): void;
-	interaction?(fire: F): void;
-	load?(fire: F): void;
+export interface TriggerArms<F extends () => unknown = () => void> extends ScheduleArms<F> {
+	interaction?: (fire: F) => void;
+	load?: (fire: F) => void;
 }
 
 /**
  * Runs `fire` on the trigger `when` names, of those `allow` holds: the one interpreter of a trigger.
  * A value it does not hold runs on load: a typo (`visable`), or `interaction` where only a schedule
  * is taken (a hole fetched on a gesture carries it into its cached lake). Never a media query that
- * can never match (test/browser/wake-unknown-trigger.test.ts). Returns the trigger it armed, null
- * for a value it did not hold.
+ * can never match (test/browser/wake-unknown-trigger.test.ts). A trigger whose arm the build left
+ * out runs on load too (test/browser/schedules-missing.test.ts). Returns what it did, for the
+ * caller to say: `TRIGGER_ARMED`, `TRIGGER_UNKNOWN` or `TRIGGER_MISSING`.
  */
 export function on_trigger<F extends () => unknown>(
 	when: string,
 	allow: readonly TriggerKeyword[],
 	arms: TriggerArms<F>,
 	fire: F
-): Trigger | null {
-	const t = parse_trigger(when, allow);
-	const on = t?.on ?? 'load';
-	if (on === 'idle') arms.idle(fire);
-	else if (on === 'visible') arms.visible(fire);
-	else if (t?.on === 'media') arms.media(t.query, fire);
-	else if (on === 'interaction' && arms.interaction) arms.interaction(fire);
-	else if (arms.load) arms.load(fire);
+): TriggerSaid {
+	let said: TriggerSaid = TRIGGER_ARMED;
+	if (!(allow as readonly string[]).includes(when)) {
+		const media = arms.media;
+		if (media?.(when, fire)) return TRIGGER_ARMED;
+		said = media ? TRIGGER_UNKNOWN : TRIGGER_MISSING;
+	} else if (when === 'idle' || when === 'visible') {
+		const arm = arms[when];
+		if (arm) {
+			arm(fire);
+			return TRIGGER_ARMED;
+		}
+		said = TRIGGER_MISSING;
+	} else if (when === 'interaction' && arms.interaction) {
+		arms.interaction(fire);
+		return TRIGGER_ARMED;
+	}
+	if (arms.load) arms.load(fire);
 	else fire();
-	return t;
+	return said;
 }
 
 /** Runs `fire` on the schedule `when` names (a fetch, a prefetch, a revalidation): see `on_trigger`. */
-export function on_schedule(when: string, arms: ScheduleArms, fire: () => void): void {
-	on_trigger(when, SCHEDULE, arms, fire);
+export function on_schedule(when: string, arms: ScheduleArms, fire: () => void): TriggerSaid {
+	return on_trigger(when, SCHEDULE, arms, fire);
 }

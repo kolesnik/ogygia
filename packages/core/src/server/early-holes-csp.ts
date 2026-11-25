@@ -14,6 +14,7 @@
  */
 import { createHash } from 'node:crypto';
 import { EARLY_HOLES_TAG } from '../early-holes-head.ts';
+import { EARLY_CODE_TAG } from '../early-code.ts';
 import { next_tag, text_of, value_at } from '../wire-markup.ts';
 
 /** The text between a tag's `<script…>` and `</script>`: what a CSP hash covers. */
@@ -24,6 +25,9 @@ export function script_text(tag: string): string {
 
 /** The script's hash source, as a policy lists it: of the exact text the head carries, once. */
 export const EARLY_HOLES_SOURCE: string = `'sha256-${createHash('sha256').update(script_text(EARLY_HOLES_TAG), 'utf8').digest('base64')}'`;
+
+/** The early start of the load wake's code (../early-code.ts): its script's hash source, once. */
+export const EARLY_CODE_SOURCE: string = `'sha256-${createHash('sha256').update(script_text(EARLY_CODE_TAG), 'utf8').digest('base64')}'`;
 
 /** The directives that rule an inline `<script>`, the most specific first. */
 const SCRIPT_DIRECTIVES = ['script-src-elem', 'script-src', 'default-src'] as const;

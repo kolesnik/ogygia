@@ -8,6 +8,10 @@ import { from_b64 } from './b64.ts';
 import RegionUnder from '../_fixtures/RegionUnder.svelte';
 import { HYDRATE_CASES, place_setup } from './fixtures/hydrate-cases.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
+import { publish_kit_hydrates } from '../../src/runtime/kit-boot.ts';
+
+// (the booted runtime's answer, as its boot hands it to island code)
+publish_kit_hydrates();
 import { normalize_hashes } from '../_normalize-hashes.ts';
 
 const SSR: Record<string, { head: string; body: string }> = JSON.parse(

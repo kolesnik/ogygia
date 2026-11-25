@@ -1,0 +1,135 @@
+/**
+ * The macros for a bench run. Heisenbench reads TypeScript from disk itself, so a file with macros
+ * is compiled as its package's build compiles it (`core_compile`, the config core's build and tests
+ * share; a plugin package's `package_options`) into a mirror of the repository under `.heisenbench/macros/<mode>/`, and imports of it resolve to the mirror;
+ * imports from the mirror resolve as from the source file. With `NODE_ENV=production` the mirror is
+ * what an app's production build runs (`prod`); otherwise core's dist (`dev`). `unmirror`
+ * (./unmirror.ts) names a report's mirror paths as the source files they compile.
+ */
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { registerHooks } from 'node:module';
+import { dirname, join, relative, sep } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+	MACRO_BENCH_ROOTS as CORE_BENCH_ROOTS,
+	MACRO_ROOTS as CORE_ROOTS,
+	core_compile
+} from '../../../packages/core/macros.config.ts';
+import { macro_packages } from '../../../packages/config/src/macro-packages.ts';
+import { compile_file, package_options } from '../../macros/src/plugin.ts';
+
+const REPO = fileURLToPath(new URL('../../../', import.meta.url));
+const MODE = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
+const MIRROR = join(REPO, '.heisenbench', 'macros', MODE);
+const MIRROR_DIR = MIRROR + sep;
+const SVELTE_RE = /\.svelte\.[cm]?ts$/;
+
+type Compile = (code: string, file: string) => ReturnType<typeof core_compile>;
+
+/** The sources their builds compile with the macros, each as its own build compiles it: core's
+ *  (and core's benches, whose calls on core's machines compile as core's own do), and each
+ *  package's that runs them. */
+const MACRO_ROOTS: ReadonlyArray<{ readonly root: string; readonly compile: Compile }> = [
+	...[...CORE_ROOTS, ...CORE_BENCH_ROOTS].map((root) => ({
+		root,
+		compile: (code: string, file: string) => core_compile(code, file, MODE)
+	})),
+	...macro_packages().map((dir) => {
+		const options = { ...package_options(dir), mode: MODE } as const;
+		return {
+			root: join(dir, 'src') + sep,
+			compile: (code: string, file: string) => compile_file(options, code, file)
+		};
+	})
+];
+
+/** How `file`'s build compiles it with the macros; null when no build does. */
+function compiler_of(file: string): Compile | null {
+	return MACRO_ROOTS.find((r) => file.startsWith(r.root))?.compile ?? null;
+}
+
+const compiled = new Map<string, string | null>();
+
+/** The mirror of a core source file with macros, or null when it has none (it loads as it is). */
+export function mirrored(file: string): string | null {
+	const known = compiled.get(file);
+	if (known !== undefined) return known;
+	let out: string | null = null;
+	const compile =
+		file.endsWith('.ts') && !file.endsWith('.d.ts') && !SVELTE_RE.test(file)
+			? compiler_of(file)
+			: null;
+	if (compile !== null) {
+		const code = readFileSync(file, 'utf8');
+		const result = compile(code, file);
+		if (result !== null && result.code !== code) {
+			out = join(MIRROR, relative(REPO, file));
+			mkdirSync(dirname(out), { recursive: true });
+			writeFileSync(out, result.code);
+		}
+	}
+	compiled.set(file, out);
+	return out;
+}
+
+/** A mirror file's URL as the source file it compiles, keeping its query (a fresh module graph). */
+function as_source(url: string): string {
+	const at = url.indexOf('?');
+	const path = fileURLToPath(at === -1 ? url : url.slice(0, at));
+	return pathToFileURL(join(REPO, relative(MIRROR, path))).href + (at === -1 ? '' : url.slice(at));
+}
+
+/** Points imports of a core file with macros at its mirror (call once, in the bench preload). */
+export function register_macro_mirror(): void {
+	registerHooks({
+		resolve(specifier, context, next) {
+			const parent = context.parentURL;
+			const r = next(
+				specifier,
+				parent?.startsWith('file:') && fileURLToPath(parent).startsWith(MIRROR_DIR)
+					? { ...context, parentURL: as_source(parent) }
+					: context
+			);
+			if (!r.url.startsWith('file:')) return r;
+			const at = r.url.indexOf('?');
+			const to = mirrored(fileURLToPath(at === -1 ? r.url : r.url.slice(0, at)));
+			if (to === null) return r;
+			return { ...r, url: pathToFileURL(to).href + (at === -1 ? '' : r.url.slice(at)) };
+		}
+	});
+}
+
+/** `files` (repository paths) as a run loads them: a core file with macros as its mirror, the code
+ *  a bench counts and core's tests (its vitest macros) run, so an inventory of them names each
+ *  function as their reports do: `$rules(function f …)` is `f`, a maker call the build checked sits
+ *  in its trusted maker (`trustedPassQueue:0`). */
+export function as_run(files: readonly string[]): string[] {
+	return files.map((f) => {
+		const to = mirrored(join(REPO, f));
+		return to === null ? f : relative(REPO, to);
+	});
+}
+
+/** The files of another checkout (`files`, repository paths under `root`) made the form a run
+ *  loads, in place, as {@link as_run} names this checkout's: each core file with macros compiled.
+ *  The files this checkout's macros cannot compile stay as written, and are returned. */
+export function compile_as_run(root: string, files: readonly string[]): string[] {
+	const kept: string[] = [];
+	for (const f of files) {
+		const file = join(REPO, f);
+		if (SVELTE_RE.test(file) || !file.endsWith('.ts') || file.endsWith('.d.ts')) continue;
+		const compile = compiler_of(file);
+		if (compile === null) continue;
+		const at = join(root, f);
+		const code = readFileSync(at, 'utf8');
+		let result: ReturnType<typeof core_compile>;
+		try {
+			result = compile(code, file);
+		} catch (error) {
+			kept.push(`${f}: ${(error as Error).message.split('\n')[0]}`);
+			continue;
+		}
+		if (result !== null && result.code !== code) writeFileSync(at, result.code);
+	}
+	return kept;
+}

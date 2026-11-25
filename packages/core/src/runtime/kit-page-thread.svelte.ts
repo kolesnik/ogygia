@@ -1,5 +1,8 @@
 import { OgygiaError, warn } from '../messages/lazy.ts';
-import { flights, say, scope, STALE, tasks, type Scope } from '@ogygia/machine';
+import { STALE, tasks } from '@ogygia/machine';
+import { kit_boot_said, kit_page_flights } from './kit-page-makers.ts';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { code_url, import_code, type CodeUrl } from './code-origins.ts';
 
 const KIT_PAGE_KEY = Symbol.for('ogygia.kit-page');
@@ -31,52 +34,48 @@ export function kit_page_thread(signal?: AbortSignal): Promise<unknown> | null {
 	return pending.get(undefined, { signal });
 }
 
-const pending = flights({
-	name: 'kit page thread',
-	run: (_: void, signal: AbortSignal) => {
-		const wait = scope();
-		wait.on(signal, 'abort', () => wait.close());
-		return new Promise<void>((resolve, reject) => {
-			const fail = (url: string, error: unknown) => {
+const pending = kit_page_flights((_: void, signal: AbortSignal) => {
+	const wait = life.rootLife();
+	wait.listen(signal, 'abort', () => wait.close());
+	return new Promise<void>((resolve, reject) => {
+		const fail = (url: string, error: unknown) => {
+			wait.close();
+			reject(kit_boot_failed(url, error));
+		};
+		const boot = kit_boot();
+		for (const url of boot.urls) {
+			void wait
+				.task(() => import_code<unknown>(url))
+				.then(
+					(entry) => {
+						if (entry === STALE) return;
+						const nodes = kit_node_loaders(entry);
+						for (const id of boot.node_ids) {
+							const load = nodes?.[id];
+							if (typeof load !== 'function') continue;
+							void wait
+								.task(() => load())
+								.then(undefined, (error: unknown) => fail(`${url} nodes[${id}]`, error));
+						}
+					},
+					(error: unknown) => fail(url, error)
+				);
+		}
+		if (import.meta.env.DEV) {
+			wait.later(() => {
+				warn('kit_page_waiting', {
+					seconds: DEV_STILL_WAITING_MS / 1000,
+					booted: bridge_of() != null
+				});
+			}, DEV_STILL_WAITING_MS);
+		}
+		await_bridge(wait, (bridge) =>
+			await_applied(wait, bridge, () => {
 				wait.close();
-				reject(kit_boot_failed(url, error));
-			};
-			const boot = kit_boot();
-			for (const url of boot.urls) {
-				void wait
-					.task(() => import_code<unknown>(url))
-					.then(
-						(entry) => {
-							if (entry === STALE) return;
-							const nodes = kit_node_loaders(entry);
-							for (const id of boot.node_ids) {
-								const load = nodes?.[id];
-								if (typeof load !== 'function') continue;
-								void wait
-									.task(() => load())
-									.then(undefined, (error: unknown) => fail(`${url} nodes[${id}]`, error));
-							}
-						},
-						(error: unknown) => fail(url, error)
-					);
-			}
-			if (import.meta.env.DEV) {
-				wait.timeout(() => {
-					warn('kit_page_waiting', {
-						seconds: DEV_STILL_WAITING_MS / 1000,
-						booted: bridge_of() != null
-					});
-				}, DEV_STILL_WAITING_MS);
-			}
-			await_bridge(wait, (bridge) =>
-				await_applied(wait, bridge, () => {
-					wait.close();
-					resolve();
-				})
-			);
-		});
-	},
-	keep: 0
+				resolve();
+			})
+		);
+	});
 });
 
 const KIT_BOOT_ASSIGN = /__sveltekit_\w+\s*=/;
@@ -124,16 +123,14 @@ function kit_node_loaders(entry: unknown): NodeLoaders | null {
 	return Array.isArray(app?.nodes) ? app.nodes : null;
 }
 
-const boot_said = say();
-
 function kit_boot_failed(url: string, error: unknown): Error {
 	const failure = new OgygiaError('kit_boot_failed', { url });
 	failure.cause = error;
-	boot_said.once(url, () => console.error(failure, error));
+	kit_boot_said.once(url, () => console.error(failure, error));
 	return failure;
 }
 
-function await_bridge(wait: Scope, cb: (bridge: Bridge) => void): void {
+function await_bridge(wait: Life, cb: (bridge: Bridge) => void): void {
 	const g = globalThis as unknown as Global;
 	if (g[KIT_PAGE_KEY] != null) return cb(g[KIT_PAGE_KEY] as Bridge);
 	let value: unknown;
@@ -163,7 +160,7 @@ function await_bridge(wait: Scope, cb: (bridge: Bridge) => void): void {
 	}
 }
 
-function await_applied(wait: Scope, bridge: Bridge, done: () => void): void {
+function await_applied(wait: Life, bridge: Bridge, done: () => void): void {
 	if (page_applied(bridge)) return done();
 	let ended = false;
 	const end = () => {

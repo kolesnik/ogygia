@@ -2,18 +2,30 @@
 // keeps and adds, the focus and announcer it leaves, the view transition, the sheets it waits for,
 // and every page it hands to the browser instead.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import type { Life } from '@ogygia/machine';
 import { commands } from 'vitest/browser';
 import { it_with_network_routes } from './_browsers.ts';
 import { history_room } from './_history-budget.ts';
 import { in_head } from './_in-head.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { set_remote_seeds } from '../_stubs/boot.remote-seeds.ts';
+import * as remote_seeds from '../../src/runtime/remote-seeds.ts';
+import { hear, hear_none } from '../_hooks.ts';
+import {
+	L_FORMS_RESTORE,
+	L_FORMS_SNAPSHOT,
+	L_FRAMES_STREAM,
+	L_IS_WARMED_MODULE,
+	L_SOFT,
+	L_YIELD_TASK
+} from '../../src/runtime/boot-link-index.ts';
 import { scope } from '@ogygia/machine';
 import { patch } from '../_patch.ts';
+import type { PageGlobals } from '../../src/page-globals.ts';
 
 declare module 'vitest/browser' {
 	interface BrowserCommands {
@@ -77,8 +89,7 @@ let handed_moves: string[];
 
 beforeEach(async () => {
 	await history_room();
-	link_boot();
-	install_morph();
+	init(link_boot());
 	pages = {};
 	fetched.length = 0;
 	asked.length = 0;
@@ -511,9 +522,9 @@ test('an error page the server renders as HTML goes in without a full load', asy
 });
 
 test('a modulepreload for a module the page already warmed is not put in the head again', async () => {
-	const boot = slots.boot!;
-	const real = boot.is_warmed_module;
-	boot.is_warmed_module = (entry) => entry.endsWith('/warm.js');
+	const boot = link_boot();
+	const real = boot[L_IS_WARMED_MODULE];
+	boot[L_IS_WARMED_MODULE] = (entry) => entry.endsWith('/warm.js');
 	pages['/rn-modulepreload'] = {
 		head: '<link rel="modulepreload" href="/_app/warm.js"><link rel="modulepreload" href="/_app/cold.js">',
 		body: '<p>next</p>'
@@ -521,7 +532,7 @@ test('a modulepreload for a module the page already warmed is not put in the hea
 	try {
 		await go('/rn-modulepreload');
 	} finally {
-		boot.is_warmed_module = real;
+		boot[L_IS_WARMED_MODULE] = real;
 	}
 	const hrefs = [...document.head.querySelectorAll('link[rel="modulepreload"]')].map((l) =>
 		l.getAttribute('href')
@@ -553,7 +564,7 @@ test('a navigation whose claim a newer one took fetches nothing', async () => {
 	const nav = await import('../../src/runtime/router-nav.ts');
 	pages['/rn-claimed'] = { body: '<p>next</p>' };
 	r.nav.go('claimed', { href: 'about:first' });
-	const first = r.nav.now;
+	const first = r.nav.epoch;
 	r.nav.go('claimed', { href: 'about:second' });
 	await nav.navigate(r, new URL('/rn-claimed', location.href), r.current_url, {}, first);
 	expect(fetched).toEqual([]);
@@ -606,15 +617,13 @@ it_with_network_routes(
 	'a navigation called off before its swap ends what it started for the next page',
 	async () => {
 		const answer = gate();
-		const visits: { closed: boolean }[] = [];
-		const frames = slots.frames;
-		slots.frames = {
-			...frames,
-			stream: (_endpoints: string[], visit: { closed: boolean }) => {
-				visits.push(visit);
-				return Promise.resolve();
-			}
-		} as never;
+		const visits: Life[] = [];
+		const link = link_boot();
+		const stream = link[L_FRAMES_STREAM];
+		link[L_FRAMES_STREAM] = (_endpoints: string[], visit: Life) => {
+			visits.push(visit);
+			return Promise.resolve();
+		};
 		const held = '/rn-called-off.css';
 		await commands.hold_downloads(held);
 		pages['/rn-called-off'] = {
@@ -634,7 +643,7 @@ it_with_network_routes(
 			await newer;
 			await expect.poll(() => r.nav.now.kind).toBe('idle');
 		} finally {
-			slots.frames = frames;
+			link[L_FRAMES_STREAM] = stream;
 			await commands.keep_downloads(held);
 		}
 	}
@@ -702,9 +711,9 @@ test('a region of the next page names its files against that page’s address', 
 
 test('the transition starts after the build yields its task', async () => {
 	const order: string[] = [];
-	const boot = slots.boot!;
-	const real_yield = boot.yield_task;
-	boot.yield_task = () => {
+	const boot = link_boot();
+	const real_yield = boot[L_YIELD_TASK];
+	boot[L_YIELD_TASK] = () => {
 		order.push('yield');
 		return real_yield();
 	};
@@ -722,7 +731,7 @@ test('the transition starts after the build yields its task', async () => {
 	try {
 		await go('/rn-yield');
 	} finally {
-		boot.yield_task = real_yield;
+		boot[L_YIELD_TASK] = real_yield;
 	}
 	expect(order).toEqual(['yield', 'transition']);
 });
@@ -743,7 +752,7 @@ test('a soft refresh of the page being left never lands on the next page', async
 	answer.open();
 	await soft;
 	expect(document.head.querySelector('meta[name="rn-soft"]')?.getAttribute('content')).toBe('b');
-	expect(slots.boot!.soft.now.kind).toBe('idle');
+	expect(link_boot()[L_SOFT].now.kind).toBe('idle');
 });
 
 test('a commit that fails after it wrote the history entry hands that entry to the browser', async () => {
@@ -767,12 +776,12 @@ test.each([
 ])('an author who opts %s out of the reconcile gets a whole-body swap', async (_, live, next) => {
 	if (live) document.body.setAttribute(live, '');
 	let reconciled: boolean | undefined;
-	slots.hooks = { navigated: (e) => void (reconciled = e.reconciled) };
+	hear({ navigated: (e) => void (reconciled = e.reconciled) });
 	pages['/rn-optout'] = { body: '<p>next</p>', body_attrs: next };
 	try {
 		await go('/rn-optout');
 	} finally {
-		slots.hooks = undefined;
+		hear_none();
 		document.body.removeAttribute('data-og-no-reconcile');
 	}
 	expect(reconciled).toBe(false);
@@ -797,16 +806,14 @@ test('a navigation fires before-swap, after-swap and page-load once each, in ord
 
 test('form continuity: the page left is read before the swap, the next page is given back its fields after', async () => {
 	const calls: string[] = [];
-	const forms = slots.forms;
-	slots.forms = {
-		enabled: true,
-		snapshot: (root, key) =>
-			void calls.push(
-				`snapshot ${key} ${(root as Element).querySelector('#next') ? 'next' : 'first'}`
-			),
-		restore: (key) =>
-			void calls.push(`restore ${key} ${document.getElementById('next') ? 'next' : 'first'}`)
-	};
+	const link = link_boot();
+	const forms = [link[L_FORMS_SNAPSHOT], link[L_FORMS_RESTORE]] as const;
+	link[L_FORMS_SNAPSHOT] = (root, key) =>
+		void calls.push(
+			`snapshot ${key} ${(root as Element).querySelector('#next') ? 'next' : 'first'}`
+		);
+	link[L_FORMS_RESTORE] = (key) =>
+		void calls.push(`restore ${key} ${document.getElementById('next') ? 'next' : 'first'}`);
 	history.replaceState(null, '', '/rn-forms-left');
 	r = new SpaRouter();
 	vi.spyOn(r, 'hand_off').mockImplementation(() => {});
@@ -814,7 +821,7 @@ test('form continuity: the page left is read before the swap, the next page is g
 	try {
 		await go('/rn-forms');
 	} finally {
-		slots.forms = forms;
+		[link[L_FORMS_SNAPSHOT], link[L_FORMS_RESTORE]] = forms;
 	}
 	expect(calls).toEqual(['snapshot /rn-forms-left first', 'restore /rn-forms next']);
 });
@@ -838,17 +845,46 @@ test('a late chunk’s stylesheet goes into the head', async () => {
 
 test('after the swap, the kit remotes the page left are let go', async () => {
 	let released = 0;
-	const remote = slots.remoteSeeds;
 	// (the remote seeds feature, doing nothing but counting its release)
-	slots.remoteSeeds = new Proxy(
-		{},
-		{ get: (_, key) => (key === 'release_remote_instances' ? () => void released++ : () => {}) }
-	) as never;
+	set_remote_seeds(
+		new Proxy(
+			{},
+			{ get: (_, key) => (key === 'release_remote_instances' ? () => void released++ : () => {}) }
+		) as never
+	);
 	pages['/rn-remotes'] = { body: '<p>next</p>' };
 	try {
 		await go('/rn-remotes');
 	} finally {
-		slots.remoteSeeds = remote;
+		set_remote_seeds(remote_seeds);
 	}
 	expect(released).toBe(1);
+});
+
+test('a navigation called off while it waits for the page’s restorer swaps nothing in', async () => {
+	const page = globalThis as PageGlobals;
+	let release!: () => void;
+	page.__og_restore_ready = new Promise<void>((r) => (release = r));
+	pages['/rn-restorer-older'] = { body: '<p id="rn-older">older</p>' };
+	pages['/rn-restorer-newer'] = { body: '<p id="rn-newer">newer</p>' };
+	const seen: string[] = [];
+	const watch = new MutationObserver(() => {
+		if (document.getElementById('rn-older')) seen.push('older');
+	});
+	watch.observe(document.body, { childList: true, subtree: true });
+	try {
+		void r.navigate(new URL('/rn-restorer-older', location.href));
+		await expect.poll(() => fetched.includes('/rn-restorer-older')).toBe(true);
+		const newer = r.navigate(new URL('/rn-restorer-newer', location.href));
+		await expect.poll(() => fetched.includes('/rn-restorer-newer')).toBe(true);
+		release();
+		await newer;
+		await expect.poll(() => r.nav.now.kind).toBe('idle');
+		expect(document.getElementById('rn-newer')).not.toBe(null);
+		expect(seen).toEqual([]);
+		expect(location.pathname).toBe('/rn-restorer-newer');
+	} finally {
+		watch.disconnect();
+		delete page.__og_restore_ready;
+	}
 });

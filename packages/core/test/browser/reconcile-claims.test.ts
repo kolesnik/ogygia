@@ -1,7 +1,7 @@
 // What the navigation's reconcile states about a region's key, a kept region's props and
 // fingerprint, and the ids the body swap lets go, each on its own (runtime/reconcile.ts).
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { morph_children, install as install_morph } from '../../src/runtime/morph.ts';
+import { morph_children } from '../../src/runtime/morph.ts';
 import {
 	fingerprint_of,
 	reconcile_body,
@@ -11,10 +11,9 @@ import {
 import { record_server_body } from '../../src/runtime/ownership.ts';
 import { capture_region_ids } from '../../src/runtime/region-ids.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { dispose_ids, register_kind, resolve } from '../../src/ref.ts';
-
-install_morph();
-link_boot();
+init(link_boot());
 
 function body(html: string): HTMLElement {
 	const b = document.createElement('body');

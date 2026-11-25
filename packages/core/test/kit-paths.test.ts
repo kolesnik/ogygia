@@ -66,3 +66,123 @@ describe('kit_asset', () => {
 		expect(kit_asset('already/relative.js')).toBe('kit:already/relative.js');
 	});
 });
+
+describe('kit_asset within one request', () => {
+	/** Kit 2's `asset()` with relative paths: the page's depth before the path, which `resolve` reads
+	 *  as a route (a `(group)` segment and empty segments dropped, a `[param]` filled). */
+	const kit2 = (depth: string, seen: string[]) => (f: string) => {
+		seen.push(f);
+		const route = `/${f
+			.slice(1)
+			.split('/')
+			.filter((s) => s && !/^\([^)]+\)$/.test(s))
+			.join('/')}`;
+		return depth + route;
+	};
+	async function in_request(asset: (f: string) => string, rules = false) {
+		vi.stubGlobal('__OGYGIA_KIT_MAJOR__', 2);
+		vi.doMock('$app/paths', () => ({ asset }));
+		const m = await import('../src/kit-paths.ts');
+		const request = { id: 1 };
+		const checked: Array<[string, string, string]> = [];
+		m.set_asset_request_reader(
+			() => request,
+			rules ? (path, ours, kits) => void checked.push([path, ours, kits]) : null
+		);
+		return { kit_asset: m.kit_asset, checked, set: m.set_asset_request_reader };
+	}
+	afterEach(() => vi.unstubAllGlobals());
+
+	it('asks Kit once per request, however many URLs, and answers what Kit answers', async () => {
+		const seen: string[] = [];
+		const { kit_asset, checked } = await in_request(kit2('../..', seen));
+		const urls = ['/_app/immutable/a.js', '/_app/immutable/b.js', '/_app/immutable/a.js'];
+		expect(urls.map(kit_asset)).toEqual(urls.map((u) => `../..${u}`));
+		expect(seen).toEqual(['/_app']);
+		expect(checked).toEqual([]);
+	});
+
+	it('another request asks Kit again: its page sits at another depth', async () => {
+		const seen: string[] = [];
+		let depth = '.';
+		const { kit_asset, set } = await in_request((f) => kit2(depth, seen)(f));
+		const one = {};
+		const two = {};
+		set(() => one);
+		expect(kit_asset('/_app/x.js')).toBe('./_app/x.js');
+		depth = '../../..';
+		set(() => two);
+		expect(kit_asset('/_app/x.js')).toBe('../../../_app/x.js');
+		expect(seen).toEqual(['/_app', '/_app']);
+	});
+
+	it('a path Kit would read as more than a path is asked of Kit as it is', async () => {
+		const seen: string[] = [];
+		const { kit_asset } = await in_request(kit2('.', seen));
+		expect(kit_asset('/(shop)/_app/x.js')).toBe('./_app/x.js');
+		expect(kit_asset('/_app//x.js')).toBe('./_app/x.js');
+		expect(kit_asset('/_app/[id]/x.js')).toBe('./_app/[id]/x.js');
+		expect(seen).toEqual(['/(shop)/_app/x.js', '/_app//x.js', '/_app/[id]/x.js']);
+	});
+
+	it('a Kit whose answer is not a prefix and the path is asked for every URL', async () => {
+		const seen: string[] = [];
+		const { kit_asset } = await in_request((f) => (seen.push(f), `${f}?v=1`));
+		expect(kit_asset('/_app/a.js')).toBe('/_app/a.js?v=1');
+		expect(kit_asset('/_app/b.js')).toBe('/_app/b.js?v=1');
+		expect(seen).toEqual(['/_app', '/_app/a.js', '/_app/b.js']);
+	});
+
+	it('outside a request every URL is asked of Kit', async () => {
+		const seen: string[] = [];
+		const { kit_asset, set } = await in_request(kit2('.', seen));
+		set(() => null);
+		kit_asset('/_app/a.js');
+		kit_asset('/_app/a.js');
+		expect(seen).toEqual(['/_app/a.js', '/_app/a.js']);
+	});
+
+	it("a URL made from the prefix that Kit's asset() answers otherwise breaks rule_asset_not_prefixed", async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.stubGlobal('__OGYGIA_KIT_MAJOR__', 2);
+		let base = '/base';
+		vi.doMock('$app/paths', () => ({ asset: (f: string) => base + f }));
+		const paths = await import('../src/kit-paths.ts');
+		const rules = await import('../src/server/rules.ts');
+		rules.install_server_rules();
+		const request = {};
+		paths.set_asset_request_reader(() => request, rules.note_kit_asset);
+		const tick = () => new Promise((r) => setTimeout(r, 5));
+		expect(paths.kit_asset('/_app/a.js')).toBe('/base/_app/a.js');
+		await tick();
+		expect(rules.server_rules.broken()).toEqual([]);
+		// (Kit's answer moves within the request: the prefix asked once no longer is Kit's)
+		base = '/moved';
+		expect(paths.kit_asset('/_app/b.js')).toBe('/base/_app/b.js');
+		await tick();
+		expect(rules.server_rules.broken()).toEqual([
+			{
+				code: 'rule_asset_not_prefixed',
+				detail: "/_app/b.js: /base/_app/b.js, Kit's /moved/_app/b.js"
+			}
+		]);
+		expect(warn.mock.calls.some((c) => String(c[0]).includes('rule_asset_not_prefixed'))).toBe(
+			true
+		);
+		paths.set_asset_request_reader(null);
+		warn.mockRestore();
+	});
+
+	it("with rules on, each URL made from the prefix is checked against Kit's own", async () => {
+		const seen: string[] = [];
+		let base = '/base';
+		const { kit_asset, checked } = await in_request((f) => (seen.push(f), base + f), true);
+		expect(kit_asset('/_app/a.js')).toBe('/base/_app/a.js');
+		base = '/moved';
+		expect(kit_asset('/_app/b.js')).toBe('/base/_app/b.js');
+		expect(checked).toEqual([
+			['/_app/a.js', '/base/_app/a.js', '/base/_app/a.js'],
+			['/_app/b.js', '/base/_app/b.js', '/moved/_app/b.js']
+		]);
+	});
+});

@@ -5,9 +5,12 @@
 // response" in every one (Firefox gives it a response start, with a status of 0).
 import { afterEach, expect, it, vi } from 'vitest';
 import { commands } from 'vitest/browser';
+import { Downloads } from '@ogygia/tooling/vitest/downloads';
 import { PLAYWRIGHT, it_with_network_routes } from './_browsers.ts';
 import { import_file, response_of } from '../../src/runtime/import-again.ts';
 import { code_url_or_refuse } from '../../src/runtime/code-origins.ts';
+
+const downloads = new Downloads();
 
 declare module 'vitest/browser' {
 	interface BrowserCommands {
@@ -50,9 +53,7 @@ it('a file whose timing entry lands after its failed import is not asked again (
 	} finally {
 		spy.mockRestore();
 	}
-	const asked = performance
-		.getEntriesByType('resource')
-		.filter((e) => e.name.includes('Late404.js'));
+	const asked = downloads.named('Late404.js');
 	expect(asked.filter((e) => e.name.includes('og-retry'))).toHaveLength(0);
 });
 
@@ -73,8 +74,6 @@ it('a file whose timing entry lands well after its failed import is not asked ag
 	} finally {
 		spy.mockRestore();
 	}
-	const asked = performance
-		.getEntriesByType('resource')
-		.filter((e) => e.name.includes('Later404.js'));
+	const asked = downloads.named('Later404.js');
 	expect(asked.filter((e) => e.name.includes('og-retry'))).toHaveLength(0);
 });

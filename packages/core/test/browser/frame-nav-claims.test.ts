@@ -11,7 +11,7 @@ import { _reset, is_idle, peek, subscribe } from '../_frames.ts';
 import { frameAddress } from '../../src/frame.ts';
 import { build_parcel } from '../../src/server/stream-regions.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { hear, hear_none } from '../_hooks.ts';
 import type { HoleBatchMissedEvent } from '../../src/contract/runtime-hooks.ts';
 
 const ep = (sig: string) => `/__ogygia__?id=bbbbbbbbbbbb&props=${sig}&exp=9999999999&sig=${sig}`;
@@ -53,12 +53,12 @@ function answer(
 let missed: HoleBatchMissedEvent[] = [];
 beforeEach(() => {
 	missed = [];
-	slots.hooks = { holeBatchMissed: (e) => void missed.push(e) };
+	hear({ holeBatchMissed: (e) => void missed.push(e), holeAnswered: () => {} });
 });
 afterEach(() => {
 	vi.useRealTimers();
 	vi.restoreAllMocks();
-	slots.hooks = undefined;
+	hear_none();
 	_reset();
 });
 

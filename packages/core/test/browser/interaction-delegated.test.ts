@@ -3,6 +3,7 @@
 // region are what its own capture listeners gave it: first event wakes (once), clicks before the
 // island is live are canceled and queued, the pointer crossing in warms once, disarm forgets it.
 import { expect, test } from 'vitest';
+import { lifeOf } from '@ogygia/machine';
 import { scope } from '@ogygia/machine';
 import { arm_interaction } from '../../src/runtime/interaction.ts';
 
@@ -32,7 +33,7 @@ test('an event inside an armed region wakes THAT region only, once; the pointer 
 			fired.one++;
 			return live.promise;
 		},
-		page
+		lifeOf(page)
 	);
 	arm_interaction(
 		two,
@@ -41,7 +42,7 @@ test('an event inside an armed region wakes THAT region only, once; the pointer 
 			fired.two++;
 			return live.promise;
 		},
-		page
+		lifeOf(page)
 	);
 
 	const btn = two.querySelector('button')!;
@@ -74,7 +75,7 @@ test('a nested region that is not armed hands the event to the armed region abov
 		outer,
 		() => {},
 		() => void fired++,
-		page
+		lifeOf(page)
 	);
 	inner.querySelector('button')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 	expect(fired).toBe(1);
@@ -88,7 +89,7 @@ test('disarm forgets the region: later events pass through untouched', () => {
 		gone,
 		() => {},
 		() => void fired++,
-		page
+		lifeOf(page)
 	);
 	disarm();
 	const click = new MouseEvent('click', { bubbles: true, cancelable: true });
@@ -108,7 +109,7 @@ test('a SCHEDULED island is armed the same way: a click before it is live is can
 			fired++;
 			return new Promise<void>(() => {});
 		},
-		page
+		lifeOf(page)
 	);
 	const click = new MouseEvent('click', { bubbles: true, cancelable: true });
 	el.querySelector('button')!.dispatchEvent(click);
@@ -127,7 +128,7 @@ test('a live island inside a sleeping one keeps its clicks', () => {
 		() => {
 			fired++;
 		},
-		page
+		lifeOf(page)
 	);
 	const click = new MouseEvent('click', { bubbles: true, cancelable: true });
 	document.querySelector('#inner button')!.dispatchEvent(click);
@@ -152,7 +153,7 @@ test('a click that reaches an island already live (woken by its pointerdown) act
 			el.setAttribute('data-hydrated', '');
 			void Promise.resolve(r).then(() => woke());
 		},
-		page
+		lifeOf(page)
 	);
 	// one press: its pointerdown wakes the island, and its click lands once the island is live
 	btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
@@ -179,7 +180,7 @@ test("a page's own click listener hears an early click once, as its replay when 
 		el,
 		() => {},
 		() => live.promise,
-		page
+		lifeOf(page)
 	);
 	btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 	btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -211,7 +212,7 @@ test("a page's own click listener hears an early click once when the island fail
 			el,
 			() => {},
 			() => failed,
-			page
+			lifeOf(page)
 		);
 		btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 		btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -237,7 +238,7 @@ test('what a visitor typed before the wake survives hydration replacing the node
 			el.innerHTML = '<input value="">';
 			return live.promise;
 		},
-		page
+		lifeOf(page)
 	);
 	el.querySelector('input')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 	live.resolve();
@@ -257,7 +258,7 @@ test('a click inside an open shadow root replays on the node it hit, not on the 
 		el,
 		() => {},
 		() => live.promise,
-		page
+		lifeOf(page)
 	);
 	deep.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true }));
 	deep.addEventListener('click', () => heard++);
@@ -272,7 +273,7 @@ test('a click that opens a link elsewhere is never canceled (an untrusted replay
 		el,
 		() => {},
 		() => new Promise<void>(() => {}),
-		page
+		lifeOf(page)
 	);
 	const a = el.querySelector('a')!;
 	// read on the link itself — after the document's capture listener ran, before the test cancels the
@@ -306,7 +307,7 @@ test('a key or a focus inside an armed region wakes it: a keyboard visitor never
 				fired.key++;
 				return new Promise<void>(() => {});
 			},
-			page
+			lifeOf(page)
 		),
 		arm_interaction(
 			document.getElementById('by-focus')!,
@@ -315,7 +316,7 @@ test('a key or a focus inside an armed region wakes it: a keyboard visitor never
 				fired.focus++;
 				return new Promise<void>(() => {});
 			},
-			page
+			lifeOf(page)
 		)
 	];
 	document
@@ -339,7 +340,7 @@ test('the element focused at the wake has focus again once hydration replaced it
 			el.innerHTML = '<input><button>go</button>';
 			return live.promise;
 		},
-		page
+		lifeOf(page)
 	);
 	el.querySelector('button')!.focus();
 	live.resolve();

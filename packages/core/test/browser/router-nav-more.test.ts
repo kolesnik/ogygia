@@ -1,23 +1,26 @@
 // A CLIENT NAVIGATION'S EDGES (runtime/router-nav.ts): scroll and its hold on a back step, the
 // head's order and policy tags, the sheets it waits for, its hole batch, and the soft refresh.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { lifeOf } from '@ogygia/machine';
 import { commands } from 'vitest/browser';
 import { scope } from '@ogygia/machine';
 import { it_with_network_routes } from './_browsers.ts';
 import { history_room } from './_history-budget.ts';
 import { in_head } from './_in-head.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { connected_regions } from '../../src/runtime/connected.ts';
-import { install as install_morph } from '../../src/runtime/morph.ts';
 import { hold_scroll } from '../../src/runtime/router-nav.ts';
 import { SpaRouter } from '../../src/runtime/router.ts';
 import { prepare_spa_document } from '../../src/runtime/seeds.ts';
 import { runtime_session } from '../../src/runtime/session.ts';
-import { slots } from '../../src/runtime/slots.ts';
+import { L_FRAMES_STREAM } from '../../src/runtime/boot-link-index.ts';
+import { hear, hear_none } from '../_hooks.ts';
 import { patch } from '../_patch.ts';
 
 declare module 'vitest/browser' {
 	interface BrowserCommands {
+		drop_downloads(path: string, times: number): Promise<void>;
 		hold_downloads(path: string): Promise<void>;
 		keep_downloads(path: string): Promise<void>;
 	}
@@ -73,8 +76,7 @@ let handed: string[];
 
 beforeEach(async () => {
 	await history_room();
-	link_boot();
-	install_morph();
+	init(link_boot());
 	pages = {};
 	fetched.length = 0;
 	handed = [];
@@ -180,11 +182,20 @@ test('the new page’s preload links are read once it is in', async () => {
 });
 
 test('a kept island’s head copies are retired once the swap has settled which islands stayed', async () => {
-	const retire = vi.spyOn(runtime_session, 'retire_page_head_copies');
-	pages['/rn-retire'] = { body: '<p>next</p>' };
+	const live = document.createElement('meta');
+	live.setAttribute('name', 'rn-island');
+	live.setAttribute('content', 'kept');
+	document.head.append(live);
+	runtime_session.island_head.add(live);
+	pages['/rn-retire'] = {
+		head: '<meta name="rn-island" content="kept">',
+		body: '<p>next</p>'
+	};
 	await go('/rn-retire');
-	expect(retire).toHaveBeenCalled();
-	retire.mockRestore();
+	expect(document.head.querySelectorAll('meta[name="rn-island"]')).toHaveLength(1);
+	expect(live.isConnected).toBe(true);
+	runtime_session.island_head.delete(live);
+	live.remove();
 });
 
 test('a region inside a shadow root makes the navigation a whole-body swap', async () => {
@@ -196,12 +207,12 @@ test('a region inside a shadow root makes the navigation a whole-body swap', asy
 	const life = scope();
 	connected_regions.add(inner, life);
 	let reconciled: boolean | undefined;
-	slots.hooks = { navigated: (e) => void (reconciled = e.reconciled) };
+	hear({ navigated: (e) => void (reconciled = e.reconciled) });
 	pages['/rn-shadow'] = { body: '<p>next</p>' };
 	try {
 		await go('/rn-shadow');
 	} finally {
-		slots.hooks = undefined;
+		hear_none();
 		life.close();
 	}
 	expect(reconciled).toBe(false);
@@ -243,15 +254,30 @@ test('a next-page head node with nothing before it goes in at the top of the hea
 	expect(document.head.firstElementChild?.getAttribute('name')).toBe('ogygia-router');
 });
 
-test('a next-page sheet that fails to load does not hold the swap to the cap', async () => {
-	pages['/rn-sheet-404'] = {
-		head: '<link rel="stylesheet" href="/rn-no-such-sheet.css">',
-		body: '<p id="next">next</p>'
-	};
-	const t0 = performance.now();
-	await go('/rn-sheet-404');
-	expect(performance.now() - t0).toBeLessThan(1_500);
-});
+it_with_network_routes(
+	'a next-page sheet that fails to load does not hold the swap to the cap',
+	async () => {
+		const failing = '/rn-no-such-sheet.css';
+		await commands.drop_downloads(failing, 1);
+		let failed_at = 0;
+		const heard = (e: Event) => {
+			if ((e.target as Element).getAttribute?.('href') === failing) failed_at = performance.now();
+		};
+		document.addEventListener('error', heard, true);
+		pages['/rn-sheet-404'] = {
+			head: `<link rel="stylesheet" href="${failing}">`,
+			body: '<p id="next">next</p>'
+		};
+		try {
+			await go('/rn-sheet-404');
+		} finally {
+			document.removeEventListener('error', heard, true);
+			await commands.keep_downloads(failing);
+		}
+		expect(failed_at).toBeGreaterThan(0);
+		expect(performance.now() - failed_at).toBeLessThan(1_000);
+	}
+);
 
 it_with_network_routes('a disabled next-page sheet is not waited for', async () => {
 	const held = '/rn-sheet-disabled.css';
@@ -294,14 +320,12 @@ it_with_network_routes(
 
 test('only the next page’s load-timed holes join the navigation’s batch', async () => {
 	const asked: string[][] = [];
-	const frames = slots.frames;
-	slots.frames = {
-		...frames,
-		stream: (endpoints: string[]) => {
-			asked.push(endpoints);
-			return Promise.resolve();
-		}
-	} as never;
+	const link = link_boot();
+	const stream = link[L_FRAMES_STREAM];
+	link[L_FRAMES_STREAM] = (endpoints: string[]) => {
+		asked.push(endpoints);
+		return Promise.resolve();
+	};
 	const ep = (id: string) => `/__ogygia__?id=${id}&props=W3t9XQ&exp=9999999999&sig=stub`;
 	pages['/rn-batch'] = {
 		body: `<ogygia-region render="defer" endpoint="${ep('load')}"></ogygia-region><ogygia-region render="defer" when="visible" endpoint="${ep('visible')}"></ogygia-region>`
@@ -309,7 +333,7 @@ test('only the next page’s load-timed holes join the navigation’s batch', as
 	try {
 		await go('/rn-batch');
 	} finally {
-		slots.frames = frames;
+		link[L_FRAMES_STREAM] = stream;
 	}
 	expect(asked).toEqual([[ep('load')]]);
 });
@@ -361,7 +385,7 @@ test('the hold gives the page its scroll anchoring back when it ends', async () 
 	document.body.innerHTML = TALL;
 	document.documentElement.style.overflowAnchor = 'auto';
 	const visit = scope();
-	hold_scroll({ x: 0, y: 900 }, visit);
+	hold_scroll({ x: 0, y: 900 }, lifeOf(visit));
 	expect(holding()).toBe(true);
 	visit.close();
 	expect(document.documentElement.style.overflowAnchor).toBe('auto');
@@ -371,7 +395,7 @@ test('a visit already over holds nothing', () => {
 	document.body.innerHTML = TALL;
 	const visit = scope();
 	visit.close();
-	hold_scroll({ x: 0, y: 900 }, visit);
+	hold_scroll({ x: 0, y: 900 }, lifeOf(visit));
 	expect(scrollY).toBeCloseTo(900, 0);
 	expect(holding()).toBe(false);
 });
@@ -379,7 +403,7 @@ test('a visit already over holds nothing', () => {
 test('the visitor’s wheel ends the hold', async () => {
 	document.body.innerHTML = `<ogygia-region entry="/never.js" wake="load"></ogygia-region>${TALL}`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 900 }, visit);
+	hold_scroll({ x: 0, y: 900 }, lifeOf(visit));
 	expect(holding()).toBe(true);
 	window.dispatchEvent(new WheelEvent('wheel'));
 	expect(holding()).toBe(false);
@@ -389,7 +413,7 @@ test('the visitor’s wheel ends the hold', async () => {
 test('the app’s own scroll ends the hold', async () => {
 	document.body.innerHTML = `<ogygia-region entry="/never.js" wake="load"></ogygia-region>${TALL}`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 900 }, visit);
+	hold_scroll({ x: 0, y: 900 }, lifeOf(visit));
 	scrollTo(0, 100);
 	await frame();
 	expect(holding()).toBe(false);
@@ -399,7 +423,7 @@ test('the app’s own scroll ends the hold', async () => {
 test('a page too short for the saved place is held at its bottom, and taken there once it grows', async () => {
 	document.body.innerHTML = `<ogygia-region entry="/never.js" wake="load"></ogygia-region><div id="grow" style="height: 1500px"></div>`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 3000 }, visit);
+	hold_scroll({ x: 0, y: 3000 }, lifeOf(visit));
 	await frame();
 	await frame();
 	expect(holding()).toBe(true);
@@ -439,7 +463,7 @@ test.each([
 ])('%s: the hold waits for it: %s', async (_, html, waits) => {
 	document.body.innerHTML = `${html}${TALL}`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 1200 }, visit);
+	hold_scroll({ x: 0, y: 1200 }, lifeOf(visit));
 	await frame();
 	await frame();
 	await frame();
@@ -450,7 +474,7 @@ test.each([
 test('a region inside another region above wakes with it: the hold ends when the outer one has', async () => {
 	document.body.innerHTML = `<ogygia-region id="outer" entry="/never.js" wake="load" style="display:block;height:20px"><ogygia-region entry="/never-inner.js" wake="load"></ogygia-region></ogygia-region>${TALL}`;
 	const visit = scope();
-	hold_scroll({ x: 0, y: 1200 }, visit);
+	hold_scroll({ x: 0, y: 1200 }, lifeOf(visit));
 	const outer = document.getElementById('outer')!;
 	outer.setAttribute('data-hydrated', '');
 	outer.dispatchEvent(new CustomEvent('ogygia:hydrated', { bubbles: true }));

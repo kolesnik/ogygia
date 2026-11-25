@@ -5,11 +5,17 @@
 //
 // The download fails for real, at the network (the `drop_downloads` command: Playwright's
 // `route.abort`). Its own file: the refresh's load is module state.
-import { afterEach, expect } from 'vitest';
+import { afterAll, afterEach, beforeAll, expect } from 'vitest';
 import { commands } from 'vitest/browser';
 import { it_with_named_import_failures } from './_browsers.ts';
 import { boot } from '../../src/runtime/core.ts';
-import * as mpa_nav from '../../src/runtime/nav-handle.ts';
+import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
+import { F_ROUTER } from '../../src/contract/features.ts';
+
+// a build whose marks left the router out: its boot publishes the MPA handle
+const ALL = HAS;
+beforeAll(() => set_feature_word(ALL & ~F_ROUTER));
+afterAll(() => set_feature_word(ALL));
 
 declare module 'vitest/browser' {
 	interface BrowserCommands {
@@ -27,7 +33,7 @@ it_with_named_import_failures(
 	'without the router, a refresh whose code failed to download loads it on the next refresh',
 	async () => {
 		delete scope[NAV];
-		boot([mpa_nav.install]);
+		boot();
 		const handle = scope[NAV]!;
 		const invalidate_all = handle.invalidateAll as () => Promise<void>;
 

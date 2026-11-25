@@ -5,7 +5,9 @@
  *      (catches the classic break: an export pointing at a dist file the `files` field never shipped);
  *   2. every JS subpath has a `types` target (a consumer gets IntelliSense for it);
  *   3. server-safe subpaths actually `import()` from the packed package under Node;
- *   4. every subpath's types resolve for a consumer (and each types-only subpath's reference).
+ *   4. every subpath's types resolve for a consumer (and each types-only subpath's reference);
+ *   5. no macro of ogygia's build ships: none left in its JS or named in its `.d.ts`, and no macro
+ *      package among its dependencies (internal/macros `packed_problems`).
  *
  * Run against the current build: `node scripts/verify-package.ts [package dir]` — core by default.
  * `ogygia` (packages/ogygia) is a thin package over `@ogygia/core`: its workspace dependencies are
@@ -17,6 +19,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { packed_problems, type PackedFile } from 'ogygia-internal-macros/packed';
 import { dedent } from '../src/contract/dedent.ts';
 
 /** A subpath's condition map (`types` / `svelte` / `default` → file); every export here is flat. */
@@ -27,6 +30,8 @@ type Manifest = {
 	exports: Exports;
 	publishConfig?: { exports?: Exports };
 	dependencies?: Record<string, string>;
+	peerDependencies?: Record<string, string>;
+	optionalDependencies?: Record<string, string>;
 };
 
 const pkg_root = path.resolve(process.argv[2] ?? path.join(import.meta.dirname, '..'));
@@ -228,6 +233,23 @@ try {
 		`consumer types do not resolve:\n    ${(ours.length ? ours : out.split('\n')).slice(0, 6).join('\n    ')}`
 	);
 }
+
+// 5. No macro ships: every packed JS and declaration file, and the published dependency lists.
+note('▸ macros (none left in JS or declarations, no macro package depended on) …');
+const packed: PackedFile[] = [];
+const read_packed = (dir: string): void => {
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		const abs = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			if (entry.name !== 'node_modules') read_packed(abs);
+		} else if (/\.(?:[cm]?js|d\.[cm]?ts)$/.test(entry.name))
+			packed.push({ path: path.relative(root, abs), text: fs.readFileSync(abs, 'utf8') });
+	}
+};
+read_packed(root);
+const macro_problems = packed_problems(packed, manifest);
+fail.push(...macro_problems);
+note(`  read ${packed.length} JS and declaration files: ${macro_problems.length} problem(s)`);
 
 fs.rmSync(work, { recursive: true, force: true });
 for (const t of tarballs) fs.rmSync(t, { force: true });

@@ -18,36 +18,27 @@
  *
  * @packageDocumentation
  */
-import { render } from 'svelte/server';
 import { clock, say, slot as shared, STALE } from '@ogygia/machine';
-import type { Component } from 'svelte';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { Handle } from './kit-handle.ts';
 import { KitRequestStore, type RequestState } from './server/kit-request-store.ts';
 import { live_event } from './server/live-event.ts';
 import { transport as app_transport } from 'ogygia:region';
-import * as devalue from 'devalue';
 import {
-	load_server_regions,
-	region_url,
-	region_name,
+	HAS,
 	region_reads_page_data,
-	render_region,
-	region_css,
 	fn_manifest,
-	create_remote_key,
 	rate_limit,
-	session_cookie,
 	router_enabled,
 	view_transitions,
 	route_config,
 	runtime_url,
 	devtools_boot_url,
 	server_plugins,
+	server_plugin_count,
 	handoff_problem
 } from 'ogygia:server';
 import { dev_hmr_url } from './dev-hmr-url.ts';
-import { REGION_BRAND } from './region-brand.ts';
 import { signing_key, configure_signing_secret } from './server/signing-key.ts';
 import { mpaSpeculationRules } from './server/speculation.ts';
 import { fn_manifest_script } from './server/fn-manifest-script.ts';
@@ -55,53 +46,27 @@ import { set_page_route_config } from './plugin/routes.ts';
 import {
 	set_kit_page_reader,
 	set_kit_event_reader,
-	set_render_page_port,
-	kit_page_ready,
-	kit_page_facts_tail
+	set_render_page_port
 } from './server/kit-context.ts';
-import { hole_answer_context } from './server/answer-context.ts';
 import { PAGE_FACTS_HEADER, PAGE_FACTS_ROUTE_HEADER } from './server/page-facts.ts';
 import {
 	configure_render_page,
 	note_render_page_ask,
-	page_url_of,
 	prepare_render_page,
 	render_page,
 	render_page_facts_script,
 	render_page_version
 } from './server/render-page.ts';
-import { absolutize_hole_html } from './server/hole-urls.ts';
-import { read_capped } from './server/capped-body.ts';
-import { KEEP_FALLBACK_HTML, is_keep_fallback } from './keep-fallback.ts';
 import { set_source_recorder } from './source.ts';
 import { building, dev } from '$app/env';
-import { kit_asset } from './kit-paths.ts';
-import {
-	sign,
-	verify,
-	region_sign,
-	region_verify,
-	type RegionClaim,
-	secret_has_min_entropy,
-	MIN_SECRET_BYTES
-} from './server/hmac.ts';
-import { expiry_refusal, note_cache_control } from './server/shared-cache.ts';
+import { kit_asset, set_asset_request_reader } from './kit-paths.ts';
+import { sign, verify, secret_has_min_entropy, MIN_SECRET_BYTES } from './server/hmac.ts';
+import { note_cache_control } from './server/cache-control.ts';
 import { app_lifetime, server_delta_on } from './server/region-endpoint.ts';
-import { region_request, type RegionRequest } from './server/region-request.ts';
-import { render_cache_key, cached_render, type RenderKey } from './server/render-cache.ts';
-import { render as render_policy } from './policies.ts';
-import { install_server_rules, note_region_answer } from './server/rules.ts';
-import { B64Url } from './server/payload.ts';
-import {
-	REF_WIRE_KEY,
-	ref_names,
-	ref_reviver,
-	set_ref_names_reader,
-	type RefNames
-} from './ref.ts';
+import { install_server_rules, note_kit_asset, note_region_answer } from './server/rules.ts';
+import { ref_names, set_ref_names_reader, type RefNames } from './ref.ts';
 import type { RequestContext } from './plugin/index.ts';
 import { current_facts, facts_of, set_current_request, type RequestFacts } from './plugin/facts.ts';
-import { observe_reads } from './plugin/reads.ts';
 import {
 	around,
 	end_request,
@@ -111,91 +76,55 @@ import {
 } from './plugin/server.ts';
 import type { HtmlPass } from './plugin/index.ts';
 import { end_request_scope, own_response, request_scope } from './plugin/request-scope.ts';
-import { register_wire_kind } from './live-transport.ts';
-import { register_store_kind, register_derived_kind } from './store-transport.ts';
-import { register_snippet_kind } from './region-snippet.ts';
 import { SnippetRender } from './snippet-render.ts';
-import { register_fn_kind } from './fn-transport.ts';
 import {
-	capability_query,
 	configure_islands_endpoint,
 	islands_endpoint,
-	is_islands_endpoint,
-	MAX_REGION_PROPS_LEN,
-	REGION_CAPABILITY_VERSION,
-	is_region_id,
-	is_region_ttl,
-	is_signed_number,
-	REGION_EXP_DIGITS
+	is_islands_endpoint
 } from './server/endpoint.ts';
-import { batch_stream } from './server/stream-regions.ts';
+import { IslandsEndpoint } from './server/islands-endpoint.ts';
 import {
-	page_declares_router_meta,
-	page_declares_runtime_script,
-	page_declares_dev_hmr_script,
-	page_declares_speculation_rules,
-	dedupe_head_links,
-	runtime_first
-} from './server/head-presence.ts';
-import { code_origins } from './plugin/hooks.ts';
-import { locate, assemble } from './server/document-assembly.ts';
-import { error_route_is_csr_true, route_is_csr_true, take_early_holes } from './context.ts';
-import { early_holes_head } from './early-holes-head.ts';
+	client_ip,
+	over_budget,
+	region_denied,
+	region_response
+} from './server/region-response.ts';
+import { F_CONTEXT, F_FRAMES, F_PAGE, F_REMOTE_SEEDS } from './contract/features.ts';
+import { HeadTags } from './server/head-presence.ts';
+import { page_code_origins } from './server/page-code-origins.ts';
+import { assemble, ogygia_script, rope } from './server/document-assembly.ts';
+import {
+	remote_seed_script,
+	ship_page_seed,
+	walk_page_seed,
+	type ShippedSeed
+} from './server/document-seeds.ts';
+import { install_page_context, page_ctx_script } from './server/page-context.ts';
+import { error_route_is_csr_true, route_is_csr_true } from './context.ts';
+import { early_holes_head, take_early_holes } from './early-holes-head.ts';
 import {
 	add_early_holes_csp,
+	EARLY_CODE_SOURCE,
 	EARLY_HOLES_SOURCE,
 	with_early_holes_meta_csp
 } from './server/early-holes-csp.ts';
 import { kit_gate, kit_start_ungated } from './server/kit-gate.ts';
-import {
-	merge_seed_ask,
-	shape_page_data,
-	unshipped_attr,
-	type SeedKeys
-} from './server/seed-shape.ts';
-import { html_has_kit_bootstrap } from './server/html-scan.ts';
-import { hole_head } from './server/hole-graph.ts';
+import { merge_seed_ask, type SeedKeys } from './server/seed-shape.ts';
+import { html_has_kit_bootstrap, marks_critical } from './server/html-scan.ts';
 import { RateLimiter, is_shared_address } from './server/rate-limit.ts';
-import { PageSeed } from './server/page-seed.ts';
-import { analyze, SeedIndex, set_measure_memo_reader, type MeasureMemo } from './seed-refs.ts';
-import { WIRE_FORMAT_JSON } from './server/props-wire.ts';
-import {
-	OG_FORMAT,
-	OGYGIA_DEV_HMR,
-	OGYGIA_DEVTOOLS_BOOT,
-	OGYGIA_PAGE,
-	OGYGIA_PROVIDE_PAGE,
-	OGYGIA_SPECULATE
-} from './wire-markup.ts';
-import { body_end, head_end } from './markup-walk.ts';
-import {
-	stage_deferred,
-	settle_deferred,
-	page_seed_reducers,
-	stream_page_deferred,
-	type Deferred
-} from './server/page-stream.ts';
-import { PAGE_DEFER_BOOTSTRAP } from './page-defer.ts';
-import {
-	ConcurrencyGate,
-	REGION_RENDER_CONCURRENCY,
-	is_run_timeout
-} from './runtime/concurrency.ts';
-import { stringify } from 'devalue';
-import { serialize_provided_context } from './context-bridge.ts';
+import { analyze, MeasureMemo, set_measure_memo_reader } from './seed-refs.ts';
+import { OGYGIA_DEV_HMR, OGYGIA_DEVTOOLS_BOOT, OGYGIA_SPECULATE } from './wire-markup.ts';
+import { body_end, head_end, read_head } from './markup-walk.ts';
+import { stream_page_deferred, type Deferred } from './server/page-stream.ts';
 import { escape_amp_quot, escape_script_text } from './escape.ts';
-import { hole_copy_key } from './contract/hash.ts';
-import { set_ctx_recorder, set_ctx_script_reader } from './context-registry.ts';
 import {
 	set_ask_scope_opener,
 	set_page_recorder,
 	set_seed_ask_reader,
 	type PageSnapshot
 } from './page-seed-registry.ts';
-import { collect_remote_seed } from './server/remote-seed-gate.ts';
 import { DocumentTail, set_tail_reader } from './server/document-tail.ts';
 import { runtime_bootstrap } from './server/entry-location.ts';
-import { region_css_tag } from './server/region-css.ts';
 import {
 	set_late_recorder,
 	set_late_scope_opener,
@@ -204,9 +133,6 @@ import {
 } from './late-region-registry.ts';
 import {
 	record_request_stats,
-	record_hole_stats,
-	record_batch_hole_stats,
-	has_batch_hole_listener,
 	request_stats_detailed,
 	request_stats_wanted,
 	type SeedKeyStat
@@ -235,7 +161,6 @@ import { mark_personal } from './server/personal-response.ts';
 import { OgygiaError, warn } from './messages/server.ts';
 import { ERRORS, WARNINGS } from './messages/core.ts';
 import { define_messages, dev_or_prerender } from './contract/messages.ts';
-import { ask } from './plugin/hooks.ts';
 
 (globalThis as unknown as Record<symbol, unknown>)[Symbol.for('ogygia.prerendering')] = building;
 (globalThis as unknown as Record<symbol, unknown>)[Symbol.for('ogygia.messages')] ??=
@@ -253,8 +178,6 @@ function devtools_switch(event: RequestEvent): boolean {
 	else event.cookies.delete(DEVTOOLS_COOKIE, { path: '/' });
 	return want;
 }
-
-const MAX_REGION_BODY = 2_000_000;
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 const DEVTOOLS_LAZY =
@@ -293,19 +216,7 @@ function bag_of(): RequestBag | undefined {
 	const request = live_event()?.request;
 	return request ? bags.get(request) : undefined;
 }
-const request_ctx = shared<WeakMap<Request, Map<string, unknown>>>({
-	name: 'ogygia.request-context',
-	version: 1,
-	make: () => new WeakMap()
-});
-set_ctx_recorder((key, value) => {
-	const request = live_event()?.request;
-	if (!request) return;
-	let ctx = request_ctx.get(request);
-	if (ctx === undefined) request_ctx.set(request, (ctx = new Map()));
-	ctx.set(key, value);
-});
-set_ctx_script_reader(() => page_ctx_script(live_event()?.request));
+if (HAS & F_CONTEXT) install_page_context();
 const doc_asks = shared<WeakMap<Request, SeedKeys | null>>({
 	name: 'ogygia.document-asks',
 	version: 1,
@@ -341,16 +252,19 @@ set_page_recorder((snapshot, seed, remotes, entry) => {
 	// the answer carries those keys of the looked-up page (server/render-page.ts)
 	const event = live_event();
 	if (event && note_render_page_ask(event, seed)) return;
+	const asks = HAS & F_PAGE && seed !== false;
 	const bag = bag_of();
 	if (!bag) {
 		const request = request_of();
-		if (request && doc_asks.has(request) && seed !== false)
+		if (asks && request && doc_asks.has(request))
 			doc_asks.set(request, merge_seed_ask(doc_asks.get(request) ?? null, seed));
 		return;
 	}
+	const first = bag.page === null;
 	bag.page = { ...bag.page, ...snapshot };
-	if (seed !== false) bag.seed_keys = merge_seed_ask(bag.seed_keys, seed);
-	if (bag.seed_asks && entry && seed !== false) bag.seed_asks.set(entry, seed);
+	if (HAS & F_PAGE && first) walk_page_seed(bag.page.data, bag.measure_memo);
+	if (asks) bag.seed_keys = merge_seed_ask(bag.seed_keys, seed);
+	if (asks && bag.seed_asks && entry) bag.seed_asks.set(entry, seed);
 	if (remotes === null) bag.remotes_wanted = null;
 	else if (bag.remotes_wanted) for (const h of remotes) bag.remotes_wanted.add(h);
 });
@@ -359,6 +273,7 @@ set_measure_memo_reader(() => bag_of()?.measure_memo ?? null);
 configure_render_page({ warn: dev ? (m) => console.warn(m) : null });
 
 set_kit_event_reader(live_event);
+set_asset_request_reader(() => KitRequestStore.state(), RULES ? note_kit_asset : null);
 /** Does this hole's server tree read `page.data` (the build's answer; unknown in dev → yes). */
 const hole_reads_page_data = (id: string): boolean =>
 	region_reads_page_data === null || region_reads_page_data[id] !== false;
@@ -452,107 +367,7 @@ function dt_record(bag: RequestBag | undefined, input: DevtoolsEventInput): void
 // transform outside it, passes its bag to `dt_record` directly)
 if (DEVTOOLS) set_server_devtools_recorder((input) => dt_record(bag_of(), input));
 
-const MAX_BATCH_BODY = 512 * 1024;
-
-const RENDER_TIMEOUT_MS = render_policy.deadline;
-
-/** Process-local cap on concurrent region SSR (M1 CPU amp under valid MAC). */
-const render_gate = new ConcurrencyGate(REGION_RENDER_CONCURRENCY);
-/** The abandoned renders already told (one render's timeout reaches every call that joined it). */
-const told_abandoned = new WeakSet<Error>();
-
 const NO_CTXS: readonly RequestContext<unknown, unknown>[] = [];
-
-const REGION_FRAME_HEADERS = {
-	'X-Frame-Options': 'DENY',
-	'Content-Security-Policy': "frame-ancestors 'none'",
-	'X-Content-Type-Options': 'nosniff',
-	'Referrer-Policy': 'no-referrer'
-} as const;
-
-function region_response(
-	body: BodyInit | null,
-	init: { status: number; headers?: Record<string, string> }
-) {
-	return new Response(body, {
-		status: init.status,
-		headers: { ...REGION_FRAME_HEADERS, 'cache-control': 'no-store', ...init.headers }
-	});
-}
-
-function over_budget(limiter: RateLimiter, ip: string): Response {
-	return region_response('Too Many Requests', {
-		status: 429,
-		headers: { 'retry-after': String(limiter.retry_after_s(ip)) }
-	});
-}
-
-type RegionDeny =
-	| 'cross-site'
-	| 'shape'
-	| 'expired'
-	| 'renew-window'
-	| 'renew-session'
-	| 'foreign-key'
-	| 'sig'
-	| 'unknown-id'
-	| 'props'
-	| 'oversize';
-
-function region_denied(why: RegionDeny) {
-	return region_response('Forbidden', {
-		status: 403,
-		headers: { 'x-ogygia-deny': why, 'x-ogygia-key': signing_key().fp }
-	});
-}
-
-function foreign_key(k: string | null): boolean {
-	return k !== null && k !== signing_key().fp;
-}
-
-interface Capability {
-	id: string;
-	render: string;
-	payload: string;
-	exp: string;
-	v: string;
-	ttl: string;
-	wakes: string;
-	sig: string;
-	k: string | null;
-}
-
-function claim_of(cap: Capability, session: string): RegionClaim {
-	return {
-		id: cap.id,
-		payload: cap.payload,
-		session,
-		ttl: cap.ttl,
-		render: cap.render,
-		wakes: cap.wakes
-	};
-}
-
-function capability_of(params: URLSearchParams): Capability {
-	return {
-		id: params.get('id') ?? '',
-		render: params.get('r') ?? '',
-		payload: params.get('props') ?? '',
-		exp: params.get('exp') ?? '',
-		v: params.get('v') ?? '',
-		ttl: params.get('ttl') ?? '',
-		wakes: params.get('w') ?? '',
-		sig: params.get('sig') ?? '',
-		k: params.get('k')
-	};
-}
-
-function capability_target(cap: Capability): string | null {
-	if (Object.hasOwn(region_url, cap.id)) return cap.id;
-	if (cap.render !== '' && Object.hasOwn(render_region, cap.render))
-		return render_region[cap.render];
-	return null;
-}
 
 function decode_pathname(pathname: string): string | null {
 	try {
@@ -561,29 +376,6 @@ function decode_pathname(pathname: string): string | null {
 	} catch {
 		return null;
 	}
-}
-
-function client_ip(event: RequestEvent): string | null {
-	try {
-		return event.getClientAddress();
-		// oxlint-disable-next-line ogygia/no-silent-failures -- fail closed: the callers answer 429
-	} catch {
-		return null;
-	}
-}
-
-function region_css_links(id: string): string {
-	const url = region_url[id];
-	if (!url) return '';
-	let out = '';
-	for (const href of region_css(url)) {
-		out += region_css_tag(href, kit_asset(href));
-	}
-	return out;
-}
-
-function emit_ogygia_script(subtype: string, escaped_payload: string, marker = ''): string {
-	return `<script type="application/ogygia-${subtype}"${marker ? ` ${marker}` : ''}>${escaped_payload}</script>`;
 }
 
 const CSR_META = '<meta name="ogygia-csr" content="true">';
@@ -602,32 +394,6 @@ function router_fetched(event: RequestEvent): boolean {
  * `csr = false` is dropped), and the regions recorded Kit's `page.error` into the bag as they rendered
  * — the same fact Region.svelte decided its own inline/island form on, so the two cannot disagree.
  */
-type SeedCodecs = {
-	seed_reducers: Record<string, (v: unknown) => unknown>;
-	seed_stringify: typeof stringify;
-};
-const NO_TRANSPORT = {};
-const seed_codec_cache = new WeakMap<object, SeedCodecs>();
-
-function seed_codecs(
-	transport: Record<string, { encode: (v: unknown) => unknown }> | undefined
-): SeedCodecs {
-	const key = transport ?? NO_TRANSPORT;
-	let hit = seed_codec_cache.get(key);
-	if (!hit) {
-		const encoders = Object.fromEntries(
-			Object.entries(transport ?? {}).map(([name, codec]) => [name, codec.encode])
-		);
-		const seed_reducers = { ...encoders, ...page_seed_reducers };
-		hit = {
-			seed_reducers,
-			seed_stringify: ((v: unknown) => stringify(v, seed_reducers)) as typeof stringify
-		};
-		seed_codec_cache.set(key, hit);
-	}
-	return hit;
-}
-
 function csr_page_of(
 	html: string,
 	body_end: number,
@@ -638,18 +404,6 @@ function csr_page_of(
 	return bag?.page?.error != null
 		? error_route_is_csr_true(event.route.id)
 		: route_is_csr_true(event.route.id);
-}
-
-/** The drop-in `setContext` page root (`<script data-ogygia-provide-page>`), or '' when the request
- *  set nothing an island can read. Drops any non-serializable value (function / store / class
- *  instance) instead of crashing. */
-function page_ctx_script(request: Request | undefined): string {
-	const ctx = request && request_ctx.get(request);
-	if (!request || !ctx?.size) return '';
-	const payload = serialize_provided_context(ctx);
-	return payload
-		? emit_ogygia_script('ctx', payload, OGYGIA_PROVIDE_PAGE + mark_attr(request))
-		: '';
 }
 
 /** `inner` with the request's owner around it: made before `inner` runs, ended with its response
@@ -677,6 +431,8 @@ class OgygiaHandle {
 	readonly #shared_address = say({ max: 1 });
 	/** The client build's handoff problem, said once while it lasts (production: dev reads none). */
 	readonly #handoff_said = say({ max: 2 });
+	readonly #islands: IslandsEndpoint | null;
+	readonly #unbuilt_said = say({ max: 1 });
 
 	#check_handoff(): void {
 		const p = handoff_problem();
@@ -725,6 +481,23 @@ class OgygiaHandle {
 			max: rate_limit.max <= 0 ? 0 : Math.max(rate_limit.max * 5, 120),
 			windowMs: rate_limit.windowMs
 		});
+		this.#islands =
+			HAS & F_FRAMES
+				? new IslandsEndpoint({
+						probe_rate: this.probe_rate,
+						render_rate: this.render_rate,
+						render_over: (ip) => this.#render_over(ip),
+						pass: (event) => html_pass(plugins, event),
+						reads_page_data: hole_reads_page_data
+					})
+				: null;
+	}
+
+	#unbuilt(): Response {
+		this.#unbuilt_said.once('endpoint', () =>
+			console.error(new OgygiaError('region_endpoint_unbuilt'))
+		);
+		return region_response('Not Found', { status: 404 });
 	}
 
 	/** Charges `ip` one render; true when its budget is spent. A spent budget of an address no visitor
@@ -794,9 +567,10 @@ class OgygiaHandle {
 	/** One signed hole rendered in place with THIS request's event (a plugin's `ctx.renderHole`:
 	 *  the stored-page stitch). Null keeps the fallback: a refused capability, a failed render, or
 	 *  an answer that asks to keep it. */
-	async #render_hole(endpoint: string, event: RequestEvent): Promise<string | null> {
-		const out = await this.#render_capability(endpoint, event);
-		return out && out.html !== KEEP_FALLBACK_HTML ? out.html : null;
+	#render_hole(endpoint: string, event: RequestEvent): Promise<string | null> {
+		if (this.#islands) return this.#islands.render_hole(endpoint, event);
+		this.#unbuilt();
+		return Promise.resolve(null);
 	}
 
 	async #route(
@@ -812,7 +586,7 @@ class OgygiaHandle {
 			// PAGE FACTS (server/page-facts.ts): a render outside its page looks the page up through
 			// Kit's own data request. Nothing renders here: no bag, no store. The answer names the
 			// route and params Kit matched, which the data alone does not carry.
-			if (event.isDataRequest && event.request.headers.has(PAGE_FACTS_HEADER)) {
+			if (HAS & F_FRAMES && event.isDataRequest && event.request.headers.has(PAGE_FACTS_HEADER)) {
 				const res = await resolve(event);
 				try {
 					res.headers.set(
@@ -849,9 +623,9 @@ class OgygiaHandle {
 				page: null,
 				seed_keys: null,
 				seed_asks: request_stats_detailed() ? new Map() : null,
-				remotes_wanted: new Set(),
+				remotes_wanted: HAS & F_REMOTE_SEEDS ? new Set() : null,
 				tail: new DocumentTail(),
-				measure_memo: new Map(),
+				measure_memo: new MeasureMemo(),
 				deferred: null,
 				defer_next_id: 0,
 				late: null,
@@ -888,13 +662,15 @@ class OgygiaHandle {
 			// Response after `resolve` is invisible here — the runtime's renewal covers that case.
 			// (SvelteKit 3 types `setHeaders` as readonly; at runtime it is a plain property Kit
 			// reassigns itself after the response, so this wrapper works on 2 and 3 alike)
-			const set_headers = event.setHeaders;
-			(event as { setHeaders: RequestEvent['setHeaders'] }).setHeaders = (headers) => {
-				set_headers(headers);
-				for (const key in headers)
-					if (key.toLowerCase() === 'cache-control')
-						note_cache_control(event.request, headers[key]);
-			};
+			if (HAS & F_FRAMES) {
+				const set_headers = event.setHeaders;
+				(event as { setHeaders: RequestEvent['setHeaders'] }).setHeaders = (headers) => {
+					set_headers(headers);
+					for (const key in headers)
+						if (key.toLowerCase() === 'cache-control')
+							note_cache_control(event.request, headers[key]);
+				};
+			}
 			const response = await resolve(event, {
 				transformPageChunk: async ({ html, done }) =>
 					this.inject_client_seeds(
@@ -952,7 +728,7 @@ class OgygiaHandle {
 			// — with the pending seed + resolve-global bootstrap — is fully built now (transformPageChunk
 			// ran synchronously inside `resolve`); the tail streams a resolve script per promise as it
 			// settles. Only set when the request could consume a stream (see `inject_client_seeds`).
-			if (bag.deferred && bag.deferred.length) {
+			if (HAS & F_PAGE && bag.deferred && bag.deferred.length) {
 				return stream_page_deferred(
 					request_scope(event.request),
 					response,
@@ -976,63 +752,14 @@ class OgygiaHandle {
 		}
 		// POST to the endpoint = a BATCH frame stream (client-side navigation, single-flight): render a set
 		// of signed region calls and flush each as an out-of-order frame in one response.
+		const islands = this.#islands;
+		if (!islands) return this.#unbuilt();
 		const answer =
 			event.request.method.toUpperCase() === 'POST'
-				? await this.render_batch(event)
-				: await this.render_region(event);
+				? await islands.render_batch(event)
+				: await islands.render_region(event);
 		if (RULES) note_region_answer(event.url.pathname, answer);
 		return answer;
-	}
-
-	/**
-	 * Batch frame stream (client navigation, single-flight). POST body: a JSON `string[]` of signed
-	 * region endpoints — the calls the client needs. Renders them in parallel and flushes each as a
-	 * `<template data-ogygia-slot="sig">…</template>` frame the moment IT settles (out of order); a
-	 * done sentinel ends it. One response, many frames. Every call carries its own MAC so there's no
-	 * extra auth; same-origin + per-IP budget mirror the single-region path.
-	 */
-	async render_batch(event: RequestEvent): Promise<Response> {
-		const MAX_BATCH = 32;
-		if (event.request.headers.get('sec-fetch-site') === 'cross-site')
-			return region_denied('cross-site');
-		const ip = client_ip(event);
-		if (!ip) return region_response('Too Many Requests', { status: 429 });
-		// (each hole is charged as its own GET would be, in #render_capability: one budget unit, one
-		// render, whichever door it comes in by)
-		// A batch is at most MAX_BATCH signed endpoints (~8.5kB each): a body past the cap is refused
-		// as soon as it passes it, chunked or not (test/batch-body-cap.test.ts)
-		const body = await read_capped(event.request, MAX_BATCH_BODY);
-		if (body === 'too large') return region_response('Payload Too Large', { status: 413 });
-		if (body === 'unreadable') return region_response('Bad Request', { status: 400 });
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(new TextDecoder().decode(body));
-		} catch {
-			return region_response('Bad Request', { status: 400 });
-		}
-		if (!Array.isArray(parsed) || parsed.length === 0) {
-			return region_response('Bad Request', { status: 400 });
-		}
-		// (one call asked twice is one render: its one parcel answers both)
-		const calls = [...new Set(parsed.filter((e): e is string => typeof e === 'string'))].slice(
-			0,
-			MAX_BATCH
-		);
-		// (the stream's signal aborts when the visitor leaves: the holes not rendered yet never are)
-		const stream = batch_stream(
-			calls,
-			(endpoint, signal) => this.#render_capability(endpoint, event, true, signal, ip),
-			request_scope(event.request)
-		);
-
-		return region_response(stream, {
-			status: 200,
-			headers: {
-				'content-type': 'text/html; charset=utf-8',
-				'cache-control': 'no-store',
-				'x-accel-buffering': 'no'
-			}
-		});
 	}
 
 	async #pass_document(
@@ -1071,12 +798,15 @@ class OgygiaHandle {
 		// decide everything below, each found with one bounded scan (server/document-assembly.ts):
 		// `</head>` from the front, `</body>` from the back. The chunk is assembled ONCE at the end.
 		const t_start = clock.mono();
-		const spans = locate(html);
-		const head = spans.head_end === -1 ? null : html.slice(0, spans.head_end);
+		const read = read_head(html);
+		const spans = { head_end: read.end, body_end: body_end(html) };
+		const head = read.end === -1 ? null : html.slice(0, read.end);
+		const head_tags = head === null ? null : new HeadTags(head, read);
 		// THE EARLY START (early-holes.ts): the requests of this page's `load` holes start during the
 		// parse, from one data block and one constant script in the chunk that carries `</head>`. A
 		// policy that would block the script gets its hash: a <meta> one here, a header after `resolve`.
-		const early = head === null || !event ? [] : take_early_holes(event.request);
+		const early =
+			!(HAS & F_FRAMES) || head === null || !event ? [] : take_early_holes(event.request);
 		const csp_sources: string[] = early.length ? [EARLY_HOLES_SOURCE] : [];
 		if (bag && head !== null) bag.csp_sources = csp_sources;
 		const early_head = early_holes_head(early);
@@ -1093,6 +823,15 @@ class OgygiaHandle {
 		// (Kit's client is on the page exactly when the route is Kit-hydrated: the route fact, never a
 		// search of the whole document for its bootstrap on every chunk)
 		if (csr_page && bag) bag.kit_client = true;
+		if (
+			!csr_page &&
+			head !== null &&
+			spans.body_end !== -1 &&
+			bag?.tail.wakes_at_load &&
+			bag.tail.hole_rows().length === 0 &&
+			!marks_critical(html, spans.body_end)
+		)
+			csp_sources.push(EARLY_CODE_SOURCE);
 		if (csr_page) {
 			let head_inject = '';
 			if (head !== null) {
@@ -1107,7 +846,7 @@ class OgygiaHandle {
 						? `<script type="module" ${OGYGIA_DEVTOOLS_BOOT} src="${devtools_boot_url}"></script>`
 						: '';
 				head_inject = `${CSR_META}${early_head}${devtools_boot}`;
-				if (bag) bag.kit_with_runtime = page_declares_runtime_script(head);
+				if (bag) bag.kit_with_runtime = head_tags!.declares_runtime_script();
 			}
 			// THE TAIL STILL SHIPS. The regions INSIDE A LAKE are ogygia's on this page too (their real
 			// `<ogygia-region>` is emitted, the runtime boots for them), and like on any page their props
@@ -1125,7 +864,7 @@ class OgygiaHandle {
 				spans.body_end !== -1 && bag
 					? (bag.transform_body ?? '') +
 						bag.tail.render(null, false, mark_attr(bag.request)) +
-						(bag.kit_with_runtime ? page_ctx_script(bag.request) : '')
+						(HAS & F_CONTEXT && bag.kit_with_runtime ? page_ctx_script(bag.request) : '')
 					: '';
 			if (head === null && !tail) return html;
 			// The runtime an island inside a lake emitted goes before the head's JavaScript here too
@@ -1144,9 +883,11 @@ class OgygiaHandle {
 			)
 				warn('kit_start_ungated', { path: event?.url.pathname ?? '/' });
 			const ordered =
-				head === null
+				head_tags === null
 					? null
-					: with_early_csp(runtime_first(head, null, code_origins(event?.request), mark_of(bag)));
+					: with_early_csp(
+							head_tags.runtime_first(null, page_code_origins(event?.request), mark_of(bag))
+						);
 			return assemble(
 				gate ? gate.html : html,
 				gate ? { head_end: spans.head_end, body_end: spans.body_end + gate.delta } : spans,
@@ -1178,24 +919,23 @@ class OgygiaHandle {
 		// (the route fact for the runtime and the router: a csr=false document says so, and the
 		// browser reads one meta instead of probing every inline script for Kit's bootstrap)
 		let head_inject = '';
-		if (head !== null) {
+		if (head_tags !== null) {
 			// Dedupe the region-emitted modulepreload hints (each island instance emits its own dep
 			// block, so shared deps repeat) and the stylesheet links (a layout's real-wrapper island is
 			// linked by Kit from the client graph AND by Region.svelte from the render — 16 doubled
 			// sheets on one measured page). Same href → one tag; first occurrence wins.
-			const deduped = dedupe_head_links(head);
-			if (deduped !== head) head_out = deduped;
-			const probe = head_out ?? head;
+			const probe = head_tags.deduped();
+			if (probe !== head_tags) head_out = probe.html;
 			// MPA mode (`router: false`): no SPA machinery ships — the browser owns navigation, so the
 			// handle injects static Speculation Rules instead. Chromium prerenders likely next pages,
 			// Firefox prefetches them, everything else ignores the JSON. Presence-checked so a page
 			// authoring its own rules wins; per-link opt-out via `data-ogygia-speculate="off"`.
 			const speculation =
-				!router_enabled && !page_declares_speculation_rules(probe)
+				!router_enabled && !probe.declares_speculation_rules()
 					? `<script type="speculationrules" ${OGYGIA_SPECULATE}>${this.#speculation_rules}</script>`
 					: '';
 			const router_meta =
-				router_enabled && !page_declares_router_meta(probe)
+				router_enabled && !probe.declares_router_meta()
 					? `<meta name="ogygia-router" content="${view_transitions ? 'vt' : 'plain'}">`
 					: '';
 			// The runtime bootstrap goes FIRST in `<head>` (head-presence.ts `runtime_first`): the one
@@ -1204,16 +944,17 @@ class OgygiaHandle {
 			// sole base/assets authority, and every ogygia URL (prod `/${appDir}/…`, dev `/@id/…`) is
 			// baked base-LESS — so an island-LESS page under a non-root `base` loads the runtime too.
 			const runtime_tag =
-				(router_enabled || (!!event && !!facts_of(event.request).codeOrigins?.length)) &&
+				(router_enabled ||
+					(!!server_plugin_count && !!event && !!facts_of(event.request).codeOrigins?.length)) &&
 				runtime_url &&
-				!page_declares_runtime_script(probe)
+				!probe.declares_runtime_script()
 					? runtime_bootstrap(kit_asset)
 					: null;
 			// (with the code origins the plugins and this render named: runtime/code-origins.ts)
 			const ordered = with_early_csp(
-				runtime_first(probe, runtime_tag, code_origins(event?.request), mark_of(bag))
+				probe.runtime_first(runtime_tag, page_code_origins(event?.request), mark_of(bag))
 			);
-			if (ordered !== probe) head_out = ordered;
+			if (ordered !== probe.html) head_out = ordered;
 			// The DEV bridge is NOT gated on the router — it carries `@vite/client`, and Vite's own
 			// full-reload recovery must reach EVERY csr=false page. A dep re-optimization rotates the
 			// optimizer's browserHash, so a tab loaded under the old hash dynamic-imports island deps
@@ -1223,7 +964,7 @@ class OgygiaHandle {
 			// skips) kept a poisoned tab after a re-optimize until a manual reload, reporting only
 			// "hydration failed". `dev_hmr_url` is empty outside `vite serve`, so this stays dev-only.
 			let dev_hmr = '';
-			if (dev_hmr_url && !page_declares_dev_hmr_script(probe)) {
+			if (dev_hmr_url && !probe.declares_dev_hmr_script()) {
 				// The page's sub-app scope (its route id's first segment) for the dev CSS bridge:
 				// a changed stylesheet joins this page only when the plugin derives the same scope
 				// among its owners — two route-group sub-apps never paint each other in dev.
@@ -1250,7 +991,7 @@ class OgygiaHandle {
 		const scripts: string[] = bag?.transform_body ? [bag.transform_body] : [];
 		if (!rendered) {
 			this.append_devtools_seed(scripts, bag);
-			return assemble(html, spans, head_out, head_inject, scripts.join(''));
+			return assemble(html, spans, head_out, head_inject, rope(scripts));
 		}
 
 		// Single page seed (PAGE-DUP) — islands read it through the `$app/state` shim. url/params/route
@@ -1259,123 +1000,32 @@ class OgygiaHandle {
 		// Region.svelte records during SSR from Kit's REAL page — the only place the resolved load data
 		// is reachable (Kit merges it locally in render.js, never on RequestState). PAGE-SEED-EVENT.
 		const page_snap = bag!.page!;
-		// SEED ONLY WHEN READ (the rule is spelled out at the seed payload below): no reader → no
-		// seed → the sidecars serialize self-contained, and nothing below stages or settles.
-		const seed_wanted = bag!.seed_keys !== null;
-		// THE DOCUMENT TAIL (server/document-tail.ts): the regions' module-preload hints, then their
-		// props sidecars — after the content, before the seeds. Rendered ONCE, now that the request
-		// knows whether the seed ships: only then does a sidecar serialize relative to it (seed-refs.ts)
-		// — every island's, whichever rendered first. The index is over the FULL `page.data`, whatever
-		// shaping keeps below: a reference path is structural (a top-level key, then keys and indices
-		// down), shaping keeps top-level keys whole, and staging / settling keep the shape too — so a
-		// path into the full tree resolves identically against the shipped seed, provided its key
-		// ships. The plan records the keys it referenced (`touched`) for exactly that.
 		const detail = request_stats_detailed();
-		const tail_html = bag!.tail.render(
-			seed_wanted ? SeedIndex.of(page_snap.data) : null,
-			detail,
-			mark_attr(bag!.request)
-		);
-		// SEED SHAPING: the slice of `page.data` the page's islands read (server/seed-shape.ts) — every
-		// step below (streaming, settling, the payload) sees the shaped tree. A key no island's code
-		// reads but whose node an island's props point into ships too: a reference must have something
-		// to point at. The postrender verdict above read the whole snapshot (a streamed promise anywhere
-		// keeps the page per-request).
-		let seed_keys = bag!.seed_keys;
-		if (seed_wanted && seed_keys !== 'all' && seed_keys !== null) {
-			for (const k of SeedIndex.of(page_snap.data).touched) seed_keys.add(k);
+		let seed: ShippedSeed | null = null;
+		if (HAS & F_PAGE && bag!.seed_keys !== null) {
+			const shipped = await ship_page_seed(bag!, event, detail, scripts);
+			if (shipped === STALE) return html;
+			seed = shipped;
 		}
-		const shaped_data = shape_page_data(page_snap.data, seed_keys);
-		let seed_data = shaped_data;
-		let seed_form = page_snap.form;
-		// Merge the app's universal `transport` ENCODERS (custom types the app teaches Kit) with the
-		// DeferRef/SettledRef marker reducers, so a load's custom types round-trip into islands — not
-		// just built-in devalue types. A no-op for the common promise-free / transport-free seed.
-		// (built once per app transport — the same object on every request — not per request)
-		const { seed_reducers, seed_stringify } = seed_codecs(app_transport);
-		// ONE walk of the seed tree (seed-refs.ts `analyze`, against the request's shared memo — the
-		// tail's index above already measured every node; a shaped root is a few lookups) answers
-		// every question below: a streamed promise inside (stage or settle), JSON-exact (the native
-		// lane).
-		const data_shape = analyze(shaped_data);
-		const form_shape = analyze(page_snap.form ?? null);
-		// A load may return promises at any level (Kit streaming). csr=false can't hydrate the PAGE, so
-		// Kit's own resolve stream is dead there — but an ISLAND has a client. Two paths:
-		//  • Real browser load (`Sec-Fetch-Mode: navigate`) can consume a stream — STAGE each promise to a
-		//    marker (a pending Promise on the client) and stream a resolve `<script>` per settle after the
-		//    doc ships (`stream_page_deferred`, drains Kit's dead tail). Inline bootstrap defines the
-		//    resolve global before any resolve script runs.
-		//  • Programmatic fetch (SPA/router, mode ≠ navigate) can't run streamed scripts, so SETTLE the
-		//    promises here and seed resolved values — no hang, same as before.
-		const has_pending = data_shape.thenable || form_shape.thenable;
-		// A page with streaming promises is per-request BY INTENT — even on the non-navigate path
-		// where the promises get settled into a complete document (storing that copy would keep one
-		// settle forever while browser loads stream live).
-		if (has_pending) bag!.facts.reads.visitor('streamed load (promise in page data)');
-		const can_stream = event?.request.headers.get('sec-fetch-mode') === 'navigate';
-		// No reader → no seed → nothing to stage or settle (the postrender verdict above still saw the
-		// promise: that page stays per-request).
-		if (has_pending && can_stream && seed_wanted) {
-			const staged_data = stage_deferred(shaped_data, 0);
-			const staged_form = stage_deferred(page_snap.form, staged_data.next_id);
-			seed_data = staged_data.staged;
-			seed_form = staged_form.staged;
-			bag!.deferred = [...staged_data.deferred, ...staged_form.deferred];
-			bag!.defer_next_id = staged_form.next_id; // real next id — do NOT recompute from array length
-			bag!.seed_reducers = seed_reducers; // resolve scripts encode with the same transport + defer
-			scripts.push(`<script>${PAGE_DEFER_BOOTSTRAP}</script>`);
-		} else if (has_pending && seed_wanted) {
-			// (data and form settle together, the request's wait: the visitor gone, nobody reads it)
-			const settled = await settle_deferred(
-				[shaped_data, page_snap.form],
-				request_scope(bag!.request),
-				event?.url.pathname
-			);
-			if (settled === STALE) return html;
-			[seed_data, seed_form] = settled as [typeof seed_data, typeof seed_form];
+		const tail_html = seed
+			? seed.tail_html
+			: bag!.tail.render(
+					null,
+					detail,
+					mark_attr(bag!.request),
+					!!bag!.csp_sources?.includes(EARLY_CODE_SOURCE)
+				);
+		if (!seed) {
+			const memo = bag!.measure_memo;
+			if (analyze(page_snap.data, memo).thenable || analyze(page_snap.form ?? null, memo).thenable)
+				bag!.facts.reads.visitor('streamed load (promise in page data)');
+			if (tail_html) scripts.push(tail_html);
 		}
-
-		// The tail (rendered above, before shaping) goes out after the defer bootstrap, before the seeds.
-		if (tail_html) scripts.push(tail_html);
-
-		// SEED ONLY WHEN READ: the seed exists so islands can read `$page` through the shim. A region
-		// asks for it (`seed_wanted`) only when its client code reaches the `$app/state` / `$app/stores`
-		// shim (`islandReadsPage`, from the build's chunk closure; fail-open for an entry the handoff
-		// does not know, e.g. a foreign fragment's island). No reader → no seed: a CMS page whose 20
-		// islands take everything as props stops shipping its whole `page.data` again (674 KB on one
-		// measured page) and stops serializing it on the server.
-		// THE LANE: a JSON-exact slice (the common CMS tree, no promise staged into it) goes out as
-		// native `JSON.stringify` output; anything devalue exists for keeps devalue.
+		const page_payload = seed?.payload ?? null;
 		let remote_seed_bytes = 0;
 		let fnm_bytes = 0;
 		let ctx_bytes = 0;
-		const page_payload =
-			event && seed_wanted
-				? PageSeed.serialize(
-						{
-							url: event.url,
-							params: event.params,
-							route: event.route,
-							status: page_snap.status ?? 200,
-							data: seed_data,
-							form: seed_form,
-							error: page_snap.error
-						},
-						seed_stringify,
-						!has_pending &&
-							data_shape.json &&
-							form_shape.json &&
-							analyze(page_snap.error ?? null).json
-					)
-				: null;
 		if (page_payload) {
-			scripts.push(
-				emit_ogygia_script(
-					'page',
-					page_payload.text,
-					`${OGYGIA_PAGE}${page_payload.json ? ` ${OG_FORMAT}="${WIRE_FORMAT_JSON}"` : ''}${mark_attr(bag!.request)}${RULES ? unshipped_attr(page_snap.data, seed_keys) : ''}`
-				)
-			);
 			if (DEVTOOLS)
 				dt_record(bag, {
 					domain: 'server',
@@ -1385,12 +1035,8 @@ class OgygiaHandle {
 				});
 		}
 
-		if (state?.remote?.implicit) {
-			const remote_script = await this.build_remote_seed_script(
-				state,
-				bag!.remotes_wanted,
-				bag!.request
-			);
+		if (HAS & F_REMOTE_SEEDS && state?.remote?.implicit) {
+			const remote_script = await remote_seed_script(state, bag!.remotes_wanted, bag!.request);
 			if (remote_script) {
 				scripts.push(remote_script);
 				remote_seed_bytes = remote_script.length;
@@ -1421,7 +1067,7 @@ class OgygiaHandle {
 		}
 
 		// Drop-in `setContext` page root — emitted here (final chunk) so every `setContext` has run.
-		const ctx_script = page_ctx_script(bag?.request);
+		const ctx_script = HAS & F_CONTEXT ? page_ctx_script(bag?.request) : '';
 		if (ctx_script) {
 			scripts.push(ctx_script);
 			ctx_bytes = ctx_script.length;
@@ -1430,7 +1076,7 @@ class OgygiaHandle {
 		this.append_devtools_seed(scripts, bag);
 		// ONE assembly from slices — no `replace` (whose `$$` escape would also corrupt an og.$ factory
 		// source carrying a literal `$`), no intermediate copies of the body.
-		const out = assemble(html, spans, head_out, head_inject, scripts.join(''));
+		const out = assemble(html, spans, head_out, head_inject, rope(scripts));
 		// OGYGIA'S OWN COST, for the profiler's request log (server/request-stats.ts): what this
 		// transform took and what it added. One WeakMap write — and none at all in an app without the
 		// profiler (the only reader), so no stats object per request there.
@@ -1451,9 +1097,10 @@ class OgygiaHandle {
 				// holes. The seed explainer reads the request's shared measure memo — a lookup per key.
 				...(detail
 					? {
-							seed_culprit: page_payload && !page_payload.json ? json_culprit(seed_data) : null,
+							seed_culprit:
+								seed && page_payload && !page_payload.json ? json_culprit(seed.data) : null,
 							island_rows: bag!.tail.island_rows() ?? [],
-							seed: this.explain_seed(page_snap.data, seed_keys, bag!),
+							seed: this.explain_seed(page_snap.data, seed?.keys ?? null, bag!),
 							hole_rows: bag!.tail.hole_rows()
 						}
 					: {})
@@ -1501,7 +1148,7 @@ class OgygiaHandle {
 				else if (shipped) reason = 'read';
 				keys.push({
 					key,
-					bytes: analyze((data as Record<string, unknown>)[key]).bytes,
+					bytes: analyze((data as Record<string, unknown>)[key], bag.measure_memo).bytes,
 					readers: read,
 					referenced_by: refd,
 					shipped,
@@ -1520,590 +1167,13 @@ class OgygiaHandle {
 		const dt_buf = DEVTOOLS && bag ? dt_buffers.get(bag) : undefined;
 		if (DEVTOOLS && bag && dt_buf && dt_buf.events.length) {
 			scripts.push(
-				emit_ogygia_script(
+				ogygia_script(
 					'devtools',
 					escape_script_text(JSON.stringify(dt_buf.events)),
 					`${RESPONSE_MARK}="${response_mark(bag.request)}"`
 				)
 			);
 		}
-	}
-
-	/**
-	 * True when a remote's resolved value (deep) contains a region carrying baked SSR HTML — a
-	 * page-sized render, not seed data (see the skip in {@link build_remote_seed_script}). Depth-capped:
-	 * a region ticket sits shallow in any sane payload (a DocView's `entry.body` is 2 levels deep).
-	 */
-	has_baked_region(value: unknown, depth = 0): boolean {
-		if (depth > 6 || value === null || typeof value !== 'object') return false;
-		const r = value as Record<PropertyKey, unknown>;
-		if (r[REGION_BRAND] === true && typeof r.html === 'string') return true;
-		if (Array.isArray(value)) return value.some((x) => this.has_baked_region(x, depth + 1));
-		for (const k in r) if (this.has_baked_region(r[k], depth + 1)) return true;
-		return false;
-	}
-
-	async build_remote_seed_script(
-		state: RequestState,
-		/** REMOTE SEED ONLY WHEN REACHABLE: the id-hashes some region's client on this page can call
-		 *  (`bag.remotes_wanted`); `null` = unknown → seed every implicit remote (the pre-gate rule). */
-		wanted: ReadonlySet<string> | null = null,
-		/** the request whose response carries it: its mark goes on the script (RESPONSE-MARK) */
-		request?: Request
-	): Promise<string | null> {
-		const implicit = state.remote?.implicit;
-		if (!implicit) return null;
-
-		// The bucketing (Kit parity: q / p / l / f, `create_remote_key` keys) and the skips — private
-		// remote, no region's client can call it (`wanted`), errored/pending, baked-region value —
-		// live in server/remote-seed-gate.ts, pure and unit-tested; this serializes what comes back.
-		const data = await collect_remote_seed(implicit, wanted, {
-			memo: (internals) => state.remote.data?.get(internals as never),
-			skip_value: (v) => this.has_baked_region(v),
-			key: create_remote_key
-		});
-
-		if (!Object.values(data).some((b) => Object.keys(b).length > 0)) return null;
-
-		const reducers = Object.fromEntries(
-			Object.entries(app_transport).map(([name, codec]) => [name, codec.encode])
-		);
-		// devalue output is `<`-safe by itself (it writes `<`), so no second pass over the payload.
-		return emit_ogygia_script(
-			'remote',
-			devalue.stringify(data, reducers),
-			request ? `${RESPONSE_MARK}="${response_mark(request)}"` : ''
-		);
-	}
-
-	/**
-	 * `render()` the island under the concurrency gate + timeout. Returns the HTML body, or `null`
-	 * if the render threw or timed out. Shared by the endpoint ({@link render_region}) and the
-	 * batch path ({@link #render_capability}).
-	 */
-	async #render_component(
-		/** the hole's region id: its answer's slot ids carry it */
-		id: string,
-		load: () => Promise<{ default: unknown }>,
-		props: Record<string, unknown>,
-		/** the hole wakes (its capability's signed `w`): rendered inside an island, as it hydrates */
-		wakes: boolean,
-		cache?: { key: RenderKey; ttl: number },
-		/** the profiler's hole economics: what the cache did for this request */
-		report?: (outcome: 'hit' | 'miss' | 'none') => void,
-		/** filled when the render ran: its wait for a slot in the gate, and its time in it */
-		timing?: { queue_ms?: number; render_ms?: number },
-		/** the endpoint request's URL: the answer's island graph is made root-absolute against it */
-		base?: URL,
-		/** the hole's server tree reads `page.data`: its page is looked up before it renders (a cache
-		 *  hit never pays it) */
-		reads_page_data = false,
-		/** aborts when nobody waits on this render any more (a cancelled batch): one not started
-		 *  yet never starts, and never takes a render slot (#245) */
-		signal?: AbortSignal
-	): Promise<string | null> {
-		// R6/G2: the ONE cache-fronted render seam. `cached_render` serves a memo when the hole opted
-		// into a positive `maxAge` (key carries the session seal — a per-user render never crosses
-		// users); on a miss it runs the render_body below, once for every call of its key in flight
-		// (they join it: one slot for a burst, #244). The ENDPOINT wraps its render in the
-		// concurrency gate + timeout (the inline-island path, sharing `cached_render`, does not).
-		const render_body = async (): Promise<string> => {
-			const mod = await load();
-			const rendered = render(mod.default as Component<Record<string, unknown>>, {
-				props,
-				context: hole_answer_context(wakes, id)
-			});
-			// (with what its islands wrote into the head — their graph and their CSS: the endpoint
-			// ships the body only — server/hole-graph.ts)
-			const out = await rendered;
-			const body = out.body as string;
-			if (body === KEEP_FALLBACK_HTML) return body;
-			// (and the page facts its islands read: they hydrate against what it rendered from)
-			return hole_head(out.head as string, base) + body + kit_page_facts_tail();
-		};
-		// One deadline for the hole, its wait for a slot and its render together (#195): it answers
-		// within RENDER_TIMEOUT_MS. A render still running then is abandoned (it cannot be cancelled):
-		// its hole keeps the fallback and its slot goes to the next hole, so renders stuck on a hung
-		// upstream never hold every slot.
-		try {
-			return await cached_render(
-				// (`render_signal`: this call's own, or a shared render's — aborted once nobody waits)
-				async (render_signal) => {
-					const gated = { deadline_ms: RENDER_TIMEOUT_MS, signal: render_signal };
-					// the page first, outside the gate: a render slot is never held while Kit runs the
-					// page's loads (and a cache hit never gets here)
-					await kit_page_ready(reads_page_data);
-					if (!timing) return render_gate.run(render_body, gated);
-					// the wait for a slot, and the time in it. A slot is held for the whole render,
-					// awaits included: a hole waiting on slow data keeps the next one queued
-					const asked = clock.mono();
-					return render_gate.run(async () => {
-						const entered = clock.mono();
-						timing.queue_ms = entered - asked;
-						try {
-							return await render_body();
-						} finally {
-							timing.render_ms = clock.mono() - entered;
-						}
-					}, gated);
-				},
-				cache,
-				report,
-				signal
-			);
-		} catch (e) {
-			// `keepFallback()` ends a render on purpose: the page's fallback is right for this
-			// visitor. Carried as a marker string so the cache/batch/endpoint seams stay string-typed.
-			if (is_keep_fallback(e)) return KEEP_FALLBACK_HTML;
-			// nobody waits on it: nothing to say, and nothing to answer
-			if (signal?.aborted) return null;
-			// The first render abandoned while none was: a production log line too, as renders that
-			// outlive their deadline usually await something that hangs. (Said by one call: the calls
-			// that joined a cached hole's render get the same error, render_cache.ts)
-			if (is_run_timeout(e) && render_gate.abandoned === 1 && !told_abandoned.has(e as Error)) {
-				told_abandoned.add(e as Error);
-				warn('region_render_abandoned', { ms: RENDER_TIMEOUT_MS });
-			}
-			// The response is an opaque 500 ("Region render failed"); the reason belongs in the
-			// server's log, in production as in dev (test/hole-throw-said.test.ts)
-			warn('region_render_failed', e);
-			return null;
-		}
-	}
-
-	/** A hole's render cache: none for a `ttl` of 0 (a dynamic hole). A cached hole's memo key is the
-	 *  call and the visitor's session, and — when its tree reads `page.data` — the page it renders for
-	 *  (one page's facts never answer another page's hole). Its render notes the event's personal
-	 *  reads (a cookie, a header, `locals`): one that read them is not kept for others (#434). */
-	#hole_cache(
-		id: string,
-		payload: string,
-		wakes: boolean,
-		event: RequestEvent,
-		ttl: number,
-		reads_page_data: boolean
-	): { key: RenderKey; ttl: number } | undefined {
-		if (ttl <= 0) return undefined;
-		const key = render_cache_key(
-			id,
-			payload,
-			this.#region_session(event),
-			reads_page_data ? page_url_of(event).href : null,
-			wakes
-		);
-		observe_reads(event, facts_of(event.request).reads);
-		return { key, ttl };
-	}
-
-	/** The session cookie value sealed into a region capability (empty when no `sessionCookie` is
-	 *  configured) — the same read the MAC verify uses, and the per-user part of the render-cache key. */
-	#region_session(event: RequestEvent): string {
-		return session_cookie ? (event.cookies.get(session_cookie) ?? '') : '';
-	}
-
-	// ── Shared capability core ──────────────────────────────────────────────────────────────────
-	// The endpoint ({@link render_region}) and the batch path ({@link #render_capability}) MUST verify
-	// identically — a one-sided change to the MAC message or the props reviver would weaken auth on one
-	// path only. The three security-critical steps live here, once. Each caller keeps its OWN failure
-	// shaping (403/500 + rate-limit interleaving vs null→client-fetch), which is where they legitimately
-	// differ; only the trust decisions are shared.
-
-	/**
-	 * Every check a capability passes BEFORE any HMAC (P5-HMAC-CPU), in order: charset/length (ids
-	 * are 12-hex from the transform; `ttl` is signed, but charset-gated here so a forged value never
-	 * reaches a response header; `exp` and `ttl` in their one spelling, server/endpoint.ts
-	 * `is_signed_number`), expiry (a renewal instead needs one inside the renew window: a URL
-	 * that has not expired never renews), and the signing key it names. Null when it passes, else why
-	 * it is refused.
-	 */
-	#capability_precheck(cap: Capability, renewal = false): RegionDeny | null {
-		if (
-			!is_region_id(cap.id) ||
-			(cap.render !== '' && !is_region_id(cap.render)) ||
-			cap.payload.length > MAX_REGION_PROPS_LEN ||
-			!is_region_ttl(cap.ttl) ||
-			!is_signed_number(cap.exp, REGION_EXP_DIGITS) ||
-			cap.v !== REGION_CAPABILITY_VERSION ||
-			(cap.wakes !== '' && cap.wakes !== '1')
-		)
-			return 'shape';
-		const expiry = expiry_refusal(
-			cap.exp,
-			Math.floor(clock.wall() / 1000), // wall: against the capability's signed epoch expiry
-			renewal,
-			app_lifetime.renew_window
-		);
-		if (expiry) return expiry;
-		if (foreign_key(cap.k)) return 'foreign-key';
-		return null;
-	}
-
-	/**
-	 * RENEWAL (server/shared-cache.ts): re-sign an EXPIRED capability this app minted for an
-	 * anonymous hole — the rescue for a hole on a document a cache kept longer than the hole's
-	 * capability. Refused (null) unless the visitor carries no session and the MAC over the ORIGINAL
-	 * tuple verifies with an empty session: nothing session-bound is ever renewed, and only a URL the
-	 * app itself put in public HTML can be. The caller has already gated shape + the renew window
-	 * and charged the probe budget. Returns the fresh `exp` + `sig`.
-	 */
-	#renew_capability(cap: Capability, event: RequestEvent): Capability | null {
-		if (this.#region_session(event) !== '') return null;
-		const key = signing_key();
-		const claim = claim_of(cap, '');
-		const late = app_lifetime.renew_window;
-		if (!region_verify(key.secret, islands_endpoint(), cap.v, cap.exp, claim, cap.sig, late))
-			return null;
-		const exp = app_lifetime.renewed_expiry();
-		return {
-			...cap,
-			exp: String(exp),
-			sig: region_sign(key.secret, islands_endpoint(), exp, claim),
-			k: key.fp
-		};
-	}
-
-	/** THE auth check: the region capability's signature, for this endpoint, sealed to the session
-	 *  cookie (if any), with its render identity inside when it has one (server/hmac.ts). */
-	#verify_region_mac(cap: Capability, event: RequestEvent): boolean {
-		const claim = claim_of(cap, this.#region_session(event));
-		return region_verify(signing_key().secret, islands_endpoint(), cap.v, cap.exp, claim, cap.sig);
-	}
-
-	/** Eval the island module (registers transportable codecs the reviver needs on a cold-start defer),
-	 *  then decode + revive the props payload. Null on parse failure or a non-object/array result. */
-	async #decode_region_props(
-		payload: string,
-		load: () => Promise<unknown>
-	): Promise<Record<string, unknown> | null> {
-		let props: unknown;
-		try {
-			await load();
-			// universal decode; remember:false — the SERVER never memoizes (per-request isolation)
-			register_wire_kind();
-			register_store_kind();
-			register_snippet_kind();
-			register_fn_kind();
-			register_derived_kind();
-			props = devalue.parse(B64Url.decode(payload), {
-				[REF_WIRE_KEY]: ref_reviver(false)
-			} as Parameters<typeof devalue.parse>[1]);
-		} catch (e) {
-			// in production as in dev: reached only with a capability this key signed, and the
-			// answer stays opaque (test/hole-props-decode-said.test.ts)
-			warn('endpoint_props_decode_failed', e);
-			return null;
-		}
-		if (props === null || typeof props !== 'object' || Array.isArray(props)) return null;
-		return props as Record<string, unknown>;
-	}
-
-	/**
-	 * Batch (single-flight navigation): verify a hole's OWN signed capability URL and render it in-process. Same
-	 * trust boundary as the endpoint (verify the MAC before touching the manifest), but every failure —
-	 * bad/expired MAC, unknown id, non-serializable props, render error, oversize — resolves to
-	 * `null` so the hole silently falls back to a client fetch. Never throws.
-	 */
-	async #render_capability(
-		endpoint: string,
-		event: RequestEvent,
-		/** A BATCH parcel is the hole's answer: through the app's transform like its own request, and
-		 *  logged for the profiler as a hole request. A postrender stitch splices into a stored document
-		 *  and stays as it was. */
-		batch = false,
-		/** the batch's: aborts when its visitor left (nothing more is verified, loaded or rendered) */
-		signal?: AbortSignal,
-		/** the visitor a batch charges, per hole, as its GET would (PROBE-THEN-RENDER): a probe before
-		 *  the MAC, a render after it. Over budget: no parcel, and the hole fetches on its own. A
-		 *  postrender stitch (its own stored page, no visitor) is charged nothing. */
-		ip?: string
-	): Promise<{ slot: string; html: string } | null> {
-		const r = region_request.create();
-		const parcel = await this.#capability_parcel(r, endpoint, event, batch, signal, ip);
-		r.go(parcel === null ? 'refused' : 'sent');
-		return parcel;
-	}
-
-	/** {@link #render_capability}'s steps, each move taken before its work (server/region-request.ts). */
-	async #capability_parcel(
-		r: RegionRequest,
-		endpoint: string,
-		event: RequestEvent,
-		batch: boolean,
-		signal: AbortSignal | undefined,
-		ip: string | undefined
-	): Promise<{ slot: string; html: string } | null> {
-		const q = endpoint.indexOf('?');
-		if (q === -1 || signal?.aborted) return null;
-		const cap = capability_of(new URLSearchParams(endpoint.slice(q + 1)));
-		const { id, payload, sig } = cap;
-
-		if (this.#capability_precheck(cap) || !r.go('prechecked')) return null;
-		if (!r.go('probed') || (ip !== undefined && this.probe_rate.limited(ip))) return null;
-		if (!this.#verify_region_mac(cap, event) || !r.go('verified')) return null;
-		if (!r.go('charged') || (ip !== undefined && this.#render_over(ip))) return null;
-
-		const target = capability_target(cap);
-		if (target === null) return null;
-		const load = (await load_server_regions()).regions[target];
-		if (typeof load !== 'function') return null;
-
-		const props = await this.#decode_region_props(payload, load);
-		if (!props) return null;
-
-		const ttl = Number(cap.ttl) || 0;
-		const reads_page_data = hole_reads_page_data(target);
-		const wakes = cap.wakes === '1';
-		const cache = this.#hole_cache(target, payload, wakes, event, ttl, reads_page_data);
-		// (the profiler logs each batched hole as its own hole request — only when one listens)
-		const stats = batch && has_batch_hole_listener();
-		const t0 = stats ? clock.mono() : 0;
-		const timing: { queue_ms?: number; render_ms?: number } = {};
-		let outcome: 'hit' | 'miss' | 'none' = 'none';
-		if (!r.go('rendering')) return null;
-		const body = await this.#render_component(
-			id,
-			load,
-			props,
-			wakes,
-			cache,
-			stats ? (o) => (outcome = o) : undefined,
-			stats ? timing : undefined,
-			event.url,
-			reads_page_data,
-			signal
-		);
-		if (stats)
-			record_batch_hole_stats(event.request, {
-				kind: 'hole',
-				id,
-				cache: outcome,
-				ttl,
-				...(timing.queue_ms !== undefined
-					? { queue_ms: Math.round(timing.queue_ms * 10) / 10 }
-					: {}),
-				...(region_name?.[target] ? { name: region_name[target] } : {}),
-				p: hole_copy_key(payload),
-				ms: clock.mono() - t0,
-				status: body === null ? 500 : 200
-			});
-		// (an answer nobody waits on any more is not shaped: the stream drops it)
-		if (body === null || body.length > MAX_REGION_BODY || signal?.aborted) return null;
-		// "Keep the fallback": the parcel carries the marker alone (no CSS links, nothing to hoist).
-		if (body === KEEP_FALLBACK_HTML) return { slot: sig, html: KEEP_FALLBACK_HTML };
-		// CSS links ride in the parcel; the client hoists them to <head> (a body/parcel link is inert
-		// inside the `<template>` box), so a batched server-island still styles a page that never
-		// imported its component. URLs inside are made root-absolute: `asset()` made them relative
-		// to THIS request, and the parcel lands in a page at any depth (server/hole-urls.ts).
-		let html = absolutize_hole_html(region_css_links(target) + body, event.url);
-		// The app's own pass, as on the hole's own answer (render_region): a batched hole is the same
-		// answer, and the runtime restores both the same way.
-		const pass = batch ? html_pass(plugins, event) : undefined;
-		if (pass) html = await pass.region(html);
-		return { slot: sig, html };
-	}
-
-	/**
-	 * Verify the region MAC, then render. Unknown ids and bad MACs both return 403 so the
-	 * existence of a region id is not an oracle (SEC-01). Expiry is part of the MAC message.
-	 *
-	 * Ordering: length/exp → probe rate (pre-HMAC) → verify → render rate → render.
-	 * Probe stops forged CPU amplification; render budget is only charged after a valid MAC.
-	 * A renewal (`&renew=1`) swaps the first three for its own: shape + renew window → probe →
-	 * anonymous-only re-verify of the original tuple + re-sign; then the same render rate + render.
-	 */
-	async render_region(event: RequestEvent): Promise<Response> {
-		const r = region_request.create();
-		const res = await this.#region_answer(r, event);
-		// (a success with no render before it is an illegal move: `sent` is only reached rendering)
-		r.go(res.status < 300 ? 'sent' : 'refused');
-		return res;
-	}
-
-	/** {@link render_region}'s steps, each move taken before its work (server/region-request.ts). */
-	async #region_answer(r: RegionRequest, event: RequestEvent): Promise<Response> {
-		const method = event.request.method.toUpperCase();
-		if (method !== 'GET' && method !== 'HEAD') {
-			return region_response('Method Not Allowed', {
-				status: 405,
-				headers: { allow: 'GET, HEAD' }
-			});
-		}
-
-		// Harvested capability URLs embedded cross-site (img/script/navigation) — reject when the
-		// browser reports cross-site. Missing Sec-Fetch-Site (old clients) is allowed.
-		const fetch_site = event.request.headers.get('sec-fetch-site');
-		if (fetch_site === 'cross-site') return region_denied('cross-site');
-
-		const url = event.url;
-		const ip = client_ip(event);
-		if (!ip) {
-			// Fail closed — shared 'unknown' bucket was an unfair DoS vector.
-			return region_response('Too Many Requests', { status: 429 });
-		}
-
-		let cap = capability_of(url.searchParams);
-		const { id, payload } = cap;
-		const ttl_raw = cap.ttl;
-		// RENEWAL: the runtime retries a hole whose capability EXPIRED (its document outlived it in a
-		// cache) once with `&renew=1`. The answer carries the fresh capability in
-		// `x-ogygia-capability`; the runtime adopts it for the hole's later fetches.
-		let renewed: string | null = null;
-		const renewal = url.searchParams.get('renew') === '1';
-
-		// Every check before HMAC (P5-HMAC-CPU) — the batch path runs the same one.
-		const refused = this.#capability_precheck(cap, renewal);
-		if (refused) {
-			if (import.meta.env.DEV && refused === 'foreign-key')
-				warn('endpoint_foreign_key', { id, key: String(cap.k), own: signing_key().fp });
-			return region_denied(refused);
-		}
-		r.go('prechecked');
-
-		// Pre-HMAC probe — forged floods hit this, not render() (HMAC-CPU-DOS).
-		if (!r.go('probed')) return region_response('Too Many Requests', { status: 429 });
-		if (this.probe_rate.limited(ip)) return over_budget(this.probe_rate, ip);
-
-		if (renewal) {
-			const fresh = this.#renew_capability(cap, event);
-			if (!fresh)
-				return region_denied(this.#region_session(event) !== '' ? 'renew-session' : 'sig');
-			cap = fresh;
-			renewed = url.pathname + capability_query(cap, cap.exp, cap.sig, cap.k ?? '');
-		} else {
-			// Verify (session-bound) before consulting the manifest — bad MAC never distinguishes
-			// unknown vs known id.
-			if (!this.#verify_region_mac(cap, event)) {
-				if (import.meta.env.DEV) warn('endpoint_bad_signature', { id });
-				return region_denied('sig');
-			}
-		}
-		if (!r.go('verified')) return region_denied('sig');
-
-		// Cache policy travels signed in the URL: a positive `ttl` opts this hole into a private browser
-		// cache; absent/0 keeps it dynamic (`no-store`). A hole is fresh-per-request by default. A
-		// renewed answer is never cached under its ttl: the browser would keep serving it for the OLD
-		// (expired) address the runtime is moving off.
-		const cache_control = ttl_raw && !renewed ? `private, max-age=${Number(ttl_raw)}` : 'no-store';
-		/** The fresh capability rides every successful answer to a renewal (the 204 too). */
-		const renew_headers: Record<string, string> = renewed ? { 'x-ogygia-capability': renewed } : {};
-
-		// Valid capability — now charge the per-IP render budget.
-		if (!r.go('charged')) return region_response('Too Many Requests', { status: 429 });
-		if (this.#render_over(ip)) return over_budget(this.render_rate, ip);
-
-		// Its own id, or (minted by another build) an entry of this build rendering its component.
-		const target = capability_target(cap);
-		if (target === null) {
-			if (import.meta.env.DEV)
-				warn('endpoint_unknown_id', {
-					id,
-					component: cap.render || undefined,
-					known: Object.keys(region_url).length
-				});
-			return region_denied('unknown-id');
-		}
-		const load = (await load_server_regions()).regions[target];
-		if (typeof load !== 'function') return region_denied('unknown-id');
-
-		// Same status as bad MAC on any decode failure (STATUS-ORACLE); the reason is only ever
-		// reached with a capability this key signed.
-		const props = await this.#decode_region_props(payload, load);
-		if (!props) return region_denied('props');
-
-		const ttl = Number(ttl_raw) || 0;
-		const reads_page_data = hole_reads_page_data(target);
-		const wakes = cap.wakes === '1';
-		const cache = this.#hole_cache(target, payload, wakes, event, ttl, reads_page_data);
-		const timing: { queue_ms?: number; render_ms?: number } = {};
-		let outcome: 'hit' | 'miss' | 'none' = 'none';
-		if (!r.go('rendering')) return region_response('Region render failed', { status: 500 });
-		const body = await this.#render_component(
-			id,
-			load,
-			props,
-			wakes,
-			cache,
-			(o) => (outcome = o),
-			timing,
-			event.url,
-			reads_page_data
-		);
-		// (the profiler's hole economics, with the wait for a render slot: a hole's time on the
-		// server is its queue AND its render)
-		record_hole_stats(event.request, {
-			kind: 'hole',
-			id,
-			cache: outcome,
-			ttl,
-			...(timing.queue_ms !== undefined ? { queue_ms: Math.round(timing.queue_ms * 10) / 10 } : {}),
-			// (a manifest from an older build has no names: the stub's `undefined`)
-			...(region_name?.[target] ? { name: region_name[target] } : {}),
-			p: hole_copy_key(payload)
-		});
-		// the same split for the browser (devtools, the profiler's beacon), as Server-Timing. Only for
-		// a browser that measures (dev, the devtools cookie, a visitor a plugin vouches for by its own
-		// credentials: the profiler's logged-in user): no other visitor's answer tells how loaded the
-		// server is
-		const timed =
-			timing.queue_ms !== undefined &&
-			(import.meta.env.DEV ||
-				(DEVTOOLS && event.cookies.get(DEVTOOLS_COOKIE) === DEVTOOLS_ON) ||
-				// oxlint-disable-next-line ogygia/no-silent-failures -- a failed hook was said (plugin_hook_failed); unproved is not timed
-				(await ask.measures(event).catch(() => undefined)) === true);
-		const server_timing: Record<string, string> = timed
-			? {
-					'server-timing': `og-queue;dur=${timing.queue_ms!.toFixed(1)}, og-render;dur=${(timing.render_ms ?? 0).toFixed(1)}`
-				}
-			: {};
-		if (body === null) {
-			return region_response('Region render failed', { status: 500 });
-		}
-		// `keepFallback()`: no content — the runtime keeps the page's fallback and marks the hole done.
-		if (body === KEEP_FALLBACK_HTML)
-			// (its hole's own policy, like its answer would carry: a 204 is cacheable by default)
-			return region_response(null, {
-				status: 204,
-				headers: { 'cache-control': cache_control, ...renew_headers }
-			});
-
-		if (body.length > MAX_REGION_BODY) return region_denied('oversize');
-
-		// Ship the component's stylesheet links ahead of its HTML (the client hoists them to <head>).
-		// Root-absolute URLs inside: the hole's HTML is spliced into a page at any depth — by the
-		// runtime, or by a CDN (ESI) — where a `./_app/…` entry would 404 (server/hole-urls.ts).
-		let html = absolutize_hole_html(region_css_links(target) + body, event.url);
-
-		// The app's own pass, on the fully assembled answer (the runtime restores what it moved before
-		// the answer goes in). Runs on the final body, so HEAD's `content-length` below and the GET
-		// body agree.
-		const pass = html_pass(plugins, event);
-		if (pass) html = await pass.region(html);
-
-		if (method === 'HEAD') {
-			return region_response(null, {
-				status: 200,
-				headers: {
-					'content-type': 'text/html; charset=utf-8',
-					'content-length': String(new TextEncoder().encode(html).byteLength),
-					'cache-control': cache_control,
-					...renew_headers
-				}
-			});
-		}
-
-		return region_response(html, {
-			status: 200,
-			headers: {
-				'content-type': 'text/html; charset=utf-8',
-				// Per-hole policy signed into the URL (see `cache_control` above). A hole is `no-store`
-				// (dynamic) unless it opts into caching via its preset's `maxAge`, which mints a positive
-				// `ttl` → `private, max-age=ttl`. `private` keeps shared/CDN caches out (responses are
-				// cookie-personalized) while still letting THIS browser reuse the response.
-				'cache-control': cache_control,
-				...renew_headers,
-				...server_timing
-			}
-		});
 	}
 }
 

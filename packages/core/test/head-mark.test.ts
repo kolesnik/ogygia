@@ -1,5 +1,5 @@
 /**
- * The head mark (runtime/session.ts `mark_head`): what one island's hydrate step put in `<head>`,
+ * The head mark (runtime/head-copies.ts `mark_head`): what one island's hydrate step put in `<head>`,
  * read from a MutationObserver's records, and from a copy of the head where there is none. Both give
  * what a scan of the head before and after gives, in head order. The browser test
  * (test/browser/head-ownership.test.ts) checks the same on a real head; this one runs on the DOM stub
@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { document, el } from './_stubs/dom.ts';
 import { RuntimeSession } from '../src/runtime/session.ts';
+import { mark_head, record_island_head } from '../src/runtime/head-copies.ts';
 
 const g = globalThis as { MutationObserver?: unknown };
 const saved = g.MutationObserver;
@@ -35,7 +36,7 @@ for (const observer of [true, false]) {
 		});
 
 		it('what the step added, in head order, and not what it moved or took back', () => {
-			const mark = s.mark_head();
+			const mark = mark_head();
 			const head = document.head as unknown as Element;
 			const end = el('<meta name="end">');
 			head.appendChild(end as unknown as Node);
@@ -50,7 +51,7 @@ for (const observer of [true, false]) {
 		});
 
 		it('a record handed to the observer before the step is read still counts', async () => {
-			const mark = s.mark_head();
+			const mark = mark_head();
 			document.head.appendChild(el('<meta name="late">'));
 			await Promise.resolve();
 			expect(names(mark.added())).toEqual(['late']);
@@ -59,10 +60,10 @@ for (const observer of [true, false]) {
 		it('the record makes the added elements the island’s and retires the page copy', () => {
 			document.head.appendChild(el('<meta name="og" content="x">'));
 			s.adopt_document_head();
-			const mark = s.mark_head();
+			const mark = mark_head();
 			const live = el('<meta name="og" content="x">');
 			document.head.appendChild(live);
-			s.record_island_head(mark);
+			record_island_head(s, mark);
 			expect([...s.island_head]).toEqual([live]);
 			expect(document.head.children.filter((e) => e.getAttribute('name') === 'og')).toEqual([live]);
 		});
@@ -72,7 +73,7 @@ for (const observer of [true, false]) {
 				? 'stop() ends the mark: nothing is noted after it, and nothing observes the head'
 				: 'stop() has nothing to end: the copy decides',
 			() => {
-				const mark = s.mark_head();
+				const mark = mark_head();
 				mark.stop();
 				document.head.appendChild(el('<meta name="after">'));
 				const head = document.head as unknown as { _observers: unknown[] | null };

@@ -6,10 +6,9 @@
 // head's own kept no head link, so the morph left the region with no rules at all.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { link_boot } from '../../src/runtime/boot-link.ts';
-import { morph_children, install as install_morph } from '../../src/runtime/morph.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
+import { morph_children } from '../../src/runtime/morph.ts';
 import { region_fragment } from './_html.ts';
-
-install_morph();
 
 const HREF = 'data:text/css,.g14-repaint%7Bborder-left%3A3px%20solid%7D';
 const SHEET = `<link rel="stylesheet" href="${HREF}" data-ogygia-region-css="">`;
@@ -20,7 +19,7 @@ const sheets = () =>
 
 beforeEach(() => {
 	vi.stubEnv('DEV', false);
-	link_boot();
+	init(link_boot());
 });
 afterEach(() => {
 	vi.unstubAllEnvs();

@@ -9,6 +9,7 @@ const config = {
 	},
 	kit: {
 		adapter: vercel({ runtime: 'nodejs22.x' }),
+		outDir: process.env.OGYGIA_E2E_OUT_DIR,
 		experimental: { remoteFunctions: true },
 		// An app alias, the import shape the island-closure walk must follow (e2e/shared-page-module):
 		// a module reached only through it is shared by a csr=true page and an island.

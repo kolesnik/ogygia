@@ -1,15 +1,14 @@
 // Every page id has an owner: each region whose island resolved it, or else the page itself. A
 // navigation releases every id that nothing on the next page still owns.
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { morph_children, install as install_morph } from '../../src/runtime/morph.ts';
+import { morph_children } from '../../src/runtime/morph.ts';
 import { reconcile_body } from '../../src/runtime/reconcile.ts';
 import { record_server_body } from '../../src/runtime/ownership.ts';
 import { capture_region_ids } from '../../src/runtime/region-ids.ts';
 import { link_boot } from '../../src/runtime/boot-link.ts';
+import { init } from '../../src/runtime/lazy-link.ts';
 import { register_kind, resolve, dispose_ids } from '../../src/ref.ts';
-
-install_morph();
-link_boot();
+init(link_boot());
 
 let disposed: number[] = [];
 register_kind({

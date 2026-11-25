@@ -1,11 +1,14 @@
-import type { Scope } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import type { FieldSnapshot, QueuedClick, Touched } from './interaction.ts';
-import { interaction_link } from './slots.ts';
+import { boot_link } from './lazy-link.ts';
+import { L_RESOLVE_ADDRESS } from './boot-link-index.ts';
 import { emit as dt_emit } from '../events/bus.ts';
 import { OG_FP } from '../wire-markup.ts';
 
+export { init } from './lazy-link.ts';
+
 const resolve_address = (region: Element, addr: number[]) =>
-	interaction_link().resolve_address(region, addr);
+	boot_link()[L_RESOLVE_ADDRESS]!(region, addr);
 
 const DEVTOOLS = typeof __OGYGIA_DEVTOOLS__ !== 'undefined' ? __OGYGIA_DEVTOOLS__ : false;
 
@@ -55,7 +58,7 @@ function restore_fields(region: Element, fields: FieldSnapshot[]) {
  * so the host hears it too): a click on the host never reaches a shadow-internal handler, and
  * hydration claims the host but leaves its shadow tree, so the inner node is still live.
  */
-export function replay_clicks(region: Element, queued: QueuedClick[], owner: Scope): void {
+export function replay_clicks(region: Element, queued: QueuedClick[], owner: Life): void {
 	const replay = () => {
 		for (const q of queued) {
 			const t = now_at(region, q);
@@ -66,7 +69,7 @@ export function replay_clicks(region: Element, queued: QueuedClick[], owner: Sco
 		}
 		queued.length = 0;
 	};
-	owner.timeout(replay, 'frame');
+	owner.later(replay, 'frame');
 }
 
 /** The island is live: put back what the visitor did while it was waking, at each element's
@@ -78,7 +81,7 @@ export function after_wake(
 	fields: FieldSnapshot[],
 	focused: Touched | null,
 	queued: QueuedClick[],
-	owner: Scope
+	owner: Life
 ): void {
 	restore_fields(region, fields);
 	if (focused) {

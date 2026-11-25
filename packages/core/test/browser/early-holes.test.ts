@@ -3,6 +3,7 @@
 // takes that request over as the address's one flight in the frame store: the hole's own wake joins
 // it, a batch leaves it out, and one nobody joins goes with the page's visit.
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { lifeOf } from '@ogygia/machine';
 import { scope } from '@ogygia/machine';
 import { early_holes_head } from '../../src/early-holes-head.ts';
 import { adopt_early_holes } from '../../src/runtime/early-holes.ts';
@@ -67,7 +68,7 @@ describe('a hole the page started early', () => {
 		const { asked } = stub_network();
 		start_early([ep('e1')]);
 		const visit = scope();
-		adopt_early_holes(visit);
+		adopt_early_holes(lifeOf(visit));
 		const own = vi.fn(async () => 'own');
 		expect(await ensure(frameAddress(ep('e1')), own)).toBe('<p>e1</p>');
 		expect(own).not.toHaveBeenCalled();
@@ -79,7 +80,7 @@ describe('a hole the page started early', () => {
 		const { asked } = stub_network();
 		start_early([ep('r1')]);
 		const visit = scope();
-		adopt_early_holes(visit);
+		adopt_early_holes(lifeOf(visit));
 		const pinned = new URL(ep('r1'), location.href);
 		const own = vi.fn(async () => 'own');
 		expect(await ensure(frameAddress(pinned.pathname + pinned.search), own)).toBe('<p>r1</p>');
@@ -92,7 +93,7 @@ describe('a hole the page started early', () => {
 		const { asked } = stub_network();
 		start_early([ep('b1')]);
 		const visit = scope();
-		adopt_early_holes(visit);
+		adopt_early_holes(lifeOf(visit));
 		await Promise.all([join_batch(ep('b1')), join_batch(ep('b2'))]);
 		expect(asked.filter((a) => a.method === 'POST')).toEqual([]);
 		visit.close();
@@ -103,8 +104,8 @@ describe('a hole the page started early', () => {
 		start_early([ep('o1')]);
 		const first = scope();
 		const second = scope();
-		adopt_early_holes(first);
-		adopt_early_holes(second);
+		adopt_early_holes(lifeOf(first));
+		adopt_early_holes(lifeOf(second));
 		second.close();
 		expect(await ensure(frameAddress(ep('o1')), async () => 'own')).toBe('<p>o1</p>');
 		expect(asked).toHaveLength(1);
@@ -119,7 +120,7 @@ describe('a hole the page started early', () => {
 		try {
 			start_early([ep('d1')]);
 			const visit = scope();
-			adopt_early_holes(visit);
+			adopt_early_holes(lifeOf(visit));
 			visit.close();
 			await expect.poll(() => cancelled).toEqual(['d1']);
 			await new Promise((r) => setTimeout(r, 50));
@@ -156,7 +157,7 @@ describe('a hole the page started early', () => {
 		);
 		start_early([ep('x1')]);
 		const visit = scope();
-		adopt_early_holes(visit);
+		adopt_early_holes(lifeOf(visit));
 		await new Promise((r) => setTimeout(r, 20));
 		const own = vi.fn(async () => 'own');
 		const err = await ensure(frameAddress(ep('x1')), own).catch((e: unknown) => e);
@@ -173,7 +174,7 @@ describe('a hole the page started early', () => {
 		});
 		start_early([ep('j1')]);
 		const visit = scope();
-		adopt_early_holes(visit);
+		adopt_early_holes(lifeOf(visit));
 		const address = frameAddress(ep('j1'));
 		const own = vi.fn(async () => '<p>own</p>');
 		const heard = await ensure(address, own).catch((e: unknown) => e);

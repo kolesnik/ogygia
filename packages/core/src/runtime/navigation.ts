@@ -21,9 +21,11 @@
  * It lives here, on the boot side: the navigation chunk reaches it through the router (`r.nav`),
  * and `STALE` and the soft refresh's machine (./soft-refresh.ts) through `boot_link()`. A chunk that
  * imported `@ogygia/machine` itself would share it with the boot, and the bundler would split it
- * into a boot file of its own (./slots.ts `BootLink`).
+ * into a boot file of its own (./boot-link.ts `BootLink`).
  */
-import { machine, type Machine, type MachineGraph } from '@ogygia/machine';
+import type { MachineGraph } from '@ogygia/machine';
+import type { Run } from '@ogygia/machine';
+import * as fsm from '@ogygia/machine';
 
 type States = {
 	idle: {};
@@ -39,17 +41,17 @@ const steps = {
 	settling: ['claimed', 'idle']
 } as const;
 
-const definition = machine<States>()({ name: 'navigation', initial: 'idle', steps });
+const definition = $machine<States>()({ name: 'navigation', initial: 'idle', steps });
 
 /** The navigation machine the router holds. */
-export type Navigation = Machine<States, typeof steps>;
+export type Navigation = Run<States, typeof steps>;
 
 /** The navigation machine's states and steps, as data (internal/notes/flows/navigation.md draws it). */
 export function navigation_graph(): MachineGraph {
-	return definition.graph();
+	return fsm.graph(definition);
 }
 
 /** A navigation machine, idle. */
 export function create_navigation(): Navigation {
-	return definition.create();
+	return fsm.createRun(definition);
 }

@@ -8,6 +8,7 @@
 //                                                        else the merge base with origin/main
 //   node internal/checks/new-comments.ts --base <rev>    against that revision
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -54,7 +55,29 @@ export function added_lines(root: string, base: string): Map<string, Set<number>
 	return added;
 }
 
-/** The structured-comments findings that land on a line the change adds. */
+/** A text with each line trimmed: the same comment, wherever it is indented. */
+const trimmed = (text: string): string =>
+	text
+		.split('\n')
+		.map((l) => l.trim())
+		.join('\n');
+
+/** The base's text of every package source file the change touches (moved from, too), each line
+ *  trimmed. */
+function base_text(root: string, base: string): string {
+	const from = git(root, ['merge-base', base, 'HEAD']).trim();
+	const out: string[] = [];
+	for (const row of git(root, ['diff', '-M', '--name-status', from, 'HEAD']).split('\n')) {
+		const [status, old] = row.split('\t');
+		if (!status || status.startsWith('A') || !old || !SOURCE_RE.test(old)) continue;
+		out.push(trimmed(git(root, ['show', `${from}:${old}`])));
+	}
+	return out.join('\n');
+}
+
+/** The structured-comments findings that land on a line the change adds, but for an old comment:
+ *  one whose whole text, each line trimmed, the base already has in a file the change touches
+ *  (moved there from another file, or a line git's diff aligned as added). */
 export function new_comment_findings(root: string, base: string): Finding[] {
 	const added = added_lines(root, base);
 	if (added.size === 0) return [];
@@ -70,15 +93,29 @@ export function new_comment_findings(root: string, base: string): Finding[] {
 		out = (e as { stdout: string }).stdout;
 	}
 	const report = JSON.parse(out) as {
-		diagnostics: { filename: string; message: string; labels: { span: { line: number } }[] }[];
+		diagnostics: {
+			filename: string;
+			message: string;
+			labels: { span: { line: number; offset: number; length: number } }[];
+		}[];
+	};
+	const old = base_text(root, base);
+	const files = new Map<string, Buffer>();
+	const comment_of = (file: string, span: { offset: number; length: number }): string => {
+		let bytes = files.get(file);
+		if (bytes === undefined) files.set(file, (bytes = readFileSync(path.join(root, file))));
+		return bytes.subarray(span.offset, span.offset + span.length).toString('utf8');
 	};
 	return report.diagnostics
 		.map((d) => ({
 			file: path.relative(root, path.resolve(root, d.filename)).replaceAll('\\', '/'),
 			line: d.labels[0]?.span.line ?? 0,
+			span: d.labels[0]?.span,
 			message: d.message
 		}))
 		.filter((f) => added.get(f.file)?.has(f.line))
+		.filter((f) => !f.span || !old.includes(trimmed(comment_of(f.file, f.span))))
+		.map(({ file, line, message }) => ({ file, line, message }))
 		.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
 

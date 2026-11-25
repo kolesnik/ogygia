@@ -17,7 +17,10 @@ vi.mock('ogygia:server/server-manifest', () => ({
 }));
 vi.mock('ogygia:server/sign', async () => await import('../src/server/hmac.ts'));
 
-const hmac = await import('../src/server/hmac.ts');
+const hmac = {
+	...(await import('../src/server/hmac.ts')),
+	...(await import('../src/server/capability-check.ts'))
+};
 const { mint_region_capability, mint_server_region } =
 	await import('../src/server/region-endpoint.ts');
 const { signing_key } = await import('../src/server/signing-key.ts');

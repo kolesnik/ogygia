@@ -1,10 +1,14 @@
-import { flights, random, STALE, type Scope, type Stale } from '@ogygia/machine';
+import { random, STALE, type Stale } from '@ogygia/machine';
+import { plainFlights } from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 import { fragment_is_top, fragment_target } from './fragment.ts';
+
+export { fragment_target };
 import { import_again } from './import-again.ts';
 import { kit_hydrates_page } from './kit-boot.ts';
 import { document_address } from './document-address.ts';
 import { create_navigation, type Navigation } from './navigation.ts';
-import { slots } from './slots.ts';
+import { linked } from './boot-link.ts';
 import { publish_nav } from './nav-handle.ts';
 import { nearest_attr } from './nearest-attr.ts';
 import { record_server_body } from './ownership.ts';
@@ -14,9 +18,6 @@ import { OgygiaError, warn } from '../messages/core.ts';
 import { report_thrown } from '../report-thrown.ts';
 import { download } from '../policies.ts';
 import { watch_router } from './rules.ts';
-
-const RULES =
-	import.meta.env?.DEV || (typeof __OGYGIA_RULES__ !== 'undefined' ? __OGYGIA_RULES__ : false);
 
 const WS = /\s+/;
 
@@ -49,6 +50,7 @@ function hovered_anchor(event: Event): HTMLAnchorElement | null {
 const native_push = typeof History !== 'undefined' ? History.prototype.pushState : null;
 // oxlint-disable-next-line typescript/unbound-method -- the native method, kept before an instance patch; called with .call(history)
 const native_replace = typeof History !== 'undefined' ? History.prototype.replaceState : null;
+const KIT_PAGES = typeof __OGYGIA_KIT_PAGES__ !== 'undefined' ? __OGYGIA_KIT_PAGES__ : true;
 export const push_state = (state: unknown, url: string): void =>
 	native_push ? native_push.call(history, state, '', url) : history.pushState(state, '', url);
 export const replace_state = (state: unknown, url?: string): void => {
@@ -257,25 +259,25 @@ export class RouterHistory {
 	}
 }
 
-function on_idle(page: Scope, fn: () => void, cap = 1000) {
+function on_idle(page: Life, fn: () => void, cap = 1000) {
+	const once = page.child();
 	const run = () => {
-		idle();
-		capped();
+		once.close();
 		fn();
 	};
-	const idle = page.timeout(run, 'idle');
-	const capped = page.timeout(run, cap);
+	once.later(run, 'idle');
+	once.later(run, cap);
 }
 
 type Nav = typeof import('./router-nav.ts');
 let loaded_nav: Nav | null = null;
-const load_nav = flights({
+const import_nav = import_again(() => import('./router-nav.ts'));
+const load_nav = plainFlights({
 	name: 'navigation',
-	run: import_again(() => import('./router-nav.ts')),
+	run: () => import_nav().then(linked),
 	retry: download
 });
 function nav(): Promise<Nav | Stale> {
-	slots.router_link ??= { jump_to_hash, fragment_target };
 	return load_nav.get().then((m) => (m === STALE ? m : (loaded_nav = m)));
 }
 
@@ -353,7 +355,7 @@ export class SpaRouter {
 	 * swapping left the URL on the old page and `/plain` in the DOM).
 	 */
 	supersede(): void {
-		if (this.nav.now.kind !== 'idle') this.nav.go('idle');
+		if (this.nav.kind !== 'idle') this.nav.go('idle');
 	}
 
 	/**
@@ -378,8 +380,8 @@ export class SpaRouter {
 	 * is said (the page's error handler, as an uncaught throw would be), and the browser loads the
 	 * page whole.
 	 */
-	hand_off(url: URL, visit: Navigation['now'], move: HistoryMove, error?: unknown): void {
-		if (this.nav.now !== visit) return;
+	hand_off(url: URL, visit: number, move: HistoryMove, error?: unknown): void {
+		if (this.nav.epoch !== visit) return;
 		this.nav.go('idle');
 		if (error !== undefined) report_thrown(error);
 		if (move === 'push' && location.href !== url.href) location.assign(url.href);
@@ -433,14 +435,13 @@ export class SpaRouter {
 		if (!this.run_before(from, url, type)) return;
 
 		this.nav.go('claimed', { href: url.href });
-		const mine = this.nav.now;
-		let n: Nav | null | Stale;
+		const mine = this.nav.epoch;
+		let n: Nav | null;
 		try {
-			n = await this.nav.scope.task(() => nav().then((c) => (c === STALE ? null : c)));
+			n = $await(this.nav.visit().task(() => nav().then((c) => (c === STALE ? null : c))));
 		} catch {
 			return this.hand_off(url, mine, move);
 		}
-		if (n === STALE) return;
 		if (n === null) return this.hand_off(url, mine, move);
 		return n.navigate(this, url, from, opts, mine);
 	}
@@ -503,13 +504,13 @@ export class SpaRouter {
 	start(): void {
 		if (this.#started || typeof document === 'undefined') return;
 		if (!document.querySelector('meta[name="ogygia-router"]')) return;
-		if (kit_hydrates_page()) return;
+		if (KIT_PAGES && kit_hydrates_page()) return;
 		this.#started = true;
 		const stepped =
 			document_key(new URL(document_address())) !== document_key(new URL(location.href)) &&
 			this.history.find(history.state) !== null;
 		if (!stepped) this.history.start();
-		if (RULES) watch_router(this);
+		watch_router(this);
 		const body = document.body;
 		if (body) record_server_body(body, body, Array.from(body.childNodes));
 
@@ -853,7 +854,6 @@ export function startRouter(): void {
  */
 export function install(): void {
 	if (typeof document === 'undefined') return;
-	slots.nav = { goto, invalidateAll };
 	publish_nav({
 		goto,
 		invalidate,
@@ -869,7 +869,7 @@ export function install(): void {
 	});
 	const start = () => {
 		if (!document.querySelector('meta[name="ogygia-router"]')) return;
-		if (kit_hydrates_page()) return;
+		if (KIT_PAGES && kit_hydrates_page()) return;
 		startRouter();
 		document.dispatchEvent(new Event('og:page-load'));
 	};

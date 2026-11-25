@@ -1,4 +1,7 @@
-import { clock, queue, scope, type Place, type Queue, type Scope } from '@ogygia/machine';
+import { clock, type Place, type Queue } from '@ogygia/machine';
+import { plainQueue } from '@ogygia/machine';
+import * as life from '@ogygia/machine';
+import type { Life } from '@ogygia/machine';
 
 export interface GateOptions {
 	/** The call answers within this long: the wait for a slot and the run together. */
@@ -13,8 +16,8 @@ const RUN_TIMEOUT = 'region render timeout';
 const WAIT_TIMEOUT = 'region render queue timeout';
 
 export class ConcurrencyGate {
-	/** The slots (@ogygia/machine `queue()`, first come first served): a freed slot is handed to the
-	 *  next call in the same step, and a call whose deadline came is passed over. */
+	/** The slots (@ogygia/machine `plainQueue()`, first come first served): a freed slot
+	 *  is handed to the next call in the same step, and a call whose deadline came is passed over. */
 	readonly #slots: Queue<Waiter>;
 	readonly #limit: number;
 	#abandoned = 0;
@@ -22,7 +25,7 @@ export class ConcurrencyGate {
 	constructor(max: number) {
 		const limit = Math.max(1, max);
 		this.#limit = Number.isFinite(limit) ? Math.ceil(limit) : Number.MAX_SAFE_INTEGER;
-		this.#slots = queue<Waiter>({
+		this.#slots = plainQueue<Waiter>({
 			name: 'render gate',
 			max: this.#limit,
 			start: (w, place) => w.enter(place),
@@ -35,7 +38,7 @@ export class ConcurrencyGate {
 		const { deadline_ms, signal } = options;
 		if (signal?.aborted) throw signal.reason;
 		const deadline = deadline_ms === undefined ? Infinity : clock.mono() + deadline_ms;
-		const call = scope();
+		const call = life.rootLife();
 		try {
 			const slot = await this.#enter(deadline, signal, call);
 			if (signal?.aborted) {
@@ -87,7 +90,7 @@ export class ConcurrencyGate {
 	/** A slot: at once when one is free, else in turn (or the deadline passes, or the signal aborts,
 	 *  first). A waiter that gives up leaves the queue at once: with every slot held by bodies that
 	 *  never end, nothing else would drop it, and the queue would grow by the request rate. */
-	#enter(deadline: number, signal: AbortSignal | undefined, call: Scope): Promise<Place> {
+	#enter(deadline: number, signal: AbortSignal | undefined, call: Life): Promise<Place> {
 		return new Promise((resolve, reject) => {
 			let entered = false;
 			const waiter: Waiter = {
@@ -100,7 +103,7 @@ export class ConcurrencyGate {
 			const slots = this.#slots;
 			const free = slots.waiting === 0 && slots.holding < this.#limit;
 			slots.push(waiter, free ? undefined : deadline);
-			if (signal && !entered) call.on(signal, 'abort', () => this.#slots.cancel(waiter));
+			if (signal && !entered) call.listen(signal, 'abort', () => this.#slots.cancel(waiter));
 		});
 	}
 }
@@ -112,9 +115,9 @@ export function is_run_timeout(error: unknown): boolean {
 	return error instanceof Error && error.message === RUN_TIMEOUT;
 }
 
-function within<T>(call: Scope, work: Promise<T>, ms: number, on_timeout: () => void): Promise<T> {
+function within<T>(call: Life, work: Promise<T>, ms: number, on_timeout: () => void): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
-		call.timeout(() => {
+		call.later(() => {
 			on_timeout();
 			reject(new Error(RUN_TIMEOUT));
 		}, timer_ms(ms));

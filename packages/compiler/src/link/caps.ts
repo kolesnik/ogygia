@@ -1,5 +1,5 @@
 import { page_route_config, type Routes } from '../kit.ts';
-import { dedent } from '@ogygia/core/contract';
+import { dedent, type RuntimeHookName, type ServerHookName } from '@ogygia/core/contract';
 
 /** One plugin's server realm, as the build wires it. */
 export interface ServerRealm {
@@ -9,6 +9,8 @@ export interface ServerRealm {
 	module: string;
 	/** the plugin's options (JSON) */
 	options: unknown;
+	/** core's shared server hooks it implements (the keys of its `defineServer({ … })`) */
+	hooks: readonly ServerHookName[];
 }
 
 /** A plugin's browser realm, as the boot entry imports it. */
@@ -17,6 +19,8 @@ export interface ClientRealmFile {
 	name: string;
 	/** the realm module's absolute POSIX path (the plugin's `client`) */
 	module: string;
+	/** the runtime hooks it subscribes to (its `defineClient({ hooks })`, read from the file) */
+	hooks: readonly RuntimeHookName[];
 }
 
 /** The boot entry's plugin list (`[{ name, client }, …]`) and the imports it names, in plugin order. */
@@ -36,10 +40,17 @@ export function client_realms_source(clients: readonly ClientRealmFile[]): {
 /**
  * `server-plugins` — SERVER only: each plugin's server half, one static import per plugin, in the
  * order the app listed them. The handle runs their stages straight off this list; an app with no
- * plugins gets an empty one (and the client always does).
+ * plugins gets an empty one (and the client always does). Beside it, `plugin_count`, and a `0`/`1`
+ * per shared hook core calls on a request (`measures`): where no server half has it, the call folds.
  */
 export function server_plugins_module(ssr: boolean, realms: readonly ServerRealm[]): string {
-	if (!ssr || realms.length === 0) return `export const plugins = [];`;
+	const measures = realms.some((r) => r.hooks.includes('measures')) ? 1 : 0;
+	if (!ssr || realms.length === 0)
+		return dedent`
+			export const plugins = [];
+			export const plugin_count = 0;
+			export const measures = 0;
+		`;
 	const imports = realms.map((r, i) => `import p${i} from ${JSON.stringify(r.module)};`).join('\n');
 	const list = realms
 		.map(
@@ -53,6 +64,8 @@ export function server_plugins_module(ssr: boolean, realms: readonly ServerRealm
 		export const plugins = [
 			${list}
 		];
+		export const plugin_count = ${realms.length};
+		export const measures = ${measures};
 	`;
 }
 

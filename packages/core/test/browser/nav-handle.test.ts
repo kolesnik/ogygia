@@ -5,22 +5,28 @@
 // feature's install replaces it with the SPA router's API.
 import { afterEach, expect, test } from 'vitest';
 import { boot } from '../../src/runtime/core.ts';
-import * as mpa_nav from '../../src/runtime/nav-handle.ts';
 import * as router from '../../src/runtime/router.ts';
+import { HAS, set_feature_word } from '../_stubs/boot.runtime-flags.ts';
+import { F_MPA_NAV, F_ROUTER } from '../../src/contract/features.ts';
+
+const ALL = HAS;
 
 const NAV = Symbol.for('ogygia.nav');
 const scope = globalThis as unknown as Record<symbol, Record<string, unknown> | undefined>;
 
 afterEach(() => {
+	set_feature_word(ALL);
 	document.head.querySelectorAll('script[data-ogygia-speculate-hint]').forEach((s) => s.remove());
 });
 
 test('the mpa-nav feature publishes the MPA handle; the router feature replaces it with the SPA API', async () => {
 	delete scope[NAV];
-	boot([]); // a runtime whose islands never navigate: no handle at all
+	set_feature_word(ALL & ~F_MPA_NAV & ~F_ROUTER);
+	boot(); // a runtime whose islands never navigate: no handle at all
 	expect(scope[NAV], 'nothing published without the feature').toBeUndefined();
 
-	boot([mpa_nav.install]); // a runtime WITHOUT the router feature (`router: false`)
+	set_feature_word(ALL & ~F_ROUTER);
+	boot(); // a runtime WITHOUT the router feature (`router: false`)
 	const mpa = scope[NAV]!;
 	expect(mpa, 'the feature published a handle').toBeDefined();
 	expect(mpa.goto, 'not the router’s goto').not.toBe(router.goto);
@@ -45,6 +51,6 @@ test('the mpa-nav feature publishes the MPA handle; the router feature replaces 
 	expect(spa.bust_page_cache).toBe(router.bust_page_cache);
 
 	// A later boot never downgrades the router's handle back to the MPA one.
-	boot([mpa_nav.install]);
+	boot();
 	expect(scope[NAV]!.goto).toBe(router.goto);
 });

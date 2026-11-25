@@ -7,6 +7,8 @@ import { Queries } from '../src/queries.ts';
 import { CORE_PARTS, CORE_VIRTUALS, core_path, type CoreApp } from '../src/virtual/core.ts';
 import type { Leg } from '../src/virtual/table.ts';
 import { CORE_VALUE_NAMES } from '../src/virtual/value-names.ts';
+import { feature_word } from '@ogygia/core/contract';
+import { FEATURE_ORDER, resolveFeatures } from '../src/link/runtime-entry.ts';
 
 const table = new VirtualTable<CoreApp>(
 	CORE_VIRTUALS,
@@ -19,7 +21,7 @@ const table = new VirtualTable<CoreApp>(
 type Fake = {
 	ctx?: Record<string, unknown>;
 	program?: Record<string, unknown>;
-	client?: { name: string; module: string }[];
+	client?: { name: string; module: string; hooks: string[] }[];
 	calls?: string[];
 };
 
@@ -56,9 +58,23 @@ const load = (spec: string, a: CoreApp, ssr = false) =>
 	table.load(table.resolve(spec)!, a, leg(ssr)) as string | null;
 const DEV = { is_dev: true, is_build: false };
 const BUILD = { is_dev: false, is_build: true };
-const PLUGIN = { name: 'x-plugin', module: '/plugins/x/client.js' };
+const PLUGIN = { name: 'x-plugin', module: '/plugins/x/client.js', hooks: ['navigated'] };
 
 describe('core’s boot modules', () => {
+	it('serves the hooks the app’s client realms subscribe to, from the build’s runtime or dev’s', () => {
+		const built = load('ogygia:boot/hooks', app({ ctx: BUILD, client: [PLUGIN] }))!;
+		expect(built).toContain('import { told } from "/pkg/dist/runtime/hook-told.js";');
+		expect(built).toContain('export const navigated = /* @__PURE__ */ told("navigated");');
+		expect(built).toContain('export const regionMount = 0;');
+		expect(built).toContain('export const realm_count = 1;');
+		expect(load('ogygia:boot/hook-bits', app({ ctx: BUILD, client: [PLUGIN] }))).toContain(
+			'export const navigated = 1;'
+		);
+		const none = load('ogygia:boot/hooks', app({ ctx: DEV }))!;
+		expect(none).not.toContain('import');
+		expect(none).toContain('export const realm_count = 0;');
+	});
+
 	it('the dev boot calls bootDev, so a sideEffects:false package is not tree-shaken out of it', () => {
 		expect(load('ogygia:boot/runtime', app({ ctx: DEV }))).toContain('bootDev();');
 	});
@@ -81,12 +97,22 @@ describe('core’s boot modules', () => {
 
 	it('turns every runtime flag on in dev, and in a build only the ones its marks need', () => {
 		const dev = load('ogygia:boot/runtime-flags', app({ ctx: DEV }))!;
-		expect(dev).toContain('FRAMES = true');
+		expect(dev).toContain(`HAS = ${feature_word(FEATURE_ORDER)};`);
 		expect(dev).toContain('load_wire_codec = null');
 		const program = { runtime_marks: { complete: true } };
 		const build = load('ogygia:boot/runtime-flags', app({ ctx: BUILD, program }))!;
-		expect(build).toContain('FRAMES = false');
+		expect(build).toContain(`HAS = ${feature_word(resolveFeatures({ complete: true }))};`);
 		expect(build).toContain('load_wire_codec = () => import(');
+	});
+
+	it("the server's flags, as they load in a build, leave their word on the program for the handoff", () => {
+		const a = app({
+			ctx: BUILD,
+			program: { runtime_marks: { complete: true }, server_word: null }
+		});
+		const text = load('ogygia:server/runtime-flags', a, true)!;
+		expect(a.program.server_word).toBe(feature_word(resolveFeatures({ complete: true })));
+		expect(text).toContain(`HAS = ${a.program.server_word};`);
 	});
 
 	it('installs every hydrate feature in dev, from the runtime the app resolves (a workspace’s .ts source)', () => {
@@ -142,16 +168,15 @@ describe('core’s boot modules', () => {
 		for (const program of [{ runtime_marks: { wire: true } }, { crosses_wire: true }]) {
 			const code = load('ogygia:boot/hydrate-features', app({ ctx: DEV, program }))!;
 			expect(code).not.toMatch(/fn-manifest/);
-			expect(code).toContain('hydrate');
+			expect(code).toContain('export * as wire from');
 		}
 	});
 
-	it('re-exports the hydrate features after the runtime flags, which the runtime they import reads back', () => {
+	it('re-exports the runtime flags but no feature’s code: only the boot and the hydrate core import those, by their own ids', () => {
 		const boot = load('ogygia:boot', app())!;
-		expect(boot.indexOf('ogygia:boot/runtime-flags')).toBeGreaterThan(-1);
-		expect(boot.indexOf('ogygia:boot/hydrate-features')).toBeGreaterThan(
-			boot.indexOf('ogygia:boot/runtime-flags')
-		);
+		expect(boot).toContain('ogygia:boot/runtime-flags');
+		for (const id of ['feature-code', 'hydrate-features', 'remote-seeds'])
+			expect(boot).not.toContain(`ogygia:boot/${id}`);
 	});
 
 	it('names every region’s component for devtools in a build, and none in dev (the dev server serves them)', () => {

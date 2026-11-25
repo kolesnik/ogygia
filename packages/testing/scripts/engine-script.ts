@@ -1,12 +1,13 @@
 // Build the testing engine as one script a test injects before the page loads (dist/engine.js):
-// devtools' testing-script.ts with every import bundled in, so the page needs nothing of devtools
-// to answer `window.__ogygia_testing`. Runs after tsdown in every build.
+// devtools' built testing script (its dist: its build compiles its macros) with every import
+// bundled in, so the page needs nothing of devtools to answer `window.__ogygia_testing`. Runs after
+// tsdown in every build.
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { build } from 'rolldown';
 
 const entry = fileURLToPath(
-	new URL('../node_modules/@ogygia/devtools/src/devtools/testing-script.ts', import.meta.url)
+	new URL('../node_modules/@ogygia/devtools/dist/devtools/testing-script.js', import.meta.url)
 );
 const out = fileURLToPath(new URL('../dist/engine.js', import.meta.url));
 

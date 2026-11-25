@@ -11,6 +11,11 @@ export const region_deps = (entry: string): string[] => list(deps_by_entry, entr
 export function set_island_deps(map: Record<string, string[]>) {
 	deps_by_entry = map;
 }
+let wake: string[] = [];
+export const wake_code = (): string[] => wake;
+export function set_wake_code(list: string[]) {
+	wake = list;
+}
 let css_by_entry: Record<string, string[]> = {};
 export const region_css = (entry: string): string[] => list(css_by_entry, entry);
 export function set_island_css(map: Record<string, string[]>) {
