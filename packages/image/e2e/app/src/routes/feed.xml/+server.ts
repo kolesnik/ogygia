@@ -27,7 +27,7 @@ export async function GET({ url }) {
 	for (const ref of await blog.refs()) {
 		const post = (await blog.get(ref.id))!;
 		const body = await post.body;
-		const html = (body.kind === 'inline' ? (body.html ?? '') : '').replace(
+		const html = (body?.kind === 'inline' ? (body.html ?? '') : '').replace(
 			URL_ATTR_RE,
 			(_, attr: string, value: string) => `${attr}="${absolute(value, url)}"`
 		);
