@@ -193,6 +193,18 @@ describe('lay_out agrees with the endpoint', () => {
 		expect(() => lay_out(image(), req, CFG, real)).toThrow(/image_prop_invalid/);
 	});
 
+	test.each([
+		['an id that is not a recipe id', { id: 'x;background:url(https://example.com/p)' }],
+		['an empty id', { id: '' }],
+		['a placeholder that is not a WebP data URL', { ph: 'https://example.com/p.png' }],
+		[
+			'a placeholder that closes its url()',
+			{ ph: 'data:image/webp;base64,AAAA);background:url(https://example.com/p' }
+		]
+	])('a descriptor from outside the build with %s is refused with a code', (_, over) => {
+		expect(() => lay_out(image(over), {}, CFG, real)).toThrow(/image_prop_invalid/);
+	});
+
 	test('a source wider than any file the endpoint makes, laid out at its own width, is refused with a code', () => {
 		expect(() => lay_out(image({ width: 150_000, height: 10 }), {}, CFG, real)).toThrow(
 			/image_prop_invalid/
