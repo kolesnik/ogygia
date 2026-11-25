@@ -41,10 +41,18 @@ export interface LayoutRequest {
 	formats?: readonly OutputFormat[];
 }
 
-/** One `<source>`: a format's candidates. */
+/** One `<source>`: a candidate set, for the browsers its `media` and `type` match. */
 export interface LaidSource {
-	type: string;
+	/** The media condition it is chosen by (a dark or an art-directed image), if any. */
+	media?: string;
+	/** Its format's MIME type, if it names one. */
+	type?: string;
 	srcset: string;
+	/** Its own `sizes`, when not the `<img>`'s. */
+	sizes?: string;
+	/** Its own box, when not the `<img>`'s (a crop of another shape). */
+	width?: number;
+	height?: number;
 }
 
 /** What to render. */
@@ -52,7 +60,8 @@ export interface Laid {
 	/** The `width` / `height` attributes: the display box, so the page reserves the space. */
 	width: number;
 	height: number;
-	/** `<source>` elements, best format first. Empty when there is one format. */
+	/** `<source>` elements in the order the browser tries them: best format first. Empty when there
+	 *  is one format. */
 	sources: LaidSource[];
 	/** The `<img>` itself: its fallback `src`, and its own `srcset` (the most compatible format). */
 	src: string;

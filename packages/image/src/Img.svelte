@@ -158,9 +158,16 @@ ships no script, and no inline event handler. Besides its own props it passes `c
 
 {#if laid.sources.length}
 	<picture>
-		{#each laid.sources as source, i (source.type)}
+		{#each laid.sources as source, i (`${source.media}|${source.type}`)}
 			<!-- svelte-ignore hydration_attribute_changed -- the browser cannot sign: it keeps the server's URLs, read back by keep() -->
-			<source type={source.type} srcset={files.sources[i]} sizes={laid.sizes} />
+			<source
+				media={source.media}
+				type={source.type}
+				srcset={files.sources[i]}
+				sizes={source.sizes ?? laid.sizes}
+				width={source.width}
+				height={source.height}
+			/>
 		{/each}
 		{@render img()}
 	</picture>
