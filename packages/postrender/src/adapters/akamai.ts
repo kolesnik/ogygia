@@ -5,10 +5,9 @@ import {
 	AKAMAI_MAX_TAGS,
 	akamai_external_tag,
 	akamai_prefix_tag,
-	akamai_tag,
 	akamai_url_tag,
-	normalize_prefix,
-	prefix_tags
+	build_edge_tags,
+	normalize_prefix
 } from '../key.ts';
 import { OgygiaError } from '../messages.ts';
 
@@ -83,20 +82,9 @@ export class AkamaiEdge implements EdgeAdapter {
 		if (has_variants && !this.#config.variants) {
 			return { 'cache-control': 'private, no-store' };
 		}
-		const tag_set = new Set<string>();
-		for (const raw of meta.tags ?? []) {
-			const clean = akamai_external_tag(raw);
-			if (clean) tag_set.add(clean);
-		}
-		for (const p of prefix_tags(meta.url)) tag_set.add(akamai_prefix_tag(p));
-		tag_set.add(akamai_url_tag(meta.url));
-		for (const [name, variant] of meta.variants ?? []) {
-			tag_set.add(akamai_tag(`og_flag_${name}`));
-			tag_set.add(akamai_tag(`og_exp_${name}_${variant}`));
-		}
-		const tags = [...tag_set].slice(0, AKAMAI_MAX_TAGS);
-		const out: Record<string, string> = {};
-		if (tags.length) out['edge-cache-tag'] = tags.join(', ');
+		const out: Record<string, string> = {
+			'edge-cache-tag': build_edge_tags(meta, AKAMAI_MAX_TAGS).join(', ')
+		};
 		const max_age = this.#config.maxAge ?? meta.ttl;
 		if (max_age > 0) out['cache-control'] = `public, s-maxage=${max_age}`;
 		return out;

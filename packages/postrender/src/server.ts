@@ -361,7 +361,16 @@ async function capture(
 	flight: Flight
 ): Promise<Captured> {
 	const { path, facts } = ctx;
-	const tags = [...(facts.sources ?? []), build_tag(version)];
+	const app_tags = [
+		...new Set(
+			[response.headers.get('edge-cache-tag') ?? '', response.headers.get('cache-tag') ?? '']
+				.join(',')
+				.split(',')
+				.map((t) => t.trim())
+				.filter(Boolean)
+		)
+	];
+	const tags = [...new Set([...app_tags, ...(facts.sources ?? []), build_tag(version)])];
 	/** Store `entry`, unless an invalidation started while the store was being written to (the
 	 *  flight went stale; its evict may have run first): then the entry comes back out, and the
 	 *  page stays per-request (no hit is served from it meanwhile, `retracting`). Labeled with this
@@ -383,10 +392,6 @@ async function capture(
 		return { stored: true, entry, response };
 	}
 	const content_type = response.headers.get('content-type') ?? '';
-	const app_tags = (response.headers.get('edge-cache-tag') ?? '')
-		.split(',')
-		.map((t) => t.trim())
-		.filter(Boolean);
 	const html = await response.text();
 	/** The page as Kit answered it, again (its body was read above). */
 	const answered = (): Response =>
@@ -538,7 +543,7 @@ async function capture_page(
 	};
 	if (has_variants) {
 		const vkey = variant_store_key(path, variants);
-		const tags = [...(facts.sources ?? []), build_tag(version)];
+		const tags = [...new Set([...app_tags, ...(facts.sources ?? []), build_tag(version)])];
 		if (!(await store_render(runtime, vkey, { ...entry, build: version }, { ttl, tags }, flight))) {
 			return { stored: false, response: answered() };
 		}

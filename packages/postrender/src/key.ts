@@ -1,4 +1,5 @@
 import { fnv1a32 } from '@ogygia/core/plugin/utils';
+import type { PostrenderMeta } from './types.ts';
 
 /** The store key for a request URL: the decoded pathname, verbatim (trailing slash preserved —
  *  `/fr/fr/` and `/fr/fr` are different documents to Kit and to the CDN). */
@@ -59,7 +60,9 @@ export const AKAMAI_MAX_TAGS = 128;
 
 /** Sanitize a string into an Akamai-legal Edge-Cache-Tag token (no colons/spaces, <= 128 chars). */
 export function akamai_tag(raw: string): string {
-	return raw.replace(AKAMAI_TAG_DISALLOWED_G, '_').slice(0, AKAMAI_TAG_MAX_LEN);
+	const trimmed = raw.trim();
+	if (!trimmed) return '';
+	return trimmed.replace(AKAMAI_TAG_DISALLOWED_G, '_').slice(0, AKAMAI_TAG_MAX_LEN);
 }
 
 /** Akamai prefix tag for a normalized prefix (`/fr/fr` -> `og_p/fr/fr`, `/` -> `og_p`). */
@@ -74,7 +77,32 @@ export function akamai_url_tag(pathname: string): string {
 
 /** Map an internal or app cache tag (`s:...`, `b:...`, `p:...`, or plain tag) to an Akamai-legal tag. */
 export function akamai_external_tag(tag: string): string {
-	if (tag.startsWith('p:')) return akamai_prefix_tag(normalize_prefix(tag.slice(2)));
-	if (tag.startsWith('s:') || tag.startsWith('b:')) return `og_${tag[0]}_${fnv1a32(tag)}`;
-	return akamai_tag(tag);
+	const trimmed = tag.trim();
+	if (!trimmed) return '';
+	if (trimmed.startsWith('p:')) return akamai_prefix_tag(normalize_prefix(trimmed.slice(2)));
+	if (trimmed.startsWith('s:') || trimmed.startsWith('b:'))
+		return `og_${trimmed[0]}_${fnv1a32(trimmed)}`;
+	return akamai_tag(trimmed);
+}
+
+/** Build the deduplicated, sanitized edge cache-tag list for `meta`, reserving structural tags. */
+export function build_edge_tags(
+	meta: PostrenderMeta,
+	max_tags: number = AKAMAI_MAX_TAGS
+): string[] {
+	const structural = new Set<string>();
+	for (const p of prefix_tags(meta.url)) structural.add(akamai_prefix_tag(p));
+	structural.add(akamai_url_tag(meta.url));
+	for (const [name, variant] of meta.variants ?? []) {
+		structural.add(akamai_tag(`og_flag_${name}`));
+		structural.add(akamai_tag(`og_exp_${name}_${variant}`));
+	}
+	const app_budget = Math.max(0, max_tags - structural.size);
+	const app_set = new Set<string>();
+	for (const raw of meta.tags ?? []) {
+		if (app_set.size >= app_budget) break;
+		const clean = akamai_external_tag(raw);
+		if (clean && !structural.has(clean)) app_set.add(clean);
+	}
+	return [...app_set, ...structural].slice(0, max_tags);
 }

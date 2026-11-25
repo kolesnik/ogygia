@@ -300,7 +300,9 @@ test.describe('POSTRENDER (prerender at request time): store/serve/invalidate + 
 		for (const path of ['/fr/fr/c/home', '/fr/fr/c/about', '/en/us/c/home'] as const) {
 			check(
 				`S12: akamai got the purge for CONSUMER ${path}`,
-				akamai!.state().purges.some((p) => (p.kind === 'url' && p.value === path) || p.kind === 'tag')
+				akamai!
+					.state()
+					.purges.some((p) => (p.kind === 'url' && p.value === path) || p.kind === 'tag')
 			);
 		}
 		const promo1 = await fetch(`${origin}/fr/fr/c/home`);
