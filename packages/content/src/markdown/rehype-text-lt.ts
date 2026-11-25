@@ -15,7 +15,8 @@ const TAG_NAME_START = /[A-Za-z/]/;
 /** `value` with every `<` that cannot start a tag, outside tags and braces, written as `&lt;`. */
 export function escape_text_lt(value: string): string {
 	if (!value.includes('<')) return value;
-	let out = '';
+	const parts: string[] = [];
+	let from = 0;
 	let depth = 0;
 	let in_tag = false;
 	for (let i = 0; i < value.length; i++) {
@@ -27,15 +28,15 @@ export function escape_text_lt(value: string): string {
 			if (ch === '>') in_tag = false;
 		} else if (ch === '<') {
 			const next = value[i + 1] ?? '';
-			if (!TAG_START.test(next)) {
-				out += '&lt;';
-				continue;
+			if (TAG_START.test(next)) in_tag = TAG_NAME_START.test(next);
+			else {
+				parts.push(value.slice(from, i), '&lt;');
+				from = i + 1;
 			}
-			in_tag = TAG_NAME_START.test(next);
 		}
-		out += ch;
 	}
-	return out;
+	parts.push(value.slice(from));
+	return parts.join('');
 }
 
 /** The rehype plugin. */
