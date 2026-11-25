@@ -2,6 +2,7 @@
 // same specs run in three modes (playwright.config.ts): built with adapter-node and served, every page
 // prerendered with adapter-static and served as plain files (no server at all), and the dev server.
 // `pnpm --filter @ogygia/image e2e`.
+import fs from 'node:fs';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { test, expect } from '@ogygia/tooling/e2e';
@@ -342,6 +343,36 @@ test.describe('the image endpoint', () => {
 			if (MODE !== 'static') expect(res.headers()['x-ogygia-deny'], bad).toBe('sig');
 		}
 		expect((await request.get(url)).status()).toBe(200);
+	});
+
+	test('a file URL asked with a query string is sent to the bare URL, so a CDN keeps one copy', async ({
+		request
+	}) => {
+		test.skip(MODE === 'static', 'a static host serves its files whatever the query');
+		const html = await (await request.get('/')).text();
+		const url = html.match(SIGNED_URL_RE)![0]!;
+		const res = await request.get(`${url}?bust=1`, { maxRedirects: 0 });
+		expect(res.status()).toBe(308);
+		expect(res.headers()['location']).toBe(url);
+		expect((await request.get(`${url}?bust=2`)).status()).toBe(200);
+	});
+
+	test('an image added while the dev server runs is served at once', async ({ request }) => {
+		test.skip(MODE !== 'dev', 'the dev server only');
+		const late = new URL('./app/src/lib/late/', import.meta.url);
+		const added = new URL('two.png', late);
+		fs.copyFileSync(new URL('one.png', late), added);
+		try {
+			await expect
+				.poll(async () => ((await (await request.get('/late')).text()).match(/<img/g) ?? []).length)
+				.toBe(2);
+			const html = await (await request.get('/late')).text();
+			const two = (html.match(SIGNED_URL_RE) ?? []).filter((u) => u.includes('two.'));
+			expect(two.length).toBeGreaterThan(0);
+			for (const url of two) expect((await request.get(url)).status(), url).toBe(200);
+		} finally {
+			fs.rmSync(added, { force: true });
+		}
 	});
 
 	test('a file is sent to be kept forever', async ({ request }) => {
