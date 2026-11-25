@@ -10,11 +10,28 @@ import { check, dead_fields } from '@ogygia/machine/testing';
 import { ENCODER } from '../src/vite/encoder.ts';
 import { image } from '../src/vite/index.ts';
 
-vi.hoisted(() => {
+const PNP = vi.hoisted(() => {
 	delete process.env.__OGYGIA_IMAGE_BUILD;
+	return { prefix: 'og-image-pnp-', entry: '' };
 });
 
-const SHARP_DIR = path.dirname(path.dirname(createRequire(import.meta.url).resolve('sharp')));
+vi.mock('node:module', async (original) => {
+	const real = await original<typeof import('node:module')>();
+	const createRequire = (from: string | URL): NodeJS.Require => {
+		const req = real.createRequire(from);
+		if (!String(from).includes(PNP.prefix)) return req;
+		const resolve = ((id: string) => {
+			if (id === 'sharp') return PNP.entry;
+			return req.resolve(id);
+		}) as NodeJS.RequireResolve;
+		return Object.assign(((id: string) => req(id)) as NodeJS.Require, req, { resolve });
+	};
+	return { ...real, default: { ...real, createRequire }, createRequire };
+});
+
+const SHARP_ENTRY = createRequire(import.meta.url).resolve('sharp');
+const SHARP_DIR = path.dirname(path.dirname(SHARP_ENTRY));
+PNP.entry = SHARP_ENTRY;
 const NODE = '"@sveltejs/adapter-node"';
 const STATIC = '"@sveltejs/adapter-static"';
 const EDGE = '"@sveltejs/adapter-cloudflare"';
@@ -60,7 +77,39 @@ test("a node server build with sharp in the app's dependencies goes on", async (
 	await expect(resolved(app('dependencies', true), NODE)).resolves.toBeUndefined();
 });
 
-test('a static build, which runs no server, only needs sharp installed', async () => {
+test('a build with no node_modules folder (Yarn PnP) goes on when Node resolves sharp from the app', async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), PNP.prefix));
+	fs.writeFileSync(
+		path.join(root, 'package.json'),
+		JSON.stringify({ name: 'app', private: true, dependencies: { sharp: '^0.35.0' } })
+	);
+	const node_path = process.env.NODE_PATH;
+	delete process.env.NODE_PATH;
+	try {
+		await expect(resolved(root, NODE)).resolves.toBeUndefined();
+		await expect(resolved(root, null, 'serve')).resolves.toBeUndefined();
+	} finally {
+		if (node_path !== undefined) process.env.NODE_PATH = node_path;
+	}
+});
+
+test('with NODE_PATH set, a sharp that Node finds with no node_modules folder at or above the app is not the app installing it', async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), PNP.prefix));
+	fs.writeFileSync(
+		path.join(root, 'package.json'),
+		JSON.stringify({ name: 'app', private: true, dependencies: { sharp: '^0.35.0' } })
+	);
+	const node_path = process.env.NODE_PATH;
+	process.env.NODE_PATH = path.dirname(SHARP_DIR);
+	try {
+		await expect(resolved(root, NODE)).rejects.toThrow(/image_sharp_missing/);
+	} finally {
+		if (node_path === undefined) delete process.env.NODE_PATH;
+		else process.env.NODE_PATH = node_path;
+	}
+});
+
+test('a static build, which runs no server, needs sharp installed and listed, devDependencies is enough', async () => {
 	await expect(resolved(app('devDependencies', true), STATIC)).resolves.toBeUndefined();
 	await expect(resolved(app(null, false), STATIC)).rejects.toThrow(/image_sharp_missing/);
 });
