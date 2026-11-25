@@ -98,7 +98,7 @@ test('the link of each recipe shape, options in one fixed order', () => {
 	`);
 });
 
-test("the binding makes the same recipe in steps, in sharp's order: mirror, turn, tone, box", () => {
+test("the binding makes the same recipe in steps, in sharp's order: mirror, turn, box, tone", () => {
 	expect(
 		cloudflare_steps(
 			at({ position: 'bottom', ops: { rotate: 90, flip: true, flop: true, grayscale: true } })
@@ -107,8 +107,8 @@ test("the binding makes the same recipe in steps, in sharp's order: mirror, turn
 		transforms: [
 			{ flip: 'hv' },
 			{ rotate: 90 },
-			{ saturation: 0 },
-			{ width: 640, height: 360, fit: 'cover', gravity: 'bottom' }
+			{ width: 640, height: 360, fit: 'cover', gravity: 'bottom' },
+			{ saturation: 0 }
 		],
 		output: { format: 'image/avif', quality: 60 }
 	});

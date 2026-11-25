@@ -52,7 +52,8 @@ function quality_of(r: Omit<Recipe, 'src'>): number | undefined {
 	return r.format === 'png' ? undefined : DEFAULT_QUALITY[r.format as 'avif' | 'webp' | 'jpeg'];
 }
 
-/** The binding steps of `r`: mirror, then turn, then tone and blur, then the box, as sharp does. */
+/** The binding steps of `r`: mirror, then turn, then the box, then tone, blur and sharpen on the
+ *  box's pixels, as sharp does. */
 export function cloudflare_steps(r: Omit<Recipe, 'src'>): CloudflareSteps {
 	const ops = r.ops ?? {};
 	const transforms: CloudflareTransform[] = [];
@@ -60,13 +61,6 @@ export function cloudflare_steps(r: Omit<Recipe, 'src'>): CloudflareSteps {
 	if (flip) transforms.push({ flip });
 	const rotate = ops.rotate ? quarter(ops.rotate) : 0;
 	if (rotate) transforms.push({ rotate });
-	const tone: CloudflareTransform = {};
-	const saturation = ops.grayscale ? 0 : ops.modulate?.saturation;
-	if (saturation !== undefined) tone.saturation = saturation;
-	if (ops.modulate?.brightness !== undefined) tone.brightness = ops.modulate.brightness;
-	if (ops.blur) tone.blur = Math.min(BLUR_MAX, Math.max(1, Math.round(ops.blur * 2)));
-	if (ops.sharpen) tone.sharpen = 1;
-	if (Object.keys(tone).length) transforms.push(tone);
 	const gravity = r.position === undefined ? undefined : GRAVITY[r.position];
 	transforms.push({
 		width: r.width,
@@ -74,6 +68,13 @@ export function cloudflare_steps(r: Omit<Recipe, 'src'>): CloudflareSteps {
 		fit: 'cover',
 		...(gravity ? { gravity } : {})
 	});
+	const tone: CloudflareTransform = {};
+	const saturation = ops.grayscale ? 0 : ops.modulate?.saturation;
+	if (saturation !== undefined) tone.saturation = saturation;
+	if (ops.modulate?.brightness !== undefined) tone.brightness = ops.modulate.brightness;
+	if (ops.blur) tone.blur = Math.min(BLUR_MAX, Math.max(1, Math.round(ops.blur * 2)));
+	if (ops.sharpen) tone.sharpen = 1;
+	if (Object.keys(tone).length) transforms.push(tone);
 	const quality = quality_of(r);
 	return {
 		transforms,
