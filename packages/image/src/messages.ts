@@ -175,6 +175,18 @@ export const IMAGE_ERRORS = {
 			The option has a value the encoder cannot use. The message names the rule it breaks.
 		`
 	},
+	image_too_large: {
+		text: (a: { file: string; reason: string }): string =>
+			`${a.file}: the image is too large to encode (${a.reason}).`,
+		details: (): string => prose`
+			The encoder (sharp) reads at most 268,402,689 pixels a frame (16383 × 16383), and an
+			animation at most 4,294,967,296 pixels over all its frames: a long screen recording of
+			1200 × 800 with 300 frames is 288 million, well inside. A file past either would take
+			minutes to encode on every server that makes it, so the build stops here. Make the image
+			smaller, or cut the animation shorter or to fewer frames per second (a GIF made at 10
+			frames per second is a third of one at 30), or show it as a video.
+		`
+	},
 	image_decode_failed: {
 		text: (a: { file: string; reason: string }): string =>
 			`${a.file}: the image could not be read (${a.reason}).`,

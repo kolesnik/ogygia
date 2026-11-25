@@ -25,21 +25,49 @@ export function shown_size(
 	return { width: w, height: h };
 }
 
-/** The source's metadata, every frame counted. */
+/** The source's metadata, every frame counted. Its header only: no pixel is read, so no limit
+ *  applies (see {@link too_large}). */
 export function metadata_of(bytes: Uint8Array): Promise<Metadata> {
-	return sharp(bytes, { animated: true }).metadata();
+	return sharp(bytes, { animated: true, limitInputPixels: false }).metadata();
 }
 
-/** The source → `width` × `height`, cut to that box around `position`. */
+/** The most pixels one frame may have: sharp's own default limit (16383 × 16383). */
+export const FRAME_PIXELS_MAX = 268402689;
+
+/** The most pixels an animation's frames may add up to. sharp reads the frames one after another,
+ *  so memory stays small; the time an encode takes grows with them (a 1200 × 800 recording of 300
+ *  frames, 288 million pixels, takes about half a second). */
+export const ANIMATION_PIXELS_MAX: number = 2 ** 32;
+
+/** The pixels an encode of a source with `meta` reads: one frame, or every frame of an
+ *  animation. */
+export function pixels_read(meta: Metadata): number {
+	return meta.width * meta.height;
+}
+
+/** Why a source with `meta` is too large to encode, or null. */
+export function too_large(meta: Metadata): string | null {
+	const pages = meta.pages ?? 1;
+	const frame = meta.width * (pages > 1 && meta.pageHeight ? meta.pageHeight : meta.height);
+	if (frame > FRAME_PIXELS_MAX)
+		return `${meta.width} × ${frame / meta.width} pixels a frame, past the ${FRAME_PIXELS_MAX} one frame may have`;
+	if (pages > 1 && frame * pages > ANIMATION_PIXELS_MAX)
+		return `${pages} frames of ${meta.width} × ${frame / meta.width} pixels, ${frame * pages} in all, past the ${ANIMATION_PIXELS_MAX} an animation may have`;
+	return null;
+}
+
+/** The source → `width` × `height`, cut to that box around `position`. `pixels` is the most it
+ *  reads: one frame, or every frame of an animation ({@link pixels_read}). */
 export function pipeline(
 	bytes: Uint8Array,
 	ops: ImageOps,
 	animated: boolean,
 	width: number,
 	height: number,
-	position?: string
+	position?: string,
+	pixels: number = FRAME_PIXELS_MAX
 ): Sharp {
-	let img = sharp(bytes, { animated }).autoOrient();
+	let img = sharp(bytes, { animated, limitInputPixels: pixels }).autoOrient();
 	if (ops.rotate) img = img.rotate(ops.rotate);
 	if (ops.flip) img = img.flip();
 	if (ops.flop) img = img.flop();
@@ -71,9 +99,18 @@ export async function encode(
 		position?: string;
 		ops?: ImageOps;
 	},
-	animated: boolean
+	animated: boolean,
+	pixels: number = FRAME_PIXELS_MAX
 ): Promise<Buffer> {
-	let img = pipeline(bytes, file.ops ?? {}, animated, file.width, file.height, file.position);
+	let img = pipeline(
+		bytes,
+		file.ops ?? {},
+		animated,
+		file.width,
+		file.height,
+		file.position,
+		pixels
+	);
 	const q = file.quality;
 	if (file.format === 'avif') img = img.avif({ quality: q ?? 60, effort: 4 });
 	else if (file.format === 'webp')
@@ -106,7 +143,8 @@ export async function placeholder_of(
 	return `data:image/webp;base64,${tiny.toString('base64')}`;
 }
 
-/** One recipe's file from its original's bytes (every frame kept when the original moves). */
+/** One recipe's file from its original's bytes (every frame kept when the original moves). An
+ *  original {@link too_large} to read fails, saying why. */
 export async function encode_recipe(
 	bytes: Uint8Array,
 	recipe: {
@@ -119,5 +157,7 @@ export async function encode_recipe(
 	}
 ): Promise<Buffer> {
 	const meta = await metadata_of(bytes);
-	return encode(bytes, recipe, (meta.pages ?? 1) > 1);
+	const why = too_large(meta);
+	if (why !== null) throw new Error(`the original is too large to read: ${why}`);
+	return encode(bytes, recipe, (meta.pages ?? 1) > 1, pixels_read(meta));
 }

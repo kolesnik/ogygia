@@ -12,7 +12,7 @@ import { BuildCache } from '@ogygia/compiler';
 import type { Metadata } from 'sharp';
 import type { ImageFormat, ImageOps } from '../descriptor.ts';
 import { OgygiaError } from '../messages.ts';
-import { metadata_of, placeholder_of, shown_size, VIPS_VERSION } from '../pixels.ts';
+import { metadata_of, placeholder_of, shown_size, too_large, VIPS_VERSION } from '../pixels.ts';
 import { ENCODER_VERSION } from '../store.ts';
 import type { ImageOptions, ImagePluginOptions } from './options.ts';
 
@@ -43,6 +43,10 @@ export function settle(plugin: ImagePluginOptions, own: ImageOptions): Settings 
 }
 
 const plans = new BuildCache<Plan>('image');
+
+/** Bump when planning answers differently for the same file (a check added): every kept plan is
+ *  made again. */
+const PLAN_VERSION = 2;
 
 const VECTOR_RE = /\.svg$/i;
 const FORMAT_OF: Readonly<Record<string, ImageFormat>> = {
@@ -80,7 +84,7 @@ export async function plan_image(file: string, settings: Settings): Promise<Plan
 	}
 	const id = digest([
 		bytes,
-		JSON.stringify({ ...settings, v: ENCODER_VERSION, vips: VIPS_VERSION })
+		JSON.stringify({ ...settings, v: ENCODER_VERSION, plan: PLAN_VERSION, vips: VIPS_VERSION })
 	]);
 	const kept = plans.get(id);
 	if (kept) return kept;
@@ -91,6 +95,8 @@ export async function plan_image(file: string, settings: Settings): Promise<Plan
 	} catch (e) {
 		throw decode_failed(file, e);
 	}
+	const why = VECTOR_RE.test(file) ? null : too_large(meta);
+	if (why !== null) throw new OgygiaError('image_too_large', { file, reason: why });
 	if (VECTOR_RE.test(file)) {
 		const plan: Plan = {
 			id,
