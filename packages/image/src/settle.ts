@@ -12,7 +12,7 @@
  * @packageDocumentation
  */
 import { clock, flights, queue, STALE, type Fresh, type Place } from '@ogygia/machine';
-import { make, parallel, store } from 'virtual:ogygia-image/maker';
+import { in_build, make, parallel, store } from 'virtual:ogygia-image/maker';
 import { build_handoff } from './handoff.ts';
 import { mime_of } from './layout.ts';
 import { warn } from './messages.ts';
@@ -88,9 +88,10 @@ const makes = flights.keyed<Ask>()<'key', 'recipe' | 'original' | 'platform', Pr
 });
 
 /** Start making the file of `key` now (the prerender, as a page names it: the build's end finds it
- *  kept), unless it is kept. A failure is the build's end to report. */
+ *  kept), unless it is kept or the maker does not run in the build. A failure is the build's end to
+ *  report. */
 export async function prepare(recipe: ParsedRecipe, key: string, original: string): Promise<void> {
-	if (await store?.find(key)) return;
+	if (!in_build || (await store?.find(key))) return;
 	await makes.get({ key, recipe, original, platform: undefined });
 }
 

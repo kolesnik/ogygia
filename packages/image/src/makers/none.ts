@@ -15,3 +15,6 @@ export const make: Maker['make'] = () =>
 
 /** Nothing is kept. */
 export const store: Maker['store'] = null;
+
+/** It makes nothing, in the build or anywhere. */
+export const in_build: Maker['in_build'] = false;

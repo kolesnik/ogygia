@@ -46,4 +46,7 @@ export interface Maker {
 	make(bytes: Uint8Array, recipe: ParsedRecipe, platform: unknown): Promise<Uint8Array>;
 	/** Where its files are kept, or null: each is made per ask (and kept in memory). */
 	store: MadeStore | null;
+	/** Whether it makes files in the build too (the prerender's head start); false: the build's
+	 *  end makes them with sharp. */
+	in_build: boolean;
 }

@@ -20,6 +20,9 @@ export const make: Maker['make'] = encode_recipe;
 
 const handoff = build_handoff();
 
+/** sharp runs in the build. */
+export const in_build: Maker['in_build'] = true;
+
 /** The build cache's store in the build and the dev server, else the live server's. */
 export const store: MadeStore | null = handoff
 	? FileStore.shared(handoff.store)
