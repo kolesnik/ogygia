@@ -519,7 +519,7 @@ A few differences to know when you move a site:
 - **Frontmatter paths need `./` or `../`.** Astro's `image()` reads any path; here a bare `cover.png` stays a string. Astro posts usually write `./cover.png` already.
 - **Images live under `src/`.** A file outside it fails the build (`image_outside_src`).
 - **A static site's image URLs stay the same across builds**, like Astro's `_astro/` files, with no secret to set. They sit under `_app/immutable/og/` and are named by the source's content and the recipe, not the file's name.
-- **Animated GIFs** become animated WebP, never AVIF. There is no option to turn them off.
+- **Animated GIFs** become animated WebP, never AVIF. There is no option to turn them off, and a preset's `formats` do not apply to them: a GIF cover's `og:image` is an animated WebP too.
 - **Remote images** are not supported yet: a URL in the macro fails the build (`image_remote_unsupported`). Markdown leaves remote images as plain `<img>`.
 - **`<Img>` takes a fixed set of attributes** (listed above). A `data-*` or `aria-*` attribute is not passed through.
 - **MDX components** are not part of `@ogygia/content`'s markdown. Rename `.mdx` posts to `.md` (or `.svx`, which takes Svelte components). Delete each post's image wiring (`import BlogImage from …` and `export const components = { img: BlogImage }`): `![]()` images render through `<Img>` on their own. Any other MDX component (a `<Tweet id="…">`) needs a Svelte component in a `.svx` post, or a plain link.
