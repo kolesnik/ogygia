@@ -4,7 +4,11 @@ import sharp, { type Sharp } from 'sharp';
 import { expect, test } from 'vitest';
 import { check, dead_fields, table } from '@ogygia/machine/testing';
 import { CAPABILITIES, cannot } from '../src/encoders/capabilities.ts';
-import { cloudflare_link, cloudflare_steps } from '../src/encoders/cloudflare.ts';
+import {
+	cloudflare_link,
+	cloudflare_steps,
+	type CloudflareSteps
+} from '../src/encoders/cloudflare.ts';
 import { NEEDS, needs_of } from '../src/encoders/needs.ts';
 import { namer, type NamerPlan } from '../src/namers/resolve.ts';
 import type { Recipe } from '../src/recipe.ts';
@@ -108,6 +112,44 @@ test("the binding makes the same recipe in steps, in sharp's order: mirror, turn
 		],
 		output: { format: 'image/avif', quality: 60 }
 	});
+});
+
+async function by_steps(src: Buffer, steps: CloudflareSteps): Promise<Buffer> {
+	let bytes = src;
+	for (const t of steps.transforms) {
+		let img = sharp(bytes);
+		if (t.flip) img = t.flip === 'h' ? img.flop() : t.flip === 'v' ? img.flip() : img.flip().flop();
+		if (t.rotate) img = img.rotate(t.rotate);
+		if (t.width) img = img.resize({ width: t.width, height: t.height, fit: 'cover' });
+		if (t.blur) img = img.blur(t.blur / 2);
+		if (t.sharpen) img = img.sharpen();
+		bytes = await img.png().toBuffer();
+	}
+	return bytes;
+}
+
+async function spread(bytes: Buffer): Promise<number> {
+	return (await sharp(bytes).stats()).channels[0]!.stdev;
+}
+
+test('the binding blurs and sharpens the box it made, as sharp does: a big source blurred and cut is as soft as sharp makes it', async () => {
+	const side = 2000;
+	const raw = Buffer.alloc(side * side);
+	for (let y = 0; y < side; y++)
+		for (let x = 0; x < side; x++) raw[y * side + x] = ((x / 40) ^ (y / 40)) & 1 ? 255 : 0;
+	const src = await sharp(raw, { raw: { width: side, height: side, channels: 1 } })
+		.png()
+		.toBuffer();
+	const recipe = at({ width: 100, height: 100, format: 'png', ops: { blur: 3 } });
+	const made_by_sharp = await sharp(src)
+		.blur(3)
+		.resize({ width: 100, height: 100, fit: 'cover' })
+		.png()
+		.toBuffer();
+	const sharp_spread = await spread(made_by_sharp);
+	const binding_spread = await spread(await by_steps(src, cloudflare_steps(recipe)));
+	expect(sharp_spread).toBeLessThan(20);
+	expect(Math.abs(binding_spread - sharp_spread)).toBeLessThan(5);
 });
 
 async function pixels_of(img: Sharp): Promise<string> {
