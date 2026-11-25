@@ -16,7 +16,8 @@ test('every image file each page names sits under the base, and loads as an imag
 	for (const p of PAGES) {
 		const res = await request.get(p);
 		expect(res.status(), p).toBe(200);
-		for (const url of (await res.text()).match(FILE_RE) ?? []) seen.add(url);
+		for (const url of (await res.text()).match(FILE_RE) ?? [])
+			seen.add(url.replace(/^\/\/example\.com\//, '/'));
 	}
 	expect(seen.size).toBeGreaterThan(40);
 	for (const url of seen) {

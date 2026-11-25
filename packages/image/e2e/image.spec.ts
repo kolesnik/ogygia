@@ -377,7 +377,13 @@ test.describe('the image endpoint', () => {
 		fs.copyFileSync(new URL('one.png', late), added);
 		try {
 			await expect
-				.poll(async () => ((await (await request.get('/late')).text()).match(/<img/g) ?? []).length)
+				.poll(
+					async () =>
+						(
+							(await (await request.get('/late')).text()).match(/<img(?![^>]*id="site-mark")/g) ??
+							[]
+						).length
+				)
 				.toBe(2);
 			const html = await (await request.get('/late')).text();
 			const two = (html.match(SIGNED_URL_RE) ?? []).filter((u) => u.includes('two.'));
