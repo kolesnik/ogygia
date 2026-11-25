@@ -129,9 +129,19 @@ function shipped_code(): string {
 export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExtension | null {
 	if (opts.markdown === false) return null;
 	const width = opts.markdown?.width;
-	let shown = '';
-	if (opts.presets?.prose) shown = ' preset="prose"';
-	else if (width !== undefined) shown = ` width={${width}}`;
+	const animated = opts.markdown?.animated;
+	const still = opts.presets?.prose ? 'prose' : undefined;
+	const shown = (name: string): string => {
+		if (animated === undefined) {
+			if (still) return ` preset="${still}"`;
+			return width === undefined ? '' : ` width={${width}}`;
+		}
+		const moving = `${name}.animated`;
+		const preset = ` preset={${moving} ? ${JSON.stringify(animated)} : ${still ? JSON.stringify(still) : 'undefined'}}`;
+		return still || width === undefined
+			? preset
+			: `${preset} width={${moving} ? undefined : ${width}}`;
+	};
 	const key = `${shipped_code()}:${JSON.stringify(opts)}`;
 	const rehype: ImageRehype = () => (tree, file) => {
 		const filename = file.filename ?? file.path;
@@ -159,7 +169,7 @@ export function markdown_extension(opts: ImagePluginOptions): ImageMarkdownExten
 					const extra = typeof title === 'string' ? ` title="${attr(title)}"` : '';
 					children[i] = {
 						type: 'raw',
-						value: `<${COMPONENT} of={${name}} alt="${attr(alt)}"${extra}${shown} />`
+						value: `<${COMPONENT} of={${name}} alt="${attr(alt)}"${extra}${shown(name)} />`
 					};
 				} else visit(child);
 			}

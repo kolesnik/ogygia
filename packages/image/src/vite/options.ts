@@ -44,9 +44,10 @@ export interface ImagePluginOptions {
 	 *  priority: true } }`. A markdown body image uses `prose` when there is one. */
 	presets?: Record<string, ImagePreset>;
 	/** Markdown images (with `@ogygia/content`): `width` is the prose column's width, in CSS pixels,
-	 *  when there is no `prose` preset; `false` leaves markdown images as plain `<img>`. Default `{}`
-	 *  (each image as wide as itself). */
-	markdown?: { width?: number } | false;
+	 *  when there is no `prose` preset; `animated` names the preset a moving image (an animated GIF
+	 *  or WebP) takes instead, with its own width and `sizes`; `false` leaves markdown images as
+	 *  plain `<img>`. Default `{}` (each image as wide as itself). */
+	markdown?: { width?: number; animated?: string } | false;
 }
 
 export { DEFAULT_BREAKPOINTS, DEFAULT_FORMATS } from '../config.ts';
@@ -88,6 +89,7 @@ const PRESET_KEYS: ReadonlySet<string> = new Set([
 	'quality',
 	'formats'
 ]);
+const MARKDOWN_KEYS: ReadonlySet<string> = new Set(['width', 'animated']);
 const PRESET_NAME_RE = /^[A-Za-z][\w-]*$/;
 
 function unknown_keys(where: string, value: object, known: ReadonlySet<string>): void {
@@ -214,8 +216,16 @@ export function check_plugin_options(o: unknown): ImagePluginOptions {
 	}
 	if (opts.markdown !== undefined && opts.markdown !== false) {
 		if (!is_object(opts.markdown)) invalid(where, 'markdown', 'an object or false');
-		unknown_keys(`${where} markdown`, opts.markdown, new Set(['width']));
+		unknown_keys(`${where} markdown`, opts.markdown, MARKDOWN_KEYS);
 		check_pixels(where, 'markdown.width', opts.markdown.width);
+		const animated = opts.markdown.animated;
+		const declared = Object.keys(opts.presets ?? {});
+		if (animated !== undefined && !(typeof animated === 'string' && declared.includes(animated)))
+			invalid(
+				where,
+				'markdown.animated',
+				`the name of a preset image({ presets }) declares (declared: ${declared.join(', ') || '(none)'})`
+			);
 	}
 	return opts;
 }

@@ -15,7 +15,7 @@ test('markdown.animated names a preset the config declares', () => {
 
 test('markdown.animated naming no declared preset fails the build, listing the declared ones', () => {
 	expect(() => check_plugin_options({ presets, markdown: { animated: 'motoin' } })).toThrow(
-		/image_option_invalid[\s\S]*'markdown\.animated' must be the name of a preset image\(\{ presets \}\) declares \(declared: prose, motion\)/
+		/'markdown\.animated' must be the name of a preset image\(\{ presets \}\) declares \(declared: prose, motion\)[\s\S]*\/e\/image_option_invalid/
 	);
 	expect(() => check_plugin_options({ markdown: { animated: 'motion' } })).toThrow(
 		/declared: \(none\)/
