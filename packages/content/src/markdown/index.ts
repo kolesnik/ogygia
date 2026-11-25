@@ -236,13 +236,6 @@ function transform_islands(content: string, filename: string): string | null {
 	return bridge.transform ? bridge.transform(content, filename) : null;
 }
 
-/**
- * Inject a lazy `__ogygia_source` export — a self-import of the file's own `?raw` variant — into the
- * compiled module. The specifier is a STATIC LITERAL (`./<basename>?raw`), so Vite analyzes it and
- * code-splits the raw text into its own chunk; the bytes load only when `source()` is called and
- * never reach the client. This is how a content entry carries its own pre-compile source (powering
- * `emit.raw`, "copy as markdown", llms-full, …) with no parallel `?raw` glob in app code.
- */
 /** Do the files a kept compile's extensions read (`MarkdownFinish.files`) all still exist? */
 async function all_exist(files: readonly string[] | undefined): Promise<boolean> {
 	if (!files?.length) return true;
@@ -250,6 +243,13 @@ async function all_exist(files: readonly string[] | undefined): Promise<boolean>
 	return files.every((f) => existsSync(f));
 }
 
+/**
+ * Inject a lazy `__ogygia_source` export — a self-import of the file's own `?raw` variant — into the
+ * compiled module. The specifier is a STATIC LITERAL (`./<basename>?raw`), so Vite analyzes it and
+ * code-splits the raw text into its own chunk; the bytes load only when `source()` is called and
+ * never reach the client. This is how a content entry carries its own pre-compile source (powering
+ * `emit.raw`, "copy as markdown", llms-full, …) with no parallel `?raw` glob in app code.
+ */
 function source_line(filename: string): string | null {
 	const base = filename.replace(BACKSLASH_G, '/').split('/').pop() ?? '';
 	if (!base) return null;
