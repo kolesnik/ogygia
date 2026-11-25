@@ -174,7 +174,10 @@ original.
 
 With `content({ markdown })` and `image()` listed, a local `![alt](./x.jpg)` becomes `<Img>` (the
 `prose` preset, or `markdown.width`), through content's markdown extension seam (a Vite plugin's
-`api.ogygiaMarkdown`). A frontmatter value that starts `./` or `../` and names an image becomes a
+`api.ogygiaMarkdown`). `markdown.animated` names a declared preset (else `image_option_invalid`) that
+a moving source takes instead: the rewrite writes `preset={x.animated ? '<animated>' : 'prose'}` (and
+`markdown.width` only for a still one), so the choice is made from the descriptor at render, the
+preset's width and `sizes` reach the srcset, and the build makes only that preset's files. A frontmatter value that starts `./` or `../` and names an image becomes a
 descriptor; any other string stays a string. A raw HTML `<img src="./x">` is `image_markdown_html`.
 `og.md(text)` has no file to resolve against (`image_markdown_no_file`).
 

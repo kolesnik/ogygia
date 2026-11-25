@@ -296,14 +296,14 @@ By default each image is offered as AVIF (quality 60) and WebP (quality 80), and
 
 The plugin's options:
 
-| Option        | Default                                  | What it does                                                                                                      |
-| ------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `presets`     | `{}`                                     | Named ways to show an image (above).                                                                              |
-| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                                        |
-| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                                          |
-| `placeholder` | `true`                                   | Make the blur placeholder.                                                                                        |
-| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.                               |
-| `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `false` turns them off. |
+| Option        | Default                                  | What it does                                                                                                                                                            |
+| ------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `presets`     | `{}`                                     | Named ways to show an image (above).                                                                                                                                    |
+| `quality`     | 60 for AVIF, 80 for the rest             | Encoder quality, 1 to 100.                                                                                                                                              |
+| `formats`     | `['avif', 'webp']`                       | The formats to offer, best first: `'avif'`, `'webp'`, `'png'`, `'jpeg'`.                                                                                                |
+| `placeholder` | `true`                                   | Make the blur placeholder.                                                                                                                                              |
+| `breakpoints` | `[320, 480, 640, 960, 1280, 1600, 2048]` | The width ladder a responsive image is offered at, capped at the image's own width.                                                                                     |
+| `markdown`    | `{}`                                     | Markdown images: `{ width }` is the prose column's width when there is no `prose` preset; `{ animated }` names the preset a moving image takes; `false` turns them off. |
 
 A source's own options, in the macro's second argument, belong to the file whatever page shows it:
 
@@ -349,6 +349,7 @@ cover: ./cover.jpg
 - **Paths are relative to the post**, like an import. `../other-post/diagram.png` reaches into another folder. A name with spaces or accents works, written as is or URL-encoded (`./my%20photo.jpg`).
 - **A missing file fails the build** (`image_not_found`), naming the post and the path.
 - **The `prose` preset** (or `markdown.width` without one) is how every body image is shown, so a phone and a laptop each get a file that fits. Leave both out and each image is as wide as itself.
+- **A moving image** (an animated GIF or WebP) can take its own preset: `image({ presets: { motion: { width: 400, sizes: '33vw' } }, markdown: { animated: 'motion' } })`. Its width and `sizes` reach the `srcset`, so the browser downloads the narrow file, and a prerendered page's build makes only that preset's files. Still images keep the `prose` preset. The name must be a declared preset, or the build fails (`image_option_invalid`). In a component, read `of.animated` and pick the preset yourself.
 - **Remote and site-absolute images** (`https://…`, `/static/x.png`) stay plain `<img>` tags, and the `img` slot of `site({ components })` still gets them.
 - **HTML `<img>` tags in markdown** that name a local file fail the build (`image_markdown_html`): they would ship as a broken link. Write them as `![alt](./photo.jpg)`.
 - **`import.meta.og.md(text)`** renders markdown from a string, which has no file to resolve against, so a local image there fails the build (`image_markdown_no_file`). Use a site-absolute URL there, or move the markdown into a `.md` file.
@@ -513,6 +514,7 @@ An `<Img>` inside an island keeps the server's file URLs when it hydrates. A ren
 | `import.meta.glob('./*.jpg', { eager: true })`      | `import.meta.og.image.glob('./*.jpg')`                                                                              |
 | `![alt](./photo.jpg)` in `.md` / `.mdx`             | the same, with `content({ markdown })` and `image()` listed                                                         |
 | images encoded at build, content-hashed names       | a prerendered site's files made at build, named by their recipe                                                     |
+| GIFs styled narrower (`figure.gif { width: 33vw }`) | a preset for them, named by `image({ markdown: { animated: 'motion' } })`                                           |
 
 A few differences to know when you move a site:
 
